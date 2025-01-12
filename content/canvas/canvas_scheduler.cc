@@ -6,16 +6,26 @@
 
 namespace content {
 
-CanvasScheduler::~CanvasScheduler() {}
+namespace {
+
+void ReleaseGPUObjectInternal(base::SingleWorker* worker) {}
+
+}  // namespace
+
+CanvasScheduler::~CanvasScheduler() {
+  if (render_worker_)
+    render_worker_->SendTask(base::BindOnce(&ReleaseGPUObjectInternal));
+}
 
 std::unique_ptr<CanvasScheduler> CanvasScheduler::MakeInstance(
     renderer::RenderDevice* device,
-    renderer::DeviceContext* context) {
+    renderer::DeviceContext* context,
+    renderer::QuadrangleIndexCache* index_cache) {
   return std::unique_ptr<CanvasScheduler>(new CanvasScheduler(device, context));
 }
 
 renderer::RenderDevice* CanvasScheduler::GetDevice() {
-  return logic_device_;
+  return device_base_;
 }
 
 renderer::DeviceContext* CanvasScheduler::GetDrawContext() {
@@ -24,6 +34,11 @@ renderer::DeviceContext* CanvasScheduler::GetDrawContext() {
 
 void CanvasScheduler::BindRenderWorker(base::SingleWorker* worker) {
   render_worker_ = worker;
+
+  // Init common vertex buffer
+  render_worker_->SendTask(
+      base::BindOnce(&InitSchedulerInternal, base::Unretained(this)));
+  render_worker_->WaitWorkerSynchronize();
 }
 
 void CanvasScheduler::AttachChildCanvas(CanvasImpl* child) {
@@ -39,9 +54,17 @@ void CanvasScheduler::SubmitPendingPaintCommands(
 }
 
 CanvasScheduler::CanvasScheduler(renderer::RenderDevice* device,
-                                 renderer::DeviceContext* context)
-    : logic_device_(device),
+                                 renderer::DeviceContext* context,
+                                 renderer::QuadrangleIndexCache* index_cache)
+    : device_base_(device),
       painter_context_(context),
-      render_worker_(nullptr) {}
+      render_worker_(nullptr),
+      index_cache_(index_cache) {}
+
+void CanvasScheduler::InitSchedulerInternal(base::SingleWorker* worker) {
+  common_vertex_buffer_controller_ =
+      renderer::VertexBufferController<renderer::FullVertexLayout>::Make(
+          device_base_, sizeof(renderer::FullVertexLayout) * 4);
+}
 
 }  // namespace content

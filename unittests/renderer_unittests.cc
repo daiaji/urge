@@ -275,6 +275,10 @@ int SDL_main(int argc, char* argv[]) {
   adapter.GetInfo(&info);
   std::cout << "[Adapter] " << std::string_view(info.device) << "\n";
 
+  wgpu::SupportedLimits lmts;
+  adapter.GetLimits(&lmts);
+  std::cout << "[Adapter] Max bind group: " << lmts.limits.maxBindGroups;
+
   wgpu::Device device = CreateDevice(instance, adapter);
   wgpu::Queue queue = device.GetQueue();
 
@@ -356,12 +360,25 @@ int SDL_main(int argc, char* argv[]) {
   entries[2].binding = 2;
   entries[2].sampler = tex_sampler;
 
+  {
+    UniformParams upm;
+    MakeProjectionMatrix(upm.projMat, widget->GetSize());
+    upm.texSize = {1.f / ss->w, 1.f / ss->h, 0, 0};
+    queue.WriteBuffer(ubo, 0, (uint8_t*)&upm, sizeof(upm));
+  }
+
+  ubo = nullptr;
+
   wgpu::BindGroupDescriptor bg_desc;
   bg_desc.layout = pipeline.GetBindGroupLayout(0);
   bg_desc.entryCount = _countof(entries);
   bg_desc.entries = entries;
-  auto bind_group = device.CreateBindGroup(&bg_desc);
 
+  std::vector<wgpu::BindGroup> groups;
+  for (int i = 0; i < 1024; ++i)
+    groups.push_back(device.CreateBindGroup(&bg_desc));
+
+  int ii = 0;
   while (true) {
     SDL_Event e;
     SDL_PollEvent(&e);
@@ -398,18 +415,11 @@ int SDL_main(int argc, char* argv[]) {
     }
 
     {
-      UniformParams upm;
-      MakeProjectionMatrix(upm.projMat, widget->GetSize());
-      upm.texSize = {1.f / ss->w, 1.f / ss->h, 0, 0};
-      encoder.WriteBuffer(ubo, 0, (uint8_t*)&upm, sizeof(upm));
-    }
-
-    {
       wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
       pass.SetViewport(0, 0, widget->GetSize().x, widget->GetSize().y, 0, 0);
       pass.SetPipeline(pipeline);
       pass.SetVertexBuffer(0, vbo);
-      pass.SetBindGroup(0, bind_group);
+      pass.SetBindGroup(0, groups[ii]);
       pass.Draw(6);
       pass.End();
     }
@@ -427,7 +437,7 @@ int SDL_main(int argc, char* argv[]) {
       pass.SetViewport(0, 0, widget->GetSize().x, widget->GetSize().y, 0, 0);
       pass.SetPipeline(pipeline);
       pass.SetVertexBuffer(0, vbo);
-      pass.SetBindGroup(0, bind_group);
+      pass.SetBindGroup(0, groups[ii]);
       pass.Draw(6);
       pass.End();
     }
@@ -436,7 +446,15 @@ int SDL_main(int argc, char* argv[]) {
     queue.Submit(1, &commands);
 
     surf.Present();
+
+    LOG(INFO) << ii;
+
+    ++ii;
+    if (ii >= 1024)
+      ii = 0;
   }
+
+  groups.clear();
 
   device = nullptr;
 

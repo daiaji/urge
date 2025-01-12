@@ -9,6 +9,7 @@
 #include "content/canvas/canvas_impl.h"
 #include "renderer/context/device_context.h"
 #include "renderer/device/render_device.h"
+#include "renderer/resource/render_buffer.h"
 
 namespace content {
 
@@ -21,7 +22,8 @@ class CanvasScheduler {
 
   static std::unique_ptr<CanvasScheduler> MakeInstance(
       renderer::RenderDevice* device,
-      renderer::DeviceContext* context);
+      renderer::DeviceContext* context,
+      renderer::QuadrangleIndexCache* index_cache);
 
   renderer::RenderDevice* GetDevice();
   renderer::DeviceContext* GetDrawContext();
@@ -39,15 +41,29 @@ class CanvasScheduler {
   // clear children canvas command queue.
   void SubmitPendingPaintCommands(const wgpu::CommandEncoder& encoder);
 
+  base::SingleWorker* render_worker() { return render_worker_; }
+  renderer::QuadrangleIndexCache* index_cache() { return index_cache_; }
+  renderer::VertexBufferController<renderer::FullVertexLayout>*
+  vertex_buffer() {
+    return common_vertex_buffer_controller_.get();
+  }
+
  private:
+  friend class CanvasImpl;
   CanvasScheduler(renderer::RenderDevice* device,
-                  renderer::DeviceContext* context);
+                  renderer::DeviceContext* context,
+                  renderer::QuadrangleIndexCache* index_cache);
+  void InitSchedulerInternal(base::SingleWorker* worker);
 
   base::LinkedList<CanvasImpl> children_;
 
-  renderer::RenderDevice* logic_device_;
+  renderer::RenderDevice* device_base_;
   renderer::DeviceContext* painter_context_;
   base::SingleWorker* render_worker_;
+
+  renderer::QuadrangleIndexCache* index_cache_;
+  std::unique_ptr<renderer::VertexBufferController<renderer::FullVertexLayout>>
+      common_vertex_buffer_controller_;
 };
 
 }  // namespace content

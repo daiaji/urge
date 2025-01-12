@@ -23,7 +23,14 @@ constexpr int32_t kBlockMaxSize = 4096;
 // Pooling object texture agent,
 // used for async thread task runner.
 struct TextureAgent {
+  // Bitmap texture data
   wgpu::Texture data;
+  wgpu::TextureView view;
+  base::Vec2i size;
+
+  // Shader binding cache data
+  wgpu::Sampler sampler;
+  wgpu::BindGroup binding;
 
   static TextureAgent* Allocate(size_t n = 1);
   static void Free(TextureAgent* ptr, size_t n = 1);
@@ -31,7 +38,7 @@ struct TextureAgent {
 
 class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
  public:
-  CanvasImpl(wgpu::Texture canvas_texture, CanvasScheduler* scheduler);
+  CanvasImpl(CanvasScheduler* scheduler, TextureAgent* texture);
   ~CanvasImpl() override;
 
   CanvasImpl(const CanvasImpl&) = delete;
@@ -125,7 +132,7 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
  private:
   bool CheckDisposed(ExceptionState& exception_state);
   void BlitTextureInternal(const base::Rect& dst_rect,
-                           const wgpu::Texture& src_texture,
+                           CanvasImpl* src_texture,
                            const base::Rect& src_rect);
 
   enum class CommandID {
@@ -246,14 +253,14 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
     current_block_ = 0;
   }
 
-  wgpu::Texture canvas_texture_;
+  CanvasScheduler* scheduler_;
+  TextureAgent* texture_;
+  SDL_Surface* canvas_cache_;
 
   Command* commands_ = nullptr;
   Command* last_command_ = nullptr;
   std::vector<CommandBlock> blocks_;
   uint32_t current_block_ = 0;
-
-  CanvasScheduler* scheduler_;
 
   scoped_refptr<Font> font_;
 };

@@ -23,33 +23,42 @@ class RenderDevice {
         : base(device, target), color(device, target) {}
   };
 
-  std::unique_ptr<RenderDevice> Create(base::WeakPtr<ui::Widget> window_target,
-                                       wgpu::BackendType required_backend);
+  static std::unique_ptr<RenderDevice> Create(
+      base::WeakPtr<ui::Widget> window_target,
+      wgpu::BackendType required_backend);
+
+  static wgpu::Instance* GetGPUInstance();
 
   RenderDevice(const RenderDevice&) = delete;
   RenderDevice& operator=(const RenderDevice&) = delete;
 
-  // WGPU Meta interface
-  wgpu::Instance* GetInstance() { return &instance_; }
+  // WGPU Device access
+  wgpu::Device* operator->() { return &device_; }
+  wgpu::Device& operator*() { return device_; }
+
+  // Device Attribute interface
   wgpu::Adapter* GetAdapter() { return &adapter_; }
-  wgpu::Device* GetDevice() { return &device_; }
+  wgpu::Queue* GetQueue() { return &queue_; }
   wgpu::Surface* GetSurface() { return &surface_; }
+
+  // Render window device
+  base::WeakPtr<ui::Widget> GetWindow() { return window_; }
 
   // Pre-compile shaders set storage
   PipelineSet* GetPipelines() const { return pipelines_.get(); }
 
  private:
   RenderDevice(base::WeakPtr<ui::Widget> window,
-               const wgpu::Instance& instance,
                const wgpu::Adapter& adapter,
                const wgpu::Device& device,
+               const wgpu::Queue& queue,
                const wgpu::Surface& surface);
 
   base::WeakPtr<ui::Widget> window_;
 
-  wgpu::Instance instance_;
   wgpu::Adapter adapter_;
   wgpu::Device device_;
+  wgpu::Queue queue_;
   wgpu::Surface surface_;
 
   std::unique_ptr<PipelineSet> pipelines_;

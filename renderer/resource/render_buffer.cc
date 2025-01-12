@@ -27,7 +27,7 @@ QuadrangleIndexCache::QuadrangleIndexCache(const wgpu::Device& device)
 std::unique_ptr<QuadrangleIndexCache> renderer::QuadrangleIndexCache::Make(
     RenderDevice* device) {
   return std::unique_ptr<QuadrangleIndexCache>(
-      new QuadrangleIndexCache(*device->GetDevice()));
+      new QuadrangleIndexCache(**device));
 }
 
 wgpu::Buffer* QuadrangleIndexCache::Allocate(uint32_t quadrangle_size) {

@@ -13,8 +13,7 @@ DeviceContext::~DeviceContext() {}
 
 std::unique_ptr<DeviceContext> DeviceContext::MakeContextFor(
     RenderDevice* device) {
-  return std::unique_ptr<DeviceContext>(
-      new DeviceContext(*device->GetDevice()));
+  return std::unique_ptr<DeviceContext>(new DeviceContext(**device));
 }
 
 wgpu::CommandEncoder* DeviceContext::GetImmediateEncoder() {

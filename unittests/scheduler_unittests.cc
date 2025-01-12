@@ -16,19 +16,23 @@ int SDL_main(int argc, char* argv[]) {
   std::unique_ptr<base::SingleWorker> thread_worker =
       base::SingleWorker::CreateWorker(base::WorkerScheduleMode::kAsync);
 
+  auto* worker1 = fiber_worker.get();
+  auto* worker2 = fiber_worker2.get();
+  auto* worker3 = thread_worker.get();
+
   scheduler->AddChildWorker(std::move(fiber_worker));
   scheduler->AddChildWorker(std::move(fiber_worker2));
   scheduler->AddChildWorker(std::move(thread_worker));
 
-  fiber_worker->SendTask(base::BindOnce([](base::SingleWorker* worker) {
+  worker1->SendTask(base::BindOnce([](base::SingleWorker* worker) {
     LOG(INFO) << "Fiber worker task 1";
     while (true) {
       LOG(INFO) << "Fiber loop task - node 1";
-      worker->YieldCurrent();
+      worker->YieldFiber();
     }
   }));
 
-  fiber_worker2->SendTask(base::BindOnce(
+  worker2->SendTask(base::BindOnce(
       [](base::SingleWorker* thread_worker, base::SingleWorker* worker) {
         LOG(INFO) << "Fiber worker task 2";
         while (true) {
@@ -38,10 +42,10 @@ int SDL_main(int argc, char* argv[]) {
                 std::this_thread::sleep_for(std::chrono::seconds(3));
               }));
 
-          worker->YieldCurrent();
+          worker->YieldFiber();
         }
       },
-      thread_worker.get()));
+      worker3));
 
   while (true) {
     scheduler->Flush();

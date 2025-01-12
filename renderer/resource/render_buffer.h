@@ -25,6 +25,8 @@ class QuadrangleIndexCache {
   // |quadrangle_size| is the count not the byte size.
   wgpu::Buffer* Allocate(uint32_t quadrangle_size);
 
+  wgpu::Buffer& operator*() { return index_buffer_; }
+
  private:
   QuadrangleIndexCache(const wgpu::Device& device);
 
@@ -52,6 +54,8 @@ class VertexBufferController {
                   const VertexType* data,
                   uint32_t size,
                   uint32_t offset = 0);
+
+  wgpu::Buffer& operator*() { return vertex_buffer_; }
 
  private:
   VertexBufferController(const wgpu::Device& device,

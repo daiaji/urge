@@ -10,6 +10,7 @@
 namespace content {
 
 class ScopedFontData;
+class CanvasScheduler;
 
 class ExecutionContext {
  public:
@@ -18,14 +19,16 @@ class ExecutionContext {
   ExecutionContext(const ExecutionContext&) = delete;
   ExecutionContext& operator=(const ExecutionContext&) = delete;
 
-  std::unique_ptr<ExecutionContext> MakeContext();
+  static std::unique_ptr<ExecutionContext> MakeContext();
 
   ScopedFontData* GetFontContext();
+  CanvasScheduler* GetCanvasScheduler();
 
  private:
   ExecutionContext();
 
   ScopedFontData* font_context_;
+  CanvasScheduler* canvas_scheduler_;
 };
 
 }  // namespace content

@@ -117,7 +117,7 @@ Pipeline_Base::Pipeline_Base(const wgpu::Device& device,
   }
 
   {
-    wgpu::BindGroupLayoutEntry entries[2];
+    wgpu::BindGroupLayoutEntry entries[3];
     entries[0].binding = 0;
     entries[0].visibility = wgpu::ShaderStage::Fragment;
     entries[0].texture.sampleType = wgpu::TextureSampleType::Float;
@@ -125,6 +125,9 @@ Pipeline_Base::Pipeline_Base(const wgpu::Device& device,
     entries[1].binding = 1;
     entries[1].visibility = wgpu::ShaderStage::Fragment;
     entries[1].sampler.type = wgpu::SamplerBindingType::Filtering;
+    entries[2].binding = 2;
+    entries[2].visibility = wgpu::ShaderStage::Vertex;
+    entries[2].buffer.type = wgpu::BufferBindingType::Uniform;
 
     wgpu::BindGroupLayoutDescriptor binding_desc;
     binding_desc.entryCount = _countof(entries);
