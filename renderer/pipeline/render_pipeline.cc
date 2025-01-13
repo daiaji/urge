@@ -54,8 +54,8 @@ void RenderPipelineBase::BuildPipeline(
     const std::string& shader_source,
     const std::string& vs_entry,
     const std::string& fs_entry,
-    const std::vector<wgpu::VertexBufferLayout>& vertex_layout,
-    const std::vector<wgpu::BindGroupLayout>& bind_layout,
+    std::vector<wgpu::VertexBufferLayout> vertex_layout,
+    std::vector<wgpu::BindGroupLayout> bind_layout,
     wgpu::TextureFormat target_format) {
   wgpu::ShaderModuleWGSLDescriptor wgsl_desc;
   wgsl_desc.code = std::string_view(shader_source);
@@ -65,9 +65,10 @@ void RenderPipelineBase::BuildPipeline(
   wgpu::ShaderModule shader_module =
       device_.CreateShaderModule(&shader_module_desc);
 
+  bindings_ = std::move(bind_layout);
   wgpu::PipelineLayoutDescriptor pipeline_layout_desc;
-  pipeline_layout_desc.bindGroupLayoutCount = bind_layout.size();
-  pipeline_layout_desc.bindGroupLayouts = bind_layout.data();
+  pipeline_layout_desc.bindGroupLayoutCount = bindings_.size();
+  pipeline_layout_desc.bindGroupLayouts = bindings_.data();
   wgpu::PipelineLayout pipeline_layout =
       device_.CreatePipelineLayout(&pipeline_layout_desc);
 

@@ -19,6 +19,38 @@ namespace {
 
 MemoryPool<TextureAgent> g_textures_pool;
 
+wgpu::BindGroup MakeTextureWorldInternal(renderer::RenderDevice* device_base,
+                                         const base::Vec2& bitmap_size) {
+  float world_matrix[32];
+  renderer::MakeProjectionMatrix(world_matrix, bitmap_size);
+  renderer::MakeIdentityMatrix(world_matrix + 16);
+
+  wgpu::BufferDescriptor uniform_desc;
+  uniform_desc.label = "bitmap.world.uniform";
+  uniform_desc.size = sizeof(world_matrix);
+  uniform_desc.mappedAtCreation = true;
+  uniform_desc.usage = wgpu::BufferUsage::Uniform;
+  wgpu::Buffer world_matrix_uniform =
+      (*device_base)->CreateBuffer(&uniform_desc);
+
+  if (world_matrix_uniform.GetMapState() == wgpu::BufferMapState::Mapped) {
+    memcpy(world_matrix_uniform.GetMappedRange(), world_matrix,
+           sizeof(world_matrix));
+    world_matrix_uniform.Unmap();
+  }
+
+  wgpu::BindGroupEntry entries;
+  entries.binding = 0;
+  entries.buffer = world_matrix_uniform;
+
+  wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.entryCount = 1;
+  binding_desc.entries = &entries;
+  binding_desc.layout = *device_base->GetPipelines()->base.GetLayout(0);
+
+  return (*device_base)->CreateBindGroup(&binding_desc);
+}
+
 wgpu::BindGroup MakeTextureBindingGroupInternal(
     renderer::RenderDevice* device_base,
     const base::Vec2& bitmap_size,
@@ -49,9 +81,7 @@ wgpu::BindGroup MakeTextureBindingGroupInternal(
   wgpu::BindGroupDescriptor binding_desc;
   binding_desc.entryCount = _countof(entries);
   binding_desc.entries = entries;
-  binding_desc.layout = device_base->GetPipelines()
-                            ->base.GetPipeline(renderer::BlendType())
-                            ->GetBindGroupLayout(1);
+  binding_desc.layout = *device_base->GetPipelines()->base.GetLayout(1);
 
   return (*device_base)->CreateBindGroup(&binding_desc);
 }
@@ -75,6 +105,7 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
   agent->data = (*device_base)->CreateTexture(&texture_desc);
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
+  agent->world = MakeTextureWorldInternal(device_base, agent->size);
   agent->binding = MakeTextureBindingGroupInternal(device_base, agent->size,
                                                    agent->view, agent->sampler);
 
@@ -114,6 +145,7 @@ void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
   agent->data = (*device_base)->CreateTexture(&texture_desc);
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
+  agent->world = MakeTextureWorldInternal(device_base, agent->size);
   agent->binding = MakeTextureBindingGroupInternal(device_base, agent->size,
                                                    agent->view, agent->sampler);
 }
@@ -144,7 +176,8 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
   renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
                                     wgpu::IndexFormat::Uint16);
-  renderpass_encoder.SetBindGroup(0, dst_texture->binding);
+  renderpass_encoder.SetBindGroup(0, dst_texture->world);
+  renderpass_encoder.SetBindGroup(1, dst_texture->binding);
   renderpass_encoder.Draw(6);
   renderpass_encoder.End();
 }

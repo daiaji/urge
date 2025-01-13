@@ -30,6 +30,7 @@ struct TextureAgent {
 
   // Shader binding cache data
   wgpu::Sampler sampler;
+  wgpu::BindGroup world;
   wgpu::BindGroup binding;
 
   static TextureAgent* Allocate(size_t n = 1);

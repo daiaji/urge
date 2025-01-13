@@ -29,18 +29,21 @@ class RenderPipelineBase {
     return &pipelines_[blend];
   }
 
+  wgpu::BindGroupLayout* GetLayout(size_t n) { return &bindings_[n]; }
+
  protected:
   RenderPipelineBase(const wgpu::Device& device);
 
   void BuildPipeline(const std::string& shader_source,
                      const std::string& vs_entry,
                      const std::string& fs_entry,
-                     const std::vector<wgpu::VertexBufferLayout>& vertex_layout,
-                     const std::vector<wgpu::BindGroupLayout>& bind_layout,
+                     std::vector<wgpu::VertexBufferLayout> vertex_layout,
+                     std::vector<wgpu::BindGroupLayout> bind_layout,
                      wgpu::TextureFormat target_format);
 
  private:
   wgpu::Device device_;
+  std::vector<wgpu::BindGroupLayout> bindings_;
   std::vector<wgpu::RenderPipeline> pipelines_;
 };
 
