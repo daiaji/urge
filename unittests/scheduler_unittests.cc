@@ -24,28 +24,31 @@ int SDL_main(int argc, char* argv[]) {
   scheduler->AddChildWorker(std::move(fiber_worker2));
   scheduler->AddChildWorker(std::move(thread_worker));
 
-  worker1->SendTask(base::BindOnce([](base::SingleWorker* worker) {
-    LOG(INFO) << "Fiber worker task 1";
-    while (true) {
-      LOG(INFO) << "Fiber loop task - node 1";
-      worker->YieldFiber();
-    }
-  }));
+  worker1->PostTask(base::BindOnce(
+      [](base::SingleWorker* worker) {
+        LOG(INFO) << "Fiber worker task 1";
+        while (true) {
+          LOG(INFO) << "Fiber loop task - node 1";
+          worker->YieldFiber();
+        }
+      },
+      worker1));
 
-  worker2->SendTask(base::BindOnce(
+  worker2->PostTask(base::BindOnce(
       [](base::SingleWorker* thread_worker, base::SingleWorker* worker) {
         LOG(INFO) << "Fiber worker task 2";
         while (true) {
-          thread_worker->SendTask(
-              base::BindOnce([](base::SingleWorker* worker) {
+          thread_worker->PostTask(base::BindOnce(
+              [](base::SingleWorker* worker) {
                 LOG(INFO) << "Thread worker task 1";
                 std::this_thread::sleep_for(std::chrono::seconds(3));
-              }));
+              },
+              thread_worker));
 
           worker->YieldFiber();
         }
       },
-      worker3));
+      worker3, worker2));
 
   while (true) {
     scheduler->Flush();

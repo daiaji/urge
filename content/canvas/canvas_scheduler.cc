@@ -6,20 +6,10 @@
 
 namespace content {
 
-namespace {
-
-void ReleaseGPUObjectInternal(
-    std::unique_ptr<
-        renderer::VertexBufferController<renderer::FullVertexLayout>>,
-    base::SingleWorker* worker) {}
-
-}  // namespace
-
 CanvasScheduler::~CanvasScheduler() {
+  // Deferrer destroy on render thread
   if (render_worker_)
-    render_worker_->SendTask(
-        base::BindOnce(&ReleaseGPUObjectInternal,
-                       std::move(common_vertex_buffer_controller_)));
+    render_worker_->DeleteSoon(std::move(common_vertex_buffer_controller_));
 }
 
 std::unique_ptr<CanvasScheduler> CanvasScheduler::MakeInstance(
@@ -42,7 +32,7 @@ void CanvasScheduler::BindRenderWorker(base::SingleWorker* worker) {
   render_worker_ = worker;
 
   // Init common vertex buffer
-  render_worker_->SendTask(
+  render_worker_->PostTask(
       base::BindOnce(&InitSchedulerInternal, base::Unretained(this)));
   render_worker_->WaitWorkerSynchronize();
 }
@@ -66,10 +56,11 @@ CanvasScheduler::CanvasScheduler(renderer::RenderDevice* device,
       render_worker_(nullptr),
       index_cache_(index_cache) {}
 
-void CanvasScheduler::InitSchedulerInternal(base::SingleWorker* worker) {
+void CanvasScheduler::InitSchedulerInternal() {
+  // Make canvas drawing common transient vertex buffer
   common_vertex_buffer_controller_ =
       renderer::VertexBufferController<renderer::FullVertexLayout>::Make(
-          device_base_, sizeof(renderer::FullVertexLayout) * 4);
+          device_base_, 4);
 }
 
 }  // namespace content

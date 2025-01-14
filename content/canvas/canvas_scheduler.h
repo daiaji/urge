@@ -53,7 +53,7 @@ class CanvasScheduler {
   CanvasScheduler(renderer::RenderDevice* device,
                   renderer::DeviceContext* context,
                   renderer::QuadrangleIndexCache* index_cache);
-  void InitSchedulerInternal(base::SingleWorker* worker);
+  void InitSchedulerInternal();
 
   base::LinkedList<CanvasImpl> children_;
 

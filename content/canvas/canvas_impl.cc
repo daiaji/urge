@@ -88,8 +88,7 @@ wgpu::BindGroup MakeTextureBindingGroupInternal(
 
 void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
                                       SDL_Surface* initial_data,
-                                      TextureAgent* agent,
-                                      base::SingleWorker* worker) {
+                                      TextureAgent* agent) {
   // Create video memory texture
   wgpu::TextureDescriptor texture_desc;
   texture_desc.label = "bitmap.texture";
@@ -128,8 +127,7 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
 
 void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
                                       const base::Vec2i& initial_size,
-                                      TextureAgent* agent,
-                                      base::SingleWorker* worker) {
+                                      TextureAgent* agent) {
   // Create video memory texture
   wgpu::TextureDescriptor texture_desc;
   texture_desc.label = "bitmap.texture";
@@ -155,8 +153,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                  const base::Rect& dst_region,
                                  TextureAgent* src_texture,
                                  const base::Rect& src_region,
-                                 float blit_alpha,
-                                 base::SingleWorker* worker) {
+                                 float blit_alpha) {
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNormal);
 
@@ -194,16 +191,14 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   renderpass_encoder.End();
 }
 
-void GPUDestroyTextureInternal(TextureAgent* agent,
-                               base::SingleWorker* worker) {
+void GPUDestroyTextureInternal(TextureAgent* agent) {
   agent->data = nullptr;
   TextureAgent::Free(agent);
 }
 
 void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
                                        TextureAgent* agent,
-                                       SDL_Surface* surface_cache,
-                                       base::SingleWorker* worker) {
+                                       SDL_Surface* surface_cache) {
   auto& device = *scheduler->GetDevice();
   auto* encoder = scheduler->GetContext()->GetImmediateEncoder();
 
@@ -241,8 +236,7 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
 
 void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
                                         TextureAgent* agent,
-                                        std::vector<uint8_t> pixels,
-                                        base::SingleWorker* worker) {
+                                        std::vector<uint8_t> pixels) {
   auto& device = *scheduler->GetDevice();
   auto* encoder = scheduler->GetContext()->GetImmediateEncoder();
 
@@ -270,8 +264,7 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
 void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
                                TextureAgent* agent,
                                const base::Rect& region,
-                               const base::Vec4& color,
-                               base::SingleWorker* worker) {
+                               const base::Vec4& color) {
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
 
@@ -308,8 +301,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
                                        const base::Rect& region,
                                        const base::Vec4& color1,
                                        const base::Vec4& color2,
-                                       bool vertical,
-                                       base::SingleWorker* worker) {
+                                       bool vertical) {
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
 
@@ -351,15 +343,15 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   renderpass_encoder.End();
 }
 
-void PostCanvasTask(CanvasScheduler* scheduler, base::WorkerTaskTraits&& task) {
+void PostCanvasTask(CanvasScheduler* scheduler, base::OnceClosure&& task) {
   if (scheduler->render_worker()) {
     // Async post task on render thread.
-    scheduler->render_worker()->SendTask(std::move(task));
+    scheduler->render_worker()->PostTask(std::move(task));
     return;
   }
 
   // Execute task immediately
-  std::move(task).Run(nullptr);
+  std::move(task).Run();
 }
 
 void RequireSynchronizeTask(CanvasScheduler* scheduler) {

@@ -83,16 +83,16 @@ class DrawableNode final {
     // [Stage: all]
     // Logic abstract render device for drawable node.
     // Never be null whenever events.
-    renderer::RenderDevice* logic_device;
+    renderer::RenderDevice* device;
 
     // [Stage: all]
     // Hardware render command encoder,
     // handler: writeBuffer, writeTexture, copyTexture
-    wgpu::CommandEncoder command_encoder;
+    wgpu::CommandEncoder* command_encoder;
 
     // [Stage: on rendering]
     // Main render pass encoder.
-    wgpu::RenderPassEncoder main_pass;
+    wgpu::RenderPassEncoder* main_pass;
 
     // [Stage: on rendering]
     // Current pixel clip region.
@@ -101,7 +101,7 @@ class DrawableNode final {
     // [Stage: on rendering / after render]
     // Abstract "screen" render buffer,
     // maybe graphics or viewport snapshot buffer.
-    wgpu::Texture screen_buffer;
+    wgpu::Texture* screen_buffer;
   };
 
   using NotificationHandler =

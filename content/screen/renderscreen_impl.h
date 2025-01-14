@@ -7,13 +7,16 @@
 
 #include "content/public/engine_graphics.h"
 #include "content/render/drawable_controller.h"
+#include "renderer/context/device_context.h"
 #include "renderer/device/render_device.h"
+#include "renderer/resource/render_buffer.h"
 
 namespace content {
 
 class RenderScreenImpl : public Graphics {
  public:
-  RenderScreenImpl(std::unique_ptr<renderer::RenderDevice> device);
+  RenderScreenImpl(std::unique_ptr<renderer::RenderDevice> device,
+                   int frame_rate);
   ~RenderScreenImpl() override;
 
   RenderScreenImpl(const RenderScreenImpl&) = delete;
@@ -45,16 +48,28 @@ class RenderScreenImpl : public Graphics {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Brightness, uint32_t);
 
  private:
+  int DetermineRepeatNumberInternal(double delta_rate);
+
+  // All visible elements drawing controller
   DrawNodeController controller_;
 
   std::unique_ptr<renderer::RenderDevice> device_;
+  std::unique_ptr<renderer::DeviceContext> context_;
 
-  base::Vec2i resolution_;
+  std::unique_ptr<renderer::QuadrangleIndexCache> index_buffer_cache_;
+
   wgpu::Texture screen_buffer_;
   wgpu::Texture frozen_buffer_;
 
+  base::Vec2i resolution_;
   int32_t brightness_;
   uint64_t frame_count_;
+  uint32_t frame_rate_;
+
+  double elapsed_time_;
+  double smooth_delta_time_;
+  uint64_t last_count_time_;
+  uint64_t desired_delta_time_;
 };
 
 }  // namespace content
