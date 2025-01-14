@@ -28,8 +28,8 @@ renderer::RenderDevice* CanvasScheduler::GetDevice() {
   return device_base_;
 }
 
-renderer::DeviceContext* CanvasScheduler::GetDrawContext() {
-  return painter_context_;
+renderer::DeviceContext* CanvasScheduler::GetContext() {
+  return immediate_context_;
 }
 
 void CanvasScheduler::BindRenderWorker(base::SingleWorker* worker) {
@@ -45,11 +45,10 @@ void CanvasScheduler::AttachChildCanvas(CanvasImpl* child) {
   children_.Append(child);
 }
 
-void CanvasScheduler::SubmitPendingPaintCommands(
-    const wgpu::CommandEncoder& encoder) {
+void CanvasScheduler::SubmitPendingPaintCommands() {
   for (auto it = children_.head(); it != children_.end(); it = it->next()) {
     // Submit all pending commands (except Blt, StretchBlt)
-    it->value()->SubmitQueuedCommands(encoder);
+    it->value()->SubmitQueuedCommands();
   }
 }
 
@@ -57,7 +56,7 @@ CanvasScheduler::CanvasScheduler(renderer::RenderDevice* device,
                                  renderer::DeviceContext* context,
                                  renderer::QuadrangleIndexCache* index_cache)
     : device_base_(device),
-      painter_context_(context),
+      immediate_context_(context),
       render_worker_(nullptr),
       index_cache_(index_cache) {}
 

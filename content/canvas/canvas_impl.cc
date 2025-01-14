@@ -168,7 +168,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   renderpass.colorAttachmentCount = 1;
   renderpass.colorAttachments = &attachment;
 
-  auto* command_encoder = scheduler->GetDrawContext()->GetImmediateEncoder();
+  auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
   auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
   renderpass_encoder.SetViewport(0, 0, dst_texture->size.x, dst_texture->size.y,
                                  0, 0);
@@ -188,6 +188,73 @@ void GPUDestroyTextureInternal(TextureAgent* agent,
   TextureAgent::Free(agent);
 }
 
+void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
+                                       TextureAgent* agent,
+                                       SDL_Surface* surface_cache,
+                                       base::SingleWorker* worker) {
+  auto& device = *scheduler->GetDevice();
+  auto* encoder = scheduler->GetContext()->GetImmediateEncoder();
+
+  // Temp pixels read buffer
+  wgpu::BufferDescriptor buffer_desc;
+  buffer_desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
+  buffer_desc.size = surface_cache->pitch * surface_cache->h;
+  buffer_desc.mappedAtCreation = false;
+  wgpu::Buffer read_buffer = device->CreateBuffer(&buffer_desc);
+
+  // Copy pixels data to temp buffer
+  wgpu::ImageCopyTexture copy_texture;
+  wgpu::ImageCopyBuffer copy_buffer;
+  wgpu::Extent3D copy_extent;
+  copy_texture.texture = agent->data;
+  copy_buffer.buffer = read_buffer;
+  encoder->CopyTextureToBuffer(&copy_texture, &copy_buffer, &copy_extent);
+
+  // Synchronize immediate context and flush
+  scheduler->GetContext()->Flush();
+
+  // Fetch buffer to texture
+  auto future = read_buffer.MapAsync(
+      wgpu::MapMode::Read, 0, read_buffer.GetSize(),
+      wgpu::CallbackMode::WaitAnyOnly,
+      [&](wgpu::MapAsyncStatus status, const char* message) {
+        memcpy(surface_cache->pixels, read_buffer.GetMappedRange(),
+               read_buffer.GetSize());
+        read_buffer.Unmap();
+      });
+
+  // Wait async mapping
+  renderer::RenderDevice::GetGPUInstance()->WaitAny(future, UINT64_MAX);
+}
+
+void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
+                                        TextureAgent* agent,
+                                        std::vector<uint8_t> pixels,
+                                        base::SingleWorker* worker) {
+  auto& device = *scheduler->GetDevice();
+  auto* encoder = scheduler->GetContext()->GetImmediateEncoder();
+
+  // Temp pixels read buffer
+  wgpu::BufferDescriptor buffer_desc;
+  buffer_desc.usage = wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::MapWrite;
+  buffer_desc.size = pixels.size();
+  buffer_desc.mappedAtCreation = true;
+  wgpu::Buffer write_buffer = device->CreateBuffer(&buffer_desc);
+
+  if (write_buffer.GetMapState() == wgpu::BufferMapState::Mapped) {
+    memcpy(write_buffer.GetMappedRange(), pixels.data(), pixels.size());
+    write_buffer.Unmap();
+  }
+
+  // Copy pixels data to texture
+  wgpu::ImageCopyTexture copy_texture;
+  wgpu::ImageCopyBuffer copy_buffer;
+  wgpu::Extent3D copy_extent;
+  copy_texture.texture = agent->data;
+  copy_buffer.buffer = write_buffer;
+  encoder->CopyBufferToTexture(&copy_buffer, &copy_texture, &copy_extent);
+}
+
 void PostCanvasTask(CanvasScheduler* scheduler, base::WorkerTaskTraits&& task) {
   if (scheduler->render_worker()) {
     // Async post task on render thread.
@@ -197,6 +264,13 @@ void PostCanvasTask(CanvasScheduler* scheduler, base::WorkerTaskTraits&& task) {
 
   // Execute task immediately
   std::move(task).Run(nullptr);
+}
+
+void RequireSynchronizeTask(CanvasScheduler* scheduler) {
+  if (scheduler->render_worker()) {
+    // Async post sync task on render thread.
+    scheduler->render_worker()->WaitWorkerSynchronize();
+  }
 }
 
 }  // namespace
@@ -270,21 +344,47 @@ CanvasImpl::~CanvasImpl() {
 }
 
 SDL_Surface* CanvasImpl::RequireMemorySurface() {
-  // Submit pending commands
-  auto* encoder = scheduler_->GetDrawContext()->GetImmediateEncoder();
-  SubmitQueuedCommands(*encoder);
+  if (!canvas_cache_) {
+    // Create empty cache
+    canvas_cache_ = SDL_CreateSurface(texture_->size.x, texture_->size.y,
+                                      SDL_PIXELFORMAT_ABGR8888);
 
-  // Synchronize immediate context and flush
-  scheduler_->GetDrawContext()->Flush();
+    // Submit pending commands
+    SubmitQueuedCommands();
 
-  // Fetch buffer to texture
+    // Sync fetch pixels to memory
+    PostCanvasTask(scheduler_,
+                   base::BindOnce(&GPUFetchTexturePixelsDataInternal,
+                                  scheduler_, texture_, canvas_cache_));
+    RequireSynchronizeTask(scheduler_);
+  }
 
-  return nullptr;
+  return canvas_cache_;
 }
 
-void CanvasImpl::UpdateVideoMemory() {}
+void CanvasImpl::InvalidateSurfaceCache() {
+  if (canvas_cache_) {
+    // Set cache ptr to null
+    SDL_DestroySurface(canvas_cache_);
+    canvas_cache_ = nullptr;
+  }
+}
 
-void CanvasImpl::SubmitQueuedCommands(const wgpu::CommandEncoder& encoder) {
+void CanvasImpl::UpdateVideoMemory() {
+  if (canvas_cache_) {
+    // Copy pixels to temp closure parameter
+    std::vector<uint8_t> pixels;
+    pixels.assign(canvas_cache_->pitch * canvas_cache_->h, 0);
+    memcpy(pixels.data(), canvas_cache_->pixels, pixels.size());
+
+    // Post async upload request
+    PostCanvasTask(scheduler_,
+                   base::BindOnce(&GPUUpdateTexturePixelsDataInternal,
+                                  scheduler_, texture_, std::move(pixels)));
+  }
+}
+
+void CanvasImpl::SubmitQueuedCommands() {
   Command* command_sequence = nullptr;
   // Execute pending commands,
   // encode draw command in wgpu encoder.
@@ -526,7 +626,7 @@ void CanvasImpl::DrawText(int32_t x,
   // Destroy memory surface in queue deferrer.
   auto* command = AllocateCommand<Command_DrawText>();
   command->region = base::Rect(x, y, width, height);
-  command->text = text_surface;
+  command->text = text_surface;  // Transient surface object
   command->align = align;
 }
 
@@ -567,12 +667,10 @@ bool CanvasImpl::CheckDisposed(ExceptionState& exception_state) {
 void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,
                                      CanvasImpl* src_texture,
                                      const base::Rect& src_rect) {
-  auto* device_context = scheduler_->GetDrawContext();
-
   // Synchronize pending queue immediately,
   // blit the sourcetexture to destination texture immediately.
-  src_texture->SubmitQueuedCommands(*device_context->GetImmediateEncoder());
-  SubmitQueuedCommands(*device_context->GetImmediateEncoder());
+  src_texture->SubmitQueuedCommands();
+  SubmitQueuedCommands();
 
   // Execute blit immediately.
   PostCanvasTask(scheduler_, base::BindOnce(&GPUBlendBlitTextureInternal,

@@ -48,12 +48,13 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   // Synchronize pending commands and fetch texture to buffer.
   // Read buffer for surface pixels data.
   SDL_Surface* RequireMemorySurface();
+  void InvalidateSurfaceCache();
 
   // Update memory surface to GPU.
   void UpdateVideoMemory();
 
   // Process queued pending commands.
-  void SubmitQueuedCommands(const wgpu::CommandEncoder& encoder);
+  void SubmitQueuedCommands();
 
  protected:
   void Dispose(ExceptionState& exception_state) override;

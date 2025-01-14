@@ -26,7 +26,7 @@ class CanvasScheduler {
       renderer::QuadrangleIndexCache* index_cache);
 
   renderer::RenderDevice* GetDevice();
-  renderer::DeviceContext* GetDrawContext();
+  renderer::DeviceContext* GetContext();
 
   // Bind a worker for current scheduler,
   // all bitmap/canvas draw command will be encoded on this worker.
@@ -39,7 +39,7 @@ class CanvasScheduler {
 
   // Sync all pending command to device queue,
   // clear children canvas command queue.
-  void SubmitPendingPaintCommands(const wgpu::CommandEncoder& encoder);
+  void SubmitPendingPaintCommands();
 
   base::SingleWorker* render_worker() { return render_worker_; }
   renderer::QuadrangleIndexCache* index_cache() { return index_cache_; }
@@ -58,7 +58,7 @@ class CanvasScheduler {
   base::LinkedList<CanvasImpl> children_;
 
   renderer::RenderDevice* device_base_;
-  renderer::DeviceContext* painter_context_;
+  renderer::DeviceContext* immediate_context_;
   base::SingleWorker* render_worker_;
 
   renderer::QuadrangleIndexCache* index_cache_;
