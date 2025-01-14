@@ -6,6 +6,40 @@
 
 namespace renderer {
 
+void FullVertexLayout::SetPositionRect(FullVertexLayout* data,
+                                       const base::RectF& pos) {
+  int i = 0;
+  data[i++].position = base::Vec4(pos.x, pos.y, 0, 1);
+  data[i++].position = base::Vec4(pos.x + pos.width, pos.y, 0, 1);
+  data[i++].position = base::Vec4(pos.x + pos.width, pos.y + pos.height, 0, 1);
+  data[i++].position = base::Vec4(pos.x, pos.y + pos.height, 0, 1);
+}
+
+void FullVertexLayout::SetTexCoordRect(FullVertexLayout* data,
+                                       const base::RectF& texcoord) {
+  int i = 0;
+  data[i++].texcoord = base::Vec2(texcoord.x, texcoord.y);
+  data[i++].texcoord = base::Vec2(texcoord.x + texcoord.width, texcoord.y);
+  data[i++].texcoord =
+      base::Vec2(texcoord.x + texcoord.width, texcoord.y + texcoord.height);
+  data[i++].texcoord = base::Vec2(texcoord.x, texcoord.y + texcoord.height);
+}
+
+void FullVertexLayout::SetColor(FullVertexLayout* data,
+                                const base::Vec4& color,
+                                int index) {
+  if (index == -1) {
+    int i = 0;
+    data[i++].color = color;
+    data[i++].color = color;
+    data[i++].color = color;
+    data[i++].color = color;
+    return;
+  }
+
+  (data + index)->color = color;
+}
+
 wgpu::VertexBufferLayout FullVertexLayout::GetLayout() {
   static wgpu::VertexAttribute attrs[3];
 

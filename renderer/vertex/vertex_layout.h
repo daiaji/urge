@@ -5,6 +5,7 @@
 #ifndef RENDERER_VERTEX_VERTEX_LAYOUT_H_
 #define RENDERER_VERTEX_VERTEX_LAYOUT_H_
 
+#include "base/math/rectangle.h"
 #include "base/math/vector.h"
 
 #include "webgpu/webgpu_cpp.h"
@@ -54,6 +55,13 @@ struct FullVertexLayout {
   FullVertexLayout() : position(0), texcoord(0), color(0, 0, 0, 1) {}
   FullVertexLayout(const FullVertexLayout&) = default;
   FullVertexLayout& operator=(const FullVertexLayout&) = default;
+
+  static void SetPositionRect(FullVertexLayout* data, const base::RectF& pos);
+  static void SetTexCoordRect(FullVertexLayout* data,
+                              const base::RectF& texcoord);
+  static void SetColor(FullVertexLayout* data,
+                       const base::Vec4& color,
+                       int index = -1);
 
   static wgpu::VertexBufferLayout GetLayout();
 };

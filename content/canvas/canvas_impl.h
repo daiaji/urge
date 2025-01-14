@@ -135,13 +135,12 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   bool CheckDisposed(ExceptionState& exception_state);
   void BlitTextureInternal(const base::Rect& dst_rect,
                            CanvasImpl* src_texture,
-                           const base::Rect& src_rect);
+                           const base::Rect& src_rect,
+                           float alpha);
 
   enum class CommandID {
-    kFillRect = 0,
     kGradientFillRect,
     kHueChange,
-    kBlur,
     kRadialBlur,
     kDrawText,
   };
@@ -151,13 +150,6 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
     Command* next = nullptr;
 
     virtual ~Command() = default;
-  };
-
-  struct Command_FillRect : public Command {
-    base::Rect region;
-    base::Vec4 color;
-
-    Command_FillRect() { id = CommandID::kFillRect; }
   };
 
   struct Command_GradientFillRect : public Command {

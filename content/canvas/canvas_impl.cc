@@ -155,6 +155,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                  const base::Rect& dst_region,
                                  TextureAgent* src_texture,
                                  const base::Rect& src_region,
+                                 float blit_alpha,
                                  base::SingleWorker* worker) {
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNormal);
@@ -169,6 +170,17 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   renderpass.colorAttachments = &attachment;
 
   auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
+
+  base::Vec4 blend_alpha;
+  blend_alpha.w = blit_alpha / 255.0f;
+
+  renderer::FullVertexLayout transient_vertices[4];
+  renderer::FullVertexLayout::SetTexCoordRect(transient_vertices, src_region);
+  renderer::FullVertexLayout::SetPositionRect(transient_vertices, dst_region);
+  renderer::FullVertexLayout::SetColor(transient_vertices, blend_alpha);
+  scheduler->vertex_buffer()->QueueWrite(*command_encoder, transient_vertices,
+                                         _countof(transient_vertices));
+
   auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
   renderpass_encoder.SetViewport(0, 0, dst_texture->size.x, dst_texture->size.y,
                                  0, 0);
@@ -177,7 +189,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
                                     wgpu::IndexFormat::Uint16);
   renderpass_encoder.SetBindGroup(0, dst_texture->world);
-  renderpass_encoder.SetBindGroup(1, dst_texture->binding);
+  renderpass_encoder.SetBindGroup(1, src_texture->binding);
   renderpass_encoder.Draw(6);
   renderpass_encoder.End();
 }
@@ -253,6 +265,90 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
   copy_texture.texture = agent->data;
   copy_buffer.buffer = write_buffer;
   encoder->CopyBufferToTexture(&copy_buffer, &copy_texture, &copy_extent);
+}
+
+void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
+                               TextureAgent* agent,
+                               const base::Rect& region,
+                               const base::Vec4& color,
+                               base::SingleWorker* worker) {
+  auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
+
+  wgpu::RenderPassColorAttachment attachment;
+  attachment.view = agent->view;
+  attachment.loadOp = wgpu::LoadOp::Load;
+  attachment.storeOp = wgpu::StoreOp::Store;
+
+  wgpu::RenderPassDescriptor renderpass;
+  renderpass.colorAttachmentCount = 1;
+  renderpass.colorAttachments = &attachment;
+
+  auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
+
+  renderer::FullVertexLayout transient_vertices[4];
+  renderer::FullVertexLayout::SetPositionRect(transient_vertices, region);
+  renderer::FullVertexLayout::SetColor(transient_vertices, color);
+  scheduler->vertex_buffer()->QueueWrite(*command_encoder, transient_vertices,
+                                         _countof(transient_vertices));
+
+  auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
+  renderpass_encoder.SetViewport(0, 0, agent->size.x, agent->size.y, 0, 0);
+  renderpass_encoder.SetPipeline(*pipeline);
+  renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
+  renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
+                                    wgpu::IndexFormat::Uint16);
+  renderpass_encoder.SetBindGroup(0, agent->world);
+  renderpass_encoder.Draw(6);
+  renderpass_encoder.End();
+}
+
+void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
+                                       TextureAgent* agent,
+                                       const base::Rect& region,
+                                       const base::Vec4& color1,
+                                       const base::Vec4& color2,
+                                       bool vertical,
+                                       base::SingleWorker* worker) {
+  auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
+
+  wgpu::RenderPassColorAttachment attachment;
+  attachment.view = agent->view;
+  attachment.loadOp = wgpu::LoadOp::Load;
+  attachment.storeOp = wgpu::StoreOp::Store;
+
+  wgpu::RenderPassDescriptor renderpass;
+  renderpass.colorAttachmentCount = 1;
+  renderpass.colorAttachments = &attachment;
+
+  auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
+
+  renderer::FullVertexLayout transient_vertices[4];
+  renderer::FullVertexLayout::SetPositionRect(transient_vertices, region);
+  if (vertical) {
+    renderer::FullVertexLayout::SetColor(transient_vertices, color1, 0);
+    renderer::FullVertexLayout::SetColor(transient_vertices, color1, 1);
+    renderer::FullVertexLayout::SetColor(transient_vertices, color2, 2);
+    renderer::FullVertexLayout::SetColor(transient_vertices, color2, 3);
+  } else {
+    renderer::FullVertexLayout::SetColor(transient_vertices, color1, 0);
+    renderer::FullVertexLayout::SetColor(transient_vertices, color2, 1);
+    renderer::FullVertexLayout::SetColor(transient_vertices, color2, 2);
+    renderer::FullVertexLayout::SetColor(transient_vertices, color1, 3);
+  }
+  scheduler->vertex_buffer()->QueueWrite(*command_encoder, transient_vertices,
+                                         _countof(transient_vertices));
+
+  auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
+  renderpass_encoder.SetViewport(0, 0, agent->size.x, agent->size.y, 0, 0);
+  renderpass_encoder.SetPipeline(*pipeline);
+  renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
+  renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
+                                    wgpu::IndexFormat::Uint16);
+  renderpass_encoder.SetBindGroup(0, agent->world);
+  renderpass_encoder.Draw(6);
+  renderpass_encoder.End();
 }
 
 void PostCanvasTask(CanvasScheduler* scheduler, base::WorkerTaskTraits&& task) {
@@ -390,18 +486,25 @@ void CanvasImpl::SubmitQueuedCommands() {
   // encode draw command in wgpu encoder.
   while (command_sequence) {
     switch (command_sequence->id) {
-      case CommandID::kFillRect:
-        break;
-      case CommandID::kGradientFillRect:
-        break;
-      case CommandID::kHueChange:
-        break;
-      case CommandID::kBlur:
-        break;
-      case CommandID::kRadialBlur:
-        break;
-      case CommandID::kDrawText:
-        break;
+      case CommandID::kGradientFillRect: {
+        auto* c = static_cast<Command_GradientFillRect*>(command_sequence);
+        PostCanvasTask(scheduler_,
+                       base::BindOnce(&GPUCanvasGradientFillRectInternal,
+                                      scheduler_, texture_, c->region,
+                                      c->color1, c->color2, c->vertical));
+      } break;
+      case CommandID::kHueChange: {
+        auto* c = static_cast<Command_HueChange*>(command_sequence);
+
+      } break;
+      case CommandID::kRadialBlur: {
+        auto* c = static_cast<Command_RadialBlur*>(command_sequence);
+
+      } break;
+      case CommandID::kDrawText: {
+        auto* c = static_cast<Command_DrawText*>(command_sequence);
+
+      } break;
       default:
         break;
     }
@@ -458,7 +561,8 @@ void CanvasImpl::Blt(int32_t x,
   CanvasImpl* src_canvas = static_cast<CanvasImpl*>(src_bitmap.get());
   BlitTextureInternal(base::Rect(x, y, src_rect->Get_Width(exception_state),
                                  src_rect->Get_Height(exception_state)),
-                      src_canvas, RectImpl::From(src_rect)->AsBaseRect());
+                      src_canvas, RectImpl::From(src_rect)->AsBaseRect(),
+                      opacity);
 }
 
 void CanvasImpl::StretchBlt(scoped_refptr<Rect> dest_rect,
@@ -471,7 +575,7 @@ void CanvasImpl::StretchBlt(scoped_refptr<Rect> dest_rect,
 
   CanvasImpl* src_canvas = static_cast<CanvasImpl*>(src_bitmap.get());
   BlitTextureInternal(RectImpl::From(dest_rect)->AsBaseRect(), src_canvas,
-                      RectImpl::From(src_rect)->AsBaseRect());
+                      RectImpl::From(src_rect)->AsBaseRect(), opacity);
 }
 
 void CanvasImpl::FillRect(int32_t x,
@@ -483,9 +587,11 @@ void CanvasImpl::FillRect(int32_t x,
   if (CheckDisposed(exception_state))
     return;
 
-  auto* command = AllocateCommand<Command_FillRect>();
+  auto* command = AllocateCommand<Command_GradientFillRect>();
   command->region = base::Rect(x, y, width, height);
-  command->color = ColorImpl::From(color.get())->AsNormColor();
+  command->color1 = ColorImpl::From(color.get())->AsNormColor();
+  command->color2 = command->color1;
+  command->vertical = false;
 }
 
 void CanvasImpl::FillRect(scoped_refptr<Rect> rect,
@@ -529,10 +635,12 @@ void CanvasImpl::Clear(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  auto* command = AllocateCommand<Command_FillRect>();
+  auto* command = AllocateCommand<Command_GradientFillRect>();
   command->region =
       base::Rect(0, 0, Width(exception_state), Height(exception_state));
-  command->color = base::Vec4(0);
+  command->color1 = base::Vec4(0);
+  command->color2 = command->color1;
+  command->vertical = false;
 }
 
 void CanvasImpl::ClearRect(int32_t x,
@@ -543,10 +651,12 @@ void CanvasImpl::ClearRect(int32_t x,
   if (CheckDisposed(exception_state))
     return;
 
-  auto* command = AllocateCommand<Command_FillRect>();
+  auto* command = AllocateCommand<Command_GradientFillRect>();
   command->region =
       base::Rect(0, 0, Width(exception_state), Height(exception_state));
-  command->color = base::Vec4(0);
+  command->color1 = base::Vec4(0);
+  command->color2 = command->color1;
+  command->vertical = false;
 }
 
 void CanvasImpl::ClearRect(scoped_refptr<Rect> rect,
@@ -572,9 +682,11 @@ void CanvasImpl::SetPixel(int32_t x,
   if (CheckDisposed(exception_state))
     return;
 
-  auto* command = AllocateCommand<Command_FillRect>();
+  auto* command = AllocateCommand<Command_GradientFillRect>();
   command->region = base::Rect(x, y, 1, 1);
-  command->color = ColorImpl::From(color.get())->AsNormColor();
+  command->color1 = ColorImpl::From(color.get())->AsNormColor();
+  command->color2 = command->color1;
+  command->vertical = false;
 }
 
 void CanvasImpl::HueChange(int32_t hue, ExceptionState& exception_state) {
@@ -666,16 +778,18 @@ bool CanvasImpl::CheckDisposed(ExceptionState& exception_state) {
 
 void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,
                                      CanvasImpl* src_texture,
-                                     const base::Rect& src_rect) {
+                                     const base::Rect& src_rect,
+                                     float alpha) {
   // Synchronize pending queue immediately,
   // blit the sourcetexture to destination texture immediately.
   src_texture->SubmitQueuedCommands();
   SubmitQueuedCommands();
 
   // Execute blit immediately.
-  PostCanvasTask(scheduler_, base::BindOnce(&GPUBlendBlitTextureInternal,
-                                            scheduler_, texture_, dst_rect,
-                                            src_texture->texture_, src_rect));
+  PostCanvasTask(
+      scheduler_,
+      base::BindOnce(&GPUBlendBlitTextureInternal, scheduler_, texture_,
+                     dst_rect, src_texture->texture_, src_rect, alpha));
 }
 
 scoped_refptr<Font> CanvasImpl::Get_Font(ExceptionState& exception_state) {
