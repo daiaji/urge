@@ -12,6 +12,14 @@
 
 namespace renderer {
 
+inline void MakeIdentityMatrix(float* out) {
+  memset(out, 0, sizeof(float) * 16);
+  out[0] = 1.0f;
+  out[5] = 1.0f;
+  out[10] = 1.0f;
+  out[15] = 1.0f;
+}
+
 inline void MakeProjectionMatrix(float* out, const base::Vec2& size) {
   const float aa = 2.0f / size.x;
   const float bb = -2.0f / size.y;

@@ -8,20 +8,26 @@ namespace content {
 
 namespace {
 
-void ReleaseGPUObjectInternal(base::SingleWorker* worker) {}
+void ReleaseGPUObjectInternal(
+    std::unique_ptr<
+        renderer::VertexBufferController<renderer::FullVertexLayout>>,
+    base::SingleWorker* worker) {}
 
 }  // namespace
 
 CanvasScheduler::~CanvasScheduler() {
   if (render_worker_)
-    render_worker_->SendTask(base::BindOnce(&ReleaseGPUObjectInternal));
+    render_worker_->SendTask(
+        base::BindOnce(&ReleaseGPUObjectInternal,
+                       std::move(common_vertex_buffer_controller_)));
 }
 
 std::unique_ptr<CanvasScheduler> CanvasScheduler::MakeInstance(
     renderer::RenderDevice* device,
     renderer::DeviceContext* context,
     renderer::QuadrangleIndexCache* index_cache) {
-  return std::unique_ptr<CanvasScheduler>(new CanvasScheduler(device, context));
+  return std::unique_ptr<CanvasScheduler>(
+      new CanvasScheduler(device, context, index_cache));
 }
 
 renderer::RenderDevice* CanvasScheduler::GetDevice() {

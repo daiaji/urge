@@ -521,9 +521,16 @@ void CanvasImpl::Dispose(ExceptionState& exception_state) {
   base::LinkNode<CanvasImpl>::RemoveFromList();
 
   if (!IsDisposed(exception_state)) {
+    // Destroy GPU texture
     PostCanvasTask(scheduler_,
                    base::BindOnce(&GPUDestroyTextureInternal, texture_));
     texture_ = nullptr;
+
+    // Free memory surface cache
+    if (canvas_cache_) {
+      SDL_DestroySurface(canvas_cache_);
+      canvas_cache_ = nullptr;
+    }
   }
 }
 
