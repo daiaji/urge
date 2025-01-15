@@ -24,6 +24,13 @@ bool SingleWorker::PostTask(OnceClosure task) {
   return task_queue_.enqueue(std::move(task));
 }
 
+bool SingleWorker::PostTask(SingleWorker* worker, OnceClosure task) {
+  if (worker)
+    return worker->PostTask(std::move(task));
+  std::move(task).Run();
+  return true;
+}
+
 bool SingleWorker::WaitWorkerSynchronize() {
   moodycamel::LightweightSemaphore semaphore;
   OnceClosure required_task = base::BindOnce(
@@ -31,6 +38,16 @@ bool SingleWorker::WaitWorkerSynchronize() {
       &semaphore);
   task_queue_.enqueue(std::move(required_task));
   return semaphore.tryWait();
+}
+
+bool SingleWorker::WaitWorkerSynchronize(SingleWorker* worker) {
+  if (worker)
+    return worker->WaitWorkerSynchronize();
+  return true;
+}
+
+bool SingleWorker::RunsTasksInCurrentSequence() {
+  return std::this_thread::get_id() == sequence_thread_;
 }
 
 void SingleWorker::FlushInternal() {

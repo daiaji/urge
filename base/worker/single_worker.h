@@ -75,9 +75,14 @@ class SingleWorker {
 
   // Post a task closure for current worker.
   bool PostTask(OnceClosure task);
+  static bool PostTask(SingleWorker* worker, OnceClosure task);
 
   // Post a semaphore flag in queue, blocking caller thread for synchronization.
   bool WaitWorkerSynchronize();
+  static bool WaitWorkerSynchronize(SingleWorker* worker);
+
+  // Is current context running on current single worker?
+  bool RunsTasksInCurrentSequence();
 
   // Return worker scheduler mode.
   WorkerScheduleMode GetSchedulerMode() { return mode_; }
@@ -92,9 +97,27 @@ class SingleWorker {
   }
 
   template <class T>
+  static bool DeleteSoon(SingleWorker* worker, const T* object) {
+    if (worker)
+      return worker->DeleteOrReleaseSoonInternal(&DeleteHelper<T>::DoDelete,
+                                                 object);
+    delete object;
+    return true;
+  }
+
+  template <class T>
   bool DeleteSoon(std::unique_ptr<T> object) {
     return DeleteOrReleaseSoonInternal(&DeleteUniquePtrHelper<T>::DoDelete,
                                        object.release());
+  }
+
+  template <class T>
+  static bool DeleteSoon(SingleWorker* worker, std::unique_ptr<T> object) {
+    if (worker)
+      return worker->DeleteOrReleaseSoonInternal(
+          &DeleteUniquePtrHelper<T>::DoDelete, object.release());
+    object.reset();
+    return true;
   }
 
   template <class T>
@@ -102,6 +125,16 @@ class SingleWorker {
     if (!object)
       return;
     DeleteOrReleaseSoonInternal(&ReleaseHelper<T>::DoRelease, object.release());
+  }
+
+  template <class T>
+  static void ReleaseSoon(SingleWorker* worker, scoped_refptr<T>&& object) {
+    if (!object)
+      return;
+    if (worker)
+      return worker->DeleteOrReleaseSoonInternal(&ReleaseHelper<T>::DoRelease,
+                                                 object.release());
+    object.reset();
   }
 
  private:
@@ -114,6 +147,7 @@ class SingleWorker {
   WorkerScheduler* scheduler_;
   WorkerScheduleMode mode_;
   moodycamel::ConcurrentQueue<OnceClosure> task_queue_;
+  std::thread::id sequence_thread_;
 };
 
 }  // namespace base

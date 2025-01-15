@@ -40,6 +40,10 @@ set(ENGINE_CONTENT_SRC
   render/drawable_controller.h
   screen/renderscreen_impl.cc
   screen/renderscreen_impl.h
+  worker/engine_worker.cc
+  worker/engine_worker.h
+  worker/event_worker.cc
+  worker/event_worker.h
   content_config.h
 )
 

@@ -22,12 +22,14 @@ void WorkerScheduler::AddChildWorker(std::unique_ptr<SingleWorker> child) {
 
   // Insert to managed list
   if (child->GetSchedulerMode() == WorkerScheduleMode::kCoroutine) {
+    child->sequence_thread_ = std::this_thread::get_id();
     coroutine_workers_.emplace(
         std::move(child),
         fiber_create(primary_coroutine_, 0, FiberRunnerInternal, child.get()));
   } else if (child->GetSchedulerMode() == WorkerScheduleMode::kAsync) {
     std::thread runner(&WorkerScheduler::ThreadRunnerInternal, this,
                        child.get());
+    child->sequence_thread_ = runner.get_id();
     async_workers_.emplace(std::move(child), std::move(runner));
   }
 }

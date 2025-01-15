@@ -32,9 +32,9 @@ void CanvasScheduler::BindRenderWorker(base::SingleWorker* worker) {
   render_worker_ = worker;
 
   // Init common vertex buffer
-  render_worker_->PostTask(
-      base::BindOnce(&InitSchedulerInternal, base::Unretained(this)));
-  render_worker_->WaitWorkerSynchronize();
+  base::SingleWorker::PostTask(
+      worker, base::BindOnce(&InitSchedulerInternal, base::Unretained(this)));
+  base::SingleWorker::WaitWorkerSynchronize(worker);
 }
 
 void CanvasScheduler::AttachChildCanvas(CanvasImpl* child) {
