@@ -8,15 +8,7 @@
 namespace content {
 
 std::unique_ptr<ExecutionContext> ExecutionContext::MakeContext() {
-  return std::unique_ptr<ExecutionContext>(new ExecutionContext());
-}
-
-ScopedFontData* ExecutionContext::GetFontContext() {
-  return nullptr;
-}
-
-CanvasScheduler* ExecutionContext::GetCanvasScheduler() {
-  return nullptr;
+  return std::unique_ptr<ExecutionContext>(new ExecutionContext);
 }
 
 }  // namespace content

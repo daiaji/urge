@@ -36,15 +36,14 @@ RenderScreenImpl::~RenderScreenImpl() {
   base::SingleWorker::WaitWorkerSynchronize(render_worker_);
 }
 
-void RenderScreenImpl::InitWithRenderWorker(
-    base::SingleWorker* render_worker,
-    std::unique_ptr<renderer::RenderDevice> device) {
+void RenderScreenImpl::InitWithRenderWorker(base::SingleWorker* render_worker,
+                                            base::WeakPtr<ui::Widget> window) {
   render_worker_ = render_worker;
 
   base::SingleWorker::PostTask(
       render_worker,
       base::BindOnce(&RenderScreenImpl::InitGraphicsDeviceInternal,
-                     base::Unretained(this), std::move(device)));
+                     base::Unretained(this), window));
   base::SingleWorker::WaitWorkerSynchronize(render_worker);
 }
 
@@ -194,8 +193,9 @@ void RenderScreenImpl::PlayMovie(const std::string& filename,
 }
 
 void RenderScreenImpl::InitGraphicsDeviceInternal(
-    std::unique_ptr<renderer::RenderDevice> device) {
-  device_ = std::move(device);
+    base::WeakPtr<ui::Widget> window) {
+  device_ =
+      renderer::RenderDevice::Create(window, wgpu::BackendType::Undefined);
   context_ = renderer::DeviceContext::MakeContextFor(device_.get());
   index_buffer_cache_ = renderer::QuadrangleIndexCache::Make(device_.get());
   canvas_scheduler_ = CanvasScheduler::MakeInstance(
@@ -204,7 +204,10 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
   ResetScreenBufferInternal();
 }
 
-void RenderScreenImpl::RenderSingleFrameInternal(FrameBufferAgent* agent) {}
+void RenderScreenImpl::RenderSingleFrameInternal(FrameBufferAgent* agent) {
+  // Submit pending canvas commands
+  canvas_scheduler_->SubmitPendingPaintCommands();
+}
 
 void RenderScreenImpl::PresentScreenBufferInternal(FrameBufferAgent* agent) {
   // Update drawing viewport

@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_WORKER_ENGINE_WORKER_H_
-#define CONTENT_WORKER_ENGINE_WORKER_H_
+#include "components/audioservice/audio_service.h"
 
-#endif  //! CONTENT_WORKER_ENGINE_WORKER_H_
+namespace audio_service {}

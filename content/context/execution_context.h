@@ -21,14 +21,11 @@ class ExecutionContext {
 
   static std::unique_ptr<ExecutionContext> MakeContext();
 
-  ScopedFontData* GetFontContext();
-  CanvasScheduler* GetCanvasScheduler();
+  ScopedFontData* font_context = nullptr;
+  CanvasScheduler* canvas_scheduler = nullptr;
 
  private:
-  ExecutionContext();
-
-  ScopedFontData* font_context_;
-  CanvasScheduler* canvas_scheduler_;
+  ExecutionContext() = default;
 };
 
 }  // namespace content

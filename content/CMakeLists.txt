@@ -23,6 +23,8 @@ set(ENGINE_CONTENT_SRC
   common/value_observer.h
   context/exception_state.cc
   context/exception_state.h
+  profile/content_profile.cc
+  profile/content_profile.h
   public/engine_bitmap.h
   public/engine_color.h
   public/engine_font.h
@@ -40,10 +42,10 @@ set(ENGINE_CONTENT_SRC
   render/drawable_controller.h
   screen/renderscreen_impl.cc
   screen/renderscreen_impl.h
-  worker/engine_worker.cc
-  worker/engine_worker.h
-  worker/event_worker.cc
-  worker/event_worker.h
+  worker/content_runner.cc
+  worker/content_runner.h
+  worker/engine_binding.cc
+  worker/engine_binding.h
   content_config.h
 )
 

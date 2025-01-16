@@ -356,7 +356,7 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
   }
 
   auto* canvas_texture_agent = TextureAgent::Allocate();
-  auto* scheduler = execution_context->GetCanvasScheduler();
+  auto* scheduler = execution_context->canvas_scheduler;
   base::SingleWorker::PostTask(
       scheduler->render_worker(),
       base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
@@ -378,7 +378,7 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
   }
 
   auto* canvas_texture_agent = TextureAgent::Allocate();
-  auto* scheduler = execution_context->GetCanvasScheduler();
+  auto* scheduler = execution_context->canvas_scheduler;
   base::SingleWorker::PostTask(
       scheduler->render_worker(),
       base::BindOnce(&GPUCreateTextureWithSizeInternal, scheduler->GetDevice(),

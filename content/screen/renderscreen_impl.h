@@ -32,7 +32,7 @@ class RenderScreenImpl : public Graphics {
   RenderScreenImpl& operator=(const RenderScreenImpl&) = delete;
 
   void InitWithRenderWorker(base::SingleWorker* render_worker,
-                            std::unique_ptr<renderer::RenderDevice> device);
+                            base::WeakPtr<ui::Widget> window);
   bool ExecuteEventMainLoop();
 
   renderer::RenderDevice* GetDevice() const;
@@ -65,8 +65,7 @@ class RenderScreenImpl : public Graphics {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Brightness, uint32_t);
 
  private:
-  void InitGraphicsDeviceInternal(
-      std::unique_ptr<renderer::RenderDevice> device);
+  void InitGraphicsDeviceInternal(base::WeakPtr<ui::Widget> window);
   void RenderSingleFrameInternal(FrameBufferAgent* agent);
   void PresentScreenBufferInternal(FrameBufferAgent* agent);
   void FrameProcessInternal();

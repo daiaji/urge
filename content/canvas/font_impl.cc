@@ -98,7 +98,7 @@ scoped_refptr<Font> Font::New(ExecutionContext* execution_context,
                               const std::string& name,
                               uint32_t size,
                               ExceptionState& exception_state) {
-  return new FontImpl(execution_context->GetFontContext());
+  return new FontImpl(execution_context->font_context);
 }
 
 scoped_refptr<Font> Font::Copy(ExecutionContext* execution_context,
@@ -110,80 +110,79 @@ scoped_refptr<Font> Font::Copy(ExecutionContext* execution_context,
 bool Font::IsExisted(ExecutionContext* execution_context,
                      const std::string& name,
                      ExceptionState& exception_state) {
-  return execution_context->GetFontContext()->IsFontExisted(name);
+  return execution_context->font_context->IsFontExisted(name);
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font,
                                    DefaultName,
                                    std::vector<std::string>) {
-  return execution_context->GetFontContext()->default_name;
+  return execution_context->font_context->default_name;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font,
                                     DefaultName,
                                     std::vector<std::string>) {
-  execution_context->GetFontContext()->default_name = value;
+  execution_context->font_context->default_name = value;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultSize, uint32_t) {
-  return execution_context->GetFontContext()->default_size;
+  return execution_context->font_context->default_size;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultSize, uint32_t) {
-  execution_context->GetFontContext()->default_size = value;
+  execution_context->font_context->default_size = value;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultBold, bool) {
-  return execution_context->GetFontContext()->default_bold;
+  return execution_context->font_context->default_bold;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultBold, bool) {
-  execution_context->GetFontContext()->default_bold = value;
+  execution_context->font_context->default_bold = value;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultItalic, bool) {
-  return execution_context->GetFontContext()->default_italic;
+  return execution_context->font_context->default_italic;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultItalic, bool) {
-  execution_context->GetFontContext()->default_italic;
+  execution_context->font_context->default_italic;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultShadow, bool) {
-  return execution_context->GetFontContext()->default_shadow;
+  return execution_context->font_context->default_shadow;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultShadow, bool) {
-  execution_context->GetFontContext()->default_shadow = value;
+  execution_context->font_context->default_shadow = value;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultOutline, bool) {
-  return execution_context->GetFontContext()->default_outline;
+  return execution_context->font_context->default_outline;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultOutline, bool) {
-  execution_context->GetFontContext()->default_outline = value;
+  execution_context->font_context->default_outline = value;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultColor, scoped_refptr<Color>) {
-  return execution_context->GetFontContext()->default_color;
+  return execution_context->font_context->default_color;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultColor, scoped_refptr<Color>) {
-  *execution_context->GetFontContext()->default_color = *ColorImpl::From(value);
+  *execution_context->font_context->default_color = *ColorImpl::From(value);
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font,
                                    DefaultOutColor,
                                    scoped_refptr<Color>) {
-  return execution_context->GetFontContext()->default_out_color;
+  return execution_context->font_context->default_out_color;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font,
                                     DefaultOutColor,
                                     scoped_refptr<Color>) {
-  *execution_context->GetFontContext()->default_out_color =
-      *ColorImpl::From(value);
+  *execution_context->font_context->default_out_color = *ColorImpl::From(value);
 }
 
 std::vector<std::string> FontImpl::Get_Name(ExceptionState& exception_state) {
