@@ -8,9 +8,7 @@ namespace content {
 
 void EngineBindingBase::PreEarlyInitialization(ContentProfile* profile) {}
 
-int EngineBindingBase::OnMainMessageLoopRun(ExecutionContext* execution) {
-  return 0;
-}
+void EngineBindingBase::OnMainMessageLoopRun(ExecutionContext* execution) {}
 
 void EngineBindingBase::PostMainLoopRunning() {}
 

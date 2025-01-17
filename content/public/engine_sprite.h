@@ -18,7 +18,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=class)--*/
-class URGE_RUNTIME_API Sprite : public virtual base::RefCounted<Sprite> {
+class URGE_RUNTIME_API Sprite : public base::RefCounted<Sprite> {
  public:
   virtual ~Sprite() = default;
 

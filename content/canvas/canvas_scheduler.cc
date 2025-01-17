@@ -33,7 +33,8 @@ void CanvasScheduler::BindRenderWorker(base::SingleWorker* worker) {
 
   // Init common vertex buffer
   base::SingleWorker::PostTask(
-      worker, base::BindOnce(&InitSchedulerInternal, base::Unretained(this)));
+      worker, base::BindOnce(&CanvasScheduler::InitSchedulerInternal,
+                             base::Unretained(this)));
   base::SingleWorker::WaitWorkerSynchronize(worker);
 }
 

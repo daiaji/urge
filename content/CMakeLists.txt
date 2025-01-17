@@ -23,6 +23,8 @@ set(ENGINE_CONTENT_SRC
   common/value_observer.h
   context/exception_state.cc
   context/exception_state.h
+  context/execution_context.cc
+  context/execution_context.h
   profile/content_profile.cc
   profile/content_profile.h
   public/engine_bitmap.h

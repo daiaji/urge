@@ -21,7 +21,7 @@ class TilemapAutotile;
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=class)--*/
-class URGE_RUNTIME_API Tilemap : public virtual base::RefCounted<Tilemap> {
+class URGE_RUNTIME_API Tilemap : public base::RefCounted<Tilemap> {
  public:
   virtual ~Tilemap() = default;
 

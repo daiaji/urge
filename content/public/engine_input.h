@@ -16,7 +16,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=module)--*/
-class URGE_RUNTIME_API Input : public virtual base::RefCounted<Input> {
+class URGE_RUNTIME_API Input : public base::RefCounted<Input> {
  public:
   virtual ~Input() = default;
 

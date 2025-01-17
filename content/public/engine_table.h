@@ -16,7 +16,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=class)--*/
-class URGE_RUNTIME_API Table : public virtual base::RefCounted<Table> {
+class URGE_RUNTIME_API Table : public base::RefCounted<Table> {
  public:
   virtual ~Table() = default;
 

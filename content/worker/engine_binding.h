@@ -19,8 +19,7 @@ class EngineBindingBase {
   virtual void PreEarlyInitialization(ContentProfile* profile);
 
   // Raise for running main loop.
-  // Return a exit code for main function return.
-  virtual int OnMainMessageLoopRun(ExecutionContext* execution);
+  virtual void OnMainMessageLoopRun(ExecutionContext* execution);
 
   // After running and release engine resource.
   virtual void PostMainLoopRunning();

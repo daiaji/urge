@@ -63,7 +63,7 @@ std::string Table::Serialize(scoped_refptr<Table> value,
   return serial_data;
 }
 
-TableImpl::TableImpl(uint32_t xsize, uint32_t ysize = 1, uint32_t zsize = 1)
+TableImpl::TableImpl(uint32_t xsize, uint32_t ysize, uint32_t zsize)
     : dirty_(true),
       x_size_(xsize),
       y_size_(ysize),

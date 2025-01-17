@@ -19,7 +19,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=class)--*/
-class URGE_RUNTIME_API Font : public virtual base::RefCounted<Font> {
+class URGE_RUNTIME_API Font : public base::RefCounted<Font> {
  public:
   virtual ~Font() = default;
 

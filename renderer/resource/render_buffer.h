@@ -80,12 +80,11 @@ VertexBufferController<VertexType>::Make(RenderDevice* device,
     wgpu::BufferDescriptor buffer_desc;
     buffer_desc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
     buffer_desc.size = initial_size * sizeof(VertexType);
-    result_buffer = device->GetDevice()->CreateBuffer(&buffer_desc);
+    result_buffer = (*device)->CreateBuffer(&buffer_desc);
   }
 
   return std::unique_ptr<VertexBufferController<VertexType>>(
-      new VertexBufferController<VertexType>(*device->GetDevice(),
-                                             result_buffer));
+      new VertexBufferController<VertexType>(**device, result_buffer));
 }
 
 template <typename VertexType>

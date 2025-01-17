@@ -400,10 +400,14 @@ scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,
 }
 
 scoped_refptr<Bitmap> Bitmap::Deserialize(const std::string&,
-                                          ExceptionState& exception_state) {}
+                                          ExceptionState& exception_state) {
+  return nullptr;
+}
 
 std::string Bitmap::Serialize(scoped_refptr<Bitmap>,
-                              ExceptionState& exception_state) {}
+                              ExceptionState& exception_state) {
+  return std::string();
+}
 
 CanvasImpl::CanvasImpl(CanvasScheduler* scheduler, TextureAgent* texture)
     : scheduler_(scheduler), texture_(texture), canvas_cache_(nullptr) {}

@@ -17,7 +17,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=module)--*/
-class URGE_RUNTIME_API Graphics : public virtual base::RefCounted<Graphics> {
+class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
  public:
   virtual ~Graphics() = default;
 

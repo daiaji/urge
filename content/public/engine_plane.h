@@ -18,7 +18,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=class)--*/
-class URGE_RUNTIME_API Plane : public virtual base::RefCounted<Plane> {
+class URGE_RUNTIME_API Plane : public base::RefCounted<Plane> {
  public:
   virtual ~Plane() = default;
 

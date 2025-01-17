@@ -205,6 +205,15 @@ void FontImpl::Put_Size(const uint32_t& value,
   font_ = nullptr;
 }
 
+bool FontImpl::Get_Bold(ExceptionState& exception_state) {
+  return bold_;
+}
+
+void FontImpl::Put_Bold(const bool& value, ExceptionState& exception_state) {
+  bold_ = value;
+  font_ = nullptr;
+}
+
 bool FontImpl::Get_Italic(ExceptionState& exception_state) {
   return italic_;
 }

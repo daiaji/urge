@@ -19,7 +19,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=class)--*/
-class URGE_RUNTIME_API Bitmap : public virtual base::RefCounted<Bitmap> {
+class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
  public:
   virtual ~Bitmap() = default;
 

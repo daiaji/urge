@@ -16,7 +16,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=class)--*/
-class URGE_RUNTIME_API Color : public virtual base::RefCounted<Color> {
+class URGE_RUNTIME_API Color : public base::RefCounted<Color> {
  public:
   virtual ~Color() = default;
 

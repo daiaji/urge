@@ -18,7 +18,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=class)--*/
-class URGE_RUNTIME_API Window : public virtual base::RefCounted<Window> {
+class URGE_RUNTIME_API Window : public base::RefCounted<Window> {
  public:
   virtual ~Window() = default;
 

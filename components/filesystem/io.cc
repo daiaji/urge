@@ -38,6 +38,8 @@ SDL_EnumerationResult SDLCALL EnumDirectoryCallback(void* userdata,
 
 }  // namespace
 
+IO::IO() {}
+
 IO::~IO() {}
 
 std::unique_ptr<IO> IO::Create() {

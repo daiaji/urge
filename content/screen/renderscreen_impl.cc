@@ -157,7 +157,7 @@ void RenderScreenImpl::Transition(uint32_t duration,
 
 scoped_refptr<Bitmap> RenderScreenImpl::SnapToBitmap(
     ExceptionState& exception_state) {
-  return scoped_refptr<Bitmap>();
+  return nullptr;
 }
 
 void RenderScreenImpl::FrameReset(ExceptionState& exception_state) {

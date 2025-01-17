@@ -19,7 +19,7 @@ namespace content {
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
 /*--urge(type=class)--*/
-class URGE_RUNTIME_API Viewport : public virtual base::RefCounted<Viewport> {
+class URGE_RUNTIME_API Viewport : public base::RefCounted<Viewport> {
  public:
   virtual ~Viewport() = default;
 

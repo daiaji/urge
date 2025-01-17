@@ -30,7 +30,7 @@ class DeleteHelper {
     delete static_cast<const T*>(object);
   }
 
-  friend class SequencedTaskRunner;
+  friend class SingleWorker;
 };
 
 template <class T>
@@ -43,7 +43,7 @@ class DeleteUniquePtrHelper {
     std::unique_ptr<T> destroyer(const_cast<T*>(static_cast<const T*>(object)));
   }
 
-  friend class SequencedTaskRunner;
+  friend class SingleWorker;
 };
 
 template <class T>
@@ -53,7 +53,7 @@ class ReleaseHelper {
     static_cast<const T*>(object)->Release();
   }
 
-  friend class SequencedTaskRunner;
+  friend class SingleWorker;
 };
 
 enum class WorkerScheduleMode {
