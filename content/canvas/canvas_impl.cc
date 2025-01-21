@@ -33,7 +33,7 @@ wgpu::BindGroup MakeTextureWorldInternal(renderer::RenderDevice* device_base,
   wgpu::Buffer world_matrix_uniform =
       (*device_base)->CreateBuffer(&uniform_desc);
 
-  if (world_matrix_uniform.GetMapState() == wgpu::BufferMapState::Mapped) {
+  {
     memcpy(world_matrix_uniform.GetMappedRange(), world_matrix,
            sizeof(world_matrix));
     world_matrix_uniform.Unmap();
@@ -64,7 +64,7 @@ wgpu::BindGroup MakeTextureBindingGroupInternal(
   wgpu::Buffer texture_size_uniform =
       (*device_base)->CreateBuffer(&uniform_desc);
 
-  if (texture_size_uniform.GetMapState() == wgpu::BufferMapState::Mapped) {
+  {
     memcpy(texture_size_uniform.GetMappedRange(), &bitmap_size,
            sizeof(bitmap_size));
     texture_size_uniform.Unmap();
@@ -105,8 +105,8 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
   agent->world = MakeTextureWorldInternal(device_base, agent->size);
-  agent->binding = MakeTextureBindingGroupInternal(device_base, agent->size,
-                                                   agent->view, agent->sampler);
+  agent->binding = MakeTextureBindingGroupInternal(
+      device_base, base::MakeInvert(agent->size), agent->view, agent->sampler);
 
   // Write data in video memory
   wgpu::ImageCopyTexture copy_texture;
@@ -187,7 +187,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                     wgpu::IndexFormat::Uint16);
   renderpass_encoder.SetBindGroup(0, dst_texture->world);
   renderpass_encoder.SetBindGroup(1, src_texture->binding);
-  renderpass_encoder.Draw(6);
+  renderpass_encoder.DrawIndexed(6);
   renderpass_encoder.End();
 }
 
@@ -202,10 +202,13 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
   auto& device = *scheduler->GetDevice();
   auto* encoder = scheduler->GetContext()->GetImmediateEncoder();
 
+  // Buffer align
+  uint32_t aligned_bytes_per_row = (surface_cache->pitch + 255) & ~255;
+
   // Temp pixels read buffer
   wgpu::BufferDescriptor buffer_desc;
   buffer_desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-  buffer_desc.size = surface_cache->pitch * surface_cache->h;
+  buffer_desc.size = aligned_bytes_per_row * surface_cache->h;
   buffer_desc.mappedAtCreation = false;
   wgpu::Buffer read_buffer = device->CreateBuffer(&buffer_desc);
 
@@ -215,6 +218,10 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
   wgpu::Extent3D copy_extent;
   copy_texture.texture = agent->data;
   copy_buffer.buffer = read_buffer;
+  copy_buffer.layout.bytesPerRow = aligned_bytes_per_row;
+  copy_buffer.layout.rowsPerImage = surface_cache->h;
+  copy_extent.width = surface_cache->w;
+  copy_extent.height = surface_cache->h;
   encoder->CopyTextureToBuffer(&copy_texture, &copy_buffer, &copy_extent);
 
   // Synchronize immediate context and flush
@@ -225,8 +232,15 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
       wgpu::MapMode::Read, 0, read_buffer.GetSize(),
       wgpu::CallbackMode::WaitAnyOnly,
       [&](wgpu::MapAsyncStatus status, const char* message) {
-        memcpy(surface_cache->pixels, read_buffer.GetMappedRange(),
-               read_buffer.GetSize());
+        const auto* src_pixels =
+            static_cast<const uint8_t*>(read_buffer.GetConstMappedRange());
+
+        for (uint32_t y = 0; y < surface_cache->h; ++y) {
+          memcpy(static_cast<uint8_t*>(surface_cache->pixels) +
+                     y * surface_cache->pitch,
+                 src_pixels + y * aligned_bytes_per_row, surface_cache->pitch);
+        }
+
         read_buffer.Unmap();
       });
 
@@ -236,7 +250,8 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
 
 void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
                                         TextureAgent* agent,
-                                        std::vector<uint8_t> pixels) {
+                                        std::vector<uint8_t> pixels,
+                                        const base::Vec2i& surface_size) {
   auto& device = *scheduler->GetDevice();
   auto* encoder = scheduler->GetContext()->GetImmediateEncoder();
 
@@ -247,10 +262,13 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
   buffer_desc.mappedAtCreation = true;
   wgpu::Buffer write_buffer = device->CreateBuffer(&buffer_desc);
 
-  if (write_buffer.GetMapState() == wgpu::BufferMapState::Mapped) {
+  {
     memcpy(write_buffer.GetMappedRange(), pixels.data(), pixels.size());
     write_buffer.Unmap();
   }
+
+  // Align size
+  uint32_t aligned_bytes_per_row = (surface_size.x + 255) & ~255;
 
   // Copy pixels data to texture
   wgpu::ImageCopyTexture copy_texture;
@@ -258,6 +276,10 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
   wgpu::Extent3D copy_extent;
   copy_texture.texture = agent->data;
   copy_buffer.buffer = write_buffer;
+  copy_buffer.layout.bytesPerRow = aligned_bytes_per_row;
+  copy_buffer.layout.rowsPerImage = surface_size.y;
+  copy_extent.width = surface_size.x;
+  copy_extent.height = surface_size.y;
   encoder->CopyBufferToTexture(&copy_buffer, &copy_texture, &copy_extent);
 }
 
@@ -292,7 +314,7 @@ void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
   renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
                                     wgpu::IndexFormat::Uint16);
   renderpass_encoder.SetBindGroup(0, agent->world);
-  renderpass_encoder.Draw(6);
+  renderpass_encoder.DrawIndexed(6);
   renderpass_encoder.End();
 }
 
@@ -339,7 +361,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
                                     wgpu::IndexFormat::Uint16);
   renderpass_encoder.SetBindGroup(0, agent->world);
-  renderpass_encoder.Draw(6);
+  renderpass_encoder.DrawIndexed(6);
   renderpass_encoder.End();
 }
 
@@ -350,8 +372,9 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
                                   ExceptionState& exception_state) {
   SDL_Surface* memory_texture = IMG_Load(filename.c_str());
   if (!memory_texture) {
-    exception_state.ThrowContentError(ExceptionCode::kContentError,
-                                      "Failed to load image: " + filename);
+    exception_state.ThrowContentError(
+        ExceptionCode::kContentError,
+        "Failed to load image: " + filename + " - " + SDL_GetError());
     return nullptr;
   }
 
@@ -447,21 +470,30 @@ void CanvasImpl::InvalidateSurfaceCache() {
 
 void CanvasImpl::UpdateVideoMemory() {
   if (canvas_cache_) {
+    // Aligned bytes
+    uint32_t aligned_bytes_per_row = (canvas_cache_->pitch + 255) & ~255;
+
     // Copy pixels to temp closure parameter
     std::vector<uint8_t> pixels;
-    pixels.assign(canvas_cache_->pitch * canvas_cache_->h, 0);
-    memcpy(pixels.data(), canvas_cache_->pixels, pixels.size());
+    pixels.assign(aligned_bytes_per_row * canvas_cache_->h, 0);
+
+    for (size_t y = 0; y < canvas_cache_->h; ++y)
+      memcpy(pixels.data() + y * aligned_bytes_per_row,
+             static_cast<uint8_t*>(canvas_cache_->pixels) +
+                 y * canvas_cache_->pitch,
+             canvas_cache_->pitch);
 
     // Post async upload request
     base::ThreadWorker::PostTask(
         scheduler_->render_worker(),
         base::BindOnce(&GPUUpdateTexturePixelsDataInternal, scheduler_,
-                       texture_, std::move(pixels)));
+                       texture_, std::move(pixels),
+                       base::Vec2i(canvas_cache_->pitch, canvas_cache_->h)));
   }
 }
 
 void CanvasImpl::SubmitQueuedCommands() {
-  Command* command_sequence = nullptr;
+  Command* command_sequence = commands_;
   // Execute pending commands,
   // encode draw command in wgpu encoder.
   while (command_sequence) {

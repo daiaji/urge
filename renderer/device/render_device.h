@@ -52,7 +52,8 @@ class RenderDevice {
                const wgpu::Adapter& adapter,
                const wgpu::Device& device,
                const wgpu::Queue& queue,
-               const wgpu::Surface& surface);
+               const wgpu::Surface& surface,
+               std::unique_ptr<PipelineSet> pipelines);
 
   base::WeakPtr<ui::Widget> window_;
 

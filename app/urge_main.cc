@@ -3,11 +3,19 @@
 // found in the LICENSE file.
 
 #include "SDL3/SDL_main.h"
+#include "SDL3_image/SDL_image.h"
+#include "SDL3_ttf/SDL_ttf.h"
 
 #include "binding/unittests/engine_binding_unittests.h"
 #include "content/worker/content_runner.h"
 
 int SDL_main(int argc, char* argv[]) {
+  ::SetConsoleCP(CP_UTF8);
+
+  SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+  TTF_Init();
+  IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG);
+
   std::unique_ptr<content::ContentProfile> profile =
       content::ContentProfile::MakeFrom(nullptr);
 
@@ -27,6 +35,10 @@ int SDL_main(int argc, char* argv[]) {
     if (!runner->RunMainLoop())
       break;
   }
+
+  IMG_Quit();
+  TTF_Quit();
+  SDL_Quit();
 
   return 0;
 }

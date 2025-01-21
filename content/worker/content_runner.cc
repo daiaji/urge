@@ -15,6 +15,7 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
     : profile_(std::move(profile)),
       render_worker_(std::move(render_worker)),
       window_(window),
+      exit_code_(0),
       binding_(std::move(binding)) {}
 
 void ContentRunner::InitializeContentInternal() {
@@ -37,12 +38,16 @@ void ContentRunner::InitializeContentInternal() {
 
   // Init all module workers
   graphics_impl_->InitWithRenderWorker(render_worker_.get(), window_);
+
+  // Reset exit code
+  exit_code_.store(1);
 }
 
-ContentRunner::~ContentRunner() {}
+ContentRunner::~ContentRunner() = default;
 
 bool ContentRunner::RunMainLoop() {
-  return graphics_impl_->ExecuteEventMainLoop();
+  return exit_code_.load() && graphics_impl_ &&
+         graphics_impl_->ExecuteEventMainLoop();
 }
 
 std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
@@ -74,6 +79,10 @@ void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
 
   // End of running
   self->binding_->PostMainLoopRunning();
+  self->exit_code_.store(0);
+
+  // Switch
+  fiber_switch(self->cc_->primary_fiber);
 }
 
 }  // namespace content

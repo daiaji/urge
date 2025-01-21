@@ -28,14 +28,13 @@ renderer::DeviceContext* CanvasScheduler::GetContext() {
   return immediate_context_;
 }
 
-void CanvasScheduler::BindRenderWorker(base::ThreadWorker* worker) {
+void CanvasScheduler::InitWithRenderWorker(base::ThreadWorker* worker) {
   render_worker_ = worker;
 
-  // Init common vertex buffer
-  base::ThreadWorker::PostTask(
-      worker, base::BindOnce(&CanvasScheduler::InitSchedulerInternal,
-                             base::Unretained(this)));
-  base::ThreadWorker::WaitWorkerSynchronize(worker);
+  // Make canvas drawing common transient vertex buffer
+  common_vertex_buffer_controller_ =
+      renderer::VertexBufferController<renderer::FullVertexLayout>::Make(
+          device_base_, 4);
 }
 
 void CanvasScheduler::AttachChildCanvas(CanvasImpl* child) {
@@ -56,12 +55,5 @@ CanvasScheduler::CanvasScheduler(renderer::RenderDevice* device,
       immediate_context_(context),
       render_worker_(nullptr),
       index_cache_(index_cache) {}
-
-void CanvasScheduler::InitSchedulerInternal() {
-  // Make canvas drawing common transient vertex buffer
-  common_vertex_buffer_controller_ =
-      renderer::VertexBufferController<renderer::FullVertexLayout>::Make(
-          device_base_, 4);
-}
 
 }  // namespace content

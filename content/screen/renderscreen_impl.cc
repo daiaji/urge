@@ -198,8 +198,10 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
       renderer::RenderDevice::Create(window, wgpu::BackendType::Undefined);
   context_ = renderer::DeviceContext::MakeContextFor(device_.get());
   index_buffer_cache_ = renderer::QuadrangleIndexCache::Make(device_.get());
+  index_buffer_cache_->Allocate(1 << 10);
   canvas_scheduler_ = CanvasScheduler::MakeInstance(
       device_.get(), context_.get(), index_buffer_cache_.get());
+  canvas_scheduler_->InitWithRenderWorker(render_worker_);
 
   ResetScreenBufferInternal();
 }

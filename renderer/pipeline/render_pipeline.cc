@@ -143,6 +143,7 @@ Pipeline_Base::Pipeline_Base(const wgpu::Device& device,
                 },
                 {
                     binding1,
+                    binding2,
                 },
                 target);
 }

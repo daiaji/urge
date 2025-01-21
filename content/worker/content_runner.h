@@ -50,6 +50,7 @@ class ContentRunner {
   std::unique_ptr<CoroutineContext> cc_;
   std::unique_ptr<base::ThreadWorker> render_worker_;
   base::WeakPtr<ui::Widget> window_;
+  std::atomic<int32_t> exit_code_;
 
   std::unique_ptr<EngineBindingBase> binding_;
   std::unique_ptr<ExecutionContext> execution_context_;

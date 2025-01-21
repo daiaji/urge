@@ -41,6 +41,7 @@ class ExceptionState {
   // Fetch info for binding throw exception
   ExceptionCode FetchException(std::string& message) const {
     message = message_;
+    return code_;
   }
 
   ExceptionState& ReturnThis() { return *this; }

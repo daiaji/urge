@@ -4,7 +4,10 @@
 
 #include "binding/unittests/engine_binding_unittests.h"
 
+#include "SDL3_image/SDL_image.h"
+
 #include "base/debug/logging.h"
+#include "content/canvas/canvas_impl.h"
 #include "content/screen/renderscreen_impl.h"
 
 EngineBindingUnittests::EngineBindingUnittests() {}
@@ -18,8 +21,42 @@ void EngineBindingUnittests::PreEarlyInitialization(
 
 void EngineBindingUnittests::OnMainMessageLoopRun(
     content::ExecutionContext* execution) {
+  content::ExceptionState exception_state;
+  scoped_refptr<content::Bitmap> bmp =
+      content::Bitmap::New(execution, "test.png", exception_state);
+  if (exception_state.HadException()) {
+    std::string msg;
+    exception_state.FetchException(msg);
+    LOG(INFO) << msg;
+    return;
+  }
+  scoped_refptr<content::Bitmap> bmp2 =
+      content::Bitmap::New(execution, "test2.png", exception_state);
+  if (exception_state.HadException()) {
+    std::string msg;
+    exception_state.FetchException(msg);
+    LOG(INFO) << msg;
+    return;
+  }
+
+  bmp2->Blt(150, 50, bmp, bmp->GetRect(exception_state), 200, exception_state);
+  if (exception_state.HadException()) {
+    std::string msg;
+    exception_state.FetchException(msg);
+    LOG(INFO) << msg;
+    return;
+  }
+
+  bmp2->GradientFillRect(0, 0, 100, 50,
+                         content::Color::New(0, 0, 255, 255, exception_state),
+                         content::Color::New(255, 255, 0, 255, exception_state),
+                         false, exception_state);
+
+  auto* surf =
+      static_cast<content::CanvasImpl*>(bmp2.get())->RequireMemorySurface();
+  IMG_SavePNG(surf, "out.png");
+
   for (;;) {
-    content::ExceptionState exception_state;
     execution->graphics->Update(exception_state);
   }
 }

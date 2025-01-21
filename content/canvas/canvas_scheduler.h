@@ -31,7 +31,7 @@ class CanvasScheduler {
   // Bind a worker for current scheduler,
   // all bitmap/canvas draw command will be encoded on this worker.
   // If worker set to null, it will be executed immediately on caller thread.
-  void BindRenderWorker(base::ThreadWorker* worker);
+  void InitWithRenderWorker(base::ThreadWorker* worker);
 
   // Bind child canvas in linked node,
   // scheduler will auto clear pending commands in canvas queue.
@@ -53,7 +53,6 @@ class CanvasScheduler {
   CanvasScheduler(renderer::RenderDevice* device,
                   renderer::DeviceContext* context,
                   renderer::QuadrangleIndexCache* index_cache);
-  void InitSchedulerInternal();
 
   base::LinkedList<CanvasImpl> children_;
 
