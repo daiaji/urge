@@ -8,8 +8,3 @@ target_link_libraries(renderer_unittests PUBLIC
   engine_renderer
   sdl_image_loader
 )
-
-add_executable(scheduler_unittests scheduler_unittests.cc)
-target_link_libraries(scheduler_unittests PUBLIC
-  engine_base
-)

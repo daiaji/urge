@@ -5,7 +5,7 @@
 #ifndef CONTENT_CANVAS_CANVAS_SCHEDULER_H_
 #define CONTENT_CANVAS_CANVAS_SCHEDULER_H_
 
-#include "base/worker/single_worker.h"
+#include "base/worker/thread_worker.h"
 #include "content/canvas/canvas_impl.h"
 #include "renderer/context/device_context.h"
 #include "renderer/device/render_device.h"
@@ -31,7 +31,7 @@ class CanvasScheduler {
   // Bind a worker for current scheduler,
   // all bitmap/canvas draw command will be encoded on this worker.
   // If worker set to null, it will be executed immediately on caller thread.
-  void BindRenderWorker(base::SingleWorker* worker);
+  void BindRenderWorker(base::ThreadWorker* worker);
 
   // Bind child canvas in linked node,
   // scheduler will auto clear pending commands in canvas queue.
@@ -41,7 +41,7 @@ class CanvasScheduler {
   // clear children canvas command queue.
   void SubmitPendingPaintCommands();
 
-  base::SingleWorker* render_worker() { return render_worker_; }
+  base::ThreadWorker* render_worker() { return render_worker_; }
   renderer::QuadrangleIndexCache* index_cache() { return index_cache_; }
   renderer::VertexBufferController<renderer::FullVertexLayout>*
   vertex_buffer() {
@@ -59,7 +59,7 @@ class CanvasScheduler {
 
   renderer::RenderDevice* device_base_;
   renderer::DeviceContext* immediate_context_;
-  base::SingleWorker* render_worker_;
+  base::ThreadWorker* render_worker_;
 
   renderer::QuadrangleIndexCache* index_cache_;
   std::unique_ptr<renderer::VertexBufferController<renderer::FullVertexLayout>>

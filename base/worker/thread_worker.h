@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef BASE_WORKER_SINGLE_WORKER_H_
-#define BASE_WORKER_SINGLE_WORKER_H_
+#ifndef BASE_WORKER_THREAD_WORKER_H_
+#define BASE_WORKER_THREAD_WORKER_H_
 
 #include <memory>
 
@@ -13,7 +13,27 @@
 
 namespace base {
 
-class SingleWorker;
+class Semaphore {
+ public:
+  explicit Semaphore() : mutex_(), cv_(), count_(0) {}
+
+  inline void Acquire() {
+    std::unique_lock lock(mutex_);
+    ++count_;
+    cv_.wait(lock, [this] { return count_ == 0; });
+  }
+
+  inline void Release() {
+    std::scoped_lock lock(mutex_);
+    --count_;
+    cv_.notify_all();
+  }
+
+ private:
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  int count_;
+};
 
 // Template helpers which use function indirection to erase T from the
 // function signature while still remembering it so we can call the
@@ -30,7 +50,7 @@ class DeleteHelper {
     delete static_cast<const T*>(object);
   }
 
-  friend class SingleWorker;
+  friend class ThreadWorker;
 };
 
 template <class T>
@@ -43,7 +63,7 @@ class DeleteUniquePtrHelper {
     std::unique_ptr<T> destroyer(const_cast<T*>(static_cast<const T*>(object)));
   }
 
-  friend class SingleWorker;
+  friend class ThreadWorker;
 };
 
 template <class T>
@@ -53,43 +73,29 @@ class ReleaseHelper {
     static_cast<const T*>(object)->Release();
   }
 
-  friend class SingleWorker;
+  friend class ThreadWorker;
 };
 
-enum class WorkerScheduleMode {
-  // Running on the thread with the main scheduler created.
-  kCoroutine = 0,
-
-  // Launch a new thread for current worker running.
-  kAsync,
-};
-
-class SingleWorker {
+class ThreadWorker {
  public:
-  ~SingleWorker();
+  ~ThreadWorker();
 
-  SingleWorker(const SingleWorker&) = delete;
-  SingleWorker& operator=(const SingleWorker&) = delete;
+  ThreadWorker(const ThreadWorker&) = delete;
+  ThreadWorker& operator=(const ThreadWorker&) = delete;
 
-  static std::unique_ptr<SingleWorker> CreateWorker(WorkerScheduleMode mode);
+  static std::unique_ptr<ThreadWorker> Create();
 
   // Post a task closure for current worker.
   bool PostTask(OnceClosure task);
-  static bool PostTask(SingleWorker* worker, OnceClosure task);
+  static bool PostTask(ThreadWorker* worker, OnceClosure task);
 
   // Post a semaphore flag in queue, blocking caller thread for synchronization.
-  bool WaitWorkerSynchronize();
-  static bool WaitWorkerSynchronize(SingleWorker* worker);
+  void WaitWorkerSynchronize();
+  static void WaitWorkerSynchronize(ThreadWorker* worker);
 
   // Is current context running on current single worker?
   bool RunsTasksInCurrentSequence();
-
-  // Return worker scheduler mode.
-  WorkerScheduleMode GetSchedulerMode() { return mode_; }
-
-  // Used in coroutine schedule mode worker,
-  // yield the context to next coroutine worker.
-  void YieldFiber();
+  static bool RunsTasksInCurrentSequence(ThreadWorker* worker);
 
   template <class T>
   bool DeleteSoon(const T* object) {
@@ -97,7 +103,7 @@ class SingleWorker {
   }
 
   template <class T>
-  static bool DeleteSoon(SingleWorker* worker, const T* object) {
+  static bool DeleteSoon(ThreadWorker* worker, const T* object) {
     if (worker)
       return worker->DeleteOrReleaseSoonInternal(&DeleteHelper<T>::DoDelete,
                                                  object);
@@ -112,7 +118,7 @@ class SingleWorker {
   }
 
   template <class T>
-  static bool DeleteSoon(SingleWorker* worker, std::unique_ptr<T> object) {
+  static bool DeleteSoon(ThreadWorker* worker, std::unique_ptr<T> object) {
     if (worker)
       return worker->DeleteOrReleaseSoonInternal(
           &DeleteUniquePtrHelper<T>::DoDelete, object.release());
@@ -128,7 +134,7 @@ class SingleWorker {
   }
 
   template <class T>
-  static void ReleaseSoon(SingleWorker* worker, scoped_refptr<T>&& object) {
+  static void ReleaseSoon(ThreadWorker* worker, scoped_refptr<T>&& object) {
     if (!object)
       return;
     if (worker)
@@ -138,18 +144,16 @@ class SingleWorker {
   }
 
  private:
-  friend class WorkerScheduler;
-  SingleWorker(WorkerScheduleMode mode);
-  void FlushInternal();
+  ThreadWorker();
+  void ThreadMainFunctionInternal();
   bool DeleteOrReleaseSoonInternal(void (*deleter)(const void*),
                                    const void* object);
 
-  WorkerScheduler* scheduler_;
-  WorkerScheduleMode mode_;
+  std::thread thread_;
   moodycamel::ConcurrentQueue<OnceClosure> task_queue_;
-  std::thread::id sequence_thread_;
+  std::atomic<int32_t> quit_flag_;
 };
 
 }  // namespace base
 
-#endif  // ! BASE_WORKER_SINGLE_WORKER_H_
+#endif  //! BASE_WORKER_THREAD_WORKER_H_

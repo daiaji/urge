@@ -11,6 +11,7 @@ namespace content {
 
 class ScopedFontData;
 class CanvasScheduler;
+class RenderScreenImpl;
 
 class ExecutionContext {
  public:
@@ -23,6 +24,7 @@ class ExecutionContext {
 
   ScopedFontData* font_context = nullptr;
   CanvasScheduler* canvas_scheduler = nullptr;
+  RenderScreenImpl* graphics = nullptr;
 
  private:
   ExecutionContext() = default;

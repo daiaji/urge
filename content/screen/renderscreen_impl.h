@@ -5,9 +5,10 @@
 #ifndef CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 #define CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 
-#include "base/worker/single_worker.h"
+#include "base/worker/thread_worker.h"
 #include "content/public/engine_graphics.h"
 #include "content/render/drawable_controller.h"
+#include "content/worker/coroutine_context.h"
 #include "renderer/context/device_context.h"
 #include "renderer/device/render_device.h"
 #include "renderer/resource/render_buffer.h"
@@ -23,7 +24,7 @@ struct FrameBufferAgent {
 
 class RenderScreenImpl : public Graphics {
  public:
-  RenderScreenImpl(base::SingleWorker* current_worker,
+  RenderScreenImpl(CoroutineContext* cc,
                    const base::Vec2i& resolution,
                    int frame_rate);
   ~RenderScreenImpl() override;
@@ -31,7 +32,7 @@ class RenderScreenImpl : public Graphics {
   RenderScreenImpl(const RenderScreenImpl&) = delete;
   RenderScreenImpl& operator=(const RenderScreenImpl&) = delete;
 
-  void InitWithRenderWorker(base::SingleWorker* render_worker,
+  void InitWithRenderWorker(base::ThreadWorker* render_worker,
                             base::WeakPtr<ui::Widget> window);
   bool ExecuteEventMainLoop();
 
@@ -41,7 +42,7 @@ class RenderScreenImpl : public Graphics {
   renderer::QuadrangleIndexCache* GetCommonIndexBuffer() const;
   CanvasScheduler* GetCanvasScheduler() const;
 
- protected:
+ public:
   void Update(ExceptionState& exception_state) override;
   void Wait(uint32_t duration, ExceptionState& exception_state) override;
   void FadeOut(uint32_t duration, ExceptionState& exception_state) override;
@@ -76,8 +77,8 @@ class RenderScreenImpl : public Graphics {
   // All visible elements drawing controller
   DrawNodeController controller_;
 
-  base::SingleWorker* current_worker_;
-  base::SingleWorker* render_worker_;
+  CoroutineContext* cc_;
+  base::ThreadWorker* render_worker_;
 
   std::unique_ptr<renderer::RenderDevice> device_;
   std::unique_ptr<renderer::DeviceContext> context_;

@@ -5,10 +5,10 @@
 #ifndef CONTENT_WORKER_CONTENT_RUNNER_H_
 #define CONTENT_WORKER_CONTENT_RUNNER_H_
 
-#include "base/worker/isolate_scheduler.h"
-#include "base/worker/single_worker.h"
+#include "base/worker/thread_worker.h"
 #include "content/profile/content_profile.h"
 #include "content/screen/renderscreen_impl.h"
+#include "content/worker/coroutine_context.h"
 #include "content/worker/engine_binding.h"
 #include "ui/widget/widget.h"
 
@@ -17,10 +17,15 @@ namespace content {
 class ContentRunner {
  public:
   struct InitParams {
+    // Engine profile configure,
+    // require a configure unique object.
     std::unique_ptr<ContentProfile> profile;
 
+    // Binding boot entry,
+    // require an unique one.
     std::unique_ptr<EngineBindingBase> entry;
 
+    // Graphics renderer target.
     base::WeakPtr<ui::Widget> window;
   };
 
@@ -35,20 +40,15 @@ class ContentRunner {
 
  private:
   ContentRunner(std::unique_ptr<ContentProfile> profile,
-                std::unique_ptr<base::WorkerScheduler> scheduler,
-                base::SingleWorker* engine_worker,
-                base::SingleWorker* render_worker,
+                std::unique_ptr<base::ThreadWorker> render_worker,
                 std::unique_ptr<EngineBindingBase> binding,
                 base::WeakPtr<ui::Widget> window);
-  void RunEngineRenderLoopInternal();
-  void RunEventLoopInternal();
+  void InitializeContentInternal();
+  static void EngineEntryFunctionInternal(fiber_t* fiber);
 
   std::unique_ptr<ContentProfile> profile_;
-  std::unique_ptr<base::WorkerScheduler> scheduler_;
-  base::SingleWorker* engine_worker_;
-  base::SingleWorker* render_worker_;
-
-  std::atomic<int32_t> exit_code_;
+  std::unique_ptr<CoroutineContext> cc_;
+  std::unique_ptr<base::ThreadWorker> render_worker_;
   base::WeakPtr<ui::Widget> window_;
 
   std::unique_ptr<EngineBindingBase> binding_;

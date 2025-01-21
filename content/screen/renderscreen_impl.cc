@@ -11,10 +11,10 @@
 
 namespace content {
 
-RenderScreenImpl::RenderScreenImpl(base::SingleWorker* current_worker,
+RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
                                    const base::Vec2i& resolution,
                                    int frame_rate)
-    : current_worker_(current_worker),
+    : cc_(cc),
       render_worker_(nullptr),
       frozen_(false),
       resolution_(resolution),
@@ -29,22 +29,22 @@ RenderScreenImpl::RenderScreenImpl(base::SingleWorker* current_worker,
 
 RenderScreenImpl::~RenderScreenImpl() {
   canvas_scheduler_.reset();
-  base::SingleWorker::DeleteSoon(render_worker_,
+  base::ThreadWorker::DeleteSoon(render_worker_,
                                  std::move(index_buffer_cache_));
-  base::SingleWorker::DeleteSoon(render_worker_, std::move(context_));
-  base::SingleWorker::DeleteSoon(render_worker_, std::move(device_));
-  base::SingleWorker::WaitWorkerSynchronize(render_worker_);
+  base::ThreadWorker::DeleteSoon(render_worker_, std::move(context_));
+  base::ThreadWorker::DeleteSoon(render_worker_, std::move(device_));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
-void RenderScreenImpl::InitWithRenderWorker(base::SingleWorker* render_worker,
+void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
                                             base::WeakPtr<ui::Widget> window) {
   render_worker_ = render_worker;
 
-  base::SingleWorker::PostTask(
+  base::ThreadWorker::PostTask(
       render_worker,
       base::BindOnce(&RenderScreenImpl::InitGraphicsDeviceInternal,
                      base::Unretained(this), window));
-  base::SingleWorker::WaitWorkerSynchronize(render_worker);
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker);
 }
 
 bool RenderScreenImpl::ExecuteEventMainLoop() {
@@ -68,15 +68,15 @@ bool RenderScreenImpl::ExecuteEventMainLoop() {
 
   for (int i = 0; i < repeat_time; ++i) {
     frame_skip_required_ = (i != 0);
-    current_worker_->YieldFiber();
+    fiber_switch(cc_->main_loop_fiber);
   }
 
   // Present to screen surface
-  base::SingleWorker::PostTask(
+  base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::PresentScreenBufferInternal,
                      base::Unretained(this), screen_buffer_.get()));
-  base::SingleWorker::WaitWorkerSynchronize(render_worker_);
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 
   return true;
 }
@@ -179,11 +179,11 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
                                     uint32_t height,
                                     ExceptionState& exception_state) {
   resolution_ = base::Vec2i(width, height);
-  base::SingleWorker::PostTask(
+  base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::ResetScreenBufferInternal,
                      base::Unretained(this)));
-  base::SingleWorker::WaitWorkerSynchronize(render_worker_);
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
 void RenderScreenImpl::PlayMovie(const std::string& filename,
@@ -219,10 +219,30 @@ void RenderScreenImpl::PresentScreenBufferInternal(FrameBufferAgent* agent) {
   window->GetMouseState().screen_offset = display_viewport_.Position();
   window->GetMouseState().screen = display_viewport_.Size();
 
-  // Blit internal screen buffer to screen surface
-
-  // Present WGPU surface
+  // Clear WGPU surface
   auto* hardware_surface = device_->GetSurface();
+
+  wgpu::SurfaceTexture surface_texture;
+  hardware_surface->GetCurrentTexture(&surface_texture);
+
+  // Blit internal screen buffer to screen surface
+  auto* commander = context_->GetImmediateEncoder();
+
+  wgpu::RenderPassColorAttachment attachment;
+  attachment.view = surface_texture.texture.CreateView();
+  attachment.loadOp = wgpu::LoadOp::Clear;
+  attachment.storeOp = wgpu::StoreOp::Store;
+  attachment.clearValue = {0, 0, 1, 1};
+
+  wgpu::RenderPassDescriptor renderpass;
+  renderpass.colorAttachmentCount = 1;
+  renderpass.colorAttachments = &attachment;
+
+  auto pass = commander->BeginRenderPass(&renderpass);
+  pass.End();
+
+  // Flush command buffer and present WGPU surface
+  context_->Flush();
   hardware_surface->Present();
 }
 
@@ -231,7 +251,7 @@ void RenderScreenImpl::FrameProcessInternal() {
   ++frame_count_;
 
   // Switch to primary fiber
-  current_worker_->YieldFiber();
+  fiber_switch(cc_->primary_fiber);
 }
 
 void RenderScreenImpl::UpdateWindowViewportInternal() {

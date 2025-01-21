@@ -28,14 +28,14 @@ renderer::DeviceContext* CanvasScheduler::GetContext() {
   return immediate_context_;
 }
 
-void CanvasScheduler::BindRenderWorker(base::SingleWorker* worker) {
+void CanvasScheduler::BindRenderWorker(base::ThreadWorker* worker) {
   render_worker_ = worker;
 
   // Init common vertex buffer
-  base::SingleWorker::PostTask(
+  base::ThreadWorker::PostTask(
       worker, base::BindOnce(&CanvasScheduler::InitSchedulerInternal,
                              base::Unretained(this)));
-  base::SingleWorker::WaitWorkerSynchronize(worker);
+  base::ThreadWorker::WaitWorkerSynchronize(worker);
 }
 
 void CanvasScheduler::AttachChildCanvas(CanvasImpl* child) {

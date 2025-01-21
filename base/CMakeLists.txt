@@ -43,10 +43,8 @@ set(ENGINE_BASE_SRC
   memory/weak_ptr.h
   thread/thread_checker.cc
   thread/thread_checker.h
-  worker/isolate_scheduler.cc
-  worker/isolate_scheduler.h
-  worker/single_worker.cc
-  worker/single_worker.h
+  worker/thread_worker.cc
+  worker/thread_worker.h
   template_util.h
 )
 

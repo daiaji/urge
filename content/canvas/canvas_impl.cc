@@ -357,7 +357,7 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
 
   auto* canvas_texture_agent = TextureAgent::Allocate();
   auto* scheduler = execution_context->canvas_scheduler;
-  base::SingleWorker::PostTask(
+  base::ThreadWorker::PostTask(
       scheduler->render_worker(),
       base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
                      memory_texture, canvas_texture_agent));
@@ -379,7 +379,7 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
 
   auto* canvas_texture_agent = TextureAgent::Allocate();
   auto* scheduler = execution_context->canvas_scheduler;
-  base::SingleWorker::PostTask(
+  base::ThreadWorker::PostTask(
       scheduler->render_worker(),
       base::BindOnce(&GPUCreateTextureWithSizeInternal, scheduler->GetDevice(),
                      base::Vec2i(width, height), canvas_texture_agent));
@@ -427,11 +427,11 @@ SDL_Surface* CanvasImpl::RequireMemorySurface() {
     SubmitQueuedCommands();
 
     // Sync fetch pixels to memory
-    base::SingleWorker::PostTask(
+    base::ThreadWorker::PostTask(
         scheduler_->render_worker(),
         base::BindOnce(&GPUFetchTexturePixelsDataInternal, scheduler_, texture_,
                        canvas_cache_));
-    base::SingleWorker::WaitWorkerSynchronize(scheduler_->render_worker());
+    base::ThreadWorker::WaitWorkerSynchronize(scheduler_->render_worker());
   }
 
   return canvas_cache_;
@@ -453,7 +453,7 @@ void CanvasImpl::UpdateVideoMemory() {
     memcpy(pixels.data(), canvas_cache_->pixels, pixels.size());
 
     // Post async upload request
-    base::SingleWorker::PostTask(
+    base::ThreadWorker::PostTask(
         scheduler_->render_worker(),
         base::BindOnce(&GPUUpdateTexturePixelsDataInternal, scheduler_,
                        texture_, std::move(pixels)));
@@ -468,7 +468,7 @@ void CanvasImpl::SubmitQueuedCommands() {
     switch (command_sequence->id) {
       case CommandID::kGradientFillRect: {
         auto* c = static_cast<Command_GradientFillRect*>(command_sequence);
-        base::SingleWorker::PostTask(
+        base::ThreadWorker::PostTask(
             scheduler_->render_worker(),
             base::BindOnce(&GPUCanvasGradientFillRectInternal, scheduler_,
                            texture_, c->region, c->color1, c->color2,
@@ -504,7 +504,7 @@ void CanvasImpl::Dispose(ExceptionState& exception_state) {
 
   if (!IsDisposed(exception_state)) {
     // Destroy GPU texture
-    base::SingleWorker::PostTask(
+    base::ThreadWorker::PostTask(
         scheduler_->render_worker(),
         base::BindOnce(&GPUDestroyTextureInternal, texture_));
     texture_ = nullptr;
@@ -776,7 +776,7 @@ void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,
   SubmitQueuedCommands();
 
   // Execute blit immediately.
-  base::SingleWorker::PostTask(
+  base::ThreadWorker::PostTask(
       scheduler_->render_worker(),
       base::BindOnce(&GPUBlendBlitTextureInternal, scheduler_, texture_,
                      dst_rect, src_texture->texture_, src_rect, alpha));

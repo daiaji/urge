@@ -4,14 +4,26 @@
 
 #include "binding/unittests/engine_binding_unittests.h"
 
+#include "base/debug/logging.h"
+#include "content/screen/renderscreen_impl.h"
+
 EngineBindingUnittests::EngineBindingUnittests() {}
 
 EngineBindingUnittests::~EngineBindingUnittests() {}
 
 void EngineBindingUnittests::PreEarlyInitialization(
-    content::ContentProfile* profile) {}
+    content::ContentProfile* profile) {
+  LOG(INFO) << "preload engine";
+}
 
 void EngineBindingUnittests::OnMainMessageLoopRun(
-    content::ExecutionContext* execution) {}
+    content::ExecutionContext* execution) {
+  for (;;) {
+    content::ExceptionState exception_state;
+    execution->graphics->Update(exception_state);
+  }
+}
 
-void EngineBindingUnittests::PostMainLoopRunning() {}
+void EngineBindingUnittests::PostMainLoopRunning() {
+  LOG(INFO) << "will close engine";
+}

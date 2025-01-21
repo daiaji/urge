@@ -46,6 +46,7 @@ set(ENGINE_CONTENT_SRC
   screen/renderscreen_impl.h
   worker/content_runner.cc
   worker/content_runner.h
+  worker/coroutine_context.h
   worker/engine_binding.cc
   worker/engine_binding.h
   content_config.h

@@ -7,7 +7,7 @@
 namespace renderer {
 
 DeviceContext::DeviceContext(const wgpu::Device& device)
-    : immediate_encoder_(device.CreateCommandEncoder()) {}
+    : device_(device), immediate_encoder_(device_.CreateCommandEncoder()) {}
 
 DeviceContext::~DeviceContext() {}
 
