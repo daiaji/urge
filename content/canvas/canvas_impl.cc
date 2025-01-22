@@ -65,8 +65,9 @@ wgpu::BindGroup MakeTextureBindingGroupInternal(
       (*device_base)->CreateBuffer(&uniform_desc);
 
   {
-    memcpy(texture_size_uniform.GetMappedRange(), &bitmap_size,
-           sizeof(bitmap_size));
+    auto texture_size = base::MakeInvert(bitmap_size);
+    memcpy(texture_size_uniform.GetMappedRange(), &texture_size,
+           sizeof(texture_size));
     texture_size_uniform.Unmap();
   }
 
@@ -82,6 +83,54 @@ wgpu::BindGroup MakeTextureBindingGroupInternal(
   binding_desc.entryCount = _countof(entries);
   binding_desc.entries = entries;
   binding_desc.layout = *device_base->GetPipelines()->base.GetLayout(1);
+
+  return (*device_base)->CreateBindGroup(&binding_desc);
+}
+
+wgpu::BindGroup MakeTextCacheInternal(renderer::RenderDevice* device_base,
+                                      const base::Vec2& cache_size,
+                                      const wgpu::Sampler& sampler,
+                                      wgpu::Texture* cache) {
+  wgpu::BufferDescriptor uniform_desc;
+  uniform_desc.label = "text.size.uniform";
+  uniform_desc.size = sizeof(base::Vec2);
+  uniform_desc.mappedAtCreation = true;
+  uniform_desc.usage = wgpu::BufferUsage::Uniform;
+  wgpu::Buffer text_size_uniform = (*device_base)->CreateBuffer(&uniform_desc);
+
+  {
+    auto texture_size = base::MakeInvert(cache_size);
+    memcpy(text_size_uniform.GetMappedRange(), &texture_size,
+           sizeof(texture_size));
+    text_size_uniform.Unmap();
+  }
+
+  // Create video memory texture
+  wgpu::TextureDescriptor texture_desc;
+  texture_desc.label = "font.textdraw.texture ";
+  texture_desc.usage =
+      wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::TextureBinding;
+  texture_desc.dimension = wgpu::TextureDimension::e2D;
+  texture_desc.size.width = cache_size.x;
+  texture_desc.size.height = cache_size.y;
+  texture_desc.format = wgpu::TextureFormat::RGBA8Unorm;
+  wgpu::Texture text_cache_texture =
+      (*device_base)->CreateTexture(&texture_desc);
+
+  wgpu::BindGroupEntry entries[3];
+  entries[0].binding = 0;
+  entries[0].textureView = text_cache_texture.CreateView();
+  entries[1].binding = 1;
+  entries[1].sampler = sampler;
+  entries[2].binding = 2;
+  entries[2].buffer = text_size_uniform;
+
+  wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.entryCount = _countof(entries);
+  binding_desc.entries = entries;
+  binding_desc.layout = *device_base->GetPipelines()->base.GetLayout(1);
+
+  *cache = text_cache_texture;
 
   return (*device_base)->CreateBindGroup(&binding_desc);
 }
@@ -105,8 +154,8 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
   agent->world = MakeTextureWorldInternal(device_base, agent->size);
-  agent->binding = MakeTextureBindingGroupInternal(
-      device_base, base::MakeInvert(agent->size), agent->view, agent->sampler);
+  agent->binding = MakeTextureBindingGroupInternal(device_base, agent->size,
+                                                   agent->view, agent->sampler);
 
   // Write data in video memory
   wgpu::ImageCopyTexture copy_texture;
@@ -257,6 +306,7 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
 
   // Temp pixels read buffer
   wgpu::BufferDescriptor buffer_desc;
+  buffer_desc.label = "updatetexture.temp.buffer";
   buffer_desc.usage = wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::MapWrite;
   buffer_desc.size = pixels.size();
   buffer_desc.mappedAtCreation = true;
@@ -268,7 +318,7 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
   }
 
   // Align size
-  uint32_t aligned_bytes_per_row = (surface_size.x + 255) & ~255;
+  uint32_t aligned_bytes_per_row = (surface_size.x * 4 + 255) & ~255;
 
   // Copy pixels data to texture
   wgpu::ImageCopyTexture copy_texture;
@@ -365,6 +415,119 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   renderpass_encoder.End();
 }
 
+void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
+                                      TextureAgent* agent,
+                                      const base::Rect& region,
+                                      SDL_Surface* text,
+                                      float opacity,
+                                      int align) {
+  auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNormal);
+
+  if (!agent->text_surface_cache ||
+      agent->text_surface_cache.GetWidth() < text->w ||
+      agent->text_surface_cache.GetHeight() < text->h) {
+    base::Vec2i text_size;
+    text_size.x = std::max<int32_t>(
+        agent->text_surface_cache ? agent->text_surface_cache.GetWidth() : 0,
+        text->w);
+    text_size.y = std::max<int32_t>(
+        agent->text_surface_cache ? agent->text_surface_cache.GetHeight() : 0,
+        text->h);
+
+    agent->text_cache_binding =
+        MakeTextCacheInternal(scheduler->GetDevice(), text_size, agent->sampler,
+                              &agent->text_surface_cache);
+  }
+
+  wgpu::RenderPassColorAttachment attachment;
+  attachment.view = agent->view;
+  attachment.loadOp = wgpu::LoadOp::Load;
+  attachment.storeOp = wgpu::StoreOp::Store;
+
+  wgpu::RenderPassDescriptor renderpass;
+  renderpass.colorAttachmentCount = 1;
+  renderpass.colorAttachments = &attachment;
+
+  auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
+
+  // Align size
+  uint32_t aligned_bytes_per_row =
+      (agent->text_surface_cache.GetWidth() * 4 + 255) & ~255;
+  uint32_t buffer_size =
+      aligned_bytes_per_row * agent->text_surface_cache.GetHeight();
+
+  if (!agent->text_write_cache ||
+      agent->text_write_cache.GetSize() < buffer_size) {
+    // Temp pixels read buffer
+    wgpu::BufferDescriptor buffer_desc;
+    buffer_desc.label = "drawtext.temp.buffer";
+    buffer_desc.usage = wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst;
+    buffer_desc.size = buffer_size;
+    buffer_desc.mappedAtCreation = false;
+    agent->text_write_cache =
+        (*scheduler->GetDevice())->CreateBuffer(&buffer_desc);
+  }
+
+  for (size_t i = 0; i < text->h; ++i)
+    command_encoder->WriteBuffer(
+        agent->text_write_cache, aligned_bytes_per_row * i,
+        static_cast<uint8_t*>(text->pixels) + text->pitch * i, text->pitch);
+
+  // Copy pixels data to texture
+  wgpu::ImageCopyTexture copy_texture;
+  wgpu::ImageCopyBuffer copy_buffer;
+  wgpu::Extent3D copy_extent;
+  copy_texture.texture = agent->text_surface_cache;
+  copy_buffer.buffer = agent->text_write_cache;
+  copy_buffer.layout.bytesPerRow = aligned_bytes_per_row;
+  copy_buffer.layout.rowsPerImage = agent->text_surface_cache.GetHeight();
+  copy_extent.width = text->w;
+  copy_extent.height = text->h;
+  command_encoder->CopyBufferToTexture(&copy_buffer, &copy_texture,
+                                       &copy_extent);
+
+  base::Vec4 blend_alpha;
+  blend_alpha.w = opacity / 255.0f;
+
+  int align_x = region.x, align_y = region.y + (region.height - text->h) / 2;
+  switch (align) {
+    default:
+    case 0:  // Left
+      break;
+    case 1:  // Center
+      align_x += (region.width - text->w) / 2;
+      break;
+    case 2:  // Right
+      align_x += region.width - text->w;
+      break;
+  }
+
+  float zoom_x = static_cast<float>(region.width) / text->w;
+  zoom_x = std::min(zoom_x, 1.0f);
+  base::Rect compose_position(align_x, align_y, text->w * zoom_x, text->h);
+
+  renderer::FullVertexLayout transient_vertices[4];
+  renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
+                                              base::Vec2(text->w, text->h));
+  renderer::FullVertexLayout::SetPositionRect(transient_vertices,
+                                              compose_position);
+  renderer::FullVertexLayout::SetColor(transient_vertices, blend_alpha);
+  scheduler->vertex_buffer()->QueueWrite(*command_encoder, transient_vertices,
+                                         _countof(transient_vertices));
+
+  auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
+  renderpass_encoder.SetViewport(0, 0, agent->size.x, agent->size.y, 0, 0);
+  renderpass_encoder.SetPipeline(*pipeline);
+  renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
+  renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
+                                    wgpu::IndexFormat::Uint16);
+  renderpass_encoder.SetBindGroup(0, agent->world);
+  renderpass_encoder.SetBindGroup(1, agent->text_cache_binding);
+  renderpass_encoder.DrawIndexed(6);
+  renderpass_encoder.End();
+}
+
 }  // namespace
 
 scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
@@ -385,7 +548,8 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
       base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
                      memory_texture, canvas_texture_agent));
 
-  return new CanvasImpl(scheduler, canvas_texture_agent);
+  return new CanvasImpl(scheduler, canvas_texture_agent,
+                        new FontImpl(execution_context->font_context));
 }
 
 scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
@@ -407,7 +571,8 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
       base::BindOnce(&GPUCreateTextureWithSizeInternal, scheduler->GetDevice(),
                      base::Vec2i(width, height), canvas_texture_agent));
 
-  return new CanvasImpl(scheduler, canvas_texture_agent);
+  return new CanvasImpl(scheduler, canvas_texture_agent,
+                        new FontImpl(execution_context->font_context));
 }
 
 scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,
@@ -432,12 +597,21 @@ std::string Bitmap::Serialize(scoped_refptr<Bitmap>,
   return std::string();
 }
 
-CanvasImpl::CanvasImpl(CanvasScheduler* scheduler, TextureAgent* texture)
-    : scheduler_(scheduler), texture_(texture), canvas_cache_(nullptr) {}
+CanvasImpl::CanvasImpl(CanvasScheduler* scheduler,
+                       TextureAgent* texture,
+                       scoped_refptr<Font> font)
+    : scheduler_(scheduler),
+      texture_(texture),
+      canvas_cache_(nullptr),
+      font_(font) {}
 
 CanvasImpl::~CanvasImpl() {
   ExceptionState exception_state;
   Dispose(exception_state);
+}
+
+scoped_refptr<CanvasImpl> CanvasImpl::FromBitmap(scoped_refptr<Bitmap> host) {
+  return static_cast<CanvasImpl*>(host.get());
 }
 
 SDL_Surface* CanvasImpl::RequireMemorySurface() {
@@ -516,7 +690,10 @@ void CanvasImpl::SubmitQueuedCommands() {
       } break;
       case CommandID::kDrawText: {
         auto* c = static_cast<Command_DrawText*>(command_sequence);
-
+        base::ThreadWorker::PostTask(
+            scheduler_->render_worker(),
+            base::BindOnce(&GPUCanvasDrawTextSurfaceInternal, scheduler_,
+                           texture_, c->region, c->text, c->opacity, c->align));
       } break;
       default:
         break;
@@ -614,6 +791,8 @@ void CanvasImpl::FillRect(int32_t x,
   command->color1 = ColorImpl::From(color.get())->AsNormColor();
   command->color2 = command->color1;
   command->vertical = false;
+
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::FillRect(scoped_refptr<Rect> rect,
@@ -640,6 +819,8 @@ void CanvasImpl::GradientFillRect(int32_t x,
   command->color1 = ColorImpl::From(color1.get())->AsNormColor();
   command->color2 = ColorImpl::From(color2.get())->AsNormColor();
   command->vertical = vertical;
+
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::GradientFillRect(scoped_refptr<Rect> rect,
@@ -663,6 +844,8 @@ void CanvasImpl::Clear(ExceptionState& exception_state) {
   command->color1 = base::Vec4(0);
   command->color2 = command->color1;
   command->vertical = false;
+
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::ClearRect(int32_t x,
@@ -679,6 +862,8 @@ void CanvasImpl::ClearRect(int32_t x,
   command->color1 = base::Vec4(0);
   command->color2 = command->color1;
   command->vertical = false;
+
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::ClearRect(scoped_refptr<Rect> rect,
@@ -694,7 +879,21 @@ scoped_refptr<Color> CanvasImpl::GetPixel(int32_t x,
   if (CheckDisposed(exception_state))
     return nullptr;
 
-  SDL_Surface* pixels = RequireMemorySurface();
+  if (x < 0 || x >= texture_->size.x || y < 0 || y >= texture_->size.y)
+    return nullptr;
+
+  SDL_Surface* surface = RequireMemorySurface();
+  auto* pixel_detail = SDL_GetPixelFormatDetails(surface->format);
+  int bpp = pixel_detail->bytes_per_pixel;
+  uint8_t* pixel = static_cast<uint8_t*>(surface->pixels) +
+                   static_cast<size_t>(y) * surface->pitch +
+                   static_cast<size_t>(x) * bpp;
+
+  uint8_t color[4];
+  SDL_GetRGBA(*reinterpret_cast<uint32_t*>(pixel), pixel_detail, nullptr,
+              &color[0], &color[1], &color[2], &color[3]);
+
+  return Color::New(color[0], color[1], color[2], color[3], exception_state);
 }
 
 void CanvasImpl::SetPixel(int32_t x,
@@ -704,19 +903,33 @@ void CanvasImpl::SetPixel(int32_t x,
   if (CheckDisposed(exception_state))
     return;
 
+  if (x < 0 || x >= texture_->size.x || y < 0 || y >= texture_->size.y)
+    return;
+
   auto* command = AllocateCommand<Command_GradientFillRect>();
   command->region = base::Rect(x, y, 1, 1);
   command->color1 = ColorImpl::From(color.get())->AsNormColor();
   command->color2 = command->color1;
   command->vertical = false;
+
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::HueChange(int32_t hue, ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
+  if (hue % 360 == 0)
+    return;
+
+  while (hue < 0)
+    hue += 359;
+  hue %= 359;
+
   auto* command = AllocateCommand<Command_HueChange>();
   command->hue = hue;
+
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::Blur(ExceptionState& exception_state) {
@@ -725,6 +938,8 @@ void CanvasImpl::Blur(ExceptionState& exception_state) {
 
   auto* command = AllocateCommand<Command_RadialBlur>();
   command->blur = true;
+
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::RadialBlur(int32_t angle,
@@ -737,6 +952,8 @@ void CanvasImpl::RadialBlur(int32_t angle,
   command->blur = false;
   command->angle = angle;
   command->division = division;
+
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::DrawText(int32_t x,
@@ -753,7 +970,9 @@ void CanvasImpl::DrawText(int32_t x,
   if (!font_object->GetCanonicalFont(exception_state))
     return;
 
-  auto* text_surface = font_object->RenderText(str, 0, exception_state);
+  uint8_t font_opacity = 0;
+  auto* text_surface =
+      font_object->RenderText(str, &font_opacity, exception_state);
   if (!text_surface)
     return;
 
@@ -761,7 +980,10 @@ void CanvasImpl::DrawText(int32_t x,
   auto* command = AllocateCommand<Command_DrawText>();
   command->region = base::Rect(x, y, width, height);
   command->text = text_surface;  // Transient surface object
+  command->opacity = static_cast<float>(font_opacity);
   command->align = align;
+
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::DrawText(scoped_refptr<Rect> rect,
@@ -812,6 +1034,9 @@ void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,
       scheduler_->render_worker(),
       base::BindOnce(&GPUBlendBlitTextureInternal, scheduler_, texture_,
                      dst_rect, src_texture->texture_, src_rect, alpha));
+
+  // Invalidate memory cache
+  InvalidateSurfaceCache();
 }
 
 scoped_refptr<Font> CanvasImpl::Get_Font(ExceptionState& exception_state) {

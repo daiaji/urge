@@ -40,18 +40,23 @@ SDL_EnumerationResult SDLCALL EnumDirectoryCallback(void* userdata,
 
 IO::IO() {}
 
-IO::~IO() {}
+IO::~IO() = default;
 
 std::unique_ptr<IO> IO::Create() {
   return std::unique_ptr<IO>(new IO());
 }
 
 SDL_IOStream* IO::OpenFile(const std::string& filename, bool raw) {
+  if (raw)
+    return SDL_IOFromFile(filename.c_str(), "r");
+
   return nullptr;
 }
 
 bool IO::IsFileExisted(const std::string& filename) {
-  return false;
+  SDL_PathInfo info;
+  return SDL_GetPathInfo(filename.c_str(), &info) &&
+         info.type == SDL_PATHTYPE_FILE;
 }
 
 bool IO::EnumDirectory(const std::string& path,

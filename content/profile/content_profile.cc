@@ -6,6 +6,8 @@
 
 namespace content {
 
+ContentProfile::ContentProfile() = default;
+
 ContentProfile::~ContentProfile() = default;
 
 std::unique_ptr<ContentProfile> ContentProfile::MakeFrom(SDL_IOStream* stream) {

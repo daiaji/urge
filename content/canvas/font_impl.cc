@@ -83,9 +83,6 @@ ScopedFontData::ScopedFontData(filesystem::IO* io,
 }
 
 ScopedFontData::~ScopedFontData() {
-  for (auto& it : font_cache)
-    TTF_CloseFont(it.second);
-
   for (auto& it : data_cache)
     SDL_free(it.second.second);
 }
@@ -98,7 +95,7 @@ scoped_refptr<Font> Font::New(ExecutionContext* execution_context,
                               const std::string& name,
                               uint32_t size,
                               ExceptionState& exception_state) {
-  return new FontImpl(execution_context->font_context);
+  return new FontImpl(name, size, execution_context->font_context);
 }
 
 scoped_refptr<Font> Font::Copy(ExecutionContext* execution_context,
@@ -264,6 +261,24 @@ void FontImpl::Put_OutColor(const scoped_refptr<Color>& value,
 FontImpl::FontImpl(ScopedFontData* parent)
     : name_(parent->default_name),
       size_(parent->default_size),
+      bold_(parent->default_bold),
+      italic_(parent->default_italic),
+      outline_(parent->default_outline),
+      shadow_(parent->default_shadow),
+      color_(new ColorImpl(base::Vec4())),
+      out_color_(new ColorImpl(base::Vec4())),
+      parent_(parent),
+      font_(nullptr) {
+  ExceptionState exception_state;
+  color_->Set(parent->default_color, exception_state);
+  out_color_->Set(parent->default_out_color, exception_state);
+}
+
+FontImpl::FontImpl(const std::string& name,
+                   uint32_t size,
+                   ScopedFontData* parent)
+    : name_({name}),
+      size_(size),
       bold_(parent->default_bold),
       italic_(parent->default_italic),
       outline_(parent->default_outline),

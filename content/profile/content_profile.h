@@ -27,12 +27,13 @@ class ContentProfile {
 
   static std::unique_ptr<ContentProfile> MakeFrom(SDL_IOStream* stream);
 
-  std::string window_title;
-  std::string script_path;
-  APIVersion api_version;
+  std::string window_title = "URGE Widget";
+  std::string script_path = "Data/Scripts.rxdata";
+  APIVersion api_version = APIVersion::kRGSS1;
+  std::string default_font_path = "Fonts/Default.ttf";
 
  private:
-  ContentProfile() = default;
+  ContentProfile();
 };
 
 }  // namespace content

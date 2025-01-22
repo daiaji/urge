@@ -52,6 +52,9 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
                          content::Color::New(255, 255, 0, 255, exception_state),
                          false, exception_state);
 
+  bmp2->DrawText(100, 100, 200, 50, "test draw text string", 0,
+                 exception_state);
+
   auto* surf =
       static_cast<content::CanvasImpl*>(bmp2.get())->RequireMemorySurface();
   IMG_SavePNG(surf, "out.png");

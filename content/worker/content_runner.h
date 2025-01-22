@@ -6,6 +6,7 @@
 #define CONTENT_WORKER_CONTENT_RUNNER_H_
 
 #include "base/worker/thread_worker.h"
+#include "components/filesystem/io.h"
 #include "content/profile/content_profile.h"
 #include "content/screen/renderscreen_impl.h"
 #include "content/worker/coroutine_context.h"
@@ -55,6 +56,8 @@ class ContentRunner {
   std::unique_ptr<EngineBindingBase> binding_;
   std::unique_ptr<ExecutionContext> execution_context_;
   std::unique_ptr<RenderScreenImpl> graphics_impl_;
+  std::unique_ptr<filesystem::IO> io_service_;
+  std::unique_ptr<ScopedFontData> scoped_font_;
 };
 
 }  // namespace content

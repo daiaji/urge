@@ -33,17 +33,26 @@ struct TextureAgent {
   wgpu::BindGroup world;
   wgpu::BindGroup binding;
 
+  // Text drawing cache texture
+  wgpu::Texture text_surface_cache;
+  wgpu::BindGroup text_cache_binding;
+  wgpu::Buffer text_write_cache;
+
   static TextureAgent* Allocate(size_t n = 1);
   static void Free(TextureAgent* ptr, size_t n = 1);
 };
 
 class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
  public:
-  CanvasImpl(CanvasScheduler* scheduler, TextureAgent* texture);
+  CanvasImpl(CanvasScheduler* scheduler,
+             TextureAgent* texture,
+             scoped_refptr<Font> font);
   ~CanvasImpl() override;
 
   CanvasImpl(const CanvasImpl&) = delete;
   CanvasImpl& operator=(const CanvasImpl&) = delete;
+
+  static scoped_refptr<CanvasImpl> FromBitmap(scoped_refptr<Bitmap> host);
 
   // Synchronize pending commands and fetch texture to buffer.
   // Read buffer for surface pixels data.
@@ -55,6 +64,9 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
 
   // Process queued pending commands.
   void SubmitQueuedCommands();
+
+  // Require render texture
+  TextureAgent* GetAgent() const { return texture_; }
 
  protected:
   void Dispose(ExceptionState& exception_state) override;
@@ -178,6 +190,7 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   struct Command_DrawText : public Command {
     base::Rect region;
     SDL_Surface* text;
+    float opacity;
     int align;
 
     Command_DrawText() { id = CommandID::kDrawText; }
@@ -225,7 +238,7 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
         last_command_->next = command;
       last_command_ = command;
 
-      // Complete command alllocation
+      // Complete command allocation
       break;
     }
 

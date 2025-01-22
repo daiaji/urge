@@ -44,6 +44,7 @@ struct ScopedFontData {
 class FontImpl : public Font {
  public:
   FontImpl(ScopedFontData* parent);
+  FontImpl(const std::string& name, uint32_t size, ScopedFontData* parent);
   FontImpl(const FontImpl& other);
   ~FontImpl() override = default;
 
