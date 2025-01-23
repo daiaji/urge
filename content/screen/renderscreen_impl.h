@@ -42,6 +42,13 @@ class RenderScreenImpl : public Graphics {
   renderer::QuadrangleIndexCache* GetCommonIndexBuffer() const;
   CanvasScheduler* GetCanvasScheduler() const;
 
+  DrawNodeController* GetDrawableController() { return &controller_; }
+
+  void PostTask(base::OnceClosure task);
+  void WaitWorkerSynchronize();
+
+  base::Vec2i Resolution() const { return resolution_; }
+
  public:
   void Update(ExceptionState& exception_state) override;
   void Wait(uint32_t duration, ExceptionState& exception_state) override;

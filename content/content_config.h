@@ -24,6 +24,7 @@
 #define URGE_DECLARE_OVERRIDE_ATTRIBUTE(name, type) \
   type Get_##name(ExceptionState&) override;        \
   void Put_##name(const type&, ExceptionState&) override
+
 #define URGE_DECLARE_STATIC_ATTRIBUTE_READ(klass, name, type) \
   type klass::Get_##name(ExecutionContext* execution_context, \
                          ExceptionState& exception_state)

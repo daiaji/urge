@@ -14,7 +14,6 @@ int SDL_main(int argc, char* argv[]) {
 
   SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   TTF_Init();
-  IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG);
 
   std::unique_ptr<content::ContentProfile> profile =
       content::ContentProfile::MakeFrom(nullptr);
@@ -36,7 +35,6 @@ int SDL_main(int argc, char* argv[]) {
       break;
   }
 
-  IMG_Quit();
   TTF_Quit();
   SDL_Quit();
 

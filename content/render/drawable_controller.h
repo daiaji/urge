@@ -47,6 +47,10 @@ struct SortKey {
   int64_t weight[3];
 
   SortKey() : weight{0} {}
+  SortKey(int64_t key1) : weight{key1, 0, 0} {}
+  SortKey(int64_t key1, int64_t key2) : weight{key1, key2, 0} {}
+  SortKey(int64_t key1, int64_t key2, int64_t key3)
+      : weight{key1, key2, key3} {}
 
   inline bool operator()(const SortKey& lv, const SortKey& rv) const {
     for (int i = 0; i < 3; ++i)
@@ -83,25 +87,29 @@ class DrawableNode final {
     // [Stage: all]
     // Logic abstract render device for drawable node.
     // Never be null whenever events.
-    renderer::RenderDevice* device;
+    renderer::RenderDevice* device = nullptr;
 
     // [Stage: all]
     // Hardware render command encoder,
     // handler: writeBuffer, writeTexture, copyTexture
-    wgpu::CommandEncoder* command_encoder;
+    wgpu::CommandEncoder* command_encoder = nullptr;
 
-    // [Stage: on rendering]
-    // Main render pass encoder.
-    wgpu::RenderPassEncoder* main_pass;
+    // [Stage: on rendering / after render]
+    // World transform matrix.
+    wgpu::BindGroup* world_binding = nullptr;
 
     // [Stage: on rendering]
     // Current pixel clip region.
-    base::Rect clip_rect;
+    base::Rect viewport_region;
+
+    // [Stage: on rendering]
+    // Main render pass encoder.
+    wgpu::RenderPassEncoder* main_pass = nullptr;
 
     // [Stage: on rendering / after render]
     // Abstract "screen" render buffer,
     // maybe graphics or viewport snapshot buffer.
-    wgpu::Texture* screen_buffer;
+    wgpu::Texture* screen_buffer = nullptr;
   };
 
   using NotificationHandler =
@@ -122,6 +130,7 @@ class DrawableNode final {
 
   // Set current node visibility
   void SetNodeVisibility(VisibilityState node_state);
+  VisibilityState GetVisibility() const;
 
   // Set the key for requirement of the controller's map sort.
   // For the same weight scene, it can set multi weight value for sort.
@@ -130,6 +139,12 @@ class DrawableNode final {
   void SetNodeSortWeight(int weight1);
   void SetNodeSortWeight(int weight1, int weight2);
   void SetNodeSortWeight(int weight1, int weight2, int weight3);
+
+  // Get sort key
+  SortKey* GetSortKeys() { return &key_; }
+
+  // Get current controller
+  DrawNodeController* GetController() const { return controller_; }
 
  private:
   friend class DrawNodeController;

@@ -1,6 +1,6 @@
 /*
   SDL_ttf:  A companion library to SDL for working with TrueType (tm) fonts
-  Copyright (C) 2001-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 2001-2025 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -19,15 +19,17 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
+/* WIKI CATEGORY: SDLTTF */
 
 /**
- *  \file SDL_ttf.h
+ * # CategorySDLTTF
  *
- *  Header file for SDL_ttf library
+ * Header file for SDL_ttf library
  *
- *  This library is a wrapper around the excellent FreeType 2.0 library,
- *  available at: https://www.freetype.org/
+ * This library is a wrapper around the excellent FreeType 2.0 library,
+ * available at: https://www.freetype.org/
  */
+
 #ifndef SDL_TTF_H_
 #define SDL_TTF_H_
 
@@ -192,7 +194,7 @@ extern SDL_DECLSPEC TTF_Font * SDLCALL TTF_OpenFontIO(SDL_IOStream *src, bool cl
  *   for the beginning of the font, defaults to 0.
  * - `TTF_PROP_FONT_CREATE_IOSTREAM_AUTOCLOSE_BOOLEAN`: true if closing the
  *   font should also close the associated SDL_IOStream.
- * - `TTF_PROP_FONT_CREATE_SIZE_NUMBER`: the point size of the font. Some .fon
+ * - `TTF_PROP_FONT_CREATE_SIZE_FLOAT`: the point size of the font. Some .fon
  *   fonts will have several sizes embedded in the file, so the point size
  *   becomes the index of choosing which size. If the value is too high, the
  *   last indexed size will be the default.
@@ -229,6 +231,17 @@ extern SDL_DECLSPEC TTF_Font * SDLCALL TTF_OpenFontWithProperties(SDL_Properties
 /**
  * Get the properties associated with a font.
  *
+ * The following read-write properties are provided by SDL:
+ *
+ * - `TTF_PROP_FONT_OUTLINE_LINE_CAP_NUMBER`: The FT_Stroker_LineCap value
+ *   used when setting the font outline, defaults to
+ *   `FT_STROKER_LINECAP_ROUND`.
+ * - `TTF_PROP_FONT_OUTLINE_LINE_JOIN_NUMBER`: The FT_Stroker_LineJoin value
+ *   used when setting the font outline, defaults to
+ *   `FT_STROKER_LINEJOIN_ROUND`.
+ * - `TTF_PROP_FONT_OUTLINE_MITER_LIMIT_NUMBER`: The FT_Fixed miter limit used
+ *   when setting the font outline, defaults to 0.
+ *
  * \param font the font to query.
  * \returns a valid property ID on success or 0 on failure; call
  *          SDL_GetError() for more information.
@@ -238,6 +251,10 @@ extern SDL_DECLSPEC TTF_Font * SDLCALL TTF_OpenFontWithProperties(SDL_Properties
  * \since This function is available since SDL_ttf 3.0.0.
  */
 extern SDL_DECLSPEC SDL_PropertiesID SDLCALL TTF_GetFontProperties(TTF_Font *font);
+
+#define TTF_PROP_FONT_OUTLINE_LINE_CAP_NUMBER           "SDL_ttf.font.outline.line_cap"
+#define TTF_PROP_FONT_OUTLINE_LINE_JOIN_NUMBER          "SDL_ttf.font.outline.line_join"
+#define TTF_PROP_FONT_OUTLINE_MITER_LIMIT_NUMBER        "SDL_ttf.font.outline.miter_limit"
 
 /**
  * Get the font generation.
@@ -335,13 +352,24 @@ extern SDL_DECLSPEC float SDLCALL TTF_GetFontSize(TTF_Font *font);
 extern SDL_DECLSPEC bool SDLCALL TTF_GetFontDPI(TTF_Font *font, int *hdpi, int *vdpi);
 
 /**
- * Font style flags
+ * Font style flags for TTF_Font
+ *
+ * These are the flags which can be used to set the style of a font in
+ * SDL_ttf. A combination of these flags can be used with functions that set
+ * or query font style, such as TTF_SetFontStyle or TTF_GetFontStyle.
+ *
+ * \since This function is available since SDL_ttf 3.0.0.
+ *
+ * \sa TTF_SetFontStyle
+ * \sa TTF_GetFontStyle
  */
-#define TTF_STYLE_NORMAL        0x00
-#define TTF_STYLE_BOLD          0x01
-#define TTF_STYLE_ITALIC        0x02
-#define TTF_STYLE_UNDERLINE     0x04
-#define TTF_STYLE_STRIKETHROUGH 0x08
+typedef Uint32 TTF_FontStyleFlags;
+
+#define TTF_STYLE_NORMAL        0x00 /**< No special style */
+#define TTF_STYLE_BOLD          0x01 /**< Bold style */
+#define TTF_STYLE_ITALIC        0x02 /**< Italic style */
+#define TTF_STYLE_UNDERLINE     0x04 /**< Underlined text */
+#define TTF_STYLE_STRIKETHROUGH 0x08 /**< Strikethrough text */
 
 /**
  * Set a font's current style.
@@ -367,7 +395,7 @@ extern SDL_DECLSPEC bool SDLCALL TTF_GetFontDPI(TTF_Font *font, int *hdpi, int *
  *
  * \sa TTF_GetFontStyle
  */
-extern SDL_DECLSPEC void SDLCALL TTF_SetFontStyle(TTF_Font *font, int style);
+extern SDL_DECLSPEC void SDLCALL TTF_SetFontStyle(TTF_Font *font, TTF_FontStyleFlags style);
 
 /**
  * Query a font's current style.
@@ -389,10 +417,14 @@ extern SDL_DECLSPEC void SDLCALL TTF_SetFontStyle(TTF_Font *font, int style);
  *
  * \sa TTF_SetFontStyle
  */
-extern SDL_DECLSPEC int SDLCALL TTF_GetFontStyle(const TTF_Font *font);
+extern SDL_DECLSPEC TTF_FontStyleFlags SDLCALL TTF_GetFontStyle(const TTF_Font *font);
 
 /**
  * Set a font's current outline.
+ *
+ * This uses the font properties `TTF_PROP_FONT_OUTLINE_LINE_CAP_NUMBER`,
+ * `TTF_PROP_FONT_OUTLINE_LINE_JOIN_NUMBER`, and
+ * `TTF_PROP_FONT_OUTLINE_MITER_LIMIT_NUMBER` when setting the font outline.
  *
  * This updates any TTF_Text objects using this font, and clears
  * already-generated glyphs, if any, from the cache.
@@ -426,13 +458,25 @@ extern SDL_DECLSPEC bool SDLCALL TTF_SetFontOutline(TTF_Font *font, int outline)
 extern SDL_DECLSPEC int SDLCALL TTF_GetFontOutline(const TTF_Font *font);
 
 /**
- * Hinting flags
+ * Hinting flags for TTF (TrueType Fonts)
+ *
+ * This enum specifies the level of hinting to be applied to the font
+ * rendering. The hinting level determines how much the font's outlines are
+ * adjusted for better alignment on the pixel grid.
+ *
+ * \since This enum is available since SDL_ttf 3.0.0.
+ *
+ * \sa TTF_SetFontHinting
+ * \sa TTF_GetFontHinting
  */
-#define TTF_HINTING_NORMAL          0
-#define TTF_HINTING_LIGHT           1
-#define TTF_HINTING_MONO            2
-#define TTF_HINTING_NONE            3
-#define TTF_HINTING_LIGHT_SUBPIXEL  4
+typedef enum TTF_HintingFlags
+{
+    TTF_HINTING_NORMAL = 0,     /**< Normal hinting applies standard grid-fitting. */
+    TTF_HINTING_LIGHT,          /**< Light hinting applies subtle adjustments to improve rendering. */
+    TTF_HINTING_MONO,           /**< Monochrome hinting adjusts the font for better rendering at lower resolutions. */
+    TTF_HINTING_NONE,           /**< No hinting, the font is rendered without any grid-fitting. */
+    TTF_HINTING_LIGHT_SUBPIXEL  /**< Light hinting with subpixel rendering for more precise font edges. */
+} TTF_HintingFlags;
 
 /**
  * Set a font's current hinter setting.
@@ -458,7 +502,7 @@ extern SDL_DECLSPEC int SDLCALL TTF_GetFontOutline(const TTF_Font *font);
  *
  * \sa TTF_GetFontHinting
  */
-extern SDL_DECLSPEC void SDLCALL TTF_SetFontHinting(TTF_Font *font, int hinting);
+extern SDL_DECLSPEC void SDLCALL TTF_SetFontHinting(TTF_Font *font, TTF_HintingFlags hinting);
 
 /**
  * Query a font's current FreeType hinter setting.
@@ -480,7 +524,7 @@ extern SDL_DECLSPEC void SDLCALL TTF_SetFontHinting(TTF_Font *font, int hinting)
  *
  * \sa TTF_SetFontHinting
  */
-extern SDL_DECLSPEC int SDLCALL TTF_GetFontHinting(const TTF_Font *font);
+extern SDL_DECLSPEC TTF_HintingFlags SDLCALL TTF_GetFontHinting(const TTF_Font *font);
 
 /**
  * Enable Signed Distance Field rendering for a font.
@@ -1479,7 +1523,7 @@ typedef struct TTF_TextData TTF_TextData;
  */
 typedef struct TTF_Text
 {
-    char *text;             /**< A copy of the text used to create this text object, useful for layout and debugging. This will be freed automatically when the object is destroyed. */
+    char *text;             /**< A copy of the UTF-8 string that this text object represents, useful for layout, debugging and retrieving substring text. This is updated when the text object is modified and will be freed automatically when the object is destroyed. */
     int num_lines;          /**< The number of lines in the text, 0 if it's empty */
 
     int refcount;           /**< Application reference count, used when freeing surface */
@@ -1606,6 +1650,130 @@ extern SDL_DECLSPEC bool SDLCALL TTF_DrawRendererText(TTF_Text *text, float x, f
 extern SDL_DECLSPEC void SDLCALL TTF_DestroyRendererTextEngine(TTF_TextEngine *engine);
 
 /**
+ * Create a text engine for drawing text with the SDL GPU API.
+ *
+ * \param device the SDL_GPUDevice to use for creating textures and drawing
+ *               text.
+ * \returns a TTF_TextEngine object or NULL on failure; call SDL_GetError()
+ *          for more information.
+ *
+ * \threadsafety This function should be called on the thread that created the
+ *               device.
+ *
+ * \since This function is available since SDL_ttf 3.0.0.
+ *
+ * \sa TTF_DestroyGPUTextEngine
+ */
+extern SDL_DECLSPEC TTF_TextEngine * SDLCALL TTF_CreateGPUTextEngine(SDL_GPUDevice *device);
+
+/**
+ * Draw sequence returned by TTF_GetGPUTextDrawData
+ *
+ * \since This struct is available since SDL_ttf 3.0.0.
+ *
+ * \sa TTF_GetGPUTextDrawData
+ */
+typedef struct TTF_GPUAtlasDrawSequence
+{
+    SDL_GPUTexture *atlas_texture;          /**< Texture atlas that stores the glyphs */
+    SDL_FPoint *xy;                         /**< An array of vertex positions */
+    SDL_FPoint *uv;                         /**< An array of normalized texture coordinates for each vertex */
+    int num_vertices;                       /**< Number of vertices */
+    int *indices;                           /**< An array of indices into the 'vertices' arrays */
+    int num_indices;                        /**< Number of indices */
+
+    struct TTF_GPUAtlasDrawSequence *next;  /**< The next sequence (will be NULL in case of the last sequence) */
+} TTF_GPUAtlasDrawSequence;
+
+/**
+ * Get the geometry data needed for drawing the text.
+ *
+ * `text` must have been created using a TTF_TextEngine from
+ * TTF_CreateGPUTextEngine().
+ *
+ * If the text looks blocky use linear filtering.
+ *
+ * \param text the text to draw.
+ * \returns a NULL terminated linked list of TTF_GPUAtlasDrawSequence objects
+ *          or NULL if the passed text is empty or in case of failure; call
+ *          SDL_GetError() for more information.
+ *
+ * \threadsafety This function should be called on the thread that created the
+ *               text.
+ *
+ * \since This function is available since SDL_ttf 3.0.0.
+ *
+ * \sa TTF_CreateGPUTextEngine
+ * \sa TTF_CreateText
+ */
+extern SDL_DECLSPEC TTF_GPUAtlasDrawSequence* SDLCALL TTF_GetGPUTextDrawData(TTF_Text *text);
+
+/**
+ * Destroy a text engine created for drawing text with the SDL GPU API.
+ *
+ * All text created by this engine should be destroyed before calling this
+ * function.
+ *
+ * \param engine a TTF_TextEngine object created with
+ *               TTF_CreateGPUTextEngine().
+ *
+ * \threadsafety This function should be called on the thread that created the
+ *               engine.
+ *
+ * \since This function is available since SDL_ttf 3.0.0.
+ *
+ * \sa TTF_CreateGPUTextEngine
+ */
+extern SDL_DECLSPEC void SDLCALL TTF_DestroyGPUTextEngine(TTF_TextEngine *engine);
+
+/**
+ * The winding order of the vertices returned by TTF_GetGPUTextDrawData
+ *
+ * \since This enum is available since SDL_ttf 3.0.0.
+ */
+typedef enum TTF_GPUTextEngineWinding
+{
+    TTF_GPU_TEXTENGINE_WINDING_INVALID = -1,
+    TTF_GPU_TEXTENGINE_WINDING_CLOCKWISE,
+    TTF_GPU_TEXTENGINE_WINDING_COUNTER_CLOCKWISE
+} TTF_GPUTextEngineWinding;
+
+/**
+ * Sets the winding order of the vertices returned by TTF_GetGPUTextDrawData
+ * for a particular GPU text engine.
+ *
+ * \param engine a TTF_TextEngine object created with
+ *               TTF_CreateGPUTextEngine().
+ * \param winding the new winding order option.
+ *
+ * \threadsafety This function should be called on the thread that created the
+ *               engine.
+ *
+ * \since This function is available since SDL_ttf 3.0.0.
+ *
+ * \sa TTF_GetGPUTextEngineWinding
+ */
+extern SDL_DECLSPEC void SDLCALL TTF_SetGPUTextEngineWinding(TTF_TextEngine *engine, TTF_GPUTextEngineWinding winding);
+
+/**
+ * Get the winding order of the vertices returned by TTF_GetGPUTextDrawData
+ * for a particular GPU text engine
+ *
+ * \param engine a TTF_TextEngine object created with
+ *               TTF_CreateGPUTextEngine().
+ * \returns the winding order used by the GPU text engine or
+ *          TTF_GPU_TEXTENGINE_WINDING_INVALID in case of error.
+ *
+ * \threadsafety This function should be called on the thread that created the
+ *               engine.
+ *
+ * \since This function is available since SDL_ttf 3.0.0.
+ *
+ * \sa TTF_SetGPUTextEngineWinding
+ */
+extern SDL_DECLSPEC TTF_GPUTextEngineWinding SDLCALL TTF_GetGPUTextEngineWinding(const TTF_TextEngine *engine);
+
+/**
  * Create a text object from UTF-8 text and a text engine.
  *
  * \param engine the text engine to use when creating the text object, may be
@@ -1682,6 +1850,8 @@ extern SDL_DECLSPEC TTF_TextEngine * SDLCALL TTF_GetTextEngine(TTF_Text *text);
  *
  * \param text the TTF_Text to modify.
  * \param font the font to use, may be NULL.
+ * \returns false if the text pointer is null; otherwise, true. call
+ *          SDL_GetError() for more information.
  *
  * \threadsafety This function should be called on the thread that created the
  *               text.
@@ -2242,14 +2412,7 @@ extern SDL_DECLSPEC void SDLCALL TTF_DestroyText(TTF_Text *text);
  * \since This function is available since SDL_ttf 3.0.0.
  *
  * \sa TTF_OpenFont
- * \sa TTF_OpenFontIndexDPIIO
  * \sa TTF_OpenFontIO
- * \sa TTF_OpenFontDPI
- * \sa TTF_OpenFontDPIIO
- * \sa TTF_OpenFontIndex
- * \sa TTF_OpenFontIndexDPI
- * \sa TTF_OpenFontIndexDPIIO
- * \sa TTF_OpenFontIndexIO
  */
 extern SDL_DECLSPEC void SDLCALL TTF_CloseFont(TTF_Font *font);
 

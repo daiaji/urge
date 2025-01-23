@@ -1,6 +1,6 @@
 /*
   SDL_ttf:  A companion library to SDL for working with TrueType (tm) fonts
-  Copyright (C) 2001-2024 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 2001-2025 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -247,7 +247,7 @@ struct TTF_Font {
     int lineskip;
 
     // The font style
-    int style;
+    TTF_FontStyleFlags style;
     int outline;
     FT_Stroker stroker;
 
@@ -1963,7 +1963,7 @@ TTF_Font *TTF_OpenFontWithProperties(SDL_PropertiesID props)
     font->hdpi = TTF_DEFAULT_DPI;
     font->vdpi = TTF_DEFAULT_DPI;
 
-    font->text = SDL_CreateHashTable(NULL, 16, SDL_HashPointer, SDL_KeyMatchPointer, NULL, false);
+    font->text = SDL_CreateHashTable(NULL, 16, SDL_HashPointer, SDL_KeyMatchPointer, NULL, false, false);
     if (!font->text) {
         TTF_CloseFont(font);
         return NULL;
@@ -2868,7 +2868,7 @@ SDL_Surface *TTF_GetGlyphImage(TTF_Font *font, Uint32 ch)
 {
     FT_UInt idx;
 
-    TTF_CHECK_FONT(font, false);
+    TTF_CHECK_FONT(font, NULL);
 
     idx = get_char_index(font, ch);
     if (idx == 0) {
@@ -3038,9 +3038,6 @@ static bool TTF_Size_Internal(TTF_Font *font, const char *text, size_t length, i
     TTF_CHECK_POINTER("font", font, false);
     TTF_CHECK_POINTER("text", text, false);
 
-    if (!length) {
-        length = SDL_strlen(text);
-    }
     if (measured_length) {
         *measured_length = length;
     }
@@ -3104,16 +3101,19 @@ static bool TTF_Size_Internal(TTF_Font *font, const char *text, size_t length, i
         offset = (int)hb_glyph_info[g].cluster;
 #else
     // Load each character and sum it's bounding box
+    const char *start = text;
     int offset = 0;
     while (length > 0) {
-        const char *last = text;
+        offset = (int)(text - start);
         Uint32 c = SDL_StepUTF8(&text, &length);
         FT_UInt idx = get_char_index(font, c);
 
-        offset += (text - last);
-
         if (c == UNICODE_BOM_NATIVE || c == UNICODE_BOM_SWAPPED) {
             continue;
+        }
+
+        if (c == 0 && length > 0) {
+            --length;
         }
 #endif
         if (!Find_GlyphByIndex(font, idx, 0, 0, 0, 0, 0, 0, &glyph, NULL)) {
@@ -3266,11 +3266,17 @@ failure:
 
 bool TTF_GetStringSize(TTF_Font *font, const char *text, size_t length, int *w, int *h)
 {
+    if (!length && text) {
+        length = SDL_strlen(text);
+    }
     return TTF_Size_Internal(font, text, length, w, h, NULL, NULL, NO_MEASUREMENT);
 }
 
 bool TTF_MeasureString(TTF_Font *font, const char *text, size_t length, int max_width, int *measured_width, size_t *measured_length)
 {
+    if (!length && text) {
+        length = SDL_strlen(text);
+    }
     return TTF_Size_Internal(font, text, length, NULL, NULL, NULL, NULL, true, max_width, measured_width, measured_length);
 }
 
@@ -3748,6 +3754,7 @@ SDL_Surface* TTF_RenderText_LCD_Wrapped(TTF_Font *font, const char *text, size_t
 
 struct TTF_TextLayout
 {
+    int font_height;
     int wrap_length;
     bool wrap_whitespace_visible;
     int *lines;
@@ -3887,7 +3894,7 @@ static int CalculateClusterLengths(TTF_Text *text, TTF_SubString *clusters, int 
             cluster->length = clusters[i + 1].offset - cluster->offset;
         } else {
             SDL_assert(cluster->flags & TTF_SUBSTRING_TEXT_END);
-            SDL_assert(cluster->offset == length);
+            SDL_assert(cluster->offset == (int)length);
         }
         last = cluster;
     }
@@ -4114,9 +4121,11 @@ bool TTF_SetTextFont(TTF_Text *text, TTF_Font *font)
     if (text->internal->font) {
         AddFontTextReference(text->internal->font, text);
 
-        // Only update the text if we have a font available
-        text->internal->needs_layout_update = true;
+        text->internal->layout->font_height = font->height;
+    } else {
+        text->internal->layout->font_height = 0;
     }
+    text->internal->needs_layout_update = true;
 
     return true;
 }
@@ -4315,7 +4324,7 @@ bool TTF_SetTextString(TTF_Text *text, const char *string, size_t length)
             length = SDL_strlen(string);
         }
 
-        if (text->text && length == SDL_strlen(text->text) && SDL_memcmp(text, text->text, length) == 0) {
+        if (text->text && length == SDL_strlen(text->text) && SDL_memcmp(string, text->text, length) == 0) {
             return true;
         }
 
@@ -4459,7 +4468,7 @@ bool TTF_GetTextSubString(TTF_Text *text, int offset, TTF_SubString *substring)
     }
 
     if (text->internal->num_clusters == 0) {
-        substring->rect.h = text->internal->font->height;
+        substring->rect.h = text->internal->layout->font_height;
         return true;
     }
 
@@ -4530,7 +4539,7 @@ bool TTF_GetTextSubStringForLine(TTF_Text *text, int line, TTF_SubString *substr
     }
 
     if (text->internal->num_clusters == 0) {
-        substring->rect.h = text->internal->font->height;
+        substring->rect.h = text->internal->layout->font_height;
         return true;
     }
 
@@ -4593,7 +4602,7 @@ TTF_SubString **TTF_GetTextSubStringsForRange(TTF_Text *text, int offset, int le
         result[0] = substring;
         result[1] = NULL;
         SDL_zerop(substring);
-        substring->rect.h = text->internal->font->height;
+        substring->rect.h = text->internal->layout->font_height;
 
         if (count) {
             *count = 1;
@@ -4696,18 +4705,13 @@ bool TTF_GetTextSubStringForPoint(TTF_Text *text, int x, int y, TTF_SubString *s
     }
 
     if (text->internal->num_clusters == 0) {
-        substring->rect.h = text->internal->font->height;
+        substring->rect.h = text->internal->layout->font_height;
         return true;
     }
 
-#if TTF_USE_HARFBUZZ
-    hb_direction_t hb_direction = text->internal->font->hb_direction;
-    bool prefer_row = (hb_direction == HB_DIRECTION_LTR || hb_direction == HB_DIRECTION_RTL);
-    bool line_ends_right = (hb_direction == HB_DIRECTION_LTR);
-#else
-    bool prefer_row = true;
-    bool line_ends_right = true;
-#endif
+    TTF_Direction direction = TTF_GetFontDirection(text->internal->font);
+    bool prefer_row = (direction == TTF_DIRECTION_LTR || direction == TTF_DIRECTION_RTL);
+    bool line_ends_right = (direction == TTF_DIRECTION_LTR);
     const TTF_SubString *closest = NULL;
     int closest_dist = INT_MAX;
     int wrap_cost = 100;
@@ -4982,10 +4986,10 @@ bool TTF_GetFontDPI(TTF_Font *font, int *hdpi, int *vdpi)
     return true;
 }
 
-void TTF_SetFontStyle(TTF_Font *font, int style)
+void TTF_SetFontStyle(TTF_Font *font, TTF_FontStyleFlags style)
 {
-    int prev_style;
-    long face_style;
+    TTF_FontStyleFlags prev_style;
+    TTF_FontStyleFlags face_style;
 
     TTF_CHECK_FONT(font,);
 
@@ -5015,7 +5019,7 @@ void TTF_SetFontStyle(TTF_Font *font, int style)
     UpdateFontText(font);
 }
 
-int TTF_GetFontStyle(const TTF_Font *font)
+TTF_FontStyleFlags TTF_GetFontStyle(const TTF_Font *font)
 {
     int style;
     long face_style;
@@ -5058,7 +5062,11 @@ bool TTF_SetFontOutline(TTF_Font *font, int outline)
             }
         }
 
-        FT_Stroker_Set(font->stroker, outline * 64, FT_STROKER_LINECAP_ROUND, FT_STROKER_LINEJOIN_ROUND, 0);
+        SDL_PropertiesID props = TTF_GetFontProperties(font);
+        FT_Stroker_LineCap line_cap = (FT_Stroker_LineCap)SDL_GetNumberProperty(props, TTF_PROP_FONT_OUTLINE_LINE_CAP_NUMBER, FT_STROKER_LINECAP_ROUND);
+        FT_Stroker_LineJoin line_join = (FT_Stroker_LineJoin)SDL_GetNumberProperty(props, TTF_PROP_FONT_OUTLINE_LINE_JOIN_NUMBER, FT_STROKER_LINEJOIN_ROUND);
+        FT_Fixed miter_limit = (FT_Fixed)SDL_GetNumberProperty(props, TTF_PROP_FONT_OUTLINE_MITER_LIMIT_NUMBER, 0);
+        FT_Stroker_Set(font->stroker, outline * 64, line_cap, line_join, miter_limit);
     } else {
         if (font->stroker) {
             FT_Stroker_Done(font->stroker);
@@ -5082,7 +5090,7 @@ int TTF_GetFontOutline(const TTF_Font *font)
     return font->outline;
 }
 
-void TTF_SetFontHinting(TTF_Font *font, int hinting)
+void TTF_SetFontHinting(TTF_Font *font, TTF_HintingFlags hinting)
 {
     TTF_CHECK_FONT(font,);
 
@@ -5114,7 +5122,7 @@ void TTF_SetFontHinting(TTF_Font *font, int hinting)
     UpdateFontText(font);
 }
 
-int TTF_GetFontHinting(const TTF_Font *font)
+TTF_HintingFlags TTF_GetFontHinting(const TTF_Font *font)
 {
     TTF_CHECK_FONT(font, -1);
 

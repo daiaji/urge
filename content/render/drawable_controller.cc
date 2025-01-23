@@ -59,6 +59,10 @@ void DrawableNode::SetNodeVisibility(VisibilityState node_state) {
   node_visibility_ = node_state;
 }
 
+DrawableNode::VisibilityState DrawableNode::GetVisibility() const {
+  return node_visibility_;
+}
+
 void DrawableNode::SetNodeSortWeight(int weight1) {
   if (!controller_)
     return;

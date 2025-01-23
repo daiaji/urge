@@ -242,6 +242,16 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
 
 void GPUDestroyTextureInternal(TextureAgent* agent) {
   agent->data = nullptr;
+  agent->view = nullptr;
+
+  agent->sampler = nullptr;
+  agent->world = nullptr;
+  agent->binding = nullptr;
+
+  agent->text_surface_cache = nullptr;
+  agent->text_surface_cache = nullptr;
+  agent->text_write_cache = nullptr;
+
   TextureAgent::Free(agent);
 }
 

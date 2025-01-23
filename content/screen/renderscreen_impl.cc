@@ -97,6 +97,14 @@ CanvasScheduler* RenderScreenImpl::GetCanvasScheduler() const {
   return canvas_scheduler_.get();
 }
 
+void RenderScreenImpl::PostTask(base::OnceClosure task) {
+  base::ThreadWorker::PostTask(render_worker_, std::move(task));
+}
+
+void RenderScreenImpl::WaitWorkerSynchronize() {
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
+}
+
 void RenderScreenImpl::Update(ExceptionState& exception_state) {
   if (!frozen_ && !frame_skip_required_)
     RenderSingleFrameInternal(screen_buffer_.get());

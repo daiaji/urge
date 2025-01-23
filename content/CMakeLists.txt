@@ -42,8 +42,12 @@ set(ENGINE_CONTENT_SRC
   public/engine_window.h
   render/drawable_controller.cc
   render/drawable_controller.h
+  render/sprite_impl.cc
+  render/sprite_impl.h
   screen/renderscreen_impl.cc
   screen/renderscreen_impl.h
+  screen/viewport_impl.cc
+  screen/viewport_impl.h
   worker/content_runner.cc
   worker/content_runner.h
   worker/coroutine_context.h
