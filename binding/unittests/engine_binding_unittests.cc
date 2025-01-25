@@ -60,10 +60,18 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
       static_cast<content::CanvasImpl*>(bmp2.get())->RequireMemorySurface();
   IMG_SavePNG(surf, "out.png");
 
-  auto spr = content::Sprite::New(execution, nullptr, exception_state);
-  spr->Put_Bitmap(bmp2, exception_state);
-  spr->Put_X(100, exception_state);
-  spr->Put_Y(100, exception_state);
+  auto vp =
+      content::Viewport::New(execution, 100, 100, 300, 300, exception_state);
+
+  auto spr = content::Sprite::New(execution, vp, exception_state);
+  spr->Put_Bitmap(bmp, exception_state);
+  spr->Put_X(0, exception_state);
+  spr->Put_Y(0, exception_state);
+
+  auto spr1 = content::Sprite::New(execution, vp, exception_state);
+  spr1->Put_Bitmap(bmp2, exception_state);
+  spr1->Put_X(100, exception_state);
+  spr1->Put_Y(100, exception_state);
 
   for (;;) {
     execution->graphics->Update(exception_state);

@@ -238,7 +238,6 @@ wgpu::Device CreateDevice(const wgpu::Instance& instance,
 
 wgpu::Adapter CreateAdapter(const wgpu::Instance& instance) {
   wgpu::RequestAdapterOptions options;
-  options.compatibilityMode = true;
 
   wgpu::Adapter ret_adapter;
   instance.WaitAny(instance.RequestAdapter(
@@ -266,7 +265,6 @@ wgpu::Instance CreateInstance() {
 
 int SDL_main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO);
-  IMG_Init(IMG_INIT_PNG);
 
   wgpu::Instance instance = CreateInstance();
   wgpu::Adapter adapter = CreateAdapter(instance);
@@ -434,7 +432,8 @@ int SDL_main(int argc, char* argv[]) {
 
     {
       wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
-      pass.SetViewport(0, 0, widget->GetSize().x, widget->GetSize().y, 0, 0);
+      pass.SetViewport(400, 300, widget->GetSize().x - 400,
+                       widget->GetSize().y - 300, 0, 0);
       pass.SetPipeline(pipeline);
       pass.SetVertexBuffer(0, vbo);
       pass.SetBindGroup(0, groups[ii]);
@@ -458,7 +457,6 @@ int SDL_main(int argc, char* argv[]) {
 
   device = nullptr;
 
-  IMG_Quit();
   SDL_Quit();
 
   return 0;

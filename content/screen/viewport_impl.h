@@ -19,7 +19,7 @@ struct ViewportAgent {
   base::Vec2i projection_size;
 };
 
-class ViewportImpl : public Viewport {
+class ViewportImpl : public Viewport, public GraphicsChild {
  public:
   ViewportImpl(RenderScreenImpl* screen, const base::Rect& region);
   ~ViewportImpl() override;
@@ -52,12 +52,11 @@ class ViewportImpl : public Viewport {
       DrawableNode::RenderStage stage,
       DrawableNode::RenderControllerParams* params);
 
-  RenderScreenImpl* screen_;
   DrawableNode node_;
   DrawNodeController controller_;
+  ViewportAgent* agent_;
   base::Rect region_;
   base::Vec2i origin_;
-  ViewportAgent* agent_;
 
   scoped_refptr<ColorImpl> color_;
   scoped_refptr<ToneImpl> tone_;

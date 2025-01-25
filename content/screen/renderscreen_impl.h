@@ -29,6 +29,20 @@ struct RenderGraphicsAgent {
   std::unique_ptr<renderer::Pipeline_Base> screen_pipeline;
 };
 
+class GraphicsChild {
+ public:
+  GraphicsChild(RenderScreenImpl* screen) : screen_(screen) {}
+  virtual ~GraphicsChild() = default;
+
+  GraphicsChild(const GraphicsChild&) = delete;
+  GraphicsChild& operator=(const GraphicsChild&) = delete;
+
+  RenderScreenImpl* screen() const { return screen_; }
+
+ private:
+  RenderScreenImpl* screen_;
+};
+
 class RenderScreenImpl : public Graphics {
  public:
   RenderScreenImpl(CoroutineContext* cc,

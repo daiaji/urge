@@ -70,14 +70,14 @@ scoped_refptr<Sprite> Sprite::New(ExecutionContext* execution_context,
 }
 
 SpriteImpl::SpriteImpl(RenderScreenImpl* screen, DrawNodeController* parent)
-    : node_(SortKey()), screen_(screen) {
+    : GraphicsChild(screen), node_(SortKey()) {
   node_.RebindController(parent);
   node_.RegisterEventHandler(base::BindRepeating(
       &SpriteImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
 
   agent_ = new SpriteAgent;
-  screen_->PostTask(
-      base::BindOnce(&GPUCreateSpriteInternal, screen_->GetDevice(), agent_));
+  screen->PostTask(
+      base::BindOnce(&GPUCreateSpriteInternal, screen->GetDevice(), agent_));
 }
 
 SpriteImpl::~SpriteImpl() {
@@ -87,7 +87,7 @@ SpriteImpl::~SpriteImpl() {
 
 void SpriteImpl::Dispose(ExceptionState& exception_state) {
   if (!IsDisposed(exception_state)) {
-    screen_->PostTask(base::BindOnce(&GPUDestroySpriteInternal, agent_));
+    screen()->PostTask(base::BindOnce(&GPUDestroySpriteInternal, agent_));
     agent_ = nullptr;
   }
 }
@@ -340,14 +340,14 @@ void SpriteImpl::DrawableNodeHandlerInternal(
       for (int i = 0; i < 4; ++i)
         transform_.TransformVertexUnsafe(&vertices[i].position);
 
-      screen_->PostTask(base::BindOnce(&GPUUpdateSpriteVerticesInternal,
-                                       params->command_encoder, agent_,
-                                       vertices));
+      screen()->PostTask(base::BindOnce(&GPUUpdateSpriteVerticesInternal,
+                                        params->command_encoder, agent_,
+                                        vertices));
     }
   } else if (stage == DrawableNode::RenderStage::kOnRendering) {
-    screen_->PostTask(base::BindOnce(
+    screen()->PostTask(base::BindOnce(
         &GPUOnSpriteRenderingInternal, params->device,
-        screen_->GetCommonIndexBuffer(), params->main_pass,
+        screen()->GetCommonIndexBuffer(), params->main_pass,
         params->world_binding, agent_, bitmap_->GetAgent(), blend_type_));
   }
 }

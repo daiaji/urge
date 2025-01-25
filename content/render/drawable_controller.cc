@@ -15,6 +15,18 @@ static std::pmr::monotonic_buffer_resource buffer_resource{array_buffer.data(),
 static std::pmr::unsynchronized_pool_resource pool_resource{
     std::pmr::pool_options{32, 256}, &buffer_resource};
 
+static int64_t g_creation_stamp = 0;
+
+SortKey::SortKey() : weight{0, 0, ++g_creation_stamp} {}
+
+SortKey::SortKey(int64_t key1) : weight{key1, 0, ++g_creation_stamp} {}
+
+SortKey::SortKey(int64_t key1, int64_t key2)
+    : weight{key1, key2, ++g_creation_stamp} {}
+
+SortKey::SortKey(int64_t key1, int64_t key2, int64_t key3)
+    : weight{key1, key2, key3} {}
+
 DrawableNode::DrawableNode(const SortKey& default_sort_weight)
     : key_(default_sort_weight),
       node_visibility_(VisibilityState::kVisible),

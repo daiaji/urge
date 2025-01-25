@@ -20,7 +20,7 @@ struct SpriteAgent {
   wgpu::Buffer vertex_buffer;
 };
 
-class SpriteImpl : public Sprite {
+class SpriteImpl : public Sprite, public GraphicsChild {
  public:
   SpriteImpl(RenderScreenImpl* screen, DrawNodeController* parent);
   ~SpriteImpl() override;
@@ -70,26 +70,30 @@ class SpriteImpl : public Sprite {
   DrawableNode node_;
   SpriteAgent* agent_;
 
-  RenderScreenImpl* screen_;
   renderer::FullVertexLayout vertices_[4];
 
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> bitmap_;
   base::Rect src_rect_;
   renderer::TransformQuadVertices transform_;
+
   struct {
-    int32_t amp;
-    int32_t length;
-    int32_t speed;
-    int32_t phase;
+    bool active = false;
+    int32_t amp = 0;
+    int32_t length = 180;
+    int32_t speed = 360;
+    float phase = 0.0f;
   } wave_;
-  bool mirror_;
+
+  bool mirror_ = false;
+
   struct {
-    int32_t depth;
-    int32_t opacity;
+    int32_t depth = 0;
+    int32_t opacity = 128;
   } bush_;
-  int32_t opacity_;
-  int32_t blend_type_;
+
+  int32_t opacity_ = 255;
+  int32_t blend_type_ = 0;
   scoped_refptr<ColorImpl> color_;
   scoped_refptr<ToneImpl> tone_;
 };

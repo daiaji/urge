@@ -46,11 +46,10 @@ class DrawNodeController;
 struct SortKey {
   int64_t weight[3];
 
-  SortKey() : weight{0} {}
-  SortKey(int64_t key1) : weight{key1, 0, 0} {}
-  SortKey(int64_t key1, int64_t key2) : weight{key1, key2, 0} {}
-  SortKey(int64_t key1, int64_t key2, int64_t key3)
-      : weight{key1, key2, key3} {}
+  SortKey();
+  SortKey(int64_t key1);
+  SortKey(int64_t key1, int64_t key2);
+  SortKey(int64_t key1, int64_t key2, int64_t key3);
 
   inline bool operator()(const SortKey& lv, const SortKey& rv) const {
     for (int i = 0; i < 3; ++i)

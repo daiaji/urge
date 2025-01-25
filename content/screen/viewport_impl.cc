@@ -61,6 +61,11 @@ void GPUUpdateViewportWorldMatrix(wgpu::CommandEncoder* encoder,
                        sizeof(world_matrix));
 }
 
+void GPUResetViewportRect(wgpu::RenderPassEncoder* agent,
+                          const base::Rect& region) {
+  agent->SetViewport(region.x, region.y, region.width, region.height, 0, 0);
+}
+
 }  // namespace
 
 scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
@@ -87,14 +92,14 @@ scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
 }
 
 ViewportImpl::ViewportImpl(RenderScreenImpl* screen, const base::Rect& region)
-    : screen_(screen), node_(SortKey()), region_(region) {
+    : GraphicsChild(screen), node_(SortKey()), region_(region) {
   node_.RegisterEventHandler(base::BindRepeating(
       &ViewportImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
-  node_.RebindController(screen_->GetDrawableController());
+  node_.RebindController(screen->GetDrawableController());
 
   agent_ = new ViewportAgent;
-  screen_->PostTask(base::BindOnce(
-      &GPUCreateViewportAgent, screen_->GetDevice(), agent_, region.Size()));
+  screen->PostTask(base::BindOnce(&GPUCreateViewportAgent, screen->GetDevice(),
+                                  agent_, region.Size()));
 }
 
 ViewportImpl::~ViewportImpl() {
@@ -110,7 +115,7 @@ void ViewportImpl::Dispose(ExceptionState& exception_state) {
   if (!IsDisposed(exception_state)) {
     node_.DisposeNode();
 
-    screen_->PostTask(base::BindOnce(&GPUDestroyViewportAgent, agent_));
+    screen()->PostTask(base::BindOnce(&GPUDestroyViewportAgent, agent_));
     agent_ = nullptr;
   }
 }
@@ -223,8 +228,8 @@ void ViewportImpl::DrawableNodeHandlerInternal(
     // Update uniform buffer if viewport region changed.
     if (!(region_.Size() == agent_->projection_size)) {
       agent_->projection_size = region_.Size();
-      screen_->PostTask(base::BindOnce(&GPUUpdateViewportWorldMatrix,
-                                       params->command_encoder, agent_));
+      screen()->PostTask(base::BindOnce(&GPUUpdateViewportWorldMatrix,
+                                        params->command_encoder, agent_));
     }
   }
 
@@ -236,20 +241,19 @@ void ViewportImpl::DrawableNodeHandlerInternal(
         base::MakeIntersect(params->viewport_region, viewport_region);
   }
 
-  // Skip if invalid
-  if (transient_params.viewport_region.width <= 0 ||
-      transient_params.viewport_region.height <= 0)
-    return;
-
   // Set new viewport
   if (transient_params.main_pass)
-    transient_params.main_pass->SetViewport(
-        transient_params.viewport_region.x, transient_params.viewport_region.y,
-        transient_params.viewport_region.width,
-        transient_params.viewport_region.height, 0, 0);
+    screen()->PostTask(base::BindOnce(&GPUResetViewportRect,
+                                      transient_params.main_pass,
+                                      transient_params.viewport_region));
 
   // Notify children drawable node
   controller_.BroadCastNotification(stage, &transient_params);
+
+  // Restore last viewport settings
+  if (params->main_pass)
+    screen()->PostTask(base::BindOnce(&GPUResetViewportRect, params->main_pass,
+                                      params->viewport_region));
 }
 
 }  // namespace content
