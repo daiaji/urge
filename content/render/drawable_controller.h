@@ -93,22 +93,26 @@ class DrawableNode final {
     // handler: writeBuffer, writeTexture, copyTexture
     wgpu::CommandEncoder* command_encoder = nullptr;
 
-    // [Stage: on rendering / after render]
-    // World transform matrix.
-    wgpu::BindGroup* world_binding = nullptr;
+    // [Stage: all]
+    // Abstract "screen" render buffer,
+    // maybe graphics or viewport snapshot buffer.
+    wgpu::Texture* screen_buffer = nullptr;
+
+    // [Stage: all]
+    // Current viewport size.
+    base::Vec2i viewport;
 
     // [Stage: on rendering]
     // Current pixel clip region.
-    base::Rect viewport_region;
+    base::Rect clip_rect;
 
     // [Stage: on rendering]
     // Main render pass encoder.
     wgpu::RenderPassEncoder* main_pass = nullptr;
 
     // [Stage: on rendering / after render]
-    // Abstract "screen" render buffer,
-    // maybe graphics or viewport snapshot buffer.
-    wgpu::Texture* screen_buffer = nullptr;
+    // World transform matrix.
+    wgpu::BindGroup* world_binding = nullptr;
   };
 
   using NotificationHandler =

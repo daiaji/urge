@@ -215,8 +215,8 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
 
 void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
   // Viewport region
-  base::Rect viewport_region(0, 0, render_target->GetWidth(),
-                             render_target->GetHeight());
+  base::Vec2i viewport_size(render_target->GetWidth(),
+                            render_target->GetHeight());
 
   // Submit pending canvas commands
   canvas_scheduler_->SubmitPendingPaintCommands();
@@ -225,6 +225,8 @@ void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
   DrawableNode::RenderControllerParams controller_params;
   controller_params.device = device_.get();
   controller_params.command_encoder = context_->GetImmediateEncoder();
+  controller_params.viewport = viewport_size;
+  controller_params.screen_buffer = render_target;
 
   // 1) Execute pre-composite handler
   controller_.BroadCastNotification(DrawableNode::kBeforeRender,
@@ -234,13 +236,12 @@ void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::FrameBeginRenderPassInternal,
-                     base::Unretained(this), render_target, viewport_region));
+                     base::Unretained(this), render_target));
 
   // 3) Notify render a frame
   controller_params.world_binding = &agent_->world_binding;
-  controller_params.viewport_region = viewport_region;
+  controller_params.clip_rect = viewport_size;
   controller_params.main_pass = &agent_->renderpass;
-  controller_params.screen_buffer = render_target;
   controller_.BroadCastNotification(DrawableNode::kOnRendering,
                                     &controller_params);
   // 4) End render pass and process after-render effect
@@ -250,7 +251,7 @@ void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
                      base::Unretained(this)));
 
   // 5) Execute after render composite
-  controller_params.viewport_region = base::Rect();
+  controller_params.clip_rect = base::Rect();
   controller_params.main_pass = nullptr;
   controller_.BroadCastNotification(DrawableNode::kAfterRender,
                                     &controller_params);
@@ -502,8 +503,7 @@ int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
 }
 
 void RenderScreenImpl::FrameBeginRenderPassInternal(
-    wgpu::Texture* render_target,
-    const base::Rect& region) {
+    wgpu::Texture* render_target) {
   auto* encoder = context_->GetImmediateEncoder();
 
   wgpu::RenderPassColorAttachment attachment;
@@ -516,10 +516,10 @@ void RenderScreenImpl::FrameBeginRenderPassInternal(
   renderpass.colorAttachmentCount = 1;
   renderpass.colorAttachments = &attachment;
   agent_->renderpass = encoder->BeginRenderPass(&renderpass);
-  agent_->renderpass.SetViewport(region.x, region.y, region.width,
-                                 region.height, 0, 0);
-  agent_->renderpass.SetScissorRect(region.x, region.y, region.width,
-                                    region.height);
+  agent_->renderpass.SetViewport(0, 0, render_target->GetWidth(),
+                                 render_target->GetHeight(), 0, 0);
+  agent_->renderpass.SetScissorRect(0, 0, render_target->GetWidth(),
+                                    render_target->GetHeight());
 }
 
 void RenderScreenImpl::FrameEndRenderPassInternal() {

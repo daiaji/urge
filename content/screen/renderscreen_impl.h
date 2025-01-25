@@ -102,8 +102,7 @@ class RenderScreenImpl : public Graphics {
   void ResetScreenBufferInternal();
   int DetermineRepeatNumberInternal(double delta_rate);
 
-  void FrameBeginRenderPassInternal(wgpu::Texture* render_target,
-                                    const base::Rect& region);
+  void FrameBeginRenderPassInternal(wgpu::Texture* render_target);
   void FrameEndRenderPassInternal();
   void FrameFinalEffectProcessInternal(wgpu::Texture* render_target);
 
