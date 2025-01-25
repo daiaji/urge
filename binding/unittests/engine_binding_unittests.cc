@@ -8,6 +8,7 @@
 
 #include "base/debug/logging.h"
 #include "content/canvas/canvas_impl.h"
+#include "content/render/sprite_impl.h"
 #include "content/screen/renderscreen_impl.h"
 
 EngineBindingUnittests::EngineBindingUnittests() {}
@@ -58,6 +59,11 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
   auto* surf =
       static_cast<content::CanvasImpl*>(bmp2.get())->RequireMemorySurface();
   IMG_SavePNG(surf, "out.png");
+
+  auto spr = content::Sprite::New(execution, nullptr, exception_state);
+  spr->Put_Bitmap(bmp2, exception_state);
+  spr->Put_X(100, exception_state);
+  spr->Put_Y(100, exception_state);
 
   for (;;) {
     execution->graphics->Update(exception_state);

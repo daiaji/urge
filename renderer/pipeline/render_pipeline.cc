@@ -65,10 +65,10 @@ void RenderPipelineBase::BuildPipeline(
   wgpu::ShaderModule shader_module =
       device_.CreateShaderModule(&shader_module_desc);
 
-  bindings_ = std::move(bind_layout);
+  layouts_ = std::move(bind_layout);
   wgpu::PipelineLayoutDescriptor pipeline_layout_desc;
-  pipeline_layout_desc.bindGroupLayoutCount = bindings_.size();
-  pipeline_layout_desc.bindGroupLayouts = bindings_.data();
+  pipeline_layout_desc.bindGroupLayoutCount = layouts_.size();
+  pipeline_layout_desc.bindGroupLayouts = layouts_.data();
   wgpu::PipelineLayout pipeline_layout =
       device_.CreatePipelineLayout(&pipeline_layout_desc);
 

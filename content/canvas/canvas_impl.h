@@ -68,6 +68,8 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   // Require render texture
   TextureAgent* GetAgent() const { return texture_; }
 
+  base::Vec2i AsBaseSize() const;
+
  protected:
   void Dispose(ExceptionState& exception_state) override;
   bool IsDisposed(ExceptionState& exception_state) override;

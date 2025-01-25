@@ -17,9 +17,16 @@ namespace content {
 
 class CanvasScheduler;
 
-struct FrameBufferAgent {
-  wgpu::Texture color_buffer;
-  wgpu::TextureView color_view;
+struct RenderGraphicsAgent {
+  wgpu::Texture screen_buffer;
+  wgpu::Texture frozen_buffer;
+  wgpu::Texture transition_buffer;
+
+  wgpu::RenderPassEncoder renderpass;
+  wgpu::BindGroup world_binding;
+  wgpu::Buffer world_buffer;
+
+  std::unique_ptr<renderer::Pipeline_Base> screen_pipeline;
 };
 
 class RenderScreenImpl : public Graphics {
@@ -74,12 +81,17 @@ class RenderScreenImpl : public Graphics {
 
  private:
   void InitGraphicsDeviceInternal(base::WeakPtr<ui::Widget> window);
-  void RenderSingleFrameInternal(FrameBufferAgent* agent);
-  void PresentScreenBufferInternal(FrameBufferAgent* agent);
+  void RenderSingleFrameInternal(wgpu::Texture* render_target);
+  void PresentScreenBufferInternal(wgpu::Texture* render_target);
   void FrameProcessInternal();
   void UpdateWindowViewportInternal();
   void ResetScreenBufferInternal();
   int DetermineRepeatNumberInternal(double delta_rate);
+
+  void FrameBeginRenderPassInternal(wgpu::Texture* render_target,
+                                    const base::Rect& region);
+  void FrameEndRenderPassInternal();
+  void FrameFinalEffectProcessInternal(wgpu::Texture* render_target);
 
   // All visible elements drawing controller
   DrawNodeController controller_;
@@ -93,9 +105,7 @@ class RenderScreenImpl : public Graphics {
   std::unique_ptr<renderer::QuadrangleIndexCache> index_buffer_cache_;
   std::unique_ptr<CanvasScheduler> canvas_scheduler_;
 
-  std::unique_ptr<FrameBufferAgent> screen_buffer_;
-  std::unique_ptr<FrameBufferAgent> frozen_buffer_;
-  std::unique_ptr<FrameBufferAgent> transition_buffer_;
+  std::unique_ptr<RenderGraphicsAgent> agent_;
 
   bool frozen_;
   base::Vec2i resolution_;

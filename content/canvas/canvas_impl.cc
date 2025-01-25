@@ -717,6 +717,12 @@ void CanvasImpl::SubmitQueuedCommands() {
   ClearPendingCommands();
 }
 
+base::Vec2i CanvasImpl::AsBaseSize() const {
+  if (texture_)
+    return texture_->size;
+  return base::Vec2i(0);
+}
+
 void CanvasImpl::Dispose(ExceptionState& exception_state) {
   // Unlink from canvas scheduler
   base::LinkNode<CanvasImpl>::RemoveFromList();

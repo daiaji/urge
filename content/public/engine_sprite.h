@@ -81,7 +81,7 @@ class URGE_RUNTIME_API Sprite : public base::RefCounted<Sprite> {
   URGE_EXPORT_ATTRIBUTE(ZoomY, float);
 
   /*--urge()--*/
-  URGE_EXPORT_ATTRIBUTE(Angle, int32_t);
+  URGE_EXPORT_ATTRIBUTE(Angle, float);
 
   /*--urge()--*/
   URGE_EXPORT_ATTRIBUTE(WaveAmp, int32_t);
@@ -105,10 +105,10 @@ class URGE_RUNTIME_API Sprite : public base::RefCounted<Sprite> {
   URGE_EXPORT_ATTRIBUTE(BushOpacity, int32_t);
 
   /*--urge()--*/
-  URGE_EXPORT_ATTRIBUTE(Opacity, uint32_t);
+  URGE_EXPORT_ATTRIBUTE(Opacity, int32_t);
 
   /*--urge()--*/
-  URGE_EXPORT_ATTRIBUTE(BlendType, uint32_t);
+  URGE_EXPORT_ATTRIBUTE(BlendType, int32_t);
 
   /*--urge()--*/
   URGE_EXPORT_ATTRIBUTE(Color, scoped_refptr<Color>);

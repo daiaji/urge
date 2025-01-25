@@ -11,6 +11,7 @@
 #include "content/common/tone_impl.h"
 #include "content/public/engine_sprite.h"
 #include "content/render/drawable_controller.h"
+#include "content/screen/viewport_impl.h"
 #include "renderer/device/render_device.h"
 
 namespace content {
@@ -21,7 +22,7 @@ struct SpriteAgent {
 
 class SpriteImpl : public Sprite {
  public:
-  SpriteImpl(DrawNodeController* parent);
+  SpriteImpl(RenderScreenImpl* screen, DrawNodeController* parent);
   ~SpriteImpl() override;
 
   SpriteImpl(const SpriteImpl&) = delete;
@@ -47,7 +48,7 @@ class SpriteImpl : public Sprite {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Oy, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(ZoomX, float);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(ZoomY, float);
-  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Angle, int32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Angle, float);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(WaveAmp, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(WaveLength, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(WaveSpeed, int32_t);
@@ -55,16 +56,42 @@ class SpriteImpl : public Sprite {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Mirror, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(BushDepth, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(BushOpacity, int32_t);
-  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Opacity, uint32_t);
-  URGE_DECLARE_OVERRIDE_ATTRIBUTE(BlendType, uint32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Opacity, int32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(BlendType, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Color, scoped_refptr<Color>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Tone, scoped_refptr<Tone>);
 
  private:
-  DrawableNode node_;
+  bool CheckDisposed(ExceptionState& exception_state);
+  void DrawableNodeHandlerInternal(
+      DrawableNode::RenderStage stage,
+      DrawableNode::RenderControllerParams* params);
 
+  DrawableNode node_;
+  SpriteAgent* agent_;
+
+  RenderScreenImpl* screen_;
+  renderer::FullVertexLayout vertices_[4];
+
+  scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> bitmap_;
-  scoped_refptr<RectImpl> rect_;
+  base::Rect src_rect_;
+  renderer::TransformQuadVertices transform_;
+  struct {
+    int32_t amp;
+    int32_t length;
+    int32_t speed;
+    int32_t phase;
+  } wave_;
+  bool mirror_;
+  struct {
+    int32_t depth;
+    int32_t opacity;
+  } bush_;
+  int32_t opacity_;
+  int32_t blend_type_;
+  scoped_refptr<ColorImpl> color_;
+  scoped_refptr<ToneImpl> tone_;
 };
 
 }  // namespace content

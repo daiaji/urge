@@ -29,7 +29,7 @@ class RenderPipelineBase {
     return &pipelines_[blend];
   }
 
-  wgpu::BindGroupLayout* GetLayout(size_t n) { return &bindings_[n]; }
+  wgpu::BindGroupLayout* GetLayout(size_t n) { return &layouts_[n]; }
 
  protected:
   RenderPipelineBase(const wgpu::Device& device);
@@ -43,7 +43,7 @@ class RenderPipelineBase {
 
  private:
   wgpu::Device device_;
-  std::vector<wgpu::BindGroupLayout> bindings_;
+  std::vector<wgpu::BindGroupLayout> layouts_;
   std::vector<wgpu::RenderPipeline> pipelines_;
 };
 
