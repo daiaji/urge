@@ -37,7 +37,7 @@ std::string Tone::Serialize(scoped_refptr<Tone> value,
                             ExceptionState& exception_state) {
   ToneImpl* impl = static_cast<ToneImpl*>(value.get());
   std::string serial_data(sizeof(float) * 4, 0);
-  memcpy(serial_data.data(), &impl->value_, sizeof(base::Vec4));
+  std::memcpy(serial_data.data(), &impl->value_, sizeof(base::Vec4));
   return serial_data;
 }
 

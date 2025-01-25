@@ -35,7 +35,7 @@ std::string Rect::Serialize(scoped_refptr<Rect> value,
                             ExceptionState& exception_state) {
   RectImpl* impl = static_cast<RectImpl*>(value.get());
   std::string serial_data(sizeof(base::Rect), 0);
-  memcpy(serial_data.data(), &impl->rect_, sizeof(base::Rect));
+  std::memcpy(serial_data.data(), &impl->rect_, sizeof(base::Rect));
   return serial_data;
 }
 

@@ -32,7 +32,7 @@ scoped_refptr<Table> Table::Deserialize(const std::string& data,
   }
 
   if (data_size)
-    memcpy(impl->data_.data(), ++ptr, data_size);
+    std::memcpy(impl->data_.data(), ++ptr, data_size);
 
   return impl;
 }
@@ -58,7 +58,7 @@ std::string Table::Serialize(scoped_refptr<Table> value,
   *ptr++ = impl->y_size_;
   *ptr++ = impl->z_size_;
   *ptr++ = data_size;
-  memcpy(ptr, impl->data_.data(), sizeof(int16_t) * data_size);
+  std::memcpy(ptr, impl->data_.data(), sizeof(int16_t) * data_size);
 
   return serial_data;
 }

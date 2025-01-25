@@ -465,11 +465,9 @@ void RenderScreenImpl::ResetScreenBufferInternal() {
   uniform_desc.usage = wgpu::BufferUsage::Uniform;
   agent_->world_buffer = (*device_)->CreateBuffer(&uniform_desc);
 
-  {
-    memcpy(agent_->world_buffer.GetMappedRange(), world_matrix,
-           sizeof(world_matrix));
-    agent_->world_buffer.Unmap();
-  }
+  std::memcpy(agent_->world_buffer.GetMappedRange(), world_matrix,
+              sizeof(world_matrix));
+  agent_->world_buffer.Unmap();
 
   wgpu::BindGroupEntry entries;
   entries.binding = 0;

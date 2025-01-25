@@ -33,11 +33,9 @@ wgpu::BindGroup MakeTextureWorldInternal(renderer::RenderDevice* device_base,
   wgpu::Buffer world_matrix_uniform =
       (*device_base)->CreateBuffer(&uniform_desc);
 
-  {
-    memcpy(world_matrix_uniform.GetMappedRange(), world_matrix,
-           sizeof(world_matrix));
-    world_matrix_uniform.Unmap();
-  }
+  std::memcpy(world_matrix_uniform.GetMappedRange(), world_matrix,
+              sizeof(world_matrix));
+  world_matrix_uniform.Unmap();
 
   wgpu::BindGroupEntry entries;
   entries.binding = 0;
@@ -64,12 +62,10 @@ wgpu::BindGroup MakeTextureBindingGroupInternal(
   wgpu::Buffer texture_size_uniform =
       (*device_base)->CreateBuffer(&uniform_desc);
 
-  {
-    auto texture_size = base::MakeInvert(bitmap_size);
-    memcpy(texture_size_uniform.GetMappedRange(), &texture_size,
-           sizeof(texture_size));
-    texture_size_uniform.Unmap();
-  }
+  auto texture_size = base::MakeInvert(bitmap_size);
+  std::memcpy(texture_size_uniform.GetMappedRange(), &texture_size,
+              sizeof(texture_size));
+  texture_size_uniform.Unmap();
 
   wgpu::BindGroupEntry entries[3];
   entries[0].binding = 0;
@@ -98,12 +94,10 @@ wgpu::BindGroup MakeTextCacheInternal(renderer::RenderDevice* device_base,
   uniform_desc.usage = wgpu::BufferUsage::Uniform;
   wgpu::Buffer text_size_uniform = (*device_base)->CreateBuffer(&uniform_desc);
 
-  {
-    auto texture_size = base::MakeInvert(cache_size);
-    memcpy(text_size_uniform.GetMappedRange(), &texture_size,
-           sizeof(texture_size));
-    text_size_uniform.Unmap();
-  }
+  auto texture_size = base::MakeInvert(cache_size);
+  std::memcpy(text_size_uniform.GetMappedRange(), &texture_size,
+              sizeof(texture_size));
+  text_size_uniform.Unmap();
 
   // Create video memory texture
   wgpu::TextureDescriptor texture_desc;
@@ -294,11 +288,11 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
         const auto* src_pixels =
             static_cast<const uint8_t*>(read_buffer.GetConstMappedRange());
 
-        for (uint32_t y = 0; y < surface_cache->h; ++y) {
-          memcpy(static_cast<uint8_t*>(surface_cache->pixels) +
-                     y * surface_cache->pitch,
-                 src_pixels + y * aligned_bytes_per_row, surface_cache->pitch);
-        }
+        for (uint32_t y = 0; y < surface_cache->h; ++y)
+          std::memcpy(static_cast<uint8_t*>(surface_cache->pixels) +
+                          y * surface_cache->pitch,
+                      src_pixels + y * aligned_bytes_per_row,
+                      surface_cache->pitch);
 
         read_buffer.Unmap();
       });
@@ -322,10 +316,8 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
   buffer_desc.mappedAtCreation = true;
   wgpu::Buffer write_buffer = device->CreateBuffer(&buffer_desc);
 
-  {
-    memcpy(write_buffer.GetMappedRange(), pixels.data(), pixels.size());
-    write_buffer.Unmap();
-  }
+  std::memcpy(write_buffer.GetMappedRange(), pixels.data(), pixels.size());
+  write_buffer.Unmap();
 
   // Align size
   uint32_t aligned_bytes_per_row = (surface_size.x * 4 + 255) & ~255;
@@ -662,10 +654,10 @@ void CanvasImpl::UpdateVideoMemory() {
     pixels.assign(aligned_bytes_per_row * canvas_cache_->h, 0);
 
     for (size_t y = 0; y < canvas_cache_->h; ++y)
-      memcpy(pixels.data() + y * aligned_bytes_per_row,
-             static_cast<uint8_t*>(canvas_cache_->pixels) +
-                 y * canvas_cache_->pitch,
-             canvas_cache_->pitch);
+      std::memcpy(pixels.data() + y * aligned_bytes_per_row,
+                  static_cast<uint8_t*>(canvas_cache_->pixels) +
+                      y * canvas_cache_->pitch,
+                  canvas_cache_->pitch);
 
     // Post async upload request
     base::ThreadWorker::PostTask(

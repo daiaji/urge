@@ -62,6 +62,8 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
 
   auto vp =
       content::Viewport::New(execution, 100, 100, 300, 300, exception_state);
+  vp->Put_Ox(-100, exception_state);
+  vp->Put_Oy(100, exception_state);
 
   auto spr = content::Sprite::New(execution, vp, exception_state);
   spr->Put_Bitmap(bmp, exception_state);

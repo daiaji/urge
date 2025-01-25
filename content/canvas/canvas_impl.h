@@ -216,6 +216,7 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
       if (current_block_ == (uint32_t)blocks_.size()) {
         CommandBlock cb;
         cb.memory = (uint8_t*)std::malloc(kBlockMaxSize);
+        std::memset(cb.memory, 0, kBlockMaxSize);
         blocks_.push_back(std::move(cb));
       }
 
@@ -250,8 +251,9 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   inline void ClearPendingCommands() {
     Command* current = commands_;
     while (current) {
+      Command* next_command = current->next;
       current->~Command();
-      current = current->next;
+      current = next_command;
     }
 
     for (auto& it : blocks_)
