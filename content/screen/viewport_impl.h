@@ -16,7 +16,7 @@ namespace content {
 struct ViewportAgent {
   wgpu::BindGroup world_binding;
   wgpu::Buffer world_uniform;
-  base::Vec2i offset_cache;
+  base::Rect region_cache;
 };
 
 class ViewportImpl : public Viewport, public GraphicsChild {

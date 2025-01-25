@@ -100,11 +100,7 @@ class DrawableNode final {
 
     // [Stage: all]
     // Current viewport size.
-    base::Vec2i viewport;
-
-    // [Stage: on rendering]
-    // Current pixel clip region.
-    base::Rect clip_rect;
+    base::Rect viewport;
 
     // [Stage: on rendering]
     // Main render pass encoder.

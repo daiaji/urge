@@ -43,8 +43,7 @@ void GPUUpdateViewportWorldMatrix(wgpu::CommandEncoder* encoder,
                                   ViewportAgent* agent,
                                   const base::Vec2i& viewport_size) {
   float world_matrix[32];
-  renderer::MakeProjectionMatrix(world_matrix, viewport_size,
-                                 agent->offset_cache);
+  renderer::MakeProjectionMatrix(world_matrix, viewport_size);
   renderer::MakeIdentityMatrix(world_matrix + 16);
 
   encoder->WriteBuffer(agent->world_uniform, 0,
@@ -54,7 +53,7 @@ void GPUUpdateViewportWorldMatrix(wgpu::CommandEncoder* encoder,
 
 void GPUResetViewportRegion(wgpu::RenderPassEncoder* agent,
                             const base::Rect& region) {
-  agent->SetScissorRect(region.x, region.y, region.width, region.height);
+  agent->SetViewport(region.x, region.y, region.width, region.height, 0, 0);
 }
 
 }  // namespace
@@ -215,30 +214,29 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   // Calculate viewport region
   base::Vec2i viewport_position = region_.Position() - origin_;
   base::Rect viewport_region(viewport_position, region_.Size());
+  base::Rect interact_viewport =
+      base::MakeIntersect(params->viewport, viewport_region);
 
   if (stage == DrawableNode::kBeforeRender) {
     // Update uniform buffer if viewport region changed.
-    if (!(region_.Position() == agent_->offset_cache)) {
-      agent_->offset_cache = region_.Position();
+    if (!(region_ == agent_->region_cache)) {
+      agent_->region_cache = region_;
       screen()->PostTask(base::BindOnce(&GPUUpdateViewportWorldMatrix,
                                         params->command_encoder, agent_,
-                                        transient_params.viewport));
+                                        interact_viewport.Size()));
     }
   }
 
-  if (stage == DrawableNode::kOnRendering ||
-      stage == DrawableNode::kAfterRender) {
+  if (transient_params.main_pass) {
     // Reset viewport's world settings
     transient_params.world_binding = &agent_->world_binding;
-    transient_params.clip_rect =
-        base::MakeIntersect(params->clip_rect, viewport_region);
-  }
+    transient_params.viewport = interact_viewport;
 
-  // Set new viewport
-  if (transient_params.main_pass)
+    // Set new viewport
     screen()->PostTask(base::BindOnce(&GPUResetViewportRegion,
                                       transient_params.main_pass,
-                                      transient_params.clip_rect));
+                                      transient_params.viewport));
+  }
 
   // Notify children drawable node
   controller_.BroadCastNotification(stage, &transient_params);
@@ -246,7 +244,7 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   // Restore last viewport settings
   if (params->main_pass)
     screen()->PostTask(base::BindOnce(&GPUResetViewportRegion,
-                                      params->main_pass, params->clip_rect));
+                                      params->main_pass, params->viewport));
 }
 
 }  // namespace content

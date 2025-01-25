@@ -240,7 +240,6 @@ void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
 
   // 3) Notify render a frame
   controller_params.world_binding = &agent_->world_binding;
-  controller_params.clip_rect = viewport_size;
   controller_params.main_pass = &agent_->renderpass;
   controller_.BroadCastNotification(DrawableNode::kOnRendering,
                                     &controller_params);
@@ -251,7 +250,7 @@ void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
                      base::Unretained(this)));
 
   // 5) Execute after render composite
-  controller_params.clip_rect = base::Rect();
+  controller_params.viewport = base::Rect();
   controller_params.main_pass = nullptr;
   controller_.BroadCastNotification(DrawableNode::kAfterRender,
                                     &controller_params);
