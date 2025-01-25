@@ -102,48 +102,13 @@ void RenderPipelineBase::BuildPipeline(
 Pipeline_Base::Pipeline_Base(const wgpu::Device& device,
                              wgpu::TextureFormat target)
     : RenderPipelineBase(device) {
-  wgpu::BindGroupLayout binding1, binding2;
-
-  {
-    wgpu::BindGroupLayoutEntry entries[1];
-    entries[0].binding = 0;
-    entries[0].visibility = wgpu::ShaderStage::Vertex;
-    entries[0].buffer.type = wgpu::BufferBindingType::Uniform;
-
-    wgpu::BindGroupLayoutDescriptor binding_desc;
-    binding_desc.entryCount = _countof(entries);
-    binding_desc.entries = entries;
-
-    binding1 = device.CreateBindGroupLayout(&binding_desc);
-  }
-
-  {
-    wgpu::BindGroupLayoutEntry entries[3];
-    entries[0].binding = 0;
-    entries[0].visibility = wgpu::ShaderStage::Fragment;
-    entries[0].texture.sampleType = wgpu::TextureSampleType::Float;
-    entries[0].texture.viewDimension = wgpu::TextureViewDimension::e2D;
-    entries[1].binding = 1;
-    entries[1].visibility = wgpu::ShaderStage::Fragment;
-    entries[1].sampler.type = wgpu::SamplerBindingType::Filtering;
-    entries[2].binding = 2;
-    entries[2].visibility = wgpu::ShaderStage::Vertex;
-    entries[2].buffer.type = wgpu::BufferBindingType::Uniform;
-
-    wgpu::BindGroupLayoutDescriptor binding_desc;
-    binding_desc.entryCount = _countof(entries);
-    binding_desc.entries = entries;
-
-    binding2 = device.CreateBindGroupLayout(&binding_desc);
-  }
-
   BuildPipeline(kBaseRenderWGSL, "vertexMain", "fragmentMain",
                 {
                     VertexType::GetLayout(),
                 },
                 {
-                    binding1,
-                    binding2,
+                    WorldMatrixUniform::GetLayout(device),
+                    TextureBindingUniform::GetLayout(device),
                 },
                 target);
 }
@@ -151,26 +116,27 @@ Pipeline_Base::Pipeline_Base(const wgpu::Device& device,
 Pipeline_Color::Pipeline_Color(const wgpu::Device& device,
                                wgpu::TextureFormat target)
     : RenderPipelineBase(device) {
-  wgpu::BindGroupLayout binding;
-
-  {
-    wgpu::BindGroupLayoutEntry entries[1];
-    entries[0].binding = 0;
-    entries[0].visibility = wgpu::ShaderStage::Vertex;
-    entries[0].buffer.type = wgpu::BufferBindingType::Uniform;
-
-    wgpu::BindGroupLayoutDescriptor binding_desc;
-    binding_desc.entryCount = _countof(entries);
-    binding_desc.entries = entries;
-    binding = device.CreateBindGroupLayout(&binding_desc);
-  }
-
   BuildPipeline(kColorRenderWGSL, "vertexMain", "fragmentMain",
                 {
                     VertexType::GetLayout(),
                 },
                 {
-                    binding,
+                    WorldMatrixUniform::GetLayout(device),
+                },
+                target);
+}
+
+Pipeline_Viewport::Pipeline_Viewport(const wgpu::Device& device,
+                                     wgpu::TextureFormat target)
+    : RenderPipelineBase(device) {
+  BuildPipeline(kBaseRenderWGSL, "vertexMain", "fragmentMain",
+                {
+                    VertexType::GetLayout(),
+                },
+                {
+                    WorldMatrixUniform::GetLayout(device),
+                    TextureBindingUniform::GetLayout(device),
+                    ViewportFragmentUniform::GetLayout(device),
                 },
                 target);
 }

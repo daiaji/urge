@@ -69,11 +69,13 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
   spr->Put_Bitmap(bmp, exception_state);
   spr->Put_X(0, exception_state);
   spr->Put_Y(0, exception_state);
+  spr->Put_Z(100, exception_state);
 
   auto spr1 = content::Sprite::New(execution, vp, exception_state);
   spr1->Put_Bitmap(bmp2, exception_state);
   spr1->Put_X(100, exception_state);
   spr1->Put_Y(100, exception_state);
+  spr1->Put_Z(0, exception_state);
 
   for (;;) {
     execution->graphics->Update(exception_state);

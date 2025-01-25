@@ -5,6 +5,7 @@
 #ifndef RENDERER_PIPELINE_RENDER_PIPELINE_H_
 #define RENDERER_PIPELINE_RENDER_PIPELINE_H_
 
+#include "renderer/pipeline/binding_layout.h"
 #include "renderer/vertex/vertex_layout.h"
 
 namespace renderer {
@@ -57,6 +58,12 @@ class Pipeline_Color : public RenderPipelineBase {
  public:
   using VertexType = FullVertexLayout;
   Pipeline_Color(const wgpu::Device& device, wgpu::TextureFormat target);
+};
+
+class Pipeline_Viewport : public RenderPipelineBase {
+ public:
+  using VertexType = FullVertexLayout;
+  Pipeline_Viewport(const wgpu::Device& device, wgpu::TextureFormat target);
 };
 
 }  // namespace renderer

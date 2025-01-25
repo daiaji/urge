@@ -12,6 +12,7 @@
 #include "content/canvas/font_impl.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
+#include "renderer/utils/texture_utils.h"
 
 namespace content {
 
@@ -21,32 +22,16 @@ MemoryPool<TextureAgent> g_textures_pool;
 
 wgpu::BindGroup MakeTextureWorldInternal(renderer::RenderDevice* device_base,
                                          const base::Vec2& bitmap_size) {
-  float world_matrix[32];
-  renderer::MakeProjectionMatrix(world_matrix, bitmap_size);
-  renderer::MakeIdentityMatrix(world_matrix + 16);
+  renderer::WorldMatrixUniform world_matrix;
+  renderer::MakeProjectionMatrix(world_matrix.projection, bitmap_size);
+  renderer::MakeIdentityMatrix(world_matrix.transform);
 
-  wgpu::BufferDescriptor uniform_desc;
-  uniform_desc.label = "bitmap.world.uniform";
-  uniform_desc.size = sizeof(world_matrix);
-  uniform_desc.mappedAtCreation = true;
-  uniform_desc.usage = wgpu::BufferUsage::Uniform;
-  wgpu::Buffer world_matrix_uniform =
-      (*device_base)->CreateBuffer(&uniform_desc);
+  auto uniform_buffer =
+      renderer::CreateUniformBuffer<renderer::WorldMatrixUniform>(
+          **device_base, "bitmap.world", &world_matrix);
 
-  std::memcpy(world_matrix_uniform.GetMappedRange(), world_matrix,
-              sizeof(world_matrix));
-  world_matrix_uniform.Unmap();
-
-  wgpu::BindGroupEntry entries;
-  entries.binding = 0;
-  entries.buffer = world_matrix_uniform;
-
-  wgpu::BindGroupDescriptor binding_desc;
-  binding_desc.entryCount = 1;
-  binding_desc.entries = &entries;
-  binding_desc.layout = *device_base->GetPipelines()->base.GetLayout(0);
-
-  return (*device_base)->CreateBindGroup(&binding_desc);
+  return renderer::WorldMatrixUniform::CreateGroup(**device_base,
+                                                   uniform_buffer);
 }
 
 wgpu::BindGroup MakeTextureBindingGroupInternal(
@@ -54,97 +39,48 @@ wgpu::BindGroup MakeTextureBindingGroupInternal(
     const base::Vec2& bitmap_size,
     const wgpu::TextureView& view,
     const wgpu::Sampler& sampler) {
-  wgpu::BufferDescriptor uniform_desc;
-  uniform_desc.label = "bitmap.binding.uniform";
-  uniform_desc.size = sizeof(base::Vec2);
-  uniform_desc.mappedAtCreation = true;
-  uniform_desc.usage = wgpu::BufferUsage::Uniform;
-  wgpu::Buffer texture_size_uniform =
-      (*device_base)->CreateBuffer(&uniform_desc);
+  renderer::TextureBindingUniform texture_size;
+  texture_size.texture_size = base::MakeInvert(bitmap_size);
 
-  auto texture_size = base::MakeInvert(bitmap_size);
-  std::memcpy(texture_size_uniform.GetMappedRange(), &texture_size,
-              sizeof(texture_size));
-  texture_size_uniform.Unmap();
+  auto uniform_buffer =
+      renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
+          **device_base, "bitmap.texture", &texture_size);
 
-  wgpu::BindGroupEntry entries[3];
-  entries[0].binding = 0;
-  entries[0].textureView = view;
-  entries[1].binding = 1;
-  entries[1].sampler = sampler;
-  entries[2].binding = 2;
-  entries[2].buffer = texture_size_uniform;
-
-  wgpu::BindGroupDescriptor binding_desc;
-  binding_desc.entryCount = _countof(entries);
-  binding_desc.entries = entries;
-  binding_desc.layout = *device_base->GetPipelines()->base.GetLayout(1);
-
-  return (*device_base)->CreateBindGroup(&binding_desc);
+  return renderer::TextureBindingUniform::CreateGroup(**device_base, view,
+                                                      sampler, uniform_buffer);
 }
 
 wgpu::BindGroup MakeTextCacheInternal(renderer::RenderDevice* device_base,
-                                      const base::Vec2& cache_size,
+                                      const base::Vec2i& cache_size,
                                       const wgpu::Sampler& sampler,
                                       wgpu::Texture* cache) {
-  wgpu::BufferDescriptor uniform_desc;
-  uniform_desc.label = "text.size.uniform";
-  uniform_desc.size = sizeof(base::Vec2);
-  uniform_desc.mappedAtCreation = true;
-  uniform_desc.usage = wgpu::BufferUsage::Uniform;
-  wgpu::Buffer text_size_uniform = (*device_base)->CreateBuffer(&uniform_desc);
+  renderer::TextureBindingUniform texture_size;
+  texture_size.texture_size = base::MakeInvert(cache_size);
 
-  auto texture_size = base::MakeInvert(cache_size);
-  std::memcpy(text_size_uniform.GetMappedRange(), &texture_size,
-              sizeof(texture_size));
-  text_size_uniform.Unmap();
+  auto uniform_buffer =
+      renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
+          **device_base, "text.cache.texture", &texture_size);
 
   // Create video memory texture
-  wgpu::TextureDescriptor texture_desc;
-  texture_desc.label = "font.textdraw.texture ";
-  texture_desc.usage =
-      wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::TextureBinding;
-  texture_desc.dimension = wgpu::TextureDimension::e2D;
-  texture_desc.size.width = cache_size.x;
-  texture_desc.size.height = cache_size.y;
-  texture_desc.format = wgpu::TextureFormat::RGBA8Unorm;
-  wgpu::Texture text_cache_texture =
-      (*device_base)->CreateTexture(&texture_desc);
+  *cache = renderer::CreateTexture2D(
+      **device_base, "textdraw.cache",
+      wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::TextureBinding,
+      cache_size);
 
-  wgpu::BindGroupEntry entries[3];
-  entries[0].binding = 0;
-  entries[0].textureView = text_cache_texture.CreateView();
-  entries[1].binding = 1;
-  entries[1].sampler = sampler;
-  entries[2].binding = 2;
-  entries[2].buffer = text_size_uniform;
-
-  wgpu::BindGroupDescriptor binding_desc;
-  binding_desc.entryCount = _countof(entries);
-  binding_desc.entries = entries;
-  binding_desc.layout = *device_base->GetPipelines()->base.GetLayout(1);
-
-  *cache = text_cache_texture;
-
-  return (*device_base)->CreateBindGroup(&binding_desc);
+  return renderer::TextureBindingUniform::CreateGroup(
+      **device_base, cache->CreateView(), sampler, uniform_buffer);
 }
 
 void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
                                       SDL_Surface* initial_data,
                                       TextureAgent* agent) {
-  // Create video memory texture
-  wgpu::TextureDescriptor texture_desc;
-  texture_desc.label = "bitmap.texture";
-  texture_desc.usage =
+  wgpu::TextureUsage texture_usage =
       wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc |
       wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
-  texture_desc.dimension = wgpu::TextureDimension::e2D;
-  texture_desc.size.width = initial_data->w;
-  texture_desc.size.height = initial_data->h;
-  texture_desc.format = wgpu::TextureFormat::RGBA8Unorm;
 
   agent->size = base::Vec2i(initial_data->w, initial_data->h);
-  agent->data = (*device_base)->CreateTexture(&texture_desc);
+  agent->data = renderer::CreateTexture2D(**device_base, "bitmap.texture",
+                                          texture_usage, agent->size);
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
   agent->world = MakeTextureWorldInternal(device_base, agent->size);
@@ -161,7 +97,6 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
   wgpu::Extent3D write_size;
   write_size.width = initial_data->w;
   write_size.height = initial_data->h;
-  write_size.depthOrArrayLayers = 1;
 
   device_base->GetQueue()->WriteTexture(&copy_texture, initial_data->pixels,
                                         initial_data->pitch * initial_data->h,
@@ -171,19 +106,13 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
 void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
                                       const base::Vec2i& initial_size,
                                       TextureAgent* agent) {
-  // Create video memory texture
-  wgpu::TextureDescriptor texture_desc;
-  texture_desc.label = "bitmap.texture";
-  texture_desc.usage =
+  wgpu::TextureUsage texture_usage =
       wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc |
       wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
-  texture_desc.dimension = wgpu::TextureDimension::e2D;
-  texture_desc.size.width = initial_size.x;
-  texture_desc.size.height = initial_size.y;
-  texture_desc.format = wgpu::TextureFormat::RGBA8Unorm;
 
   agent->size = initial_size;
-  agent->data = (*device_base)->CreateTexture(&texture_desc);
+  agent->data = renderer::CreateTexture2D(**device_base, "bitmap.texture",
+                                          texture_usage, agent->size);
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
   agent->world = MakeTextureWorldInternal(device_base, agent->size);
@@ -675,7 +604,8 @@ void CanvasImpl::SubmitQueuedCommands() {
   while (command_sequence) {
     switch (command_sequence->id) {
       case CommandID::kGradientFillRect: {
-        auto* c = static_cast<Command_GradientFillRect*>(command_sequence);
+        const auto* c =
+            static_cast<Command_GradientFillRect*>(command_sequence);
         base::ThreadWorker::PostTask(
             scheduler_->render_worker(),
             base::BindOnce(&GPUCanvasGradientFillRectInternal, scheduler_,
@@ -683,15 +613,15 @@ void CanvasImpl::SubmitQueuedCommands() {
                            c->vertical));
       } break;
       case CommandID::kHueChange: {
-        auto* c = static_cast<Command_HueChange*>(command_sequence);
+        const auto* c = static_cast<Command_HueChange*>(command_sequence);
 
       } break;
       case CommandID::kRadialBlur: {
-        auto* c = static_cast<Command_RadialBlur*>(command_sequence);
+        const auto* c = static_cast<Command_RadialBlur*>(command_sequence);
 
       } break;
       case CommandID::kDrawText: {
-        auto* c = static_cast<Command_DrawText*>(command_sequence);
+        const auto* c = static_cast<Command_DrawText*>(command_sequence);
         base::ThreadWorker::PostTask(
             scheduler_->render_worker(),
             base::BindOnce(&GPUCanvasDrawTextSurfaceInternal, scheduler_,

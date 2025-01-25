@@ -9,6 +9,7 @@ function(urge_setup_target_compile_feature target)
   if (MSVC)
     # For MSVC, disable exceptions and RTTI, and define _CRT_SECURE_NO_WARNINGS
     target_compile_options(${target} PRIVATE /EHs-c- /GR-)
+    target_compile_options(${target} PRIVATE /wd5025)
     target_compile_definitions(${target} PRIVATE
       # MSVC C4996
       _CRT_SECURE_NO_WARNINGS

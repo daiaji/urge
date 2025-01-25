@@ -153,6 +153,7 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
                            float alpha);
 
   enum class CommandID {
+    kNone = 0,
     kGradientFillRect,
     kHueChange,
     kRadialBlur,
@@ -160,7 +161,7 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   };
 
   struct Command {
-    CommandID id;
+    CommandID id = CommandID::kNone;
     Command* next = nullptr;
 
     virtual ~Command() = default;
@@ -213,9 +214,11 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
     Ty* command = nullptr;
     while (true) {
       // Allocate new block.
-      if (current_block_ == (uint32_t)blocks_.size()) {
+      if (current_block_ >= (uint32_t)blocks_.size()) {
         CommandBlock cb;
         cb.memory = (uint8_t*)std::malloc(kBlockMaxSize);
+        if (!cb.memory)
+          return nullptr;
         std::memset(cb.memory, 0, kBlockMaxSize);
         blocks_.push_back(std::move(cb));
       }
@@ -249,13 +252,6 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   }
 
   inline void ClearPendingCommands() {
-    Command* current = commands_;
-    while (current) {
-      Command* next_command = current->next;
-      current->~Command();
-      current = next_command;
-    }
-
     for (auto& it : blocks_)
       it.usage = 0;
 

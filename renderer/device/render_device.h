@@ -18,9 +18,12 @@ class RenderDevice {
   struct PipelineSet {
     Pipeline_Base base;
     Pipeline_Color color;
+    Pipeline_Viewport viewport;
 
     PipelineSet(const wgpu::Device& device, wgpu::TextureFormat target)
-        : base(device, target), color(device, target) {}
+        : base(device, target),
+          color(device, target),
+          viewport(device, target) {}
   };
 
   static std::unique_ptr<RenderDevice> Create(

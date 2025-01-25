@@ -83,7 +83,6 @@ void DrawableNode::SetNodeSortWeight(int weight1) {
   if (current_node.empty())
     return;
 
-  std::memset(&key_, 0, sizeof(key_));
   key_.weight[0] = weight1;
 
   controller_->node_.insert(std::move(current_node));
@@ -97,7 +96,6 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2) {
   if (current_node.empty())
     return;
 
-  std::memset(&key_, 0, sizeof(key_));
   key_.weight[0] = weight1;
   key_.weight[1] = weight2;
 
@@ -112,7 +110,6 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2, int weight3) {
   if (current_node.empty())
     return;
 
-  std::memset(&key_, 0, sizeof(key_));
   key_.weight[0] = weight1;
   key_.weight[1] = weight2;
   key_.weight[2] = weight3;
