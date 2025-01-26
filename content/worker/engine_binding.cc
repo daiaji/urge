@@ -12,4 +12,8 @@ void EngineBindingBase::OnMainMessageLoopRun(ExecutionContext* execution) {}
 
 void EngineBindingBase::PostMainLoopRunning() {}
 
+void EngineBindingBase::ExitSignalRequired() {}
+
+void EngineBindingBase::ResetSignalRequired() {}
+
 }  // namespace content

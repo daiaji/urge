@@ -49,7 +49,7 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
 
   renderpass_encoder->SetPipeline(*pipeline);
   renderpass_encoder->SetVertexBuffer(0, agent->vertex_buffer);
-  renderpass_encoder->SetIndexBuffer(**index_cache, wgpu::IndexFormat::Uint16);
+  renderpass_encoder->SetIndexBuffer(**index_cache, index_cache->format());
   renderpass_encoder->SetBindGroup(0, *world_binding);
   renderpass_encoder->SetBindGroup(1, texture->binding);
   renderpass_encoder->DrawIndexed(6);
@@ -141,13 +141,12 @@ void SpriteImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
 }
 
 bool SpriteImpl::Get_Visible(ExceptionState& exception_state) {
-  return node_.GetVisibility() == DrawableNode::kVisible;
+  return node_.GetVisibility();
 }
 
 void SpriteImpl::Put_Visible(const bool& value,
                              ExceptionState& exception_state) {
-  node_.SetNodeVisibility(value ? DrawableNode::kVisible
-                                : DrawableNode::kInVisible);
+  node_.SetNodeVisibility(value);
 }
 
 int32_t SpriteImpl::Get_X(ExceptionState& exception_state) {
@@ -304,7 +303,7 @@ scoped_refptr<Color> SpriteImpl::Get_Color(ExceptionState& exception_state) {
 
 void SpriteImpl::Put_Color(const scoped_refptr<Color>& value,
                            ExceptionState& exception_state) {
-  color_ = ColorImpl::From(value);
+  *color_ = *ColorImpl::From(value);
 }
 
 scoped_refptr<Tone> SpriteImpl::Get_Tone(ExceptionState& exception_state) {
@@ -313,7 +312,7 @@ scoped_refptr<Tone> SpriteImpl::Get_Tone(ExceptionState& exception_state) {
 
 void SpriteImpl::Put_Tone(const scoped_refptr<Tone>& value,
                           ExceptionState& exception_state) {
-  tone_ = ToneImpl::From(value);
+  *tone_ = *ToneImpl::From(value);
 }
 
 bool SpriteImpl::CheckDisposed(ExceptionState& exception_state) {
@@ -347,7 +346,7 @@ void SpriteImpl::DrawableNodeHandlerInternal(
   } else if (stage == DrawableNode::RenderStage::kOnRendering) {
     screen()->PostTask(base::BindOnce(
         &GPUOnSpriteRenderingInternal, params->device,
-        screen()->GetCommonIndexBuffer(), params->main_pass,
+        screen()->GetCommonIndexBuffer(), params->renderpass_encoder,
         params->world_binding, agent_, bitmap_->GetAgent(), blend_type_));
   }
 }

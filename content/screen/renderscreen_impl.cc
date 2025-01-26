@@ -224,8 +224,9 @@ void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
   controller_params.device = device_.get();
+  controller_params.index_cache = index_buffer_cache_.get();
   controller_params.command_encoder = context_->GetImmediateEncoder();
-  controller_params.viewport = viewport_size;
+  controller_params.viewport_size = viewport_size;
   controller_params.screen_buffer = render_target;
 
   // 1) Execute pre-composite handler
@@ -239,21 +240,17 @@ void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
                      base::Unretained(this), render_target));
 
   // 3) Notify render a frame
+  controller_params.clip_region = viewport_size;
   controller_params.world_binding = &agent_->world_binding;
-  controller_params.main_pass = &agent_->renderpass;
+  controller_params.renderpass_encoder = &agent_->renderpass;
   controller_.BroadCastNotification(DrawableNode::kOnRendering,
                                     &controller_params);
+
   // 4) End render pass and process after-render effect
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::FrameEndRenderPassInternal,
                      base::Unretained(this)));
-
-  // 5) Execute after render composite
-  controller_params.viewport = base::Rect();
-  controller_params.main_pass = nullptr;
-  controller_.BroadCastNotification(DrawableNode::kAfterRender,
-                                    &controller_params);
 }
 
 void RenderScreenImpl::PresentScreenBufferInternal(
@@ -387,7 +384,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     pass.SetBindGroup(0, world_binding);
     pass.SetBindGroup(1, texture_binding);
     pass.SetVertexBuffer(0, **vertex_controller);
-    pass.SetIndexBuffer(**index_buffer_cache_, wgpu::IndexFormat::Uint16);
+    pass.SetIndexBuffer(**index_buffer_cache_, index_buffer_cache_->format());
     pass.DrawIndexed(6);
     pass.End();
   }

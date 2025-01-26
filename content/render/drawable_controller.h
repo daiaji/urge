@@ -8,10 +8,12 @@
 #include <array>
 #include <map>
 #include <memory_resource>
+#include <optional>
 
 #include "base/bind/callback.h"
 #include "base/math/rectangle.h"
 #include "renderer/device/render_device.h"
+#include "renderer/resource/render_buffer.h"
 
 namespace content {
 
@@ -69,17 +71,10 @@ class DrawableNode final {
     //
     kBeforeRender = 0,
     kOnRendering,
-    kAfterRender,
 
     // Non-render notification register
     //
     kNotification,
-  };
-
-  enum VisibilityState {
-    kVisible = 0,
-    kInVisible,
-    kNotificationReserved,
   };
 
   struct RenderControllerParams {
@@ -87,6 +82,10 @@ class DrawableNode final {
     // Logic abstract render device for drawable node.
     // Never be null whenever events.
     renderer::RenderDevice* device = nullptr;
+
+    // [Stage: all]
+    // Generic quadangle drawing index buffer.
+    renderer::QuadrangleIndexCache* index_cache = nullptr;
 
     // [Stage: all]
     // Hardware render command encoder,
@@ -100,13 +99,17 @@ class DrawableNode final {
 
     // [Stage: all]
     // Current viewport size.
-    base::Rect viewport;
+    base::Vec2i viewport_size;
+
+    // [Stage: on rendering]
+    // Current viewport size.
+    base::Rect clip_region;
 
     // [Stage: on rendering]
     // Main render pass encoder.
-    wgpu::RenderPassEncoder* main_pass = nullptr;
+    wgpu::RenderPassEncoder* renderpass_encoder = nullptr;
 
-    // [Stage: on rendering / after render]
+    // [Stage: on rendering]
     // World transform matrix.
     wgpu::BindGroup* world_binding = nullptr;
   };
@@ -128,8 +131,8 @@ class DrawableNode final {
   void DisposeNode();
 
   // Set current node visibility
-  void SetNodeVisibility(VisibilityState node_state);
-  VisibilityState GetVisibility() const;
+  void SetNodeVisibility(bool visible);
+  bool GetVisibility() const;
 
   // Set the key for requirement of the controller's map sort.
   // For the same weight scene, it can set multi weight value for sort.
@@ -149,7 +152,7 @@ class DrawableNode final {
   friend class DrawNodeController;
 
   SortKey key_;
-  VisibilityState node_visibility_;
+  int32_t node_visibility_;
   NotificationHandler handler_;
   DrawNodeController* controller_;
 };
@@ -175,6 +178,29 @@ class DrawNodeController final {
   // Sorted map based contrainer.
   //
   std::pmr::map<SortKey, DrawableNode*, SortKey> node_;
+};
+
+// Flash duration controller components
+class DrawableFlashController {
+ public:
+  DrawableFlashController() = default;
+
+  DrawableFlashController(const DrawableFlashController&) = delete;
+  DrawableFlashController& operator=(const DrawableFlashController&) = delete;
+
+  void Setup(const std::optional<base::Vec4>& flash_color, int32_t duration);
+  void Update();
+
+  base::Vec4 GetColor() const { return color_; }
+  bool IsFlashing() const { return duration_; }
+  bool IsInvalid() const { return invalid_; }
+
+ private:
+  int32_t duration_ = 0;
+  int32_t count_ = 0;
+  base::Vec4 color_;
+  float alpha_ = 0.0f;
+  bool invalid_ = false;
 };
 
 }  // namespace content

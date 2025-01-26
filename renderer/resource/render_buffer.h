@@ -26,11 +26,13 @@ class QuadrangleIndexCache {
   wgpu::Buffer* Allocate(uint32_t quadrangle_size);
 
   wgpu::Buffer& operator*() { return index_buffer_; }
+  wgpu::IndexFormat format() const { return format_; }
 
  private:
   QuadrangleIndexCache(const wgpu::Device& device);
 
   wgpu::Device device_;
+  wgpu::IndexFormat format_;
   std::vector<uint16_t> cached_indices_;
   wgpu::Buffer index_buffer_;
   uint32_t count_;

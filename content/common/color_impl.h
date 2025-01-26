@@ -40,6 +40,7 @@ class ColorImpl : public Color, public ValueNotification {
 
   SDL_Color AsSDLColor();
   base::Vec4 AsNormColor();
+  bool IsValid() const { return value_.w; }
 
  private:
   friend class Color;

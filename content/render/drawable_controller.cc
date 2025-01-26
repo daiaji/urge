@@ -28,9 +28,7 @@ SortKey::SortKey(int64_t key1, int64_t key2, int64_t key3)
     : weight{key1, key2, key3} {}
 
 DrawableNode::DrawableNode(const SortKey& default_sort_weight)
-    : key_(default_sort_weight),
-      node_visibility_(VisibilityState::kVisible),
-      controller_(nullptr) {}
+    : key_(default_sort_weight), node_visibility_(true), controller_(nullptr) {}
 
 DrawableNode::~DrawableNode() {
   DisposeNode();
@@ -44,8 +42,6 @@ void DrawableNode::RegisterEventHandler(const NotificationHandler& handler) {
 }
 
 void DrawableNode::RebindController(DrawNodeController* controller) {
-  DCHECK(controller);
-
   // Bind to new controller and unbind with old controller.
   if (controller_) {
     auto node = controller_->node_.extract(key_);
@@ -61,17 +57,17 @@ void DrawableNode::RebindController(DrawNodeController* controller) {
 }
 
 void DrawableNode::DisposeNode() {
-  DCHECK(controller_);
-
-  controller_->node_.erase(key_);
-  controller_ = nullptr;
+  if (controller_) {
+    controller_->node_.erase(key_);
+    controller_ = nullptr;
+  }
 }
 
-void DrawableNode::SetNodeVisibility(VisibilityState node_state) {
-  node_visibility_ = node_state;
+void DrawableNode::SetNodeVisibility(bool visible) {
+  node_visibility_ = visible;
 }
 
-DrawableNode::VisibilityState DrawableNode::GetVisibility() const {
+bool DrawableNode::GetVisibility() const {
   return node_visibility_;
 }
 
@@ -132,16 +128,36 @@ void DrawNodeController::BroadCastNotification(
     DrawableNode::RenderControllerParams* params) {
   for (auto& it : node_) {
     // Filter notification request
-    if (it.second->node_visibility_ ==
-        DrawableNode::VisibilityState::kInVisible)
-      continue;
-    if (it.second->node_visibility_ ==
-            DrawableNode::VisibilityState::kNotificationReserved &&
-        nid != DrawableNode::RenderStage::kNotification)
+    if (!it.second->node_visibility_)
       continue;
 
     // Broadcast render notification
     it.second->handler_.Run(nid, params);
+  }
+}
+
+void DrawableFlashController::Setup(
+    const std::optional<base::Vec4>& flash_color,
+    int32_t duration) {
+  if (duration > 0) {
+    duration_ = duration;
+    count_ = 0;
+    color_ = flash_color.has_value() ? flash_color.value() : base::Vec4();
+    alpha_ = color_.w;
+    invalid_ = !flash_color.has_value();
+  }
+}
+
+void DrawableFlashController::Update() {
+  if (duration_) {
+    if (++count_ > duration_) {
+      duration_ = 0;
+      invalid_ = false;
+      return;
+    } else {
+      float progress = static_cast<float>(count_) / duration_;
+      color_.w = alpha_ * (1.0f - progress);
+    }
   }
 }
 

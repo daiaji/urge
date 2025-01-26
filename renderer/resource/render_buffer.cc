@@ -22,7 +22,7 @@ static std::array<uint16_t, 6> kQuadrangleDrawIndices = {
 };
 
 QuadrangleIndexCache::QuadrangleIndexCache(const wgpu::Device& device)
-    : device_(device), count_(0) {}
+    : device_(device), format_(wgpu::IndexFormat::Uint16), count_(0) {}
 
 std::unique_ptr<QuadrangleIndexCache> renderer::QuadrangleIndexCache::Make(
     RenderDevice* device) {

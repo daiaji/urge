@@ -23,6 +23,12 @@ class EngineBindingBase {
 
   // After running and release engine resource.
   virtual void PostMainLoopRunning();
+
+  // Engine loop require an exit signal.
+  virtual void ExitSignalRequired();
+
+  // Engine loop require a reset signal.
+  virtual void ResetSignalRequired();
 };
 
 }  // namespace content

@@ -28,7 +28,8 @@ wgpu::BindGroup MakeTextureWorldInternal(renderer::RenderDevice* device_base,
 
   auto uniform_buffer =
       renderer::CreateUniformBuffer<renderer::WorldMatrixUniform>(
-          **device_base, "bitmap.world", &world_matrix);
+          **device_base, "bitmap.world", wgpu::BufferUsage::None,
+          &world_matrix);
 
   return renderer::WorldMatrixUniform::CreateGroup(**device_base,
                                                    uniform_buffer);
@@ -44,7 +45,8 @@ wgpu::BindGroup MakeTextureBindingGroupInternal(
 
   auto uniform_buffer =
       renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
-          **device_base, "bitmap.texture", &texture_size);
+          **device_base, "bitmap.texture", wgpu::BufferUsage::None,
+          &texture_size);
 
   return renderer::TextureBindingUniform::CreateGroup(**device_base, view,
                                                       sampler, uniform_buffer);
@@ -59,7 +61,8 @@ wgpu::BindGroup MakeTextCacheInternal(renderer::RenderDevice* device_base,
 
   auto uniform_buffer =
       renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
-          **device_base, "text.cache.texture", &texture_size);
+          **device_base, "text.cache.texture", wgpu::BufferUsage::None,
+          &texture_size);
 
   // Create video memory texture
   *cache = renderer::CreateTexture2D(
@@ -156,7 +159,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   renderpass_encoder.SetPipeline(*pipeline);
   renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
   renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
-                                    wgpu::IndexFormat::Uint16);
+                                    scheduler->index_cache()->format());
   renderpass_encoder.SetBindGroup(0, dst_texture->world);
   renderpass_encoder.SetBindGroup(1, src_texture->binding);
   renderpass_encoder.DrawIndexed(6);
@@ -293,7 +296,7 @@ void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
   renderpass_encoder.SetPipeline(*pipeline);
   renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
   renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
-                                    wgpu::IndexFormat::Uint16);
+                                    scheduler->index_cache()->format());
   renderpass_encoder.SetBindGroup(0, agent->world);
   renderpass_encoder.DrawIndexed(6);
   renderpass_encoder.End();
@@ -340,7 +343,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   renderpass_encoder.SetPipeline(*pipeline);
   renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
   renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
-                                    wgpu::IndexFormat::Uint16);
+                                    scheduler->index_cache()->format());
   renderpass_encoder.SetBindGroup(0, agent->world);
   renderpass_encoder.DrawIndexed(6);
   renderpass_encoder.End();
@@ -452,7 +455,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   renderpass_encoder.SetPipeline(*pipeline);
   renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
   renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
-                                    wgpu::IndexFormat::Uint16);
+                                    scheduler->index_cache()->format());
   renderpass_encoder.SetBindGroup(0, agent->world);
   renderpass_encoder.SetBindGroup(1, agent->text_cache_binding);
   renderpass_encoder.DrawIndexed(6);

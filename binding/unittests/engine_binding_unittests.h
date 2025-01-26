@@ -5,6 +5,8 @@
 #ifndef BINDING_UNITTESTS_ENGINE_BINDING_UNITTESTS_H_
 #define BINDING_UNITTESTS_ENGINE_BINDING_UNITTESTS_H_
 
+#include <atomic>
+
 #include "content/worker/engine_binding.h"
 
 class EngineBindingUnittests : public content::EngineBindingBase {
@@ -15,6 +17,11 @@ class EngineBindingUnittests : public content::EngineBindingBase {
   void PreEarlyInitialization(content::ContentProfile* profile) override;
   void OnMainMessageLoopRun(content::ExecutionContext* execution) override;
   void PostMainLoopRunning() override;
+  void ExitSignalRequired() override;
+  void ResetSignalRequired() override;
+
+ private:
+  std::atomic<int32_t> exit_flag_;
 };
 
 #endif  //! BINDING_UNITTESTS_ENGINE_BINDING_UNITTESTS_H_

@@ -50,8 +50,10 @@ void ContentRunner::InitializeContentInternal() {
 ContentRunner::~ContentRunner() = default;
 
 bool ContentRunner::RunMainLoop() {
-  return exit_code_.load() && graphics_impl_ &&
-         graphics_impl_->ExecuteEventMainLoop();
+  if (!graphics_impl_->ExecuteEventMainLoop())
+    binding_->ExitSignalRequired();
+
+  return exit_code_.load();
 }
 
 std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
@@ -86,7 +88,7 @@ void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
   self->binding_->PostMainLoopRunning();
   self->exit_code_.store(0);
 
-  // Switch
+  // To primary fiber
   fiber_switch(self->cc_->primary_fiber);
 }
 

@@ -30,8 +30,10 @@ LinkNodeBase::LinkNodeBase(LinkNodeBase&& rhs) {
 }
 
 void LinkNodeBase::RemoveFromList() {
-  previous_->next_ = next_;
-  next_->previous_ = previous_;
+  if (previous_ && next_) {
+    previous_->next_ = next_;
+    next_->previous_ = previous_;
+  }
   // next() and previous() return non-null if and only this node is not in any
   // list.
   next_ = nullptr;

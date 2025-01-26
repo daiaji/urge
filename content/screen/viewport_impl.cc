@@ -5,6 +5,8 @@
 #include "content/screen/viewport_impl.h"
 
 #include "content/common/rect_impl.h"
+#include "renderer/utils/buffer_utils.h"
+#include "renderer/utils/texture_utils.h"
 
 namespace content {
 
@@ -14,7 +16,7 @@ void GPUCreateViewportAgent(renderer::RenderDevice* device,
                             ViewportAgent* agent) {
   agent->world_uniform =
       renderer::CreateUniformBuffer<renderer::WorldMatrixUniform>(
-          **device, "viewport.world.uniform");
+          **device, "viewport.world.uniform", wgpu::BufferUsage::CopyDst);
   agent->world_binding =
       renderer::WorldMatrixUniform::CreateGroup(**device, agent->world_uniform);
 }
@@ -26,11 +28,14 @@ void GPUDestroyViewportAgent(ViewportAgent* agent) {
   delete agent;
 }
 
-void GPUUpdateViewportWorldMatrix(wgpu::CommandEncoder* encoder,
-                                  ViewportAgent* agent,
-                                  const base::Vec2i& viewport_size) {
+void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
+                                wgpu::CommandEncoder* encoder,
+                                ViewportAgent* agent,
+                                const base::Vec2i& viewport_size,
+                                const base::Vec2i& offset) {
   renderer::WorldMatrixUniform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, viewport_size);
+  renderer::MakeProjectionMatrix(world_matrix.projection, viewport_size,
+                                 offset);
   renderer::MakeIdentityMatrix(world_matrix.transform);
 
   encoder->WriteBuffer(agent->world_uniform, 0,
@@ -40,7 +45,34 @@ void GPUUpdateViewportWorldMatrix(wgpu::CommandEncoder* encoder,
 
 void GPUResetViewportRegion(wgpu::RenderPassEncoder* agent,
                             const base::Rect& region) {
-  agent->SetViewport(region.x, region.y, region.width, region.height, 0, 0);
+  agent->SetScissorRect(region.x, region.y, region.width, region.height);
+}
+
+void GPUApplyViewportEffectAndRestore(
+    renderer::RenderDevice* device,
+    wgpu::CommandEncoder* command_encoder,
+    renderer::QuadrangleIndexCache* index_cache,
+    ViewportAgent* agent,
+    wgpu::Texture* screen_buffer,
+    const base::Rect& effect_region,
+    const base::Vec4& color,
+    const base::Vec4& tone,
+    wgpu::RenderPassEncoder* last_renderpass,
+    const base::Rect& last_viewport) {
+  last_renderpass->End();
+
+  wgpu::RenderPassColorAttachment attachment;
+  attachment.view = screen_buffer->CreateView();
+  attachment.loadOp = wgpu::LoadOp::Load;
+  attachment.storeOp = wgpu::StoreOp::Store;
+
+  wgpu::RenderPassDescriptor renderpass;
+  renderpass.colorAttachmentCount = 1;
+  renderpass.colorAttachments = &attachment;
+
+  *last_renderpass = command_encoder->BeginRenderPass(&renderpass);
+  last_renderpass->SetScissorRect(last_viewport.x, last_viewport.y,
+                                  last_viewport.width, last_viewport.height);
 }
 
 }  // namespace
@@ -69,14 +101,18 @@ scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
 }
 
 ViewportImpl::ViewportImpl(RenderScreenImpl* screen, const base::Rect& region)
-    : GraphicsChild(screen), node_(SortKey()), region_(region) {
+    : GraphicsChild(screen),
+      node_(SortKey()),
+      region_(region),
+      color_(new ColorImpl(base::Vec4())),
+      tone_(new ToneImpl(base::Vec4())) {
   node_.RegisterEventHandler(base::BindRepeating(
       &ViewportImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
   node_.RebindController(screen->GetDrawableController());
 
   agent_ = new ViewportAgent;
-  screen->PostTask(base::BindOnce(&GPUCreateViewportAgent, screen->GetDevice(),
-                                  agent_, region));
+  screen->PostTask(
+      base::BindOnce(&GPUCreateViewportAgent, screen->GetDevice(), agent_));
 }
 
 ViewportImpl::~ViewportImpl() {
@@ -106,11 +142,18 @@ void ViewportImpl::Flash(scoped_refptr<Color> color,
                          ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
+
+  std::optional<base::Vec4> flash_color = std::nullopt;
+  if (color)
+    flash_color = ColorImpl::From(color)->AsNormColor();
+  flash_emitter_.Setup(flash_color, duration);
 }
 
 void ViewportImpl::Update(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
+
+  flash_emitter_.Update();
 }
 
 scoped_refptr<Rect> ViewportImpl::Get_Rect(ExceptionState& exception_state) {
@@ -123,13 +166,12 @@ void ViewportImpl::Put_Rect(const scoped_refptr<Rect>& value,
 }
 
 bool ViewportImpl::Get_Visible(ExceptionState& exception_state) {
-  return node_.GetVisibility() == DrawableNode::VisibilityState::kVisible;
+  return node_.GetVisibility();
 }
 
 void ViewportImpl::Put_Visible(const bool& value,
                                ExceptionState& exception_state) {
-  node_.SetNodeVisibility(value ? DrawableNode::VisibilityState::kVisible
-                                : DrawableNode::VisibilityState::kInVisible);
+  node_.SetNodeVisibility(value);
 }
 
 int32_t ViewportImpl::Get_Z(ExceptionState& exception_state) {
@@ -165,7 +207,7 @@ scoped_refptr<Color> ViewportImpl::Get_Color(ExceptionState& exception_state) {
 
 void ViewportImpl::Put_Color(const scoped_refptr<Color>& value,
                              ExceptionState& exception_state) {
-  color_ = ColorImpl::From(value);
+  *color_ = *ColorImpl::From(value);
 }
 
 scoped_refptr<Tone> ViewportImpl::Get_Tone(ExceptionState& exception_state) {
@@ -174,7 +216,7 @@ scoped_refptr<Tone> ViewportImpl::Get_Tone(ExceptionState& exception_state) {
 
 void ViewportImpl::Put_Tone(const scoped_refptr<Tone>& value,
                             ExceptionState& exception_state) {
-  tone_ = ToneImpl::From(value);
+  *tone_ = *ToneImpl::From(value);
 }
 
 bool ViewportImpl::CheckDisposed(ExceptionState& exception_state) {
@@ -191,47 +233,50 @@ void ViewportImpl::DrawableNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
   // Stack storage last render state
-  DrawableNode::RenderControllerParams transient_params;
-  transient_params.device = params->device;
-  transient_params.command_encoder = params->command_encoder;
-  transient_params.main_pass = params->main_pass;
-  transient_params.screen_buffer = params->screen_buffer;
-  transient_params.viewport = params->viewport;
-
-  // Calculate viewport region
-  base::Vec2i viewport_position = region_.Position() - origin_;
-  base::Rect viewport_region(viewport_position, region_.Size());
-  base::Rect interact_viewport =
-      base::MakeIntersect(params->viewport, viewport_region);
+  DrawableNode::RenderControllerParams transient_params = *params;
 
   if (stage == DrawableNode::kBeforeRender) {
+    // Calculate viewport offset
+    base::Vec2i viewport_position = region_.Position() - origin_;
+
     // Update uniform buffer if viewport region changed.
     if (!(region_ == agent_->region_cache)) {
       agent_->region_cache = region_;
-      screen()->PostTask(base::BindOnce(&GPUUpdateViewportWorldMatrix,
-                                        params->command_encoder, agent_,
-                                        interact_viewport.Size()));
+      screen()->PostTask(base::BindOnce(
+          &GPUUpdateViewportAgentData, params->device, params->command_encoder,
+          agent_, params->viewport_size, viewport_position));
     }
   }
 
-  if (transient_params.main_pass) {
+  if (transient_params.renderpass_encoder) {
+    // Scissor region
+    base::Rect scissor_region =
+        base::MakeIntersect(params->clip_region, region_);
+
     // Reset viewport's world settings
     transient_params.world_binding = &agent_->world_binding;
-    transient_params.viewport = interact_viewport;
+    transient_params.clip_region = scissor_region;
+
+    // Adjust visibility
+    if (transient_params.clip_region.width <= 0 ||
+        transient_params.clip_region.height <= 0)
+      return;
 
     // Set new viewport
-    screen()->PostTask(base::BindOnce(&GPUResetViewportRegion,
-                                      transient_params.main_pass,
-                                      transient_params.viewport));
+    screen()->PostTask(base::BindOnce(
+        &GPUResetViewportRegion, params->renderpass_encoder, scissor_region));
   }
 
   // Notify children drawable node
   controller_.BroadCastNotification(stage, &transient_params);
 
-  // Restore last viewport settings
-  if (params->main_pass)
-    screen()->PostTask(base::BindOnce(&GPUResetViewportRegion,
-                                      params->main_pass, params->viewport));
+  // Restore last viewport settings and apply effect
+  if (params->renderpass_encoder)
+    screen()->PostTask(base::BindOnce(
+        &GPUApplyViewportEffectAndRestore, params->device,
+        params->command_encoder, params->index_cache, agent_,
+        params->screen_buffer, region_, color_->AsNormColor(),
+        tone_->AsNormColor(), params->renderpass_encoder, params->clip_region));
 }
 
 }  // namespace content

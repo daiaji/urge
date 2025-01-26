@@ -18,6 +18,8 @@ set(ENGINE_RENDERER_SRC
   pipeline/render_pipeline.h
   resource/render_buffer.cc
   resource/render_buffer.h
+  utils/buffer_utils.cc
+  utils/buffer_utils.h
   utils/texture_utils.cc
   utils/texture_utils.h
   vertex/vertex_layout.cc

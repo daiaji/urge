@@ -201,12 +201,7 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
 
   struct CommandBlock {
     uint32_t usage = 0;
-    uint8_t* memory = nullptr;
-
-    ~CommandBlock() {
-      if (memory)
-        std::free(memory);
-    }
+    std::vector<uint8_t> memory;
   };
 
   template <typename Ty>
@@ -216,10 +211,7 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
       // Allocate new block.
       if (current_block_ >= (uint32_t)blocks_.size()) {
         CommandBlock cb;
-        cb.memory = (uint8_t*)std::malloc(kBlockMaxSize);
-        if (!cb.memory)
-          return nullptr;
-        std::memset(cb.memory, 0, kBlockMaxSize);
+        cb.memory.assign(kBlockMaxSize, 0);
         blocks_.push_back(std::move(cb));
       }
 
@@ -234,7 +226,7 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
       }
 
       // Allocate block and add to the linked list
-      void* memory = block->memory + block->usage;
+      void* memory = block->memory.data() + block->usage;
       block->usage += sizeof(Ty);
       command = ::new (memory) Ty;
       command->next = nullptr;
@@ -252,14 +244,8 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   }
 
   inline void ClearPendingCommands() {
-    Command* current = commands_;
-    while (current) {
-      current->~Command();
-      current = current->next;
-    }
-
     for (auto& it : blocks_) {
-      std::memset(it.memory, 0, kBlockMaxSize);
+      std::memset(it.memory.data(), 0, kBlockMaxSize);
       it.usage = 0;
     }
 

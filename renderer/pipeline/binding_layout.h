@@ -10,24 +10,6 @@
 
 namespace renderer {
 
-template <typename BufferType>
-inline wgpu::Buffer CreateUniformBuffer(const wgpu::Device& device,
-                                        const std::string_view& label,
-                                        BufferType* data = nullptr) {
-  wgpu::BufferDescriptor buffer_desc;
-  buffer_desc.label = label;
-  buffer_desc.size = sizeof(BufferType);
-  buffer_desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
-  buffer_desc.mappedAtCreation = !!data;
-  auto result = device.CreateBuffer(&buffer_desc);
-  if (data) {
-    std::memcpy(result.GetMappedRange(), data, sizeof(BufferType));
-    result.Unmap();
-  }
-
-  return result;
-}
-
 struct WorldMatrixUniform {
   float projection[16];
   float transform[16];

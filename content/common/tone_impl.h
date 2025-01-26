@@ -36,6 +36,7 @@ class ToneImpl : public Tone, public ValueNotification {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Gray, float);
 
   base::Vec4 AsNormColor();
+  bool IsValid() const { return value_.x || value_.y || value_.z || value_.w; }
 
  private:
   friend class Tone;

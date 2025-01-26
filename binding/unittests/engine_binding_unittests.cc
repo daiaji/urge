@@ -11,7 +11,7 @@
 #include "content/render/sprite_impl.h"
 #include "content/screen/renderscreen_impl.h"
 
-EngineBindingUnittests::EngineBindingUnittests() {}
+EngineBindingUnittests::EngineBindingUnittests() : exit_flag_(0) {}
 
 EngineBindingUnittests::~EngineBindingUnittests() {}
 
@@ -60,10 +60,9 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
       static_cast<content::CanvasImpl*>(bmp2.get())->RequireMemorySurface();
   IMG_SavePNG(surf, "out.png");
 
-  auto vp =
-      content::Viewport::New(execution, 100, 100, 300, 300, exception_state);
-  vp->Put_Ox(-100, exception_state);
-  vp->Put_Oy(100, exception_state);
+  auto vp = content::Viewport::New(execution, 0, 0, 300, 300, exception_state);
+  vp->Put_Ox(-50, exception_state);
+  vp->Put_Oy(-50, exception_state);
 
   auto spr = content::Sprite::New(execution, vp, exception_state);
   spr->Put_Bitmap(bmp, exception_state);
@@ -75,9 +74,18 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
   spr1->Put_Bitmap(bmp2, exception_state);
   spr1->Put_X(100, exception_state);
   spr1->Put_Y(100, exception_state);
-  spr1->Put_Z(0, exception_state);
+  spr1->Put_Z(200, exception_state);
 
-  for (;;) {
+  vp->Put_Tone(content::Tone::New(-68, -68, 0, 68, exception_state),
+               exception_state);
+
+  auto spr2 = content::Sprite::New(execution, nullptr, exception_state);
+  spr2->Put_Bitmap(bmp2, exception_state);
+  spr2->Put_X(250, exception_state);
+  spr2->Put_Y(250, exception_state);
+  spr2->Put_Z(10, exception_state);
+
+  while (!exit_flag_) {
     execution->graphics->Update(exception_state);
   }
 }
@@ -85,3 +93,9 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
 void EngineBindingUnittests::PostMainLoopRunning() {
   LOG(INFO) << "will close engine";
 }
+
+void EngineBindingUnittests::ExitSignalRequired() {
+  exit_flag_.store(1);
+}
+
+void EngineBindingUnittests::ResetSignalRequired() {}

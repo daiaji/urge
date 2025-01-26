@@ -54,6 +54,7 @@ class ViewportImpl : public Viewport, public GraphicsChild {
 
   DrawableNode node_;
   DrawNodeController controller_;
+  DrawableFlashController flash_emitter_;
   ViewportAgent* agent_;
   base::Rect region_;
   base::Vec2i origin_;
