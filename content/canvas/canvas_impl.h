@@ -252,8 +252,16 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   }
 
   inline void ClearPendingCommands() {
-    for (auto& it : blocks_)
+    Command* current = commands_;
+    while (current) {
+      current->~Command();
+      current = current->next;
+    }
+
+    for (auto& it : blocks_) {
+      std::memset(it.memory, 0, kBlockMaxSize);
       it.usage = 0;
+    }
 
     last_command_ = nullptr;
     commands_ = nullptr;

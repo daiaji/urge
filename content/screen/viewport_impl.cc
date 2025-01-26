@@ -11,25 +11,12 @@ namespace content {
 namespace {
 
 void GPUCreateViewportAgent(renderer::RenderDevice* device,
-                            ViewportAgent* agent,
-                            const base::Rect& viewport) {
-  wgpu::BufferDescriptor uniform_desc;
-  uniform_desc.label = "viewport.world.uniform";
-  uniform_desc.size = sizeof(float) * 32;
-  uniform_desc.mappedAtCreation = false;
-  uniform_desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
-  agent->world_uniform = (*device)->CreateBuffer(&uniform_desc);
-
-  wgpu::BindGroupEntry entries;
-  entries.binding = 0;
-  entries.buffer = agent->world_uniform;
-
-  wgpu::BindGroupDescriptor binding_desc;
-  binding_desc.entryCount = 1;
-  binding_desc.entries = &entries;
-  binding_desc.layout = *device->GetPipelines()->base.GetLayout(0);
-
-  agent->world_binding = (*device)->CreateBindGroup(&binding_desc);
+                            ViewportAgent* agent) {
+  agent->world_uniform =
+      renderer::CreateUniformBuffer<renderer::WorldMatrixUniform>(
+          **device, "viewport.world.uniform");
+  agent->world_binding =
+      renderer::WorldMatrixUniform::CreateGroup(**device, agent->world_uniform);
 }
 
 void GPUDestroyViewportAgent(ViewportAgent* agent) {
@@ -42,12 +29,12 @@ void GPUDestroyViewportAgent(ViewportAgent* agent) {
 void GPUUpdateViewportWorldMatrix(wgpu::CommandEncoder* encoder,
                                   ViewportAgent* agent,
                                   const base::Vec2i& viewport_size) {
-  float world_matrix[32];
-  renderer::MakeProjectionMatrix(world_matrix, viewport_size);
-  renderer::MakeIdentityMatrix(world_matrix + 16);
+  renderer::WorldMatrixUniform world_matrix;
+  renderer::MakeProjectionMatrix(world_matrix.projection, viewport_size);
+  renderer::MakeIdentityMatrix(world_matrix.transform);
 
   encoder->WriteBuffer(agent->world_uniform, 0,
-                       reinterpret_cast<uint8_t*>(world_matrix),
+                       reinterpret_cast<uint8_t*>(&world_matrix),
                        sizeof(world_matrix));
 }
 

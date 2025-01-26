@@ -85,6 +85,7 @@ void DrawableNode::SetNodeSortWeight(int weight1) {
 
   key_.weight[0] = weight1;
 
+  current_node.key() = key_;
   controller_->node_.insert(std::move(current_node));
 }
 
@@ -99,6 +100,7 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2) {
   key_.weight[0] = weight1;
   key_.weight[1] = weight2;
 
+  current_node.key() = key_;
   controller_->node_.insert(std::move(current_node));
 }
 
@@ -114,6 +116,7 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2, int weight3) {
   key_.weight[1] = weight2;
   key_.weight[2] = weight3;
 
+  current_node.key() = key_;
   controller_->node_.insert(std::move(current_node));
 }
 
