@@ -11,5 +11,4 @@ set(UI_SRC
 )
 
 add_library(engine_ui ${UI_SRC})
-urge_setup_target_compile_feature(engine_ui)
 target_link_libraries(engine_ui PUBLIC engine_base)

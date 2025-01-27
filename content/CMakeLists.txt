@@ -59,7 +59,6 @@ set(ENGINE_CONTENT_SRC
 )
 
 add_library(engine_content STATIC ${ENGINE_CONTENT_SRC})
-urge_setup_target_compile_feature(engine_content)
 target_link_libraries(engine_content PUBLIC
   engine_base
   engine_ui

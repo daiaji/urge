@@ -5,28 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 include_directories("${PROJECT_SOURCE_DIR}")
 
-function(urge_setup_target_compile_feature target)
-  if (MSVC)
-    # For MSVC, disable exceptions and RTTI, and define _CRT_SECURE_NO_WARNINGS
-    target_compile_options(${target} PRIVATE /EHs-c- /GR-)
-    target_compile_definitions(${target} PRIVATE
-      # MSVC C4996
-      _CRT_SECURE_NO_WARNINGS
-      # VS2022 mutex crash
-      _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
-    )
-  else ()
-    # For GCC/Clang, disable exceptions and RTTI
-    target_compile_options(${target} PRIVATE -fno-exceptions -fno-rtti)
-  endif ()
-endfunction()
-
 #--------------------------------------------------------------------------------
 # Platform and compiler check
 #--------------------------------------------------------------------------------
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-  add_compile_definitions(NOMINMAX)
+  add_compile_definitions(NOMINMAX _CRT_SECURE_NO_WARNINGS _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
   link_libraries(
     "shell32;ws2_32;iphlpapi;imagehlp;shlwapi;bcrypt"
     "setupapi;advapi32;uuid;version;oleaut32;ole32;imm32;winmm;user32;rpcrt4;usp10"

@@ -27,5 +27,4 @@ set(ENGINE_RENDERER_SRC
 )
 
 add_library(engine_renderer STATIC ${ENGINE_RENDERER_SRC})
-urge_setup_target_compile_feature(engine_renderer)
 target_link_libraries(engine_renderer PUBLIC engine_base engine_ui dawn::webgpu_dawn)

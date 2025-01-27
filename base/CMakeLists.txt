@@ -49,7 +49,6 @@ set(ENGINE_BASE_SRC
 )
 
 add_library(engine_base STATIC ${ENGINE_BASE_SRC})
-urge_setup_target_compile_feature(engine_base)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
   target_link_libraries(engine_base PUBLIC android log)
