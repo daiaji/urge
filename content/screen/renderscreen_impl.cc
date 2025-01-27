@@ -518,12 +518,13 @@ void RenderScreenImpl::FrameBeginRenderPassInternal(
 
 void RenderScreenImpl::FrameEndRenderPassInternal() {
   agent_->renderpass.End();
+
+  // Apply brightness
 }
 
-void RenderScreenImpl::FrameFinalEffectProcessInternal(
-    wgpu::Texture* render_target) {
-  // Apply screen brightness
-}
+void RenderScreenImpl::AddDisposable(Disposable* disp) {}
+
+void RenderScreenImpl::RemoveDisposable(Disposable* disp) {}
 
 uint32_t RenderScreenImpl::Get_FrameRate(ExceptionState&) {
   return frame_rate_;

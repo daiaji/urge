@@ -9,6 +9,7 @@
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
 #include "content/common/tone_impl.h"
+#include "content/components/disposable.h"
 #include "content/public/engine_sprite.h"
 #include "content/render/drawable_controller.h"
 #include "content/screen/viewport_impl.h"
@@ -20,7 +21,7 @@ struct SpriteAgent {
   wgpu::Buffer vertex_buffer;
 };
 
-class SpriteImpl : public Sprite, public GraphicsChild {
+class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
  public:
   SpriteImpl(RenderScreenImpl* screen, DrawNodeController* parent);
   ~SpriteImpl() override;
@@ -62,7 +63,8 @@ class SpriteImpl : public Sprite, public GraphicsChild {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Tone, scoped_refptr<Tone>);
 
  private:
-  bool CheckDisposed(ExceptionState& exception_state);
+  void OnObjectDisposed() override;
+  std::string DisposedObjectName() override { return "Sprite"; }
   void DrawableNodeHandlerInternal(
       DrawableNode::RenderStage stage,
       DrawableNode::RenderControllerParams* params);

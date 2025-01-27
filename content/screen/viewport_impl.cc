@@ -102,6 +102,7 @@ scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
 
 ViewportImpl::ViewportImpl(RenderScreenImpl* screen, const base::Rect& region)
     : GraphicsChild(screen),
+      Disposable(screen),
       node_(SortKey()),
       region_(region),
       color_(new ColorImpl(base::Vec4())),
@@ -125,16 +126,11 @@ scoped_refptr<ViewportImpl> ViewportImpl::From(scoped_refptr<Viewport> host) {
 }
 
 void ViewportImpl::Dispose(ExceptionState& exception_state) {
-  if (!IsDisposed(exception_state)) {
-    node_.DisposeNode();
-
-    screen()->PostTask(base::BindOnce(&GPUDestroyViewportAgent, agent_));
-    agent_ = nullptr;
-  }
+  Disposable::Dispose(exception_state);
 }
 
 bool ViewportImpl::IsDisposed(ExceptionState& exception_state) {
-  return !agent_;
+  return Disposable::IsDisposed(exception_state);
 }
 
 void ViewportImpl::Flash(scoped_refptr<Color> color,
@@ -219,14 +215,11 @@ void ViewportImpl::Put_Tone(const scoped_refptr<Tone>& value,
   *tone_ = *ToneImpl::From(value);
 }
 
-bool ViewportImpl::CheckDisposed(ExceptionState& exception_state) {
-  if (IsDisposed(exception_state)) {
-    exception_state.ThrowContentError(ExceptionCode::kDisposedObject,
-                                      "disposed object: viewport");
-    return true;
-  }
+void ViewportImpl::OnObjectDisposed() {
+  node_.DisposeNode();
 
-  return false;
+  screen()->PostTask(base::BindOnce(&GPUDestroyViewportAgent, agent_));
+  agent_ = nullptr;
 }
 
 void ViewportImpl::DrawableNodeHandlerInternal(

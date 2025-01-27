@@ -12,6 +12,7 @@
 #include "content/canvas/font_impl.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
+#include "content/screen/renderscreen_impl.h"
 #include "renderer/utils/texture_utils.h"
 
 namespace content {
@@ -482,7 +483,8 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
       base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
                      memory_texture, canvas_texture_agent));
 
-  return new CanvasImpl(scheduler, canvas_texture_agent,
+  return new CanvasImpl(execution_context->graphics, scheduler,
+                        canvas_texture_agent,
                         new FontImpl(execution_context->font_context));
 }
 
@@ -505,7 +507,8 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
       base::BindOnce(&GPUCreateTextureWithSizeInternal, scheduler->GetDevice(),
                      base::Vec2i(width, height), canvas_texture_agent));
 
-  return new CanvasImpl(scheduler, canvas_texture_agent,
+  return new CanvasImpl(execution_context->graphics, scheduler,
+                        canvas_texture_agent,
                         new FontImpl(execution_context->font_context));
 }
 
@@ -531,10 +534,12 @@ std::string Bitmap::Serialize(scoped_refptr<Bitmap>,
   return std::string();
 }
 
-CanvasImpl::CanvasImpl(CanvasScheduler* scheduler,
+CanvasImpl::CanvasImpl(RenderScreenImpl* screen,
+                       CanvasScheduler* scheduler,
                        TextureAgent* texture,
                        scoped_refptr<Font> font)
-    : scheduler_(scheduler),
+    : Disposable(screen),
+      scheduler_(scheduler),
       texture_(texture),
       canvas_cache_(nullptr),
       font_(font) {}
@@ -649,43 +654,31 @@ base::Vec2i CanvasImpl::AsBaseSize() const {
 }
 
 void CanvasImpl::Dispose(ExceptionState& exception_state) {
-  // Unlink from canvas scheduler
-  base::LinkNode<CanvasImpl>::RemoveFromList();
-
-  if (!IsDisposed(exception_state)) {
-    // Destroy GPU texture
-    base::ThreadWorker::PostTask(
-        scheduler_->render_worker(),
-        base::BindOnce(&GPUDestroyTextureInternal, texture_));
-    texture_ = nullptr;
-
-    // Free memory surface cache
-    if (canvas_cache_) {
-      SDL_DestroySurface(canvas_cache_);
-      canvas_cache_ = nullptr;
-    }
-  }
+  Disposable::Dispose(exception_state);
 }
 
 bool CanvasImpl::IsDisposed(ExceptionState& exception_state) {
-  return !texture_;
+  return Disposable::IsDisposed(exception_state);
 }
 
 uint32_t CanvasImpl::Width(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
+
   return texture_->size.x;
 }
 
 uint32_t CanvasImpl::Height(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
+
   return texture_->size.y;
 }
 
 scoped_refptr<Rect> CanvasImpl::GetRect(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return nullptr;
+
   return Rect::New(0, 0, texture_->size.x, texture_->size.y, exception_state);
 }
 
@@ -951,14 +944,21 @@ scoped_refptr<Rect> CanvasImpl::TextSize(const std::string& str,
   return Rect::New(0, 0, w, h, exception_state);
 }
 
-bool CanvasImpl::CheckDisposed(ExceptionState& exception_state) {
-  if (IsDisposed(exception_state)) {
-    exception_state.ThrowContentError(ExceptionCode::kDisposedObject,
-                                      "disposed object: bitmap");
-    return true;
-  }
+void CanvasImpl::OnObjectDisposed() {
+  // Unlink from canvas scheduler
+  base::LinkNode<CanvasImpl>::RemoveFromList();
 
-  return false;
+  // Destroy GPU texture
+  base::ThreadWorker::PostTask(
+      scheduler_->render_worker(),
+      base::BindOnce(&GPUDestroyTextureInternal, texture_));
+  texture_ = nullptr;
+
+  // Free memory surface cache
+  if (canvas_cache_) {
+    SDL_DestroySurface(canvas_cache_);
+    canvas_cache_ = nullptr;
+  }
 }
 
 void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,

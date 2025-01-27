@@ -70,7 +70,7 @@ scoped_refptr<Sprite> Sprite::New(ExecutionContext* execution_context,
 }
 
 SpriteImpl::SpriteImpl(RenderScreenImpl* screen, DrawNodeController* parent)
-    : GraphicsChild(screen), node_(SortKey()) {
+    : GraphicsChild(screen), Disposable(screen), node_(SortKey()) {
   node_.RebindController(parent);
   node_.RegisterEventHandler(base::BindRepeating(
       &SpriteImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
@@ -86,14 +86,11 @@ SpriteImpl::~SpriteImpl() {
 }
 
 void SpriteImpl::Dispose(ExceptionState& exception_state) {
-  if (!IsDisposed(exception_state)) {
-    screen()->PostTask(base::BindOnce(&GPUDestroySpriteInternal, agent_));
-    agent_ = nullptr;
-  }
+  Disposable::Dispose(exception_state);
 }
 
 bool SpriteImpl::IsDisposed(ExceptionState& exception_state) {
-  return !agent_;
+  return Disposable::IsDisposed(exception_state);
 }
 
 void SpriteImpl::Flash(scoped_refptr<Color> color,
@@ -315,14 +312,9 @@ void SpriteImpl::Put_Tone(const scoped_refptr<Tone>& value,
   *tone_ = *ToneImpl::From(value);
 }
 
-bool SpriteImpl::CheckDisposed(ExceptionState& exception_state) {
-  if (IsDisposed(exception_state)) {
-    exception_state.ThrowContentError(ExceptionCode::kDisposedObject,
-                                      "disposed object: sprite");
-    return true;
-  }
-
-  return false;
+void SpriteImpl::OnObjectDisposed() {
+  screen()->PostTask(base::BindOnce(&GPUDestroySpriteInternal, agent_));
+  agent_ = nullptr;
 }
 
 void SpriteImpl::DrawableNodeHandlerInternal(

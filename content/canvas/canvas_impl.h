@@ -8,6 +8,7 @@
 #include "SDL3/SDL_surface.h"
 
 #include "base/containers/linked_list.h"
+#include "content/components/disposable.h"
 #include "content/public/engine_bitmap.h"
 #include "content/render/drawable_controller.h"
 #include "renderer/context/device_context.h"
@@ -42,9 +43,12 @@ struct TextureAgent {
   static void Free(TextureAgent* ptr, size_t n = 1);
 };
 
-class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
+class CanvasImpl : public Bitmap,
+                   public base::LinkNode<CanvasImpl>,
+                   public Disposable {
  public:
-  CanvasImpl(CanvasScheduler* scheduler,
+  CanvasImpl(RenderScreenImpl* screen,
+             CanvasScheduler* scheduler,
              TextureAgent* texture,
              scoped_refptr<Font> font);
   ~CanvasImpl() override;
@@ -146,7 +150,8 @@ class CanvasImpl : public Bitmap, public base::LinkNode<CanvasImpl> {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Font, scoped_refptr<Font>);
 
  private:
-  bool CheckDisposed(ExceptionState& exception_state);
+  void OnObjectDisposed() override;
+  std::string DisposedObjectName() override { return "Bitmap"; }
   void BlitTextureInternal(const base::Rect& dst_rect,
                            CanvasImpl* src_texture,
                            const base::Rect& src_rect,

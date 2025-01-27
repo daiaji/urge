@@ -20,6 +20,8 @@ set(ENGINE_CONTENT_SRC
   common/table_impl.h
   common/tone_impl.cc
   common/tone_impl.h
+  components/disposable.cc
+  components/disposable.h
   common/value_observer.h
   context/exception_state.cc
   context/exception_state.h

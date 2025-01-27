@@ -6,6 +6,7 @@
 #define CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 
 #include "base/worker/thread_worker.h"
+#include "content/components/disposable.h"
 #include "content/public/engine_graphics.h"
 #include "content/render/drawable_controller.h"
 #include "content/worker/coroutine_context.h"
@@ -43,7 +44,7 @@ class GraphicsChild {
   RenderScreenImpl* screen_;
 };
 
-class RenderScreenImpl : public Graphics {
+class RenderScreenImpl : public Graphics, public DisposableCollection {
  public:
   RenderScreenImpl(CoroutineContext* cc,
                    const base::Vec2i& resolution,
@@ -104,7 +105,9 @@ class RenderScreenImpl : public Graphics {
 
   void FrameBeginRenderPassInternal(wgpu::Texture* render_target);
   void FrameEndRenderPassInternal();
-  void FrameFinalEffectProcessInternal(wgpu::Texture* render_target);
+
+  void AddDisposable(Disposable* disp) override;
+  void RemoveDisposable(Disposable* disp) override;
 
   // All visible elements drawing controller
   DrawNodeController controller_;
