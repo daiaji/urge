@@ -95,57 +95,65 @@ void GPUApplyViewportEffectAndRestore(
     const base::Vec4& tone,
     wgpu::RenderPassEncoder* last_renderpass,
     const base::Rect& last_viewport) {
-  last_renderpass->End();
+  bool is_effect_valid =
+      color.w != 0 || tone.x != 0 || tone.y != 0 || tone.z != 0 || tone.w != 0;
 
-  wgpu::ImageCopyTexture src_texture, dst_texture;
-  wgpu::Extent3D extent;
-  src_texture.texture = *screen_buffer;
-  src_texture.origin.x = effect_region.x;
-  src_texture.origin.y = effect_region.y;
-  dst_texture.texture = agent->effect.intermediate_layer;
-  extent.width = effect_region.width;
-  extent.height = effect_region.height;
-  command_encoder->CopyTextureToTexture(&src_texture, &dst_texture, &extent);
+  if (is_effect_valid) {
+    last_renderpass->End();
 
-  renderer::FullVertexLayout transient_vertices[4];
-  renderer::FullVertexLayout::SetPositionRect(transient_vertices,
-                                              effect_region);
-  renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
-                                              base::Rect(effect_region.Size()));
-  command_encoder->WriteBuffer(agent->effect.vertex_buffer, 0,
-                               reinterpret_cast<uint8_t*>(transient_vertices),
-                               sizeof(transient_vertices));
+    wgpu::ImageCopyTexture src_texture, dst_texture;
+    wgpu::Extent3D extent;
+    src_texture.texture = *screen_buffer;
+    src_texture.origin.x = effect_region.x;
+    src_texture.origin.y = effect_region.y;
+    dst_texture.texture = agent->effect.intermediate_layer;
+    extent.width = effect_region.width;
+    extent.height = effect_region.height;
+    command_encoder->CopyTextureToTexture(&src_texture, &dst_texture, &extent);
 
-  renderer::ViewportFragmentUniform transient_uniform;
-  transient_uniform.color = color;
-  transient_uniform.tone = tone;
-  command_encoder->WriteBuffer(agent->effect.uniform_buffer, 0,
-                               reinterpret_cast<uint8_t*>(&transient_uniform),
-                               sizeof(transient_uniform));
+    renderer::FullVertexLayout transient_vertices[4];
+    renderer::FullVertexLayout::SetPositionRect(transient_vertices,
+                                                effect_region);
+    renderer::FullVertexLayout::SetTexCoordRect(
+        transient_vertices, base::Rect(effect_region.Size()));
+    command_encoder->WriteBuffer(agent->effect.vertex_buffer, 0,
+                                 reinterpret_cast<uint8_t*>(transient_vertices),
+                                 sizeof(transient_vertices));
 
-  wgpu::RenderPassColorAttachment attachment;
-  attachment.view = screen_buffer->CreateView();
-  attachment.loadOp = wgpu::LoadOp::Load;
-  attachment.storeOp = wgpu::StoreOp::Store;
+    renderer::ViewportFragmentUniform transient_uniform;
+    transient_uniform.color = color;
+    transient_uniform.tone = tone;
+    command_encoder->WriteBuffer(agent->effect.uniform_buffer, 0,
+                                 reinterpret_cast<uint8_t*>(&transient_uniform),
+                                 sizeof(transient_uniform));
 
-  wgpu::RenderPassDescriptor renderpass;
-  renderpass.colorAttachmentCount = 1;
-  renderpass.colorAttachments = &attachment;
+    wgpu::RenderPassColorAttachment attachment;
+    attachment.view = screen_buffer->CreateView();
+    attachment.loadOp = wgpu::LoadOp::Load;
+    attachment.storeOp = wgpu::StoreOp::Store;
 
-  auto& pipeline_set = device->GetPipelines()->viewport;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
+    wgpu::RenderPassDescriptor renderpass;
+    renderpass.colorAttachmentCount = 1;
+    renderpass.colorAttachments = &attachment;
 
-  wgpu::RenderPassEncoder pass = command_encoder->BeginRenderPass(&renderpass);
-  pass.SetPipeline(*pipeline);
-  pass.SetVertexBuffer(0, agent->effect.vertex_buffer);
-  pass.SetIndexBuffer(**index_cache, index_cache->format());
-  pass.SetBindGroup(0, agent->world_binding);
-  pass.SetBindGroup(1, agent->effect.layer_binding);
-  pass.SetBindGroup(2, agent->effect.uniform_binding);
-  pass.DrawIndexed(6);
-  pass.End();
+    auto& pipeline_set = device->GetPipelines()->viewport;
+    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
 
-  *last_renderpass = command_encoder->BeginRenderPass(&renderpass);
+    wgpu::RenderPassEncoder pass =
+        command_encoder->BeginRenderPass(&renderpass);
+    pass.SetPipeline(*pipeline);
+    pass.SetVertexBuffer(0, agent->effect.vertex_buffer);
+    pass.SetIndexBuffer(**index_cache, index_cache->format());
+    pass.SetBindGroup(0, agent->world_binding);
+    pass.SetBindGroup(1, agent->effect.layer_binding);
+    pass.SetBindGroup(2, agent->effect.uniform_binding);
+    pass.DrawIndexed(6);
+    pass.End();
+
+    *last_renderpass = command_encoder->BeginRenderPass(&renderpass);
+  }
+
+  // Restore viewport region
   last_renderpass->SetScissorRect(last_viewport.x, last_viewport.y,
                                   last_viewport.width, last_viewport.height);
 }
