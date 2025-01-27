@@ -129,7 +129,7 @@ Pipeline_Color::Pipeline_Color(const wgpu::Device& device,
 Pipeline_Viewport::Pipeline_Viewport(const wgpu::Device& device,
                                      wgpu::TextureFormat target)
     : RenderPipelineBase(device) {
-  BuildPipeline(kBaseRenderWGSL, "vertexMain", "fragmentMain",
+  BuildPipeline(kViewportBaseRenderWGSL, "vertexMain", "fragmentMain",
                 {
                     VertexType::GetLayout(),
                 },

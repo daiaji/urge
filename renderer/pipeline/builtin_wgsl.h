@@ -22,9 +22,8 @@ namespace renderer {
 //   @<2>: vec4<f32>
 ///
 // bind:
-//   @<0>: mat4x4
-//   @<1>: texture2d<f32>
-//   @<2>: sampler
+//   @<0>: mat4x4, mat4x4
+//   @<1>: texture2d<f32>, sampler, vec2
 ///
 extern const std::string kBaseRenderWGSL;
 
@@ -44,6 +43,25 @@ extern const std::string kBaseRenderWGSL;
 //   @<0>: mat4x4
 ///
 extern const std::string kColorRenderWGSL;
+
+///
+// type:
+//   viewport shader
+///
+// entry:
+//   vertexMain fragmentMain
+///
+// vertex:
+//   @<0>: vec4<f32>
+//   @<1>: vec2<f32>
+//   @<2>: vec4<f32>
+///
+// bind:
+//   @<0>: mat4x4
+//   @<1>: texture2d<f32>, sampler, vec2
+//   @<2>: vec4, vec4
+///
+extern const std::string kViewportBaseRenderWGSL;
 
 }  // namespace renderer
 

@@ -199,8 +199,7 @@ void RenderScreenImpl::PlayMovie(const std::string& filename,
 
 void RenderScreenImpl::InitGraphicsDeviceInternal(
     base::WeakPtr<ui::Widget> window) {
-  device_ =
-      renderer::RenderDevice::Create(window, wgpu::BackendType::Undefined);
+  device_ = renderer::RenderDevice::Create(window);
   context_ = renderer::DeviceContext::MakeContextFor(device_.get());
   index_buffer_cache_ = renderer::QuadrangleIndexCache::Make(device_.get());
   index_buffer_cache_->Allocate(1 << 10);
@@ -522,9 +521,13 @@ void RenderScreenImpl::FrameEndRenderPassInternal() {
   // Apply brightness
 }
 
-void RenderScreenImpl::AddDisposable(Disposable* disp) {}
+void RenderScreenImpl::AddDisposable(Disposable* disp) {
+  disposable_elements_.Append(disp);
+}
 
-void RenderScreenImpl::RemoveDisposable(Disposable* disp) {}
+void RenderScreenImpl::RemoveDisposable(Disposable* disp) {
+  disp->RemoveFromList();
+}
 
 uint32_t RenderScreenImpl::Get_FrameRate(ExceptionState&) {
   return frame_rate_;

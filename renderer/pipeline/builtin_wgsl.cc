@@ -112,13 +112,13 @@ const lumaF: vec3<f32> = vec3<f32>(0.299, 0.587, 0.114);
 }
 
 @fragment fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
-  var frag = textureSample(u_texture, u_sampler, vertex.uv);
+  var frag: vec4<f32> = textureSample(u_texture, u_sampler, vertex.uv);
   
   var luma: f32 = dot(frag.rgb, lumaF);
-  frag.rgb = mix(frag.rgb, vec3<f32>(luma), u_effect.tone.w);
-  frag.rgb = frag.rgb + u_effect.tone.rgb;
+  frag = vec4<f32>(mix(frag.rgb, vec3<f32>(luma), u_effect.tone.w), frag.a);
+  frag = vec4<f32>(frag.rgb + u_effect.tone.rgb, frag.a);
   
-  frag.rgb = mix(frag.rgb, u_effect.color.rgb, u_effect.color.a);
+  frag = vec4<f32>(mix(frag.rgb, u_effect.color.rgb, u_effect.color.a), frag.a);
 
   return frag;
 }

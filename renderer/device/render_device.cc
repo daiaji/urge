@@ -121,9 +121,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   // 2) Request an adapter that is "compatibilityMode" = true (for broad
   // compatibility)
   wgpu::RequestAdapterOptions adapter_options;
-  // adapter_options.compatibilityMode = true;
-  // If needed: adapter_options.backendType = required_backend; // or other
-  // fields
+  adapter_options.backendType = required_backend;
 
   wgpu::Adapter adapter;
   // We wait synchronously with WaitAny(...) for an adapter to be provided

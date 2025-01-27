@@ -122,6 +122,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   std::unique_ptr<CanvasScheduler> canvas_scheduler_;
 
   std::unique_ptr<RenderGraphicsAgent> agent_;
+  base::LinkedList<Disposable> disposable_elements_;
 
   bool frozen_;
   base::Vec2i resolution_;

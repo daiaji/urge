@@ -19,6 +19,16 @@ void GPUCreateViewportAgent(renderer::RenderDevice* device,
           **device, "viewport.world.uniform", wgpu::BufferUsage::CopyDst);
   agent->world_binding =
       renderer::WorldMatrixUniform::CreateGroup(**device, agent->world_uniform);
+
+  agent->effect.uniform_buffer =
+      renderer::CreateUniformBuffer<renderer::ViewportFragmentUniform>(
+          **device, "viewport.uniform", wgpu::BufferUsage::CopyDst);
+  agent->effect.vertex_buffer =
+      renderer::CreateVertexBuffer<renderer::FullVertexLayout>(
+          **device, "viewport.effect", wgpu::BufferUsage::CopyDst, 4);
+  agent->effect.uniform_binding =
+      renderer::ViewportFragmentUniform::CreateGroup(
+          **device, agent->effect.uniform_buffer);
 }
 
 void GPUDestroyViewportAgent(ViewportAgent* agent) {
@@ -32,7 +42,8 @@ void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
                                 wgpu::CommandEncoder* encoder,
                                 ViewportAgent* agent,
                                 const base::Vec2i& viewport_size,
-                                const base::Vec2i& offset) {
+                                const base::Vec2i& offset,
+                                const base::Vec2i& effect_size) {
   renderer::WorldMatrixUniform world_matrix;
   renderer::MakeProjectionMatrix(world_matrix.projection, viewport_size,
                                  offset);
@@ -41,6 +52,31 @@ void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
   encoder->WriteBuffer(agent->world_uniform, 0,
                        reinterpret_cast<uint8_t*>(&world_matrix),
                        sizeof(world_matrix));
+
+  auto effect_layer = agent->effect.intermediate_layer;
+  if (!effect_layer || effect_layer.GetWidth() < effect_size.x ||
+      effect_layer.GetHeight() < effect_size.y) {
+    base::Vec2i new_size;
+    new_size.x = std::max<int32_t>(effect_size.x,
+                                   effect_layer ? effect_layer.GetWidth() : 0);
+    new_size.y = std::max<int32_t>(effect_size.y,
+                                   effect_layer ? effect_layer.GetHeight() : 0);
+    agent->effect.intermediate_layer = renderer::CreateTexture2D(
+        **device, "viewport.intermediate",
+        wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::TextureBinding,
+        new_size);
+
+    renderer::TextureBindingUniform binding_uniform;
+    binding_uniform.texture_size = base::MakeInvert(new_size);
+    auto texture_uniform_buffer =
+        renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
+            **device, "viewport.layer.size", wgpu::BufferUsage::None,
+            &binding_uniform);
+
+    agent->effect.layer_binding = renderer::TextureBindingUniform::CreateGroup(
+        **device, agent->effect.intermediate_layer.CreateView(),
+        (*device)->CreateSampler(), texture_uniform_buffer);
+  }
 }
 
 void GPUResetViewportRegion(wgpu::RenderPassEncoder* agent,
@@ -61,6 +97,32 @@ void GPUApplyViewportEffectAndRestore(
     const base::Rect& last_viewport) {
   last_renderpass->End();
 
+  wgpu::ImageCopyTexture src_texture, dst_texture;
+  wgpu::Extent3D extent;
+  src_texture.texture = *screen_buffer;
+  src_texture.origin.x = effect_region.x;
+  src_texture.origin.y = effect_region.y;
+  dst_texture.texture = agent->effect.intermediate_layer;
+  extent.width = effect_region.width;
+  extent.height = effect_region.height;
+  command_encoder->CopyTextureToTexture(&src_texture, &dst_texture, &extent);
+
+  renderer::FullVertexLayout transient_vertices[4];
+  renderer::FullVertexLayout::SetPositionRect(transient_vertices,
+                                              effect_region);
+  renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
+                                              base::Rect(effect_region.Size()));
+  command_encoder->WriteBuffer(agent->effect.vertex_buffer, 0,
+                               reinterpret_cast<uint8_t*>(transient_vertices),
+                               sizeof(transient_vertices));
+
+  renderer::ViewportFragmentUniform transient_uniform;
+  transient_uniform.color = color;
+  transient_uniform.tone = tone;
+  command_encoder->WriteBuffer(agent->effect.uniform_buffer, 0,
+                               reinterpret_cast<uint8_t*>(&transient_uniform),
+                               sizeof(transient_uniform));
+
   wgpu::RenderPassColorAttachment attachment;
   attachment.view = screen_buffer->CreateView();
   attachment.loadOp = wgpu::LoadOp::Load;
@@ -69,6 +131,19 @@ void GPUApplyViewportEffectAndRestore(
   wgpu::RenderPassDescriptor renderpass;
   renderpass.colorAttachmentCount = 1;
   renderpass.colorAttachments = &attachment;
+
+  auto& pipeline_set = device->GetPipelines()->viewport;
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
+
+  wgpu::RenderPassEncoder pass = command_encoder->BeginRenderPass(&renderpass);
+  pass.SetPipeline(*pipeline);
+  pass.SetVertexBuffer(0, agent->effect.vertex_buffer);
+  pass.SetIndexBuffer(**index_cache, index_cache->format());
+  pass.SetBindGroup(0, agent->world_binding);
+  pass.SetBindGroup(1, agent->effect.layer_binding);
+  pass.SetBindGroup(2, agent->effect.uniform_binding);
+  pass.DrawIndexed(6);
+  pass.End();
 
   *last_renderpass = command_encoder->BeginRenderPass(&renderpass);
   last_renderpass->SetScissorRect(last_viewport.x, last_viewport.y,
@@ -237,7 +312,7 @@ void ViewportImpl::DrawableNodeHandlerInternal(
       agent_->region_cache = region_;
       screen()->PostTask(base::BindOnce(
           &GPUUpdateViewportAgentData, params->device, params->command_encoder,
-          agent_, params->viewport_size, viewport_position));
+          agent_, params->viewport_size, viewport_position, region_.Size()));
     }
   }
 
@@ -264,12 +339,20 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   controller_.BroadCastNotification(stage, &transient_params);
 
   // Restore last viewport settings and apply effect
-  if (params->renderpass_encoder)
+  if (params->renderpass_encoder) {
+    base::Vec4 composite_color = color_->AsNormColor();
+    base::Vec4 flash_color = flash_emitter_.GetColor();
+    base::Vec4 target_color = composite_color;
+    if (flash_emitter_.IsFlashing())
+      target_color =
+          (flash_color.w > composite_color.w ? flash_color : composite_color);
+
     screen()->PostTask(base::BindOnce(
         &GPUApplyViewportEffectAndRestore, params->device,
         params->command_encoder, params->index_cache, agent_,
-        params->screen_buffer, region_, color_->AsNormColor(),
-        tone_->AsNormColor(), params->renderpass_encoder, params->clip_region));
+        params->screen_buffer, region_, target_color, tone_->AsNormColor(),
+        params->renderpass_encoder, params->clip_region));
+  }
 }
 
 }  // namespace content

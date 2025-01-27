@@ -23,7 +23,7 @@ class DisposableCollection {
   virtual void RemoveDisposable(Disposable* disp) = 0;
 };
 
-class Disposable {
+class Disposable : public base::LinkNode<Disposable> {
  public:
   Disposable(DisposableCollection* parent);
   virtual ~Disposable();

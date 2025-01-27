@@ -29,7 +29,7 @@ class RenderDevice {
 
   static std::unique_ptr<RenderDevice> Create(
       base::WeakPtr<ui::Widget> window_target,
-      wgpu::BackendType required_backend);
+      wgpu::BackendType required_backend = wgpu::BackendType::Undefined);
 
   static wgpu::Instance* GetGPUInstance();
 

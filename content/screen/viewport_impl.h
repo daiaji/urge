@@ -18,6 +18,14 @@ struct ViewportAgent {
   wgpu::BindGroup world_binding;
   wgpu::Buffer world_uniform;
   base::Rect region_cache;
+
+  struct {
+    wgpu::Texture intermediate_layer;
+    wgpu::BindGroup layer_binding;
+    wgpu::Buffer uniform_buffer;
+    wgpu::BindGroup uniform_binding;
+    wgpu::Buffer vertex_buffer;
+  } effect;
 };
 
 class ViewportImpl : public Viewport, public GraphicsChild, public Disposable {
