@@ -23,6 +23,17 @@ struct SpriteAgent {
 
 class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
  public:
+  struct SpriteTransform {
+    base::Rect position;
+    base::Rect texcoord;
+    base::Vec2i offset;
+    base::Vec2i origin;
+    base::Vec2 scale{1.0f};
+    float rotation = 0.0f;
+    int32_t mirror = 0;
+    bool dirty = true;
+  };
+
   SpriteImpl(RenderScreenImpl* screen, DrawNodeController* parent);
   ~SpriteImpl() override;
 
@@ -77,7 +88,8 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> bitmap_;
   base::Rect src_rect_;
-  renderer::TransformQuadVertices transform_;
+
+  SpriteTransform transform_;
 
   struct {
     bool active = false;
@@ -86,8 +98,6 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
     int32_t speed = 360;
     float phase = 0.0f;
   } wave_;
-
-  bool mirror_ = false;
 
   struct {
     int32_t depth = 0;

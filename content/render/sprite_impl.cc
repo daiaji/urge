@@ -26,14 +26,69 @@ void GPUDestroySpriteInternal(SpriteAgent* agent) {
   delete agent;
 }
 
-void GPUUpdateSpriteVerticesInternal(wgpu::CommandEncoder* encoder,
-                                     SpriteAgent* agent,
-                                     renderer::FullVertexLayout* vertices) {
-  encoder->WriteBuffer(agent->vertex_buffer, 0,
-                       reinterpret_cast<uint8_t*>(vertices),
-                       sizeof(renderer::FullVertexLayout) * 4);
+void GPUUpdateSpriteVerticesInternal(
+    wgpu::CommandEncoder* encoder,
+    SpriteAgent* agent,
+    const SpriteImpl::SpriteTransform& transform) {
+  renderer::FullVertexLayout vertices[4] = {
+      renderer::FullVertexLayout{
+          base::Vec4i{transform.position.x, transform.position.y, 0, 1},
+          base::Vec2i{transform.texcoord.x, transform.texcoord.y},
+          base::Vec4{0, 0, 0, 1},
+      },
+      renderer::FullVertexLayout{
+          base::Vec4i{transform.position.x + transform.position.width,
+                      transform.position.y, 0, 1},
+          base::Vec2i{transform.texcoord.x + transform.texcoord.width,
+                      transform.texcoord.y},
+          base::Vec4{0, 0, 0, 1},
+      },
+      renderer::FullVertexLayout{
+          base::Vec4i{transform.position.x + transform.position.width,
+                      transform.position.y + transform.position.height, 0, 1},
+          base::Vec2i{transform.texcoord.x + transform.texcoord.width,
+                      transform.texcoord.y + transform.texcoord.height},
+          base::Vec4{0, 0, 0, 1},
+      },
+      renderer::FullVertexLayout{
+          base::Vec4i{transform.position.x,
+                      transform.position.y + transform.position.height, 0, 1},
+          base::Vec2i{transform.texcoord.x,
+                      transform.texcoord.y + transform.texcoord.height},
+          base::Vec4{0, 0, 0, 1},
+      },
+  };
 
-  delete vertices;
+  float angle = transform.rotation;
+  if (angle >= 360 || angle < -360)
+    angle = std::fmod(angle, 360.f);
+  if (angle < 0)
+    angle += 360;
+
+  angle = angle * 3.141592654f / 180.0f;
+  float cosine = std::cos(angle);
+  float sine = std::sin(angle);
+  float sxc = transform.scale.x * cosine;
+  float syc = transform.scale.y * cosine;
+  float sxs = transform.scale.x * sine;
+  float sys = transform.scale.y * sine;
+  float tx =
+      -transform.origin.x * sxc - transform.origin.y * sys + transform.offset.x;
+  float ty =
+      transform.origin.x * sxs - transform.origin.y * syc + transform.offset.y;
+
+  for (int i = 0; i < _countof(vertices); ++i) {
+    float tsx =
+        sxc * vertices[i].position.x + sys * vertices[i].position.y + tx;
+    float tsy =
+        -sxs * vertices[i].position.x + syc * vertices[i].position.y + ty;
+
+    vertices[i].position.x = tsx;
+    vertices[i].position.y = tsy;
+  }
+
+  encoder->WriteBuffer(agent->vertex_buffer, 0,
+                       reinterpret_cast<uint8_t*>(vertices), sizeof(vertices));
 }
 
 void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
@@ -100,11 +155,11 @@ void SpriteImpl::Flash(scoped_refptr<Color> color,
 void SpriteImpl::Update(ExceptionState& exception_state) {}
 
 uint32_t SpriteImpl::Width(ExceptionState& exception_state) {
-  return 0;
+  return src_rect_.width;
 }
 
 uint32_t SpriteImpl::Height(ExceptionState& exception_state) {
-  return 0;
+  return src_rect_.height;
 }
 
 scoped_refptr<Bitmap> SpriteImpl::Get_Bitmap(ExceptionState& exception_state) {
@@ -115,6 +170,9 @@ void SpriteImpl::Put_Bitmap(const scoped_refptr<Bitmap>& value,
                             ExceptionState& exception_state) {
   bitmap_ = CanvasImpl::FromBitmap(value);
   src_rect_ = bitmap_->AsBaseSize();
+  transform_.position = src_rect_;
+  transform_.texcoord = src_rect_;
+  transform_.dirty = true;
 }
 
 scoped_refptr<Rect> SpriteImpl::Get_SrcRect(ExceptionState& exception_state) {
@@ -124,6 +182,9 @@ scoped_refptr<Rect> SpriteImpl::Get_SrcRect(ExceptionState& exception_state) {
 void SpriteImpl::Put_SrcRect(const scoped_refptr<Rect>& value,
                              ExceptionState& exception_state) {
   src_rect_ = RectImpl::From(value)->AsBaseRect();
+  transform_.position = src_rect_.Size();
+  transform_.texcoord = src_rect_;
+  transform_.dirty = true;
 }
 
 scoped_refptr<Viewport> SpriteImpl::Get_Viewport(
@@ -147,19 +208,21 @@ void SpriteImpl::Put_Visible(const bool& value,
 }
 
 int32_t SpriteImpl::Get_X(ExceptionState& exception_state) {
-  return transform_.GetPosition().x;
+  return transform_.offset.x;
 }
 
 void SpriteImpl::Put_X(const int32_t& value, ExceptionState& exception_state) {
-  transform_.SetPosition(base::Vec2(value, transform_.GetPosition().y));
+  transform_.offset.x = value;
+  transform_.dirty = true;
 }
 
 int32_t SpriteImpl::Get_Y(ExceptionState& exception_state) {
-  return transform_.GetPosition().y;
+  return transform_.offset.y;
 }
 
 void SpriteImpl::Put_Y(const int32_t& value, ExceptionState& exception_state) {
-  transform_.SetPosition(base::Vec2(transform_.GetPosition().x, value));
+  transform_.offset.y = value;
+  transform_.dirty = true;
 }
 
 int32_t SpriteImpl::Get_Z(ExceptionState& exception_state) {
@@ -171,46 +234,51 @@ void SpriteImpl::Put_Z(const int32_t& value, ExceptionState& exception_state) {
 }
 
 int32_t SpriteImpl::Get_Ox(ExceptionState& exception_state) {
-  return transform_.GetOrigin().x;
+  return transform_.origin.x;
 }
 
 void SpriteImpl::Put_Ox(const int32_t& value, ExceptionState& exception_state) {
-  transform_.SetOrigin(base::Vec2(value, transform_.GetOrigin().y));
+  transform_.origin.x = value;
+  transform_.dirty = true;
 }
 
 int32_t SpriteImpl::Get_Oy(ExceptionState& exception_state) {
-  return transform_.GetOrigin().y;
+  return transform_.origin.y;
 }
 
 void SpriteImpl::Put_Oy(const int32_t& value, ExceptionState& exception_state) {
-  transform_.SetOrigin(base::Vec2(transform_.GetOrigin().x, value));
+  transform_.origin.y = value;
+  transform_.dirty = true;
 }
 
 float SpriteImpl::Get_ZoomX(ExceptionState& exception_state) {
-  return transform_.GetScale().x;
+  return transform_.scale.x;
 }
 
 void SpriteImpl::Put_ZoomX(const float& value,
                            ExceptionState& exception_state) {
-  transform_.SetScale(base::Vec2(value, transform_.GetScale().y));
+  transform_.scale.x = value;
+  transform_.dirty = true;
 }
 
 float SpriteImpl::Get_ZoomY(ExceptionState& exception_state) {
-  return transform_.GetScale().y;
+  return transform_.scale.y;
 }
 
 void SpriteImpl::Put_ZoomY(const float& value,
                            ExceptionState& exception_state) {
-  transform_.SetScale(base::Vec2(transform_.GetScale().x, value));
+  transform_.scale.y = value;
+  transform_.dirty = true;
 }
 
 float SpriteImpl::Get_Angle(ExceptionState& exception_state) {
-  return transform_.GetRotation();
+  return transform_.rotation;
 }
 
 void SpriteImpl::Put_Angle(const float& value,
                            ExceptionState& exception_state) {
-  transform_.SetRotation(value);
+  transform_.rotation = value;
+  transform_.dirty = true;
 }
 
 int32_t SpriteImpl::Get_WaveAmp(ExceptionState& exception_state) {
@@ -250,12 +318,13 @@ void SpriteImpl::Put_WavePhase(const int32_t& value,
 }
 
 bool SpriteImpl::Get_Mirror(ExceptionState& exception_state) {
-  return mirror_;
+  return transform_.mirror;
 }
 
 void SpriteImpl::Put_Mirror(const bool& value,
                             ExceptionState& exception_state) {
-  mirror_ = value;
+  transform_.mirror = value;
+  transform_.dirty = true;
 }
 
 int32_t SpriteImpl::Get_BushDepth(ExceptionState& exception_state) {
@@ -321,19 +390,11 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
   if (stage == DrawableNode::RenderStage::kBeforeRender) {
-    renderer::FullVertexLayout::SetPositionRect(vertices_,
-                                                base::Rect(src_rect_.Size()));
-    renderer::FullVertexLayout::SetTexCoordRect(vertices_, src_rect_);
-
-    if (transform_.DataUpdateRequired()) {
-      renderer::FullVertexLayout* vertices = new renderer::FullVertexLayout[4];
-      memcpy(vertices, vertices_, sizeof(vertices_));
-      for (int i = 0; i < 4; ++i)
-        transform_.TransformVertexUnsafe(&vertices[i].position);
-
+    if (transform_.dirty) {
+      transform_.dirty = false;
       screen()->PostTask(base::BindOnce(&GPUUpdateSpriteVerticesInternal,
                                         params->command_encoder, agent_,
-                                        vertices));
+                                        transform_));
     }
   } else if (stage == DrawableNode::RenderStage::kOnRendering) {
     screen()->PostTask(base::BindOnce(
