@@ -108,6 +108,8 @@ inline void VertexBufferController<VertexType>::QueueWrite(
                       size * sizeof(VertexType));
 }
 
+using FullQuadController = VertexBufferController<FullVertexLayout>;
+
 }  // namespace renderer
 
 #endif  //! RENDERER_RESOURCE_RENDER_BUFFER_H_

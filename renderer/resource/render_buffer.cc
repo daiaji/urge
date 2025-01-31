@@ -41,8 +41,7 @@ wgpu::Buffer* QuadrangleIndexCache::Allocate(uint32_t quadrangle_size) {
       cached_indices_.reserve(required_indices_size);
     for (uint32_t i = 0; i < quadrangle_size; ++i)
       for (const auto& it : kQuadrangleDrawIndices)
-        cached_indices_.push_back((count_ + i) * kQuadrangleDrawIndices.size() +
-                                  it);
+        cached_indices_.push_back((count_ + i) * 4 + it);
 
     // Reset current count and buffer
     count_ = quadrangle_size;

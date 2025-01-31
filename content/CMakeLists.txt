@@ -44,6 +44,8 @@ set(ENGINE_CONTENT_SRC
   public/engine_window.h
   render/drawable_controller.cc
   render/drawable_controller.h
+  render/plane_impl.cc
+  render/plane_impl.h
   render/sprite_impl.cc
   render/sprite_impl.h
   screen/renderscreen_impl.cc

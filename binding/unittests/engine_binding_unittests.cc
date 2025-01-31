@@ -8,6 +8,7 @@
 
 #include "base/debug/logging.h"
 #include "content/canvas/canvas_impl.h"
+#include "content/render/plane_impl.h"
 #include "content/render/sprite_impl.h"
 #include "content/screen/renderscreen_impl.h"
 
@@ -63,6 +64,7 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
   auto vp = content::Viewport::New(execution, 0, 0, 300, 300, exception_state);
   vp->Put_Ox(-50, exception_state);
   vp->Put_Oy(-50, exception_state);
+  vp->Put_Z(30, exception_state);
 
   auto spr = content::Sprite::New(execution, vp, exception_state);
   spr->Put_Bitmap(bmp, exception_state);
@@ -83,9 +85,18 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
   spr2->Put_Bitmap(bmp2, exception_state);
   spr2->Put_X(250, exception_state);
   spr2->Put_Y(250, exception_state);
-  spr2->Put_Z(10, exception_state);
+  spr2->Put_Z(20, exception_state);
 
+  auto pl = content::Plane::New(execution, nullptr, exception_state);
+  pl->Put_Bitmap(content::Bitmap::New(execution, "tile.png", exception_state),
+                 exception_state);
+  pl->Put_Z(10, exception_state);
+
+  int32_t offset = 0;
   while (!exit_flag_) {
+    offset += 5;
+    pl->Put_Ox(offset, exception_state);
+    pl->Put_Oy(offset, exception_state);
     execution->graphics->Update(exception_state);
   }
 }

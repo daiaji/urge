@@ -115,18 +115,20 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
 scoped_refptr<Sprite> Sprite::New(ExecutionContext* execution_context,
                                   scoped_refptr<Viewport> viewport,
                                   ExceptionState& exception_state) {
-  DrawNodeController* parent =
-      execution_context->graphics->GetDrawableController();
-
-  if (viewport)
-    parent = ViewportImpl::From(viewport)->GetDrawableController();
-
-  return new SpriteImpl(execution_context->graphics, parent);
+  return new SpriteImpl(execution_context->graphics,
+                        ViewportImpl::From(viewport));
 }
 
-SpriteImpl::SpriteImpl(RenderScreenImpl* screen, DrawNodeController* parent)
-    : GraphicsChild(screen), Disposable(screen), node_(SortKey()) {
-  node_.RebindController(parent);
+SpriteImpl::SpriteImpl(RenderScreenImpl* screen,
+                       scoped_refptr<ViewportImpl> parent)
+    : GraphicsChild(screen),
+      Disposable(screen),
+      node_(SortKey()),
+      viewport_(parent),
+      color_(new ColorImpl(base::Vec4())),
+      tone_(new ToneImpl(base::Vec4())) {
+  node_.RebindController(parent ? parent->GetDrawableController()
+                                : screen->GetDrawableController());
   node_.RegisterEventHandler(base::BindRepeating(
       &SpriteImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
 
@@ -390,6 +392,7 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
   if (stage == DrawableNode::RenderStage::kBeforeRender) {
+    // Update vertices transform data
     if (transform_.dirty) {
       transform_.dirty = false;
       screen()->PostTask(base::BindOnce(&GPUUpdateSpriteVerticesInternal,

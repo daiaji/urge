@@ -98,12 +98,8 @@ class DrawableNode final {
     wgpu::Texture* screen_buffer = nullptr;
 
     // [Stage: all]
-    // Current viewport size.
-    base::Vec2i viewport_size;
-
-    // [Stage: on rendering]
-    // Current viewport size.
-    base::Rect clip_region;
+    // Current viewport region.
+    base::Rect viewport;
 
     // [Stage: on rendering]
     // Main render pass encoder.

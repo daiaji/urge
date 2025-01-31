@@ -225,7 +225,7 @@ void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
   controller_params.device = device_.get();
   controller_params.index_cache = index_buffer_cache_.get();
   controller_params.command_encoder = context_->GetImmediateEncoder();
-  controller_params.viewport_size = viewport_size;
+  controller_params.viewport = viewport_size;
   controller_params.screen_buffer = render_target;
 
   // 1) Execute pre-composite handler
@@ -239,7 +239,6 @@ void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
                      base::Unretained(this), render_target));
 
   // 3) Notify render a frame
-  controller_params.clip_region = viewport_size;
   controller_params.world_binding = &agent_->world_binding;
   controller_params.renderpass_encoder = &agent_->renderpass;
   controller_.BroadCastNotification(DrawableNode::kOnRendering,

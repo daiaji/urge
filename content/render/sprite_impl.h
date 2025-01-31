@@ -34,7 +34,7 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
     bool dirty = true;
   };
 
-  SpriteImpl(RenderScreenImpl* screen, DrawNodeController* parent);
+  SpriteImpl(RenderScreenImpl* screen, scoped_refptr<ViewportImpl> parent);
   ~SpriteImpl() override;
 
   SpriteImpl(const SpriteImpl&) = delete;

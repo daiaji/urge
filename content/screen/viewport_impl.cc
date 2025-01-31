@@ -41,12 +41,11 @@ void GPUDestroyViewportAgent(ViewportAgent* agent) {
 void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
                                 wgpu::CommandEncoder* encoder,
                                 ViewportAgent* agent,
-                                const base::Vec2i& viewport_size,
-                                const base::Vec2i& offset,
-                                const base::Vec2i& effect_size) {
+                                const base::Vec2i& viewport,
+                                const base::Rect& region) {
   renderer::WorldMatrixUniform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, viewport_size,
-                                 offset);
+  renderer::MakeProjectionMatrix(world_matrix.projection, viewport,
+                                 region.Position());
   renderer::MakeIdentityMatrix(world_matrix.transform);
 
   encoder->WriteBuffer(agent->world_uniform, 0,
@@ -54,12 +53,12 @@ void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
                        sizeof(world_matrix));
 
   auto effect_layer = agent->effect.intermediate_layer;
-  if (!effect_layer || effect_layer.GetWidth() < effect_size.x ||
-      effect_layer.GetHeight() < effect_size.y) {
+  if (!effect_layer || effect_layer.GetWidth() < region.width ||
+      effect_layer.GetHeight() < region.height) {
     base::Vec2i new_size;
-    new_size.x = std::max<int32_t>(effect_size.x,
+    new_size.x = std::max<int32_t>(region.width,
                                    effect_layer ? effect_layer.GetWidth() : 0);
-    new_size.y = std::max<int32_t>(effect_size.y,
+    new_size.y = std::max<int32_t>(region.height,
                                    effect_layer ? effect_layer.GetHeight() : 0);
     agent->effect.intermediate_layer = renderer::CreateTexture2D(
         **device, "viewport.intermediate",
@@ -91,6 +90,7 @@ void GPUApplyViewportEffectAndRestore(
     ViewportAgent* agent,
     wgpu::Texture* screen_buffer,
     const base::Rect& effect_region,
+    const base::Vec2i& origin,
     const base::Vec4& color,
     const base::Vec4& tone,
     wgpu::RenderPassEncoder* last_renderpass,
@@ -112,8 +112,9 @@ void GPUApplyViewportEffectAndRestore(
     command_encoder->CopyTextureToTexture(&src_texture, &dst_texture, &extent);
 
     renderer::FullVertexLayout transient_vertices[4];
-    renderer::FullVertexLayout::SetPositionRect(transient_vertices,
-                                                effect_region);
+    renderer::FullVertexLayout::SetPositionRect(
+        transient_vertices,
+        base::Rect(effect_region.Position() + origin, effect_region.Size()));
     renderer::FullVertexLayout::SetTexCoordRect(
         transient_vertices, base::Rect(effect_region.Size()));
     command_encoder->WriteBuffer(agent->effect.vertex_buffer, 0,
@@ -311,31 +312,31 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   // Stack storage last render state
   DrawableNode::RenderControllerParams transient_params = *params;
 
+  // Scissor region
+  transient_params.viewport = region_;
+  base::Rect scissor_region = base::MakeIntersect(params->viewport, region_);
+  base::Vec2i backbuffer_size(params->screen_buffer->GetWidth(),
+                              params->screen_buffer->GetHeight());
+
   if (stage == DrawableNode::kBeforeRender) {
     // Calculate viewport offset
-    base::Vec2i viewport_position = region_.Position() - origin_;
+    base::Vec2i offset = region_.Position() - origin_;
 
     // Update uniform buffer if viewport region changed.
     if (!(region_ == agent_->region_cache)) {
       agent_->region_cache = region_;
       screen()->PostTask(base::BindOnce(
           &GPUUpdateViewportAgentData, params->device, params->command_encoder,
-          agent_, params->viewport_size, viewport_position, region_.Size()));
+          agent_, backbuffer_size, base::Rect(offset, region_.Size())));
     }
   }
 
   if (transient_params.renderpass_encoder) {
-    // Scissor region
-    base::Rect scissor_region =
-        base::MakeIntersect(params->clip_region, region_);
-
     // Reset viewport's world settings
     transient_params.world_binding = &agent_->world_binding;
-    transient_params.clip_region = scissor_region;
 
     // Adjust visibility
-    if (transient_params.clip_region.width <= 0 ||
-        transient_params.clip_region.height <= 0)
+    if (scissor_region.width <= 0 || scissor_region.height <= 0)
       return;
 
     // Set new viewport
@@ -358,8 +359,8 @@ void ViewportImpl::DrawableNodeHandlerInternal(
     screen()->PostTask(base::BindOnce(
         &GPUApplyViewportEffectAndRestore, params->device,
         params->command_encoder, params->index_cache, agent_,
-        params->screen_buffer, region_, target_color, tone_->AsNormColor(),
-        params->renderpass_encoder, params->clip_region));
+        params->screen_buffer, region_, origin_, target_color,
+        tone_->AsNormColor(), params->renderpass_encoder, params->viewport));
   }
 }
 
