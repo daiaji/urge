@@ -89,8 +89,9 @@ void GPUApplyViewportEffectAndRestore(
     renderer::QuadrangleIndexCache* index_cache,
     ViewportAgent* agent,
     wgpu::Texture* screen_buffer,
-    const base::Rect& effect_region,
+    const base::Vec2i& offset,
     const base::Vec2i& origin,
+    const base::Vec2i& size,
     const base::Vec4& color,
     const base::Vec4& tone,
     wgpu::RenderPassEncoder* last_renderpass,
@@ -104,19 +105,18 @@ void GPUApplyViewportEffectAndRestore(
     wgpu::ImageCopyTexture src_texture, dst_texture;
     wgpu::Extent3D extent;
     src_texture.texture = *screen_buffer;
-    src_texture.origin.x = effect_region.x;
-    src_texture.origin.y = effect_region.y;
+    src_texture.origin.x = offset.x;
+    src_texture.origin.y = offset.y;
     dst_texture.texture = agent->effect.intermediate_layer;
-    extent.width = effect_region.width;
-    extent.height = effect_region.height;
+    extent.width = size.x;
+    extent.height = size.y;
     command_encoder->CopyTextureToTexture(&src_texture, &dst_texture, &extent);
 
     renderer::FullVertexLayout transient_vertices[4];
     renderer::FullVertexLayout::SetPositionRect(
-        transient_vertices,
-        base::Rect(effect_region.Position() + origin, effect_region.Size()));
-    renderer::FullVertexLayout::SetTexCoordRect(
-        transient_vertices, base::Rect(effect_region.Size()));
+        transient_vertices, base::Rect(offset + origin, size));
+    renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
+                                                base::Rect(size));
     command_encoder->WriteBuffer(agent->effect.vertex_buffer, 0,
                                  reinterpret_cast<uint8_t*>(transient_vertices),
                                  sizeof(transient_vertices));
@@ -356,11 +356,12 @@ void ViewportImpl::DrawableNodeHandlerInternal(
       target_color =
           (flash_color.w > composite_color.w ? flash_color : composite_color);
 
-    screen()->PostTask(base::BindOnce(
-        &GPUApplyViewportEffectAndRestore, params->device,
-        params->command_encoder, params->index_cache, agent_,
-        params->screen_buffer, region_, origin_, target_color,
-        tone_->AsNormColor(), params->renderpass_encoder, params->viewport));
+    screen()->PostTask(
+        base::BindOnce(&GPUApplyViewportEffectAndRestore, params->device,
+                       params->command_encoder, params->index_cache, agent_,
+                       params->screen_buffer, region_.Position(), origin_,
+                       region_.Size(), target_color, tone_->AsNormColor(),
+                       params->renderpass_encoder, params->viewport));
   }
 }
 
