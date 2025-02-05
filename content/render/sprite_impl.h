@@ -5,6 +5,7 @@
 #ifndef CONTENT_RENDER_SPRITE_IMPL_H_
 #define CONTENT_RENDER_SPRITE_IMPL_H_
 
+#include "base/math/transform.h"
 #include "content/canvas/canvas_impl.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
@@ -19,19 +20,23 @@ namespace content {
 
 struct SpriteAgent {
   wgpu::Buffer vertex_buffer;
+
+  wgpu::BindGroup uniform_binding;
+  wgpu::Buffer uniform_buffer;
+
+  wgpu::Buffer wave_buffer;
+  std::vector<renderer::FullVertexLayout> wave_cache;
+  int32_t wave_index_count = 0;
 };
 
 class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
  public:
-  struct SpriteTransform {
-    base::Rect position;
-    base::Rect texcoord;
-    base::Vec2i offset;
-    base::Vec2i origin;
-    base::Vec2 scale{1.0f};
-    float rotation = 0.0f;
-    int32_t mirror = 0;
-    bool dirty = true;
+  struct WaveParams {
+    int32_t amp = 0;
+    int32_t length = 180;
+    int32_t speed = 360;
+    float phase = 0.0f;
+    bool dirty = false;
   };
 
   SpriteImpl(RenderScreenImpl* screen, scoped_refptr<ViewportImpl> parent);
@@ -79,35 +84,34 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
   void DrawableNodeHandlerInternal(
       DrawableNode::RenderStage stage,
       DrawableNode::RenderControllerParams* params);
+  void SrcRectChangedInternal();
 
   DrawableNode node_;
+  DrawableFlashController flash_emitter_;
   SpriteAgent* agent_;
 
   renderer::FullVertexLayout vertices_[4];
 
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> bitmap_;
-  base::Rect src_rect_;
+  scoped_refptr<RectImpl> src_rect_;
 
-  SpriteTransform transform_;
-
-  struct {
-    bool active = false;
-    int32_t amp = 0;
-    int32_t length = 180;
-    int32_t speed = 360;
-    float phase = 0.0f;
-  } wave_;
+  base::TransformMatrix transform_;
+  WaveParams wave_;
 
   struct {
     int32_t depth = 0;
     int32_t opacity = 128;
   } bush_;
 
+  int32_t mirror_ = 0;
   int32_t opacity_ = 255;
   int32_t blend_type_ = 0;
   scoped_refptr<ColorImpl> color_;
   scoped_refptr<ToneImpl> tone_;
+
+  base::CallbackListSubscription src_rect_observer_;
+  bool src_rect_dirty_ = false;
 };
 
 }  // namespace content

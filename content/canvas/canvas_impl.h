@@ -38,9 +38,6 @@ struct TextureAgent {
   wgpu::Texture text_surface_cache;
   wgpu::BindGroup text_cache_binding;
   wgpu::Buffer text_write_cache;
-
-  static TextureAgent* Allocate(size_t n = 1);
-  static void Free(TextureAgent* ptr, size_t n = 1);
 };
 
 class CanvasImpl : public Bitmap,

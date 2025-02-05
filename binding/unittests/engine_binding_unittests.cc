@@ -86,14 +86,21 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
   spr2->Put_X(250, exception_state);
   spr2->Put_Y(250, exception_state);
   spr2->Put_Z(20, exception_state);
+  spr2->Put_WaveAmp(50, exception_state);
+  spr2->Put_WaveSpeed(1000, exception_state);
+  spr2->Put_ZoomY(2, exception_state);
+  spr2->Put_Angle(20, exception_state);
 
   auto pl = content::Plane::New(execution, nullptr, exception_state);
   pl->Put_Bitmap(content::Bitmap::New(execution, "tile.png", exception_state),
                  exception_state);
   pl->Put_Z(10, exception_state);
+  pl->Put_Opacity(100, exception_state);
 
   int32_t offset = 0;
   while (!exit_flag_) {
+    spr2->Update(exception_state);
+
     offset += 5;
     pl->Put_Ox(offset, exception_state);
     pl->Put_Oy(offset, exception_state);

@@ -45,6 +45,7 @@ RectImpl::RectImpl(const RectImpl& other) : rect_(other.rect_) {}
 
 RectImpl& RectImpl::operator=(const RectImpl& other) {
   rect_ = other.rect_;
+  NotifyObservers();
   return *this;
 }
 
@@ -68,6 +69,11 @@ void RectImpl::Set(scoped_refptr<Rect> other, ExceptionState& exception_state) {
 
 void RectImpl::Empty(ExceptionState& exception_state) {
   rect_ = base::Rect();
+  NotifyObservers();
+}
+
+void RectImpl::SetBase(const base::Rect& base) {
+  rect_ = base;
   NotifyObservers();
 }
 

@@ -53,7 +53,7 @@ ColorImpl::ColorImpl(const ColorImpl& other)
 
 ColorImpl& ColorImpl::operator=(const ColorImpl& other) {
   value_ = other.value_;
-  dirty_ = other.dirty_;
+  NotifyObservers();
   return *this;
 }
 

@@ -42,23 +42,29 @@ void DrawableNode::RegisterEventHandler(const NotificationHandler& handler) {
 }
 
 void DrawableNode::RebindController(DrawNodeController* controller) {
+  // Rebind associated node link
+  base::LinkNode<DrawableNode>::RemoveFromList();
+  controller->associated_nodes_.Append(this);
+
   // Bind to new controller and unbind with old controller.
   if (controller_) {
-    auto node = controller_->node_.extract(key_);
+    auto node = controller_->nodes_.extract(key_);
     DCHECK(!node.empty());
 
     // Bind to new contrainer
-    controller->node_.insert(std::move(node));
+    controller->nodes_.insert(std::move(node));
   } else {
     // First bind to new controller
     controller_ = controller;
-    controller_->node_.emplace(key_, this);
+    controller_->nodes_.emplace(key_, this);
   }
 }
 
 void DrawableNode::DisposeNode() {
+  base::LinkNode<DrawableNode>::RemoveFromList();
+
   if (controller_) {
-    controller_->node_.erase(key_);
+    controller_->nodes_.erase(key_);
     controller_ = nullptr;
   }
 }
@@ -75,21 +81,21 @@ void DrawableNode::SetNodeSortWeight(int weight1) {
   if (!controller_)
     return;
 
-  auto current_node = controller_->node_.extract(key_);
+  auto current_node = controller_->nodes_.extract(key_);
   if (current_node.empty())
     return;
 
   key_.weight[0] = weight1;
 
   current_node.key() = key_;
-  controller_->node_.insert(std::move(current_node));
+  controller_->nodes_.insert(std::move(current_node));
 }
 
 void DrawableNode::SetNodeSortWeight(int weight1, int weight2) {
   if (!controller_)
     return;
 
-  auto current_node = controller_->node_.extract(key_);
+  auto current_node = controller_->nodes_.extract(key_);
   if (current_node.empty())
     return;
 
@@ -97,14 +103,14 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2) {
   key_.weight[1] = weight2;
 
   current_node.key() = key_;
-  controller_->node_.insert(std::move(current_node));
+  controller_->nodes_.insert(std::move(current_node));
 }
 
 void DrawableNode::SetNodeSortWeight(int weight1, int weight2, int weight3) {
   if (!controller_)
     return;
 
-  auto current_node = controller_->node_.extract(key_);
+  auto current_node = controller_->nodes_.extract(key_);
   if (current_node.empty())
     return;
 
@@ -113,26 +119,35 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2, int weight3) {
   key_.weight[2] = weight3;
 
   current_node.key() = key_;
-  controller_->node_.insert(std::move(current_node));
+  controller_->nodes_.insert(std::move(current_node));
 }
 
-DrawNodeController::DrawNodeController() : node_(&pool_resource) {}
+DrawNodeController::DrawNodeController() : nodes_(&pool_resource) {}
 
 DrawNodeController::~DrawNodeController() {
-  for (auto& it : node_)
+  for (auto& it : nodes_)
     it.second->controller_ = nullptr;
 }
 
 void DrawNodeController::BroadCastNotification(
     DrawableNode::RenderStage nid,
     DrawableNode::RenderControllerParams* params) {
-  for (auto& it : node_) {
-    // Filter notification request
-    if (!it.second->node_visibility_)
-      continue;
+  if (nid == DrawableNode::RenderStage::kOnRendering) {
+    for (auto& it : nodes_) {
+      // Filter notification request
+      if (!it.second->node_visibility_)
+        continue;
 
-    // Broadcast render notification
-    it.second->handler_.Run(nid, params);
+      // Broadcast render notification
+      it.second->handler_.Run(nid, params);
+    }
+  } else {
+    for (auto* it = associated_nodes_.head(); it != associated_nodes_.end();
+         it = it->next()) {
+      // Broadcast non-render notification
+      if (it->value()->node_visibility_)
+        it->value()->handler_.Run(nid, params);
+    }
   }
 }
 

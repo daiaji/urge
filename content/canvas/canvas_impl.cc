@@ -4,7 +4,6 @@
 
 #include "content/canvas/canvas_impl.h"
 
-#include "MemoryPool/MemoryPool.h"
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
 
@@ -18,8 +17,6 @@
 namespace content {
 
 namespace {
-
-MemoryPool<TextureAgent> g_textures_pool;
 
 wgpu::BindGroup MakeTextureWorldInternal(renderer::RenderDevice* device_base,
                                          const base::Vec2& bitmap_size) {
@@ -179,7 +176,7 @@ void GPUDestroyTextureInternal(TextureAgent* agent) {
   agent->text_surface_cache = nullptr;
   agent->text_write_cache = nullptr;
 
-  TextureAgent::Free(agent);
+  delete agent;
 }
 
 void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
@@ -476,7 +473,7 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
     return nullptr;
   }
 
-  auto* canvas_texture_agent = TextureAgent::Allocate();
+  auto* canvas_texture_agent = new TextureAgent;
   auto* scheduler = execution_context->canvas_scheduler;
   base::ThreadWorker::PostTask(
       scheduler->render_worker(),
@@ -500,7 +497,7 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
     return nullptr;
   }
 
-  auto* canvas_texture_agent = TextureAgent::Allocate();
+  auto* canvas_texture_agent = new TextureAgent;
   auto* scheduler = execution_context->canvas_scheduler;
   base::ThreadWorker::PostTask(
       scheduler->render_worker(),
@@ -991,19 +988,6 @@ void CanvasImpl::Put_Font(const scoped_refptr<Font>& value,
   if (CheckDisposed(exception_state))
     return;
   font_ = value;
-}
-
-TextureAgent* TextureAgent::Allocate(size_t n) {
-  TextureAgent* agents = g_textures_pool.allocate(n);
-  for (int i = 0; i < n; ++i)
-    g_textures_pool.construct(agents + i);
-  return agents;
-}
-
-void TextureAgent::Free(TextureAgent* ptr, size_t n) {
-  for (int i = 0; i < n; ++i)
-    g_textures_pool.destroy(ptr + i);
-  g_textures_pool.deallocate(ptr, n);
 }
 
 }  // namespace content

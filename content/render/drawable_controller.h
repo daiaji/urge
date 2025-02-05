@@ -11,6 +11,7 @@
 #include <optional>
 
 #include "base/bind/callback.h"
+#include "base/containers/linked_list.h"
 #include "base/math/rectangle.h"
 #include "renderer/device/render_device.h"
 #include "renderer/resource/render_buffer.h"
@@ -64,7 +65,7 @@ struct SortKey {
 
 // Drawable child node,
 // expect to be set in class as a node variable.
-class DrawableNode final {
+class DrawableNode final : public base::LinkNode<DrawableNode> {
  public:
   enum RenderStage {
     // Receive the notification from controller.
@@ -171,9 +172,11 @@ class DrawNodeController final {
  private:
   friend class DrawableNode;
 
+  // Associated boardcast list
+  base::LinkedList<DrawableNode> associated_nodes_;
+
   // Sorted map based contrainer.
-  //
-  std::pmr::map<SortKey, DrawableNode*, SortKey> node_;
+  std::pmr::map<SortKey, DrawableNode*, SortKey> nodes_;
 };
 
 // Flash duration controller components

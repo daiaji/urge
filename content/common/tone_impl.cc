@@ -53,7 +53,7 @@ ToneImpl::ToneImpl(const ToneImpl& other)
 
 ToneImpl& ToneImpl::operator=(const ToneImpl& other) {
   value_ = other.value_;
-  dirty_ = other.dirty_;
+  NotifyObservers();
   return *this;
 }
 

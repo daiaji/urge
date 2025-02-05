@@ -141,4 +141,19 @@ Pipeline_Viewport::Pipeline_Viewport(const wgpu::Device& device,
                 target);
 }
 
+Pipeline_Sprite::Pipeline_Sprite(const wgpu::Device& device,
+                                 wgpu::TextureFormat target)
+    : RenderPipelineBase(device) {
+  BuildPipeline(kSpriteRenderWGSL, "vertexMain", "fragmentMain",
+                {
+                    VertexType::GetLayout(),
+                },
+                {
+                    WorldMatrixUniform::GetLayout(device),
+                    TextureBindingUniform::GetLayout(device),
+                    SpriteFragmentUniform::GetLayout(device),
+                },
+                target);
+}
+
 }  // namespace renderer

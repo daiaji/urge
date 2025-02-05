@@ -66,6 +66,12 @@ class Pipeline_Viewport : public RenderPipelineBase {
   Pipeline_Viewport(const wgpu::Device& device, wgpu::TextureFormat target);
 };
 
+class Pipeline_Sprite : public RenderPipelineBase {
+ public:
+  using VertexType = FullVertexLayout;
+  Pipeline_Sprite(const wgpu::Device& device, wgpu::TextureFormat target);
+};
+
 }  // namespace renderer
 
 #endif  //! RENDERER_PIPELINE_RENDER_PIPELINE_H_

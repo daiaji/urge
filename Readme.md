@@ -2,7 +2,7 @@
 
 ## Overview
 
- - URGE is a simple game engine compatible with RGSS 1/2/3, utilizing SDL3 as the foundation and DiligentEngine for the rendering component, which is designed for asynchronous multi-threading.  
+ - URGE is a simple game engine compatible with RGSS 1/2/3, utilizing SDL3 as the foundation and WebGPU/Dawn for the rendering component.  
  - URGE not only maintains compatibility with the original RGSS but also offers cross-platform support and performance enhancements. Additionally, it provides advanced features such as custom shaders, 3D views and network extensions.  
  - This project is open-source under the BSD-2-Clause license.  
 
@@ -20,6 +20,7 @@
 - SDL_ttf - https://github.com/libsdl-org/SDL_ttf  
 - fiber - https://github.com/paladin-t/fiber  
 - dav1d - https://github.com/videolan/dav1d  
+- inih - https://github.com/benhoyt/inih  
 
 ### Reference on Project
 - dawn - https://github.com/google/dawn  

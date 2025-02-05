@@ -38,7 +38,8 @@ void GPUUpdatePlaneQuadArrayInternal(
     const base::Vec2& scale,
     const base::Vec2i& origin,
     const base::Vec4& color,
-    const base::Vec4& tone) {
+    const base::Vec4& tone,
+    int32_t opacity) {
   const float item_x =
       std::max(1.0f, static_cast<float>(texture->size.x * scale.x));
   const float item_y =
@@ -54,6 +55,9 @@ void GPUUpdatePlaneQuadArrayInternal(
 
   const int quad_size = tile_x * tile_y;
   agent->vertices.resize(quad_size * 4);
+
+  base::Vec4 opacity_norm(static_cast<float>(opacity) / 255.0f);
+
   for (int y = 0; y < tile_y; ++y) {
     for (int x = 0; x < tile_x; ++x) {
       size_t index = (y * tile_x + x) * 4;
@@ -64,6 +68,7 @@ void GPUUpdatePlaneQuadArrayInternal(
       renderer::FullVertexLayout::SetPositionRect(vert, pos);
       renderer::FullVertexLayout::SetTexCoordRect(vert,
                                                   base::Vec2(item_x, item_y));
+      renderer::FullVertexLayout::SetColor(vert, opacity_norm);
     }
   }
 
@@ -265,11 +270,11 @@ void PlaneImpl::DrawableNodeHandlerInternal(
   if (stage == DrawableNode::RenderStage::kBeforeRender) {
     if (quad_array_dirty_) {
       quad_array_dirty_ = false;
-      screen()->PostTask(
-          base::BindOnce(&GPUUpdatePlaneQuadArrayInternal,
-                         params->command_encoder, params->index_cache, agent_,
-                         bitmap_->GetAgent(), params->viewport.Size(), scale_,
-                         origin_, color_->AsNormColor(), tone_->AsNormColor()));
+      screen()->PostTask(base::BindOnce(
+          &GPUUpdatePlaneQuadArrayInternal, params->command_encoder,
+          params->index_cache, agent_, bitmap_->GetAgent(),
+          params->viewport.Size(), scale_, origin_, color_->AsNormColor(),
+          tone_->AsNormColor(), opacity_));
     }
   } else if (stage == DrawableNode::RenderStage::kOnRendering) {
     screen()->PostTask(base::BindOnce(

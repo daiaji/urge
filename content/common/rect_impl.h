@@ -34,6 +34,7 @@ class RectImpl : public Rect, public ValueNotification {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Width, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Height, int32_t);
 
+  void SetBase(const base::Rect& base);
   base::Rect AsBaseRect();
 
  private:

@@ -10,7 +10,7 @@
 
 namespace renderer {
 
-struct WorldMatrixUniform {
+struct alignas(16) WorldMatrixUniform {
   float projection[16];
   float transform[16];
 
@@ -19,7 +19,7 @@ struct WorldMatrixUniform {
                                      const wgpu::Buffer& buffer);
 };
 
-struct TextureBindingUniform {
+struct alignas(16) TextureBindingUniform {
   base::Vec2 texture_size;
 
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
@@ -29,9 +29,21 @@ struct TextureBindingUniform {
                                      const wgpu::Buffer& buffer);
 };
 
-struct ViewportFragmentUniform {
+struct alignas(16) ViewportFragmentUniform {
   base::Vec4 color;
   base::Vec4 tone;
+
+  static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
+  static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
+                                     const wgpu::Buffer& buffer);
+};
+
+struct alignas(16) SpriteFragmentUniform {
+  float transform[16];
+  base::Vec4 color;
+  base::Vec4 tone;
+  float bush_depth;
+  float bush_opacity;
 
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
   static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
