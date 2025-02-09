@@ -259,7 +259,6 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
       static_cast<WGPUTextureFormat>(agent_->device->SurfaceFormat());
   init_info.DepthStencilFormat = WGPUTextureFormat_Undefined;
   ImGui_ImplWGPU_Init(&init_info);
-
   ImGui_ImplWGPU_NewFrame();
 
   // Create screen buffer
@@ -489,19 +488,16 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
   if (!(window_size == window_size_)) {
     window_size_ = window_size;
 
+    // Configure of new surface
     wgpu::SurfaceConfiguration config;
     config.device = **agent_->device;
     config.format = agent_->device->SurfaceFormat();
     config.width = window_size_.x;
     config.height = window_size_.y;
 
-    ImGui_ImplWGPU_InvalidateDeviceObjects();
-
     // Resize screen surface
     auto* hardware_surface = agent_->device->GetSurface();
     hardware_surface->Configure(&config);
-
-    ImGui_ImplWGPU_CreateDeviceObjects();
   }
 
   float window_ratio = static_cast<float>(window_size.x) / window_size.y;
