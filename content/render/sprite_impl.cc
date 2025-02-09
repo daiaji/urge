@@ -56,7 +56,7 @@ void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
   int32_t last_block_aligned_size = src_rect.height % kWaveBlockAlign;
   int32_t loop_block = src_rect.height / kWaveBlockAlign;
   int32_t block_count = loop_block + !!last_block_aligned_size;
-  float wave_phase = (wave.phase * kPi) / 180.0f;
+  float wave_phase = DegreesToRadians(wave.phase);
 
   agent->wave_index_count = block_count * 6;
   agent->wave_cache.resize(4 * block_count);
@@ -487,11 +487,18 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     std::memcpy(trans_mat.data, transform_.GetMatrixDataUnsafe(),
                 sizeof(trans_mat));
 
+    base::Vec4 composite_color = color_->AsNormColor();
+    base::Vec4 flash_color = flash_emitter_.GetColor();
+    base::Vec4 target_color = composite_color;
+    if (flash_emitter_.IsFlashing())
+      target_color =
+          (flash_color.w > composite_color.w ? flash_color : composite_color);
+
     screen()->PostTask(base::BindOnce(
         &GPUUpdateSpriteVerticesInternal, params->device,
         params->command_encoder, agent_, texture, src_rect_->AsBaseRect(),
-        trans_mat, opacity_, color_->AsNormColor(), tone_->AsNormColor(),
-        bush_.depth, bush_.opacity, mirror_, wave_, transform_.GetPosition(),
+        trans_mat, opacity_, target_color, tone_->AsNormColor(), bush_.depth,
+        bush_.opacity, mirror_, wave_, transform_.GetPosition(),
         src_rect_dirty_));
 
     wave_.dirty = false;

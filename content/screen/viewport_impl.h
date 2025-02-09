@@ -6,6 +6,7 @@
 #define CONTENT_SCREEN_VIEWPORT_IMPL_H_
 
 #include "content/common/color_impl.h"
+#include "content/common/rect_impl.h"
 #include "content/common/tone_impl.h"
 #include "content/components/disposable.h"
 #include "content/public/engine_viewport.h"
@@ -30,7 +31,9 @@ struct ViewportAgent {
 
 class ViewportImpl : public Viewport, public GraphicsChild, public Disposable {
  public:
-  ViewportImpl(RenderScreenImpl* screen, const base::Rect& region);
+  ViewportImpl(RenderScreenImpl* screen,
+               scoped_refptr<ViewportImpl> parent,
+               const base::Rect& region);
   ~ViewportImpl() override;
 
   ViewportImpl(const ViewportImpl&) = delete;
@@ -45,6 +48,7 @@ class ViewportImpl : public Viewport, public GraphicsChild, public Disposable {
              ExceptionState& exception_state) override;
   void Update(ExceptionState& exception_state) override;
 
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Rect, scoped_refptr<Rect>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Visible, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Z, int32_t);
@@ -66,7 +70,8 @@ class ViewportImpl : public Viewport, public GraphicsChild, public Disposable {
   DrawNodeController controller_;
   DrawableFlashController flash_emitter_;
   ViewportAgent* agent_;
-  base::Rect region_;
+  scoped_refptr<ViewportImpl> viewport_;
+  scoped_refptr<RectImpl> rect_;
   base::Vec2i origin_;
 
   scoped_refptr<ColorImpl> color_;

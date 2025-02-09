@@ -97,6 +97,7 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
     // Abstract "screen" render buffer,
     // maybe graphics or viewport snapshot buffer.
     wgpu::Texture* screen_buffer = nullptr;
+    base::Vec2i screen_size;
 
     // [Stage: all]
     // Current viewport region.

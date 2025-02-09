@@ -6,11 +6,7 @@
 
 namespace content {
 
-CanvasScheduler::~CanvasScheduler() {
-  // Deferrer destroy on render thread
-  if (render_worker_)
-    render_worker_->DeleteSoon(std::move(common_vertex_buffer_controller_));
-}
+CanvasScheduler::~CanvasScheduler() = default;
 
 std::unique_ptr<CanvasScheduler> CanvasScheduler::MakeInstance(
     renderer::RenderDevice* device,

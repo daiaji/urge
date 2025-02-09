@@ -21,6 +21,7 @@ int SDL_main(int argc, char* argv[]) {
   std::unique_ptr<ui::Widget> widget(new ui::Widget);
   ui::Widget::InitParams widget_params;
   widget_params.size = base::Vec2i(640, 480);
+  widget_params.resizable = true;
   widget->Init(std::move(widget_params));
 
   content::ContentRunner::InitParams content_params;

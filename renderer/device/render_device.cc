@@ -217,8 +217,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
 
   wgpu::SurfaceConfiguration config;
   config.device = device;
-  config.format = caps.formats[0];  // Typically choose the first supported
-                                    // format or BGRA8Unorm
+  config.format = caps.formats[0];
   config.width = window_target->GetSize().x;
   config.height = window_target->GetSize().y;
 
@@ -232,7 +231,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   // 8) Success: create and return our RenderDevice instance
   return std::unique_ptr<RenderDevice>(
       new RenderDevice(window_target, adapter, device, device.GetQueue(),
-                       surface, std::move(pipelines_set)));
+                       surface, config.format, std::move(pipelines_set)));
 }
 
 wgpu::Instance* RenderDevice::GetGPUInstance() {
@@ -244,12 +243,14 @@ RenderDevice::RenderDevice(base::WeakPtr<ui::Widget> window,
                            const wgpu::Device& device,
                            const wgpu::Queue& queue,
                            const wgpu::Surface& surface,
+                           wgpu::TextureFormat surface_format,
                            std::unique_ptr<PipelineSet> pipelines)
     : window_(std::move(window)),
       adapter_(adapter),
       device_(device),
       queue_(queue),
       surface_(surface),
+      surface_format_(surface_format),
       pipelines_(std::move(pipelines)) {}
 
 }  // namespace renderer

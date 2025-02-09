@@ -19,6 +19,12 @@ namespace content {
 class CanvasScheduler;
 
 struct RenderGraphicsAgent {
+  std::unique_ptr<renderer::RenderDevice> device;
+  std::unique_ptr<renderer::DeviceContext> context;
+
+  std::unique_ptr<renderer::QuadrangleIndexCache> index_cache;
+  std::unique_ptr<CanvasScheduler> canvas_scheduler;
+
   wgpu::Texture screen_buffer;
   wgpu::Texture frozen_buffer;
   wgpu::Texture transition_buffer;
@@ -66,6 +72,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
 
   DrawNodeController* GetDrawableController() { return &controller_; }
 
+  base::ThreadWorker* Runner() const { return render_worker_; }
   void PostTask(base::OnceClosure task);
   void WaitWorkerSynchronize();
 
@@ -96,7 +103,8 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
 
  private:
   void InitGraphicsDeviceInternal(base::WeakPtr<ui::Widget> window);
-  void RenderSingleFrameInternal(wgpu::Texture* render_target);
+  void DestroyGraphicsDeviceInternal(RenderGraphicsAgent* agent);
+  void RenderFrameInternal(wgpu::Texture* render_target);
   void PresentScreenBufferInternal(wgpu::Texture* render_target);
   void FrameProcessInternal();
   void UpdateWindowViewportInternal();
@@ -115,13 +123,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   CoroutineContext* cc_;
   base::ThreadWorker* render_worker_;
 
-  std::unique_ptr<renderer::RenderDevice> device_;
-  std::unique_ptr<renderer::DeviceContext> context_;
-
-  std::unique_ptr<renderer::QuadrangleIndexCache> index_buffer_cache_;
-  std::unique_ptr<CanvasScheduler> canvas_scheduler_;
-
-  std::unique_ptr<RenderGraphicsAgent> agent_;
+  RenderGraphicsAgent* agent_;
   base::LinkedList<Disposable> disposable_elements_;
 
   bool frozen_;

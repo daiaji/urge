@@ -78,7 +78,7 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
   spr1->Put_Y(100, exception_state);
   spr1->Put_Z(200, exception_state);
 
-  vp->Put_Tone(content::Tone::New(-68, -68, 0, 68, exception_state),
+  vp->Put_Tone(content::Tone::New(2, 1, 0, 68, exception_state),
                exception_state);
 
   auto spr2 = content::Sprite::New(execution, nullptr, exception_state);

@@ -41,24 +41,27 @@ void GPUDestroyViewportAgent(ViewportAgent* agent) {
 void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
                                 wgpu::CommandEncoder* encoder,
                                 ViewportAgent* agent,
-                                const base::Vec2i& viewport,
-                                const base::Rect& region) {
+                                const base::Vec2i& screen_size,
+                                const base::Vec2i& viewport_offset,
+                                const base::Vec2i& effect_size) {
+  // Reload viewport offset based transform matrix
   renderer::WorldMatrixUniform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, viewport,
-                                 region.Position());
+  renderer::MakeProjectionMatrix(world_matrix.projection, screen_size,
+                                 viewport_offset);
   renderer::MakeIdentityMatrix(world_matrix.transform);
 
   encoder->WriteBuffer(agent->world_uniform, 0,
                        reinterpret_cast<uint8_t*>(&world_matrix),
                        sizeof(world_matrix));
 
+  // Reset viewport effect intermediate texture layer if needed
   auto effect_layer = agent->effect.intermediate_layer;
-  if (!effect_layer || effect_layer.GetWidth() < region.width ||
-      effect_layer.GetHeight() < region.height) {
+  if (!effect_layer || effect_layer.GetWidth() < effect_size.x ||
+      effect_layer.GetHeight() < effect_size.y) {
     base::Vec2i new_size;
-    new_size.x = std::max<int32_t>(region.width,
+    new_size.x = std::max<int32_t>(effect_size.x,
                                    effect_layer ? effect_layer.GetWidth() : 0);
-    new_size.y = std::max<int32_t>(region.height,
+    new_size.y = std::max<int32_t>(effect_size.y,
                                    effect_layer ? effect_layer.GetHeight() : 0);
     agent->effect.intermediate_layer = renderer::CreateTexture2D(
         **device, "viewport.intermediate",
@@ -87,15 +90,15 @@ void GPUApplyViewportEffectAndRestore(
     renderer::RenderDevice* device,
     wgpu::CommandEncoder* command_encoder,
     renderer::QuadrangleIndexCache* index_cache,
-    ViewportAgent* agent,
-    wgpu::Texture* screen_buffer,
-    const base::Vec2i& offset,
-    const base::Vec2i& origin,
-    const base::Vec2i& size,
-    const base::Vec4& color,
-    const base::Vec4& tone,
     wgpu::RenderPassEncoder* last_renderpass,
-    const base::Rect& last_viewport) {
+    const base::Rect& last_viewport,
+    wgpu::Texture* screen_buffer,
+    ViewportAgent* agent,
+    const base::Vec2i& viewport_offset,
+    const base::Vec2i& viewport_origin,
+    const base::Vec2i& effect_size,
+    const base::Vec4& color,
+    const base::Vec4& tone) {
   bool is_effect_valid =
       color.w != 0 || tone.x != 0 || tone.y != 0 || tone.z != 0 || tone.w != 0;
 
@@ -105,18 +108,19 @@ void GPUApplyViewportEffectAndRestore(
     wgpu::ImageCopyTexture src_texture, dst_texture;
     wgpu::Extent3D extent;
     src_texture.texture = *screen_buffer;
-    src_texture.origin.x = offset.x;
-    src_texture.origin.y = offset.y;
+    src_texture.origin.x = viewport_offset.x;
+    src_texture.origin.y = viewport_offset.y;
     dst_texture.texture = agent->effect.intermediate_layer;
-    extent.width = size.x;
-    extent.height = size.y;
+    extent.width = effect_size.x;
+    extent.height = effect_size.y;
     command_encoder->CopyTextureToTexture(&src_texture, &dst_texture, &extent);
 
     renderer::FullVertexLayout transient_vertices[4];
     renderer::FullVertexLayout::SetPositionRect(
-        transient_vertices, base::Rect(offset + origin, size));
+        transient_vertices,
+        base::Rect(viewport_offset + viewport_origin, effect_size));
     renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
-                                                base::Rect(size));
+                                                base::Rect(effect_size));
     command_encoder->WriteBuffer(agent->effect.vertex_buffer, 0,
                                  reinterpret_cast<uint8_t*>(transient_vertices),
                                  sizeof(transient_vertices));
@@ -163,14 +167,14 @@ void GPUApplyViewportEffectAndRestore(
 
 scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
                                       ExceptionState& exception_state) {
-  return new ViewportImpl(execution_context->graphics,
+  return new ViewportImpl(execution_context->graphics, nullptr,
                           execution_context->graphics->Resolution());
 }
 
 scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
                                       scoped_refptr<Rect> rect,
                                       ExceptionState& exception_state) {
-  return new ViewportImpl(execution_context->graphics,
+  return new ViewportImpl(execution_context->graphics, nullptr,
                           RectImpl::From(rect)->AsBaseRect());
 }
 
@@ -180,20 +184,32 @@ scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
                                       int32_t width,
                                       int32_t height,
                                       ExceptionState& exception_state) {
-  return new ViewportImpl(execution_context->graphics,
+  return new ViewportImpl(execution_context->graphics, nullptr,
                           base::Rect(x, y, width, height));
 }
 
-ViewportImpl::ViewportImpl(RenderScreenImpl* screen, const base::Rect& region)
+scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
+                                      scoped_refptr<Viewport> parent,
+                                      ExceptionState& exception_state) {
+  scoped_refptr<RectImpl> region =
+      RectImpl::From(parent->Get_Rect(exception_state));
+  return new ViewportImpl(execution_context->graphics,
+                          ViewportImpl::From(parent), region->AsBaseRect());
+}
+
+ViewportImpl::ViewportImpl(RenderScreenImpl* screen,
+                           scoped_refptr<ViewportImpl> parent,
+                           const base::Rect& region)
     : GraphicsChild(screen),
       Disposable(screen),
       node_(SortKey()),
-      region_(region),
+      rect_(new RectImpl(region)),
       color_(new ColorImpl(base::Vec4())),
       tone_(new ToneImpl(base::Vec4())) {
   node_.RegisterEventHandler(base::BindRepeating(
       &ViewportImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
-  node_.RebindController(screen->GetDrawableController());
+  node_.RebindController(parent ? parent->GetDrawableController()
+                                : screen->GetDrawableController());
 
   agent_ = new ViewportAgent;
   screen->PostTask(
@@ -236,13 +252,24 @@ void ViewportImpl::Update(ExceptionState& exception_state) {
   flash_emitter_.Update();
 }
 
+scoped_refptr<Viewport> ViewportImpl::Get_Viewport(
+    ExceptionState& exception_state) {
+  return viewport_;
+}
+
+void ViewportImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
+                                ExceptionState& exception_state) {
+  viewport_ = ViewportImpl::From(value);
+  node_.RebindController(viewport_->GetDrawableController());
+}
+
 scoped_refptr<Rect> ViewportImpl::Get_Rect(ExceptionState& exception_state) {
-  return new RectImpl(region_);
+  return rect_;
 }
 
 void ViewportImpl::Put_Rect(const scoped_refptr<Rect>& value,
                             ExceptionState& exception_state) {
-  region_ = RectImpl::From(value)->AsBaseRect();
+  *rect_ = *RectImpl::From(value);
 }
 
 bool ViewportImpl::Get_Visible(ExceptionState& exception_state) {
@@ -312,26 +339,28 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   // Stack storage last render state
   DrawableNode::RenderControllerParams transient_params = *params;
 
-  // Scissor region
-  transient_params.viewport = region_;
-  base::Rect scissor_region = base::MakeIntersect(params->viewport, region_);
-  base::Vec2i backbuffer_size(params->screen_buffer->GetWidth(),
-                              params->screen_buffer->GetHeight());
+  // Stack of viewport region rect
+  base::Rect viewport_rect = rect_->AsBaseRect();
+  transient_params.viewport = viewport_rect;
 
   if (stage == DrawableNode::kBeforeRender) {
     // Calculate viewport offset
-    base::Vec2i offset = region_.Position() - origin_;
+    base::Vec2i offset = viewport_rect.Position() - origin_;
 
     // Update uniform buffer if viewport region changed.
-    if (!(region_ == agent_->region_cache)) {
-      agent_->region_cache = region_;
+    if (!(viewport_rect == agent_->region_cache)) {
+      agent_->region_cache = viewport_rect;
       screen()->PostTask(base::BindOnce(
           &GPUUpdateViewportAgentData, params->device, params->command_encoder,
-          agent_, backbuffer_size, base::Rect(offset, region_.Size())));
+          agent_, params->screen_size, offset, viewport_rect.Size()));
     }
   }
 
   if (transient_params.renderpass_encoder) {
+    // Interact with last scissor region
+    base::Rect scissor_region =
+        base::MakeIntersect(params->viewport, viewport_rect);
+
     // Reset viewport's world settings
     transient_params.world_binding = &agent_->world_binding;
 
@@ -356,12 +385,12 @@ void ViewportImpl::DrawableNodeHandlerInternal(
       target_color =
           (flash_color.w > composite_color.w ? flash_color : composite_color);
 
-    screen()->PostTask(
-        base::BindOnce(&GPUApplyViewportEffectAndRestore, params->device,
-                       params->command_encoder, params->index_cache, agent_,
-                       params->screen_buffer, region_.Position(), origin_,
-                       region_.Size(), target_color, tone_->AsNormColor(),
-                       params->renderpass_encoder, params->viewport));
+    screen()->PostTask(base::BindOnce(
+        &GPUApplyViewportEffectAndRestore, params->device,
+        params->command_encoder, params->index_cache,
+        params->renderpass_encoder, params->viewport, params->screen_buffer,
+        agent_, viewport_rect.Position(), origin_, viewport_rect.Size(),
+        target_color, tone_->AsNormColor()));
   }
 }
 

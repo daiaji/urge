@@ -6,6 +6,9 @@
 
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_timer.h"
+#include "third_party/imgui/imgui.h"
+#include "third_party/imgui/imgui_impl_sdl3.h"
+#include "third_party/imgui/imgui_impl_wgpu.h"
 
 #include "content/canvas/canvas_scheduler.h"
 
@@ -16,6 +19,7 @@ RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
                                    int frame_rate)
     : cc_(cc),
       render_worker_(nullptr),
+      agent_(nullptr),
       frozen_(false),
       resolution_(resolution),
       brightness_(255),
@@ -28,15 +32,35 @@ RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
       frame_skip_required_(false) {}
 
 RenderScreenImpl::~RenderScreenImpl() {
-  canvas_scheduler_.reset();
-  base::ThreadWorker::DeleteSoon(render_worker_, std::move(agent_));
+  base::ThreadWorker::PostTask(
+      render_worker_,
+      base::BindOnce(&RenderScreenImpl::DestroyGraphicsDeviceInternal,
+                     base::Unretained(this), agent_));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
 void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
                                             base::WeakPtr<ui::Widget> window) {
+  // Setup render thread worker if needed
   render_worker_ = render_worker;
 
+  // Setup Dear ImGui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO();
+  io.ConfigFlags |=
+      ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+  io.ConfigFlags |=
+      ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+
+  // Setup imgui platform backends
+  ImGui_ImplSDL3_InitForOther(window->AsSDLWindow());
+
+  // Setup render device
+  agent_ = new RenderGraphicsAgent;
   base::ThreadWorker::PostTask(
       render_worker,
       base::BindOnce(&RenderScreenImpl::InitGraphicsDeviceInternal,
@@ -51,7 +75,18 @@ bool RenderScreenImpl::ExecuteEventMainLoop() {
     // Quit event
     if (queued_event.type == SDL_EVENT_QUIT)
       return false;
+
+    // IMGUI Event
+    ImGui_ImplSDL3_ProcessEvent(&queued_event);
   }
+
+  // Start IMGUI frame
+  ImGui_ImplSDL3_NewFrame();
+
+  // Layout new frame
+  ImGui::NewFrame();
+  ImGui::ShowDemoWindow();
+  ImGui::EndFrame();
 
   // Determine update repeat time
   const uint64_t now_time = SDL_GetPerformanceCounter();
@@ -79,19 +114,19 @@ bool RenderScreenImpl::ExecuteEventMainLoop() {
 }
 
 renderer::RenderDevice* RenderScreenImpl::GetDevice() const {
-  return device_.get();
+  return agent_->device.get();
 }
 
 renderer::DeviceContext* RenderScreenImpl::GetContext() const {
-  return context_.get();
+  return agent_->context.get();
 }
 
 renderer::QuadrangleIndexCache* RenderScreenImpl::GetCommonIndexBuffer() const {
-  return index_buffer_cache_.get();
+  return agent_->index_cache.get();
 }
 
 CanvasScheduler* RenderScreenImpl::GetCanvasScheduler() const {
-  return canvas_scheduler_.get();
+  return agent_->canvas_scheduler.get();
 }
 
 void RenderScreenImpl::PostTask(base::OnceClosure task) {
@@ -104,7 +139,7 @@ void RenderScreenImpl::WaitWorkerSynchronize() {
 
 void RenderScreenImpl::Update(ExceptionState& exception_state) {
   if (!frozen_ && !frame_skip_required_)
-    RenderSingleFrameInternal(&agent_->screen_buffer);
+    RenderFrameInternal(&agent_->screen_buffer);
 
   // Process frame delay
   FrameProcessInternal();
@@ -125,7 +160,7 @@ void RenderScreenImpl::FadeIn(uint32_t duration,
 void RenderScreenImpl::Freeze(ExceptionState& exception_state) {
   if (!frozen_) {
     // Get frozen scene snapshot for transition
-    RenderSingleFrameInternal(&agent_->frozen_buffer);
+    RenderFrameInternal(&agent_->frozen_buffer);
 
     // Set forzen flag for blocking frame update
     frozen_ = true;
@@ -144,7 +179,7 @@ void RenderScreenImpl::Transition(uint32_t duration,
   vague = std::clamp<int>(vague, 1, 256);
 
   // Get current scene snapshot for transition
-  RenderSingleFrameInternal(&agent_->transition_buffer);
+  RenderFrameInternal(&agent_->transition_buffer);
 
   for (int i = 0; i < duration; ++i) {
     // Norm transition progress
@@ -199,34 +234,65 @@ void RenderScreenImpl::PlayMovie(const std::string& filename,
 
 void RenderScreenImpl::InitGraphicsDeviceInternal(
     base::WeakPtr<ui::Widget> window) {
-  device_ = renderer::RenderDevice::Create(window);
-  context_ = renderer::DeviceContext::MakeContextFor(device_.get());
-  index_buffer_cache_ = renderer::QuadrangleIndexCache::Make(device_.get());
-  index_buffer_cache_->Allocate(1 << 10);
-  canvas_scheduler_ = CanvasScheduler::MakeInstance(
-      device_.get(), context_.get(), index_buffer_cache_.get());
-  canvas_scheduler_->InitWithRenderWorker(render_worker_);
+  // Create device on window
+  agent_->device = renderer::RenderDevice::Create(window);
 
-  agent_.reset(new RenderGraphicsAgent);
+  // Create immediate command encoder
+  agent_->context =
+      renderer::DeviceContext::MakeContextFor(agent_->device.get());
 
+  // Quad index generic buffer (reserved 1024)
+  agent_->index_cache =
+      renderer::QuadrangleIndexCache::Make(agent_->device.get());
+  agent_->index_cache->Allocate(1 << 10);
+
+  // Create global canvas scheduler
+  agent_->canvas_scheduler = CanvasScheduler::MakeInstance(
+      agent_->device.get(), agent_->context.get(), agent_->index_cache.get());
+  agent_->canvas_scheduler->InitWithRenderWorker(render_worker_);
+
+  // Setup imgui renderer backends
+  ImGui_ImplWGPU_InitInfo init_info;
+  init_info.Device = (*agent_->device)->Get();
+  init_info.NumFramesInFlight = 3;
+  init_info.RenderTargetFormat =
+      static_cast<WGPUTextureFormat>(agent_->device->SurfaceFormat());
+  init_info.DepthStencilFormat = WGPUTextureFormat_Undefined;
+  ImGui_ImplWGPU_Init(&init_info);
+
+  ImGui_ImplWGPU_NewFrame();
+
+  // Create screen buffer
   ResetScreenBufferInternal();
 }
 
-void RenderScreenImpl::RenderSingleFrameInternal(wgpu::Texture* render_target) {
-  // Viewport region
-  base::Vec2i viewport_size(render_target->GetWidth(),
-                            render_target->GetHeight());
+void RenderScreenImpl::DestroyGraphicsDeviceInternal(
+    RenderGraphicsAgent* agent) {
+  // Cleanup
+  ImGui_ImplWGPU_Shutdown();
+  ImGui_ImplSDL3_Shutdown();
+  ImGui::DestroyContext();
+
+  // Release resource
+  delete agent;
+}
+
+void RenderScreenImpl::RenderFrameInternal(wgpu::Texture* render_target) {
+  // Screen texture size
+  base::Vec2i screen_size(render_target->GetWidth(),
+                          render_target->GetHeight());
 
   // Submit pending canvas commands
-  canvas_scheduler_->SubmitPendingPaintCommands();
+  agent_->canvas_scheduler->SubmitPendingPaintCommands();
 
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
-  controller_params.device = device_.get();
-  controller_params.index_cache = index_buffer_cache_.get();
-  controller_params.command_encoder = context_->GetImmediateEncoder();
-  controller_params.viewport = viewport_size;
+  controller_params.device = agent_->device.get();
+  controller_params.index_cache = agent_->index_cache.get();
+  controller_params.command_encoder = agent_->context->GetImmediateEncoder();
   controller_params.screen_buffer = render_target;
+  controller_params.screen_size = screen_size;
+  controller_params.viewport = screen_size;
 
   // 1) Execute pre-composite handler
   controller_.BroadCastNotification(DrawableNode::kBeforeRender,
@@ -257,19 +323,19 @@ void RenderScreenImpl::PresentScreenBufferInternal(
   UpdateWindowViewportInternal();
 
   // Flip screen for Y
-  base::WeakPtr<ui::Widget> window = device_->GetWindow();
+  base::WeakPtr<ui::Widget> window = agent_->device->GetWindow();
   window->GetMouseState().resolution = resolution_;
   window->GetMouseState().screen_offset = display_viewport_.Position();
   window->GetMouseState().screen = display_viewport_.Size();
 
   // Clear WGPU surface
-  auto* hardware_surface = device_->GetSurface();
+  auto* hardware_surface = agent_->device->GetSurface();
 
   wgpu::SurfaceTexture surface_texture;
   hardware_surface->GetCurrentTexture(&surface_texture);
 
   // Blit internal screen buffer to screen surface
-  auto* commander = context_->GetImmediateEncoder();
+  auto* commander = agent_->context->GetImmediateEncoder();
 
   wgpu::RenderPassColorAttachment attachment;
   attachment.view = surface_texture.texture.CreateView();
@@ -285,10 +351,11 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     // Prepare renderer parameters
     if (!agent_->screen_pipeline) {
       wgpu::SurfaceCapabilities caps;
-      device_->GetSurface()->GetCapabilities(*device_->GetAdapter(), &caps);
+      agent_->device->GetSurface()->GetCapabilities(
+          *agent_->device->GetAdapter(), &caps);
 
       agent_->screen_pipeline.reset(
-          new renderer::Pipeline_Base(**device_, caps.formats[0]));
+          new renderer::Pipeline_Base(**agent_->device, caps.formats[0]));
     }
 
     // Setup binding and vertex
@@ -297,7 +364,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     wgpu::BindGroup world_binding, texture_binding;
     auto vertex_controller =
         renderer::VertexBufferController<renderer::FullVertexLayout>::Make(
-            device_.get(), 4);
+            agent_->device.get(), 4);
 
     {
       renderer::FullVertexLayout transient_vertices[4];
@@ -321,7 +388,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
       uniform_desc.mappedAtCreation = true;
       uniform_desc.usage = wgpu::BufferUsage::Uniform;
       wgpu::Buffer world_matrix_uniform =
-          (*device_)->CreateBuffer(&uniform_desc);
+          (*agent_->device)->CreateBuffer(&uniform_desc);
 
       {
         memcpy(world_matrix_uniform.GetMappedRange(), world_matrix,
@@ -338,7 +405,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
       binding_desc.entries = &entries;
       binding_desc.layout = pipeline.GetBindGroupLayout(0);
 
-      world_binding = (*device_)->CreateBindGroup(&binding_desc);
+      world_binding = (*agent_->device)->CreateBindGroup(&binding_desc);
     }
 
     {
@@ -348,7 +415,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
       uniform_desc.mappedAtCreation = true;
       uniform_desc.usage = wgpu::BufferUsage::Uniform;
       wgpu::Buffer texture_size_uniform =
-          (*device_)->CreateBuffer(&uniform_desc);
+          (*agent_->device)->CreateBuffer(&uniform_desc);
 
       {
         auto texture_size = base::MakeInvert(
@@ -362,7 +429,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
       entries[0].binding = 0;
       entries[0].textureView = render_target->CreateView();
       entries[1].binding = 1;
-      entries[1].sampler = (*device_)->CreateSampler();
+      entries[1].sampler = (*agent_->device)->CreateSampler();
       entries[2].binding = 2;
       entries[2].buffer = texture_size_uniform;
 
@@ -371,24 +438,40 @@ void RenderScreenImpl::PresentScreenBufferInternal(
       binding_desc.entries = entries;
       binding_desc.layout = pipeline.GetBindGroupLayout(1);
 
-      texture_binding = (*device_)->CreateBindGroup(&binding_desc);
+      texture_binding = (*agent_->device)->CreateBindGroup(&binding_desc);
     }
 
-    // Start render
-    auto pass = commander->BeginRenderPass(&renderpass);
-    pass.SetPipeline(
-        *agent_->screen_pipeline->GetPipeline(renderer::BlendType::kNoBlend));
-    pass.SetViewport(0, 0, window->GetSize().x, window->GetSize().y, 0, 0);
-    pass.SetBindGroup(0, world_binding);
-    pass.SetBindGroup(1, texture_binding);
-    pass.SetVertexBuffer(0, **vertex_controller);
-    pass.SetIndexBuffer(**index_buffer_cache_, index_buffer_cache_->format());
-    pass.DrawIndexed(6);
-    pass.End();
+    // Start screen render
+    {
+      auto pass = commander->BeginRenderPass(&renderpass);
+      pass.SetPipeline(
+          *agent_->screen_pipeline->GetPipeline(renderer::BlendType::kNoBlend));
+      pass.SetViewport(0, 0, window->GetSize().x, window->GetSize().y, 0, 0);
+      pass.SetBindGroup(0, world_binding);
+      pass.SetBindGroup(1, texture_binding);
+      pass.SetVertexBuffer(0, **vertex_controller);
+      pass.SetIndexBuffer(**agent_->index_cache, agent_->index_cache->format());
+      pass.DrawIndexed(6);
+      pass.End();
+    }
+
+    // Start imgui layer render
+    {
+      // New frame
+      ImGui_ImplWGPU_NewFrame();
+
+      // Rendering IMGUI
+      ImGui::Render();
+
+      attachment.loadOp = wgpu::LoadOp::Load;
+      auto pass = commander->BeginRenderPass(&renderpass);
+      ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), pass.Get());
+      pass.End();
+    }
   }
 
   // Flush command buffer and present WGPU surface
-  context_->Flush();
+  agent_->context->Flush();
   hardware_surface->Present();
 }
 
@@ -401,23 +484,24 @@ void RenderScreenImpl::FrameProcessInternal() {
 }
 
 void RenderScreenImpl::UpdateWindowViewportInternal() {
-  auto window_size = device_->GetWindow()->GetSize();
+  auto window_size = agent_->device->GetWindow()->GetSize();
 
   if (!(window_size == window_size_)) {
     window_size_ = window_size;
 
-    auto* hardware_surface = device_->GetSurface();
-    wgpu::SurfaceCapabilities capabilities;
-    hardware_surface->GetCapabilities(*device_->GetAdapter(), &capabilities);
-
     wgpu::SurfaceConfiguration config;
-    config.device = **device_;
-    config.format = capabilities.formats[0];
+    config.device = **agent_->device;
+    config.format = agent_->device->SurfaceFormat();
     config.width = window_size_.x;
     config.height = window_size_.y;
 
+    ImGui_ImplWGPU_InvalidateDeviceObjects();
+
     // Resize screen surface
+    auto* hardware_surface = agent_->device->GetSurface();
     hardware_surface->Configure(&config);
+
+    ImGui_ImplWGPU_CreateDeviceObjects();
   }
 
   float window_ratio = static_cast<float>(window_size.x) / window_size.y;
@@ -436,6 +520,10 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
 }
 
 void RenderScreenImpl::ResetScreenBufferInternal() {
+  // Setup target device
+  renderer::RenderDevice& device = *agent_->device;
+
+  // Reset screen buffers if needed
   wgpu::TextureDescriptor buffer_desc;
   buffer_desc.dimension = wgpu::TextureDimension::e2D;
   buffer_desc.usage =
@@ -445,35 +533,23 @@ void RenderScreenImpl::ResetScreenBufferInternal() {
   buffer_desc.size.height = resolution_.y;
   buffer_desc.format = wgpu::TextureFormat::RGBA8Unorm;
 
-  agent_->screen_buffer = (*device_)->CreateTexture(&buffer_desc);
-  agent_->frozen_buffer = (*device_)->CreateTexture(&buffer_desc);
-  agent_->transition_buffer = (*device_)->CreateTexture(&buffer_desc);
+  agent_->screen_buffer = device->CreateTexture(&buffer_desc);
+  agent_->frozen_buffer = device->CreateTexture(&buffer_desc);
+  agent_->transition_buffer = device->CreateTexture(&buffer_desc);
 
-  float world_matrix[32];
-  renderer::MakeProjectionMatrix(world_matrix, resolution_);
-  renderer::MakeIdentityMatrix(world_matrix + 16);
+  // Create screen world binding
+  renderer::WorldMatrixUniform world_matrix;
+  renderer::MakeProjectionMatrix(world_matrix.projection, resolution_);
+  renderer::MakeIdentityMatrix(world_matrix.transform);
 
-  wgpu::BufferDescriptor uniform_desc;
-  uniform_desc.label = "viewport.world.uniform";
-  uniform_desc.size = sizeof(world_matrix);
-  uniform_desc.mappedAtCreation = true;
-  uniform_desc.usage = wgpu::BufferUsage::Uniform;
-  agent_->world_buffer = (*device_)->CreateBuffer(&uniform_desc);
+  agent_->world_buffer =
+      renderer::CreateUniformBuffer<renderer::WorldMatrixUniform>(
+          *device, "screen.world.matrix", wgpu::BufferUsage::None,
+          &world_matrix);
 
-  std::memcpy(agent_->world_buffer.GetMappedRange(), world_matrix,
-              sizeof(world_matrix));
-  agent_->world_buffer.Unmap();
-
-  wgpu::BindGroupEntry entries;
-  entries.binding = 0;
-  entries.buffer = agent_->world_buffer;
-
-  wgpu::BindGroupDescriptor binding_desc;
-  binding_desc.entryCount = 1;
-  binding_desc.entries = &entries;
-  binding_desc.layout = *device_->GetPipelines()->base.GetLayout(0);
-
-  agent_->world_binding = (*device_)->CreateBindGroup(&binding_desc);
+  // Create uniform binding
+  agent_->world_binding =
+      renderer::WorldMatrixUniform::CreateGroup(*device, agent_->world_buffer);
 }
 
 int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
@@ -496,7 +572,7 @@ int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
 
 void RenderScreenImpl::FrameBeginRenderPassInternal(
     wgpu::Texture* render_target) {
-  auto* encoder = context_->GetImmediateEncoder();
+  auto* encoder = agent_->context->GetImmediateEncoder();
 
   wgpu::RenderPassColorAttachment attachment;
   attachment.view = render_target->CreateView();

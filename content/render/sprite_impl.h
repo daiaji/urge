@@ -90,8 +90,6 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
   DrawableFlashController flash_emitter_;
   SpriteAgent* agent_;
 
-  renderer::FullVertexLayout vertices_[4];
-
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> bitmap_;
   scoped_refptr<RectImpl> src_rect_;

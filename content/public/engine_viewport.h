@@ -41,6 +41,11 @@ class URGE_RUNTIME_API Viewport : public base::RefCounted<Viewport> {
                                      ExceptionState& exception_state);
 
   /*--urge()--*/
+  static scoped_refptr<Viewport> New(ExecutionContext* execution_context,
+                                     scoped_refptr<Viewport> parent,
+                                     ExceptionState& exception_state);
+
+  /*--urge()--*/
   virtual void Dispose(ExceptionState& exception_state) = 0;
 
   /*--urge()--*/
@@ -53,6 +58,9 @@ class URGE_RUNTIME_API Viewport : public base::RefCounted<Viewport> {
 
   /*--urge()--*/
   virtual void Update(ExceptionState& exception_state) = 0;
+
+  /*--urge()--*/
+  URGE_EXPORT_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
 
   /*--urge()--*/
   URGE_EXPORT_ATTRIBUTE(Rect, scoped_refptr<Rect>);

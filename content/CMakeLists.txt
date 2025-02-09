@@ -48,6 +48,8 @@ set(ENGINE_CONTENT_SRC
   render/plane_impl.h
   render/sprite_impl.cc
   render/sprite_impl.h
+  render/window_impl.cc
+  render/window_impl.h
   screen/renderscreen_impl.cc
   screen/renderscreen_impl.h
   screen/viewport_impl.cc
@@ -65,6 +67,7 @@ target_link_libraries(engine_content PUBLIC
   engine_base
   engine_ui
   engine_renderer
+  engine_imgui
   components_filesystem
   sdl_image_loader
   sdl_ttf_render

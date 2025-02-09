@@ -52,6 +52,7 @@ class RenderDevice {
 
   // Pre-compile shaders set storage
   PipelineSet* GetPipelines() const { return pipelines_.get(); }
+  wgpu::TextureFormat SurfaceFormat() const { return surface_format_; }
 
  private:
   RenderDevice(base::WeakPtr<ui::Widget> window,
@@ -59,6 +60,7 @@ class RenderDevice {
                const wgpu::Device& device,
                const wgpu::Queue& queue,
                const wgpu::Surface& surface,
+               wgpu::TextureFormat surface_format,
                std::unique_ptr<PipelineSet> pipelines);
 
   base::WeakPtr<ui::Widget> window_;
@@ -67,6 +69,8 @@ class RenderDevice {
   wgpu::Device device_;
   wgpu::Queue queue_;
   wgpu::Surface surface_;
+
+  wgpu::TextureFormat surface_format_;
 
   std::unique_ptr<PipelineSet> pipelines_;
 };

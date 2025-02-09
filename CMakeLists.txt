@@ -64,7 +64,11 @@ include_directories(third_party/text_render/include/SDL3_ttf)
 
 ## WebGPU Renderer
 set(DAWN_FETCH_DEPENDENCIES ON)
+add_compile_definitions(IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
 add_subdirectory(third_party/dawn)
+
+## Dear IMGUI
+add_subdirectory(third_party/imgui)
 
 #-------------------------------------------------------------------------
 # * source
