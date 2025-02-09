@@ -48,10 +48,18 @@ void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
+  io.IniFilename = nullptr;
   io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
-  io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+      ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
+
+  // Apply DPI Settings
+  int display_w, display_h;
+  SDL_GetWindowSizeInPixels(window->AsSDLWindow(), &display_w, &display_h);
+  io.DisplaySize =
+      ImVec2(static_cast<float>(display_w), static_cast<float>(display_h));
+  io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+  float window_scale = SDL_GetWindowDisplayScale(window->AsSDLWindow());
+  ImGui::GetStyle().ScaleAllSizes(window_scale);
 
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
@@ -251,6 +259,13 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
       agent_->device.get(), agent_->context.get(), agent_->index_cache.get());
   agent_->canvas_scheduler->InitWithRenderWorker(render_worker_);
 
+  // Create screen present pipeline and buffer
+  agent_->present_pipeline.reset(new renderer::Pipeline_Base(
+      **agent_->device, agent_->device->SurfaceFormat()));
+  agent_->present_vertex =
+      renderer::CreateVertexBuffer<renderer::FullVertexLayout>(
+          **agent_->device, "screen.vertex", wgpu::BufferUsage::CopyDst, 4);
+
   // Setup imgui renderer backends
   ImGui_ImplWGPU_InitInfo init_info;
   init_info.Device = (*agent_->device)->Get();
@@ -327,7 +342,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
   window->GetMouseState().screen_offset = display_viewport_.Position();
   window->GetMouseState().screen = display_viewport_.Size();
 
-  // Clear WGPU surface
+  // Get screen surface
   auto* hardware_surface = agent_->device->GetSurface();
 
   wgpu::SurfaceTexture surface_texture;
@@ -340,115 +355,67 @@ void RenderScreenImpl::PresentScreenBufferInternal(
   attachment.view = surface_texture.texture.CreateView();
   attachment.loadOp = wgpu::LoadOp::Clear;
   attachment.storeOp = wgpu::StoreOp::Store;
-  attachment.clearValue = {0, 0, 1, 1};
+  attachment.clearValue = {0, 0, 0, 1};
 
   wgpu::RenderPassDescriptor renderpass;
   renderpass.colorAttachmentCount = 1;
   renderpass.colorAttachments = &attachment;
 
   {
-    // Prepare renderer parameters
-    if (!agent_->screen_pipeline) {
-      wgpu::SurfaceCapabilities caps;
-      agent_->device->GetSurface()->GetCapabilities(
-          *agent_->device->GetAdapter(), &caps);
-
-      agent_->screen_pipeline.reset(
-          new renderer::Pipeline_Base(**agent_->device, caps.formats[0]));
-    }
-
     // Setup binding and vertex
     wgpu::RenderPipeline& pipeline =
-        *agent_->screen_pipeline->GetPipeline(renderer::BlendType::kNoBlend);
+        *agent_->present_pipeline->GetPipeline(renderer::BlendType::kNoBlend);
     wgpu::BindGroup world_binding, texture_binding;
-    auto vertex_controller =
-        renderer::VertexBufferController<renderer::FullVertexLayout>::Make(
-            agent_->device.get(), 4);
 
     {
       renderer::FullVertexLayout transient_vertices[4];
       renderer::FullVertexLayout::SetPositionRect(transient_vertices,
                                                   display_viewport_);
-      renderer::FullVertexLayout::SetTexCoordRect(
-          transient_vertices, base::Rect(window->GetSize()));
+      renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
+                                                  base::Rect(resolution_));
       renderer::FullVertexLayout::SetColor(transient_vertices, base::Vec4(1));
-      vertex_controller->QueueWrite(*commander, transient_vertices,
-                                    _countof(transient_vertices));
+      commander->WriteBuffer(agent_->present_vertex, 0,
+                             reinterpret_cast<uint8_t*>(transient_vertices),
+                             sizeof(transient_vertices));
     }
 
     {
-      float world_matrix[32];
-      renderer::MakeProjectionMatrix(world_matrix, window->GetSize());
-      renderer::MakeIdentityMatrix(world_matrix + 16);
+      renderer::WorldMatrixUniform world_matrix;
+      renderer::MakeProjectionMatrix(world_matrix.projection,
+                                     window->GetSize());
+      renderer::MakeIdentityMatrix(world_matrix.transform);
 
-      wgpu::BufferDescriptor uniform_desc;
-      uniform_desc.label = "bitmap.world.uniform";
-      uniform_desc.size = sizeof(world_matrix);
-      uniform_desc.mappedAtCreation = true;
-      uniform_desc.usage = wgpu::BufferUsage::Uniform;
       wgpu::Buffer world_matrix_uniform =
-          (*agent_->device)->CreateBuffer(&uniform_desc);
+          renderer::CreateUniformBuffer<renderer::WorldMatrixUniform>(
+              **agent_->device, "present.world.uniform",
+              wgpu::BufferUsage::None, &world_matrix);
 
-      {
-        memcpy(world_matrix_uniform.GetMappedRange(), world_matrix,
-               sizeof(world_matrix));
-        world_matrix_uniform.Unmap();
-      }
-
-      wgpu::BindGroupEntry entries;
-      entries.binding = 0;
-      entries.buffer = world_matrix_uniform;
-
-      wgpu::BindGroupDescriptor binding_desc;
-      binding_desc.entryCount = 1;
-      binding_desc.entries = &entries;
-      binding_desc.layout = pipeline.GetBindGroupLayout(0);
-
-      world_binding = (*agent_->device)->CreateBindGroup(&binding_desc);
+      world_binding = renderer::WorldMatrixUniform::CreateGroup(
+          **agent_->device, world_matrix_uniform);
     }
 
     {
-      wgpu::BufferDescriptor uniform_desc;
-      uniform_desc.label = "screen.binding.uniform";
-      uniform_desc.size = sizeof(base::Vec2);
-      uniform_desc.mappedAtCreation = true;
-      uniform_desc.usage = wgpu::BufferUsage::Uniform;
-      wgpu::Buffer texture_size_uniform =
-          (*agent_->device)->CreateBuffer(&uniform_desc);
+      renderer::TextureBindingUniform uniform;
+      uniform.texture_size = base::MakeInvert(resolution_);
+      wgpu::Buffer uniform_buffer =
+          renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
+              **agent_->device, "present.texture", wgpu::BufferUsage::None,
+              &uniform);
 
-      {
-        auto texture_size = base::MakeInvert(
-            base::Vec2i(render_target->GetWidth(), render_target->GetHeight()));
-        memcpy(texture_size_uniform.GetMappedRange(), &texture_size,
-               sizeof(texture_size));
-        texture_size_uniform.Unmap();
-      }
-
-      wgpu::BindGroupEntry entries[3];
-      entries[0].binding = 0;
-      entries[0].textureView = render_target->CreateView();
-      entries[1].binding = 1;
-      entries[1].sampler = (*agent_->device)->CreateSampler();
-      entries[2].binding = 2;
-      entries[2].buffer = texture_size_uniform;
-
-      wgpu::BindGroupDescriptor binding_desc;
-      binding_desc.entryCount = _countof(entries);
-      binding_desc.entries = entries;
-      binding_desc.layout = pipeline.GetBindGroupLayout(1);
-
-      texture_binding = (*agent_->device)->CreateBindGroup(&binding_desc);
+      texture_binding = renderer::TextureBindingUniform::CreateGroup(
+          **agent_->device, render_target->CreateView(),
+          (*agent_->device)->CreateSampler(), uniform_buffer);
     }
 
     // Start screen render
     {
       auto pass = commander->BeginRenderPass(&renderpass);
-      pass.SetPipeline(
-          *agent_->screen_pipeline->GetPipeline(renderer::BlendType::kNoBlend));
+      pass.SetPipeline(*agent_->present_pipeline->GetPipeline(
+          renderer::BlendType::kNoBlend));
       pass.SetViewport(0, 0, window->GetSize().x, window->GetSize().y, 0, 0);
       pass.SetBindGroup(0, world_binding);
       pass.SetBindGroup(1, texture_binding);
-      pass.SetVertexBuffer(0, **vertex_controller);
+      pass.SetVertexBuffer(0, agent_->present_vertex);
       pass.SetIndexBuffer(**agent_->index_cache, agent_->index_cache->format());
       pass.DrawIndexed(6);
       pass.End();

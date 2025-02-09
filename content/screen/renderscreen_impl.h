@@ -33,7 +33,8 @@ struct RenderGraphicsAgent {
   wgpu::BindGroup world_binding;
   wgpu::Buffer world_buffer;
 
-  std::unique_ptr<renderer::Pipeline_Base> screen_pipeline;
+  std::unique_ptr<renderer::Pipeline_Base> present_pipeline;
+  wgpu::Buffer present_vertex;
 };
 
 class GraphicsChild {

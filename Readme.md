@@ -6,6 +6,10 @@
  - URGE not only maintains compatibility with the original RGSS but also offers cross-platform support and performance enhancements. Additionally, it provides advanced features such as custom shaders, 3D views and network extensions.  
  - This project is open-source under the BSD-2-Clause license.  
 
+## Snapshot
+
+<img src="app/test/1.png" height="400">
+
 ## Features
 
 - Multi-thread: The program operates on a multi-threaded architecture, with several worker threads within the program. Each worker has an interface for task dispatching. The engine decomposes event handling, logic rendering, audio playback, video decoding, network processing, and other tasks into multiple threads.  
