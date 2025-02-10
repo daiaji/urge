@@ -1,11 +1,13 @@
-﻿# ![Logo](app/resources/rgu_favicon_64.png) Universal Ruby Game Engine (in-progress)
+﻿# ![Logo](app/resources/urge_favicon_64.png) Universal Ruby Game Engine (in-progress)
 
 ## Overview
 
  - URGE is a simple game engine compatible with RGSS 1/2/3, utilizing SDL3 as the foundation and WebGPU/Dawn for the rendering component.  
  - URGE not only maintains compatibility with the original RGSS but also offers cross-platform support and performance enhancements. Additionally, it provides advanced features such as custom shaders, 3D views and network extensions.  
  - This project is open-source under the BSD-2-Clause license.  
-
+ - Code-style comes from The Chromium Project.
+ - Inspired by Chromium, RGModern, RPGMZ.  
+ 
 ## Snapshot
 
 <img src="app/test/1.png" height="400">
@@ -22,10 +24,11 @@
 ### Include in Source
 - SDL_image - https://github.com/libsdl-org/SDL_image  
 - SDL_ttf - https://github.com/libsdl-org/SDL_ttf  
-- fiber - https://github.com/paladin-t/fiber  
 - dav1d - https://github.com/videolan/dav1d  
+- imgui - https://github.com/ocornut/imgui  
+- concurrentqueue - https://github.com/cameron314/concurrentqueue  
+- fiber - https://github.com/paladin-t/fiber  
 - inih - https://github.com/benhoyt/inih  
-- imgui - https://github.com/ocornut/imgui
 
 ### Reference on Project
 - dawn - https://github.com/google/dawn  

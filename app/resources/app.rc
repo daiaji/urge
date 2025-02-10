@@ -67,11 +67,11 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "Admenri"
+            VALUE "CompanyName", "Adev Admenri"
             VALUE "FileDescription", "Universal Ruby Game Engine Runtime"
             VALUE "FileVersion", "1.0.0.1"
             VALUE "InternalName", "Game.exe"
-            VALUE "LegalCopyright", "Admenri"
+            VALUE "LegalCopyright", "Adev Admenri"
             VALUE "OriginalFilename", "Game.exe"
             VALUE "ProductName", "Universal Ruby Game Engine Runtime"
             VALUE "ProductVersion", "1.0.0.1"
@@ -91,7 +91,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_ICON1               ICON                    "rgu_icon.ico"
+IDI_ICON1               ICON                    "urge_icon.ico"
 
 #endif    // 中文(简体，中国) resources
 /////////////////////////////////////////////////////////////////////////////
