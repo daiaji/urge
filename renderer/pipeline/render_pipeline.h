@@ -72,6 +72,20 @@ class Pipeline_Sprite : public RenderPipelineBase {
   Pipeline_Sprite(const wgpu::Device& device, wgpu::TextureFormat target);
 };
 
+class Pipeline_AlphaTransition : public RenderPipelineBase {
+ public:
+  using VertexType = FullVertexLayout;
+  Pipeline_AlphaTransition(const wgpu::Device& device,
+                           wgpu::TextureFormat target);
+};
+
+class Pipeline_MappedTransition : public RenderPipelineBase {
+ public:
+  using VertexType = FullVertexLayout;
+  Pipeline_MappedTransition(const wgpu::Device& device,
+                            wgpu::TextureFormat target);
+};
+
 }  // namespace renderer
 
 #endif  //! RENDERER_PIPELINE_RENDER_PIPELINE_H_

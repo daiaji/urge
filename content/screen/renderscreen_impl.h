@@ -25,13 +25,16 @@ struct RenderGraphicsAgent {
   std::unique_ptr<renderer::QuadrangleIndexCache> index_cache;
   std::unique_ptr<CanvasScheduler> canvas_scheduler;
 
+  wgpu::Texture* present_target;
   wgpu::Texture screen_buffer;
   wgpu::Texture frozen_buffer;
   wgpu::Texture transition_buffer;
 
-  wgpu::RenderPassEncoder renderpass;
+  wgpu::RenderPassEncoder render_pass;
   wgpu::BindGroup world_binding;
   wgpu::Buffer world_buffer;
+  wgpu::Buffer effect_vertex;
+  wgpu::BindGroup transition_binding;
 
   std::unique_ptr<renderer::Pipeline_Base> present_pipeline;
   wgpu::Buffer present_vertex;
@@ -54,6 +57,7 @@ class GraphicsChild {
 class RenderScreenImpl : public Graphics, public DisposableCollection {
  public:
   RenderScreenImpl(CoroutineContext* cc,
+                   ScopedFontData* scoped_font,
                    const base::Vec2i& resolution,
                    int frame_rate);
   ~RenderScreenImpl() override;
@@ -68,16 +72,19 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   renderer::RenderDevice* GetDevice() const;
   renderer::DeviceContext* GetContext() const;
 
-  renderer::QuadrangleIndexCache* GetCommonIndexBuffer() const;
+  renderer::QuadrangleIndexCache* GetQuadIndexCache() const;
   CanvasScheduler* GetCanvasScheduler() const;
 
   DrawNodeController* GetDrawableController() { return &controller_; }
+  base::ThreadWorker* GetRenderRunner() const { return render_worker_; }
+  base::Vec2i GetResolution() const { return resolution_; }
 
-  base::ThreadWorker* Runner() const { return render_worker_; }
   void PostTask(base::OnceClosure task);
   void WaitWorkerSynchronize();
 
-  base::Vec2i Resolution() const { return resolution_; }
+  void RenderFrame(DrawNodeController* controller,
+                   wgpu::Texture* render_target,
+                   int32_t brightness = 255);
 
  public:
   void Update(ExceptionState& exception_state) override;
@@ -87,6 +94,10 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void Freeze(ExceptionState& exception_state) override;
   void Transition(uint32_t duration,
                   const std::string& filename,
+                  uint32_t vague,
+                  ExceptionState& exception_state) override;
+  void Transition(uint32_t duration,
+                  scoped_refptr<Bitmap> bitmap,
                   uint32_t vague,
                   ExceptionState& exception_state) override;
   scoped_refptr<Bitmap> SnapToBitmap(ExceptionState& exception_state) override;
@@ -104,25 +115,31 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
 
  private:
   void InitGraphicsDeviceInternal(base::WeakPtr<ui::Widget> window);
-  void DestroyGraphicsDeviceInternal(RenderGraphicsAgent* agent);
-  void RenderFrameInternal(wgpu::Texture* render_target);
+  void DestroyGraphicsDeviceInternal();
+
   void PresentScreenBufferInternal(wgpu::Texture* render_target);
-  void FrameProcessInternal();
+  void FrameProcessInternal(wgpu::Texture* present_target);
   void UpdateWindowViewportInternal();
   void ResetScreenBufferInternal();
   int DetermineRepeatNumberInternal(double delta_rate);
 
-  void FrameBeginRenderPassInternal(wgpu::Texture* render_target);
-  void FrameEndRenderPassInternal();
+  void FrameBeginRenderPassInternal(wgpu::Texture* render_target,
+                                    int32_t brightness);
+  void FrameEndRenderPassInternal(int32_t brightness);
+
+  void CreateTransitionUniformInternal(wgpu::Texture* transition_mapping);
+  void RenderAlphaTransitionFrameInternal(float progress);
+  void RenderVagueTransitionFrameInternal(float progress, float vague);
 
   void AddDisposable(Disposable* disp) override;
   void RemoveDisposable(Disposable* disp) override;
 
-  // All visible elements drawing controller
   DrawNodeController controller_;
+  ExecutionContext execution_context_;
 
   CoroutineContext* cc_;
   base::ThreadWorker* render_worker_;
+  ScopedFontData* scoped_font_;
 
   RenderGraphicsAgent* agent_;
   base::LinkedList<Disposable> disposable_elements_;

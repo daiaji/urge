@@ -17,6 +17,13 @@ void GPUDestroyWindowAgentInternal(WindowAgent* agent) {
 
 }  // namespace
 
+scoped_refptr<Window> Window::New(ExecutionContext* execution_context,
+                                  scoped_refptr<Viewport> viewport,
+                                  ExceptionState& exception_state) {
+  return new WindowImpl(execution_context->graphics, base::Rect(),
+                        ViewportImpl::From(viewport));
+}
+
 WindowImpl::WindowImpl(RenderScreenImpl* screen,
                        const base::Rect& bound,
                        scoped_refptr<ViewportImpl> parent)
@@ -25,7 +32,8 @@ WindowImpl::WindowImpl(RenderScreenImpl* screen,
       node_base_(SortKey()),
       node_control_(SortKey(2)),
       viewport_(parent),
-      cursor_rect_(new RectImpl(base::Rect())) {
+      cursor_rect_(new RectImpl(base::Rect())),
+      bound_(bound) {
   node_base_.RebindController(parent ? parent->GetDrawableController()
                                      : screen->GetDrawableController());
   node_control_.RebindController(parent ? parent->GetDrawableController()

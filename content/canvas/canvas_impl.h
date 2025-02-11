@@ -8,6 +8,7 @@
 #include "SDL3/SDL_surface.h"
 
 #include "base/containers/linked_list.h"
+#include "content/canvas/font_impl.h"
 #include "content/components/disposable.h"
 #include "content/public/engine_bitmap.h"
 #include "content/render/drawable_controller.h"
@@ -66,10 +67,11 @@ class CanvasImpl : public Bitmap,
   // Process queued pending commands.
   void SubmitQueuedCommands();
 
-  // Require render texture
-  TextureAgent* GetAgent() const { return texture_; }
-
+  // Get base-style size vec2i
   base::Vec2i AsBaseSize() const;
+
+  // Require render texture (maybe null after disposed)
+  TextureAgent* GetAgent() const { return texture_; }
 
  protected:
   void Dispose(ExceptionState& exception_state) override;
@@ -265,7 +267,7 @@ class CanvasImpl : public Bitmap,
   std::vector<CommandBlock> blocks_;
   uint32_t current_block_ = 0;
 
-  scoped_refptr<Font> font_;
+  scoped_refptr<FontImpl> font_;
 };
 
 }  // namespace content

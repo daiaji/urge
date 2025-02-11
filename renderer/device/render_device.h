@@ -21,12 +21,16 @@ class RenderDevice {
     Pipeline_Color color;
     Pipeline_Viewport viewport;
     Pipeline_Sprite sprite;
+    Pipeline_AlphaTransition alphatrans;
+    Pipeline_MappedTransition mappedtrans;
 
     PipelineSet(const wgpu::Device& device, wgpu::TextureFormat target)
         : base(device, target),
           color(device, target),
           viewport(device, target),
-          sprite(device, target) {}
+          sprite(device, target),
+          alphatrans(device, target),
+          mappedtrans(device, target) {}
   };
 
   static std::unique_ptr<RenderDevice> Create(

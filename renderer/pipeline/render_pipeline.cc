@@ -156,4 +156,30 @@ Pipeline_Sprite::Pipeline_Sprite(const wgpu::Device& device,
                 target);
 }
 
+Pipeline_AlphaTransition::Pipeline_AlphaTransition(const wgpu::Device& device,
+                                                   wgpu::TextureFormat target)
+    : RenderPipelineBase(device) {
+  BuildPipeline(kAlphaTransitionRenderWGSL, "vertexMain", "fragmentMain",
+                {
+                    VertexType::GetLayout(),
+                },
+                {
+                    AlphaTransitionUniform::GetLayout(device),
+                },
+                target);
+}
+
+Pipeline_MappedTransition::Pipeline_MappedTransition(const wgpu::Device& device,
+                                                     wgpu::TextureFormat target)
+    : RenderPipelineBase(device) {
+  BuildPipeline(kMappedTransitionRenderWGSL, "vertexMain", "fragmentMain",
+                {
+                    VertexType::GetLayout(),
+                },
+                {
+                    VagueTransitionUniform::GetLayout(device),
+                },
+                target);
+}
+
 }  // namespace renderer

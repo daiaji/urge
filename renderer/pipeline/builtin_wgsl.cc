@@ -189,4 +189,75 @@ const lumaF: vec3<f32> = vec3<f32>(0.299, 0.587, 0.114);
 
 )";
 
+const std::string kAlphaTransitionRenderWGSL = R"(
+
+struct VertexOutput {
+  @builtin(position) pos: vec4<f32>,
+  @location(0) uv: vec2<f32>,
+  @location(1) color: vec4<f32>,
+};
+
+@group(0) @binding(0) var u_frozenTexture: texture_2d<f32>;
+@group(0) @binding(1) var u_currentTexture: texture_2d<f32>;
+@group(0) @binding(2) var u_sampler: sampler;
+
+@vertex fn vertexMain(
+    @location(0) pos: vec4<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) color: vec4<f32>) -> VertexOutput {
+  var result: VertexOutput;
+  result.pos = pos;
+  result.uv = uv;
+  result.color = color;
+  return result;
+}
+
+@fragment fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
+  var frozenFrag = textureSample(u_frozenTexture, u_sampler, vertex.uv);
+  var currentFrag = textureSample(u_currentTexture, u_sampler, vertex.uv);
+  return mix(frozenFrag, currentFrag, vertex.color.a);
+}
+
+)";
+
+const std::string kMappedTransitionRenderWGSL = R"(
+
+struct VertexOutput {
+  @builtin(position) pos: vec4<f32>,
+  @location(0) uv: vec2<f32>,
+  @location(1) color: vec4<f32>,
+};
+
+@group(0) @binding(0) var u_frozenTexture: texture_2d<f32>;
+@group(0) @binding(1) var u_currentTexture: texture_2d<f32>;
+@group(0) @binding(2) var u_transTexture: texture_2d<f32>;
+@group(0) @binding(3) var u_sampler: sampler;
+
+@vertex fn vertexMain(
+    @location(0) pos: vec4<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) color: vec4<f32>) -> VertexOutput {
+  var result: VertexOutput;
+  result.pos = pos;
+  result.uv = uv;
+  result.color = color;
+  return result;
+}
+
+@fragment fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
+  var frozenFrag = textureSample(u_frozenTexture, u_sampler, vertex.uv);
+  var currentFrag = textureSample(u_currentTexture, u_sampler, vertex.uv);
+  var transValue = textureSample(u_transTexture, u_sampler, vertex.uv).r;
+
+  var vague = vertex.color.r;
+  var progress = vertex.color.a;
+
+  transValue = clamp(transValue, progress, progress + vague);
+  var mixAlpha = (transValue - progress) / vague;
+
+  return mix(currentFrag, frozenFrag, mixAlpha);
+}
+
+)";
+
 }  // namespace renderer

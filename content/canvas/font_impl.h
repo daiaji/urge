@@ -50,6 +50,8 @@ class FontImpl : public Font {
 
   FontImpl& operator=(const FontImpl& other);
 
+  static scoped_refptr<FontImpl> From(scoped_refptr<Font> host);
+
   TTF_Font* GetCanonicalFont(ExceptionState& exception_state);
   SDL_Surface* RenderText(const std::string& text,
                           uint8_t* font_opacity,

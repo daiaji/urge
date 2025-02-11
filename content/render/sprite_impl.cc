@@ -504,11 +504,10 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     wave_.dirty = false;
     src_rect_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::kOnRendering) {
-    screen()->PostTask(
-        base::BindOnce(&GPUOnSpriteRenderingInternal, params->device,
-                       screen()->GetCommonIndexBuffer(),
-                       params->renderpass_encoder, params->world_binding,
-                       agent_, bitmap_->GetAgent(), blend_type_, !!wave_.amp));
+    screen()->PostTask(base::BindOnce(
+        &GPUOnSpriteRenderingInternal, params->device, params->index_cache,
+        params->renderpass_encoder, params->world_binding, agent_,
+        bitmap_->GetAgent(), blend_type_, !!wave_.amp));
   }
 }
 

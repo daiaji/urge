@@ -7,8 +7,8 @@
 
 namespace content {
 
-std::unique_ptr<ExecutionContext> ExecutionContext::MakeContext() {
-  return std::unique_ptr<ExecutionContext>(new ExecutionContext);
-}
+ExecutionContext::ExecutionContext() = default;
+
+ExecutionContext::~ExecutionContext() = default;
 
 }  // namespace content

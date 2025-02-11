@@ -43,6 +43,12 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
                           ExceptionState& exception_state) = 0;
 
   /*--urge()--*/
+  virtual void Transition(uint32_t duration,
+                          scoped_refptr<Bitmap> bitmap,
+                          uint32_t vague,
+                          ExceptionState& exception_state) = 0;
+
+  /*--urge()--*/
   virtual scoped_refptr<Bitmap> SnapToBitmap(
       ExceptionState& exception_state) = 0;
 

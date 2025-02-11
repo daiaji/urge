@@ -539,7 +539,7 @@ CanvasImpl::CanvasImpl(RenderScreenImpl* screen,
       scheduler_(scheduler),
       texture_(texture),
       canvas_cache_(nullptr),
-      font_(font) {}
+      font_(FontImpl::From(font)) {}
 
 CanvasImpl::~CanvasImpl() {
   ExceptionState exception_state;
@@ -987,7 +987,7 @@ void CanvasImpl::Put_Font(const scoped_refptr<Font>& value,
                           ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
-  font_ = value;
+  *font_ = *FontImpl::From(value);
 }
 
 }  // namespace content

@@ -156,4 +156,107 @@ wgpu::BindGroup SpriteFragmentUniform::CreateGroup(const wgpu::Device& device,
   return device.CreateBindGroup(&binding_desc);
 }
 
+/// <summary>
+/// Alpha Transition Uniform
+/// </summary>
+
+wgpu::BindGroupLayout AlphaTransitionUniform::GetLayout(
+    const wgpu::Device& device) {
+  wgpu::BindGroupLayoutEntry entries[3];
+  entries[0].binding = 0;
+  entries[0].visibility = wgpu::ShaderStage::Fragment;
+  entries[0].texture.sampleType = wgpu::TextureSampleType::Float;
+  entries[0].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+  entries[1].binding = 1;
+  entries[1].visibility = wgpu::ShaderStage::Fragment;
+  entries[1].texture.sampleType = wgpu::TextureSampleType::Float;
+  entries[1].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+  entries[2].binding = 2;
+  entries[2].visibility = wgpu::ShaderStage::Fragment;
+  entries[2].sampler.type = wgpu::SamplerBindingType::Filtering;
+
+  wgpu::BindGroupLayoutDescriptor binding_desc;
+  binding_desc.label = "alpha.transition.binding";
+  binding_desc.entryCount = _countof(entries);
+  binding_desc.entries = entries;
+
+  return device.CreateBindGroupLayout(&binding_desc);
+}
+
+wgpu::BindGroup AlphaTransitionUniform::CreateGroup(
+    const wgpu::Device& device,
+    const wgpu::TextureView& frozen,
+    const wgpu::TextureView& current,
+    const wgpu::Sampler& sampler) {
+  wgpu::BindGroupEntry entries[3];
+  entries[0].binding = 0;
+  entries[0].textureView = frozen;
+  entries[1].binding = 1;
+  entries[1].textureView = current;
+  entries[2].binding = 2;
+  entries[2].sampler = sampler;
+
+  wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.entryCount = _countof(entries);
+  binding_desc.entries = entries;
+  binding_desc.layout = GetLayout(device);
+
+  return device.CreateBindGroup(&binding_desc);
+}
+
+/// <summary>
+/// Vague Transition Uniform
+/// </summary>
+
+wgpu::BindGroupLayout VagueTransitionUniform::GetLayout(
+    const wgpu::Device& device) {
+  wgpu::BindGroupLayoutEntry entries[4];
+  entries[0].binding = 0;
+  entries[0].visibility = wgpu::ShaderStage::Fragment;
+  entries[0].texture.sampleType = wgpu::TextureSampleType::Float;
+  entries[0].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+  entries[1].binding = 1;
+  entries[1].visibility = wgpu::ShaderStage::Fragment;
+  entries[1].texture.sampleType = wgpu::TextureSampleType::Float;
+  entries[1].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+  entries[2].binding = 2;
+  entries[2].visibility = wgpu::ShaderStage::Fragment;
+  entries[2].texture.sampleType = wgpu::TextureSampleType::Float;
+  entries[2].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+  entries[3].binding = 3;
+  entries[3].visibility = wgpu::ShaderStage::Fragment;
+  entries[3].sampler.type = wgpu::SamplerBindingType::Filtering;
+
+  wgpu::BindGroupLayoutDescriptor binding_desc;
+  binding_desc.label = "vague.transition.binding";
+  binding_desc.entryCount = _countof(entries);
+  binding_desc.entries = entries;
+
+  return device.CreateBindGroupLayout(&binding_desc);
+}
+
+wgpu::BindGroup VagueTransitionUniform::CreateGroup(
+    const wgpu::Device& device,
+    const wgpu::TextureView& frozen,
+    const wgpu::TextureView& current,
+    const wgpu::TextureView& trans,
+    const wgpu::Sampler& sampler) {
+  wgpu::BindGroupEntry entries[4];
+  entries[0].binding = 0;
+  entries[0].textureView = frozen;
+  entries[1].binding = 1;
+  entries[1].textureView = current;
+  entries[2].binding = 2;
+  entries[2].textureView = trans;
+  entries[3].binding = 3;
+  entries[3].sampler = sampler;
+
+  wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.entryCount = _countof(entries);
+  binding_desc.entries = entries;
+  binding_desc.layout = GetLayout(device);
+
+  return device.CreateBindGroup(&binding_desc);
+}
+
 }  // namespace renderer

@@ -321,6 +321,10 @@ FontImpl& FontImpl::operator=(const FontImpl& other) {
   return *this;
 }
 
+scoped_refptr<FontImpl> FontImpl::From(scoped_refptr<Font> host) {
+  return static_cast<FontImpl*>(host.get());
+}
+
 TTF_Font* FontImpl::GetCanonicalFont(ExceptionState& exception_state) {
   if (!font_)
     LoadFontInternal(exception_state);

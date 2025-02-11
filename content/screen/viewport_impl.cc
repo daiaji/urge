@@ -168,7 +168,7 @@ void GPUApplyViewportEffectAndRestore(
 scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
                                       ExceptionState& exception_state) {
   return new ViewportImpl(execution_context->graphics, nullptr,
-                          execution_context->graphics->Resolution());
+                          execution_context->graphics->GetResolution());
 }
 
 scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,

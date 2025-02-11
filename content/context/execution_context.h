@@ -13,21 +13,16 @@ class ScopedFontData;
 class CanvasScheduler;
 class RenderScreenImpl;
 
-class ExecutionContext {
- public:
-  ~ExecutionContext() = default;
-
-  ExecutionContext(const ExecutionContext&) = delete;
-  ExecutionContext& operator=(const ExecutionContext&) = delete;
-
-  static std::unique_ptr<ExecutionContext> MakeContext();
-
+struct ExecutionContext {
   ScopedFontData* font_context = nullptr;
   CanvasScheduler* canvas_scheduler = nullptr;
   RenderScreenImpl* graphics = nullptr;
 
- private:
-  ExecutionContext() = default;
+  ExecutionContext();
+  ~ExecutionContext();
+
+  ExecutionContext(const ExecutionContext&) = delete;
+  ExecutionContext& operator=(const ExecutionContext&) = delete;
 };
 
 }  // namespace content

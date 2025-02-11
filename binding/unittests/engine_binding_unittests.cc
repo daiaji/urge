@@ -61,6 +61,8 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
       static_cast<content::CanvasImpl*>(bmp2.get())->RequireMemorySurface();
   IMG_SavePNG(surf, "out.png");
 
+  execution->graphics->Freeze(exception_state);
+
   auto vp = content::Viewport::New(execution, 0, 0, 300, 300, exception_state);
   vp->Put_Ox(-50, exception_state);
   vp->Put_Oy(-50, exception_state);
@@ -96,6 +98,9 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
                  exception_state);
   pl->Put_Z(10, exception_state);
   pl->Put_Opacity(100, exception_state);
+
+  execution->graphics->Transition(180, scoped_refptr<content::Bitmap>(), 0,
+                                  exception_state);
 
   int32_t offset = 0;
   while (!exit_flag_) {

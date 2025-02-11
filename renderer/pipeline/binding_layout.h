@@ -50,6 +50,23 @@ struct alignas(16) SpriteFragmentUniform {
                                      const wgpu::Buffer& buffer);
 };
 
+struct alignas(16) AlphaTransitionUniform {
+  static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
+  static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
+                                     const wgpu::TextureView& frozen,
+                                     const wgpu::TextureView& current,
+                                     const wgpu::Sampler& sampler);
+};
+
+struct alignas(16) VagueTransitionUniform {
+  static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
+  static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
+                                     const wgpu::TextureView& frozen,
+                                     const wgpu::TextureView& current,
+                                     const wgpu::TextureView& trans,
+                                     const wgpu::Sampler& sampler);
+};
+
 }  // namespace renderer
 
 #endif  //! RENDERER_PIPELINE_BINDING_LAYOUT_H_

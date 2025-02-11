@@ -35,10 +35,11 @@ void ContentRunner::InitializeContentInternal() {
   if (profile_->api_version >= ContentProfile::APIVersion::kRGSS2)
     resolution = base::Vec2i(544, 416);
 
-  graphics_impl_.reset(new RenderScreenImpl(cc_.get(), resolution, frame_rate));
   io_service_ = filesystem::IO::Create();
   scoped_font_.reset(
       new ScopedFontData(io_service_.get(), profile_->default_font_path));
+  graphics_impl_.reset(new RenderScreenImpl(cc_.get(), scoped_font_.get(),
+                                            resolution, frame_rate));
 
   // Init all module workers
   graphics_impl_->InitWithRenderWorker(render_worker_.get(), window_);
@@ -76,13 +77,13 @@ void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
 
   // Make script binding execution context
   // Call binding boot handler before running loop handler
-  auto ec = ExecutionContext::MakeContext();
-  ec->font_context = self->scoped_font_.get();
-  ec->canvas_scheduler = self->graphics_impl_->GetCanvasScheduler();
-  ec->graphics = self->graphics_impl_.get();
+  ExecutionContext ec;
+  ec.font_context = self->scoped_font_.get();
+  ec.canvas_scheduler = self->graphics_impl_->GetCanvasScheduler();
+  ec.graphics = self->graphics_impl_.get();
 
   // Execute main loop
-  self->binding_->OnMainMessageLoopRun(ec.get());
+  self->binding_->OnMainMessageLoopRun(&ec);
 
   // End of running
   self->binding_->PostMainLoopRunning();

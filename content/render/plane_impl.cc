@@ -279,8 +279,8 @@ void PlaneImpl::DrawableNodeHandlerInternal(
   } else if (stage == DrawableNode::RenderStage::kOnRendering) {
     screen()->PostTask(base::BindOnce(
         &GPUOnViewportRenderingInternal, params->device,
-        params->renderpass_encoder, screen()->GetCommonIndexBuffer(),
-        params->world_binding, agent_, bitmap_->GetAgent(), blend_type_));
+        params->renderpass_encoder, params->index_cache, params->world_binding,
+        agent_, bitmap_->GetAgent(), blend_type_));
   }
 }
 
