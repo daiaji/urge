@@ -474,6 +474,9 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
   }
 
   auto* canvas_texture_agent = new TextureAgent;
+  canvas_texture_agent->size =
+      base::Vec2i(memory_texture->w, memory_texture->h);
+
   auto* scheduler = execution_context->canvas_scheduler;
   base::ThreadWorker::PostTask(
       scheduler->render_worker(),
@@ -498,6 +501,8 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
   }
 
   auto* canvas_texture_agent = new TextureAgent;
+  canvas_texture_agent->size = base::Vec2i(width, height);
+
   auto* scheduler = execution_context->canvas_scheduler;
   base::ThreadWorker::PostTask(
       scheduler->render_worker(),

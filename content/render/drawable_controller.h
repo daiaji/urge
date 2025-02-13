@@ -109,6 +109,7 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
 
     // [Stage: on rendering]
     // World transform matrix.
+    wgpu::BindGroup* root_world = nullptr;
     wgpu::BindGroup* world_binding = nullptr;
   };
 

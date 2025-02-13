@@ -153,13 +153,9 @@ void RenderScreenImpl::WaitWorkerSynchronize() {
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
-void RenderScreenImpl::RenderFrame(DrawNodeController* controller,
-                                   wgpu::Texture* render_target,
-                                   int32_t brightness) {
-  // Screen texture size
-  base::Vec2i screen_size(render_target->GetWidth(),
-                          render_target->GetHeight());
-
+void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
+                                           wgpu::Texture* render_target,
+                                           const base::Vec2i& target_size) {
   // Submit pending canvas commands
   agent_->canvas_scheduler->SubmitPendingPaintCommands();
 
@@ -169,8 +165,8 @@ void RenderScreenImpl::RenderFrame(DrawNodeController* controller,
   controller_params.index_cache = agent_->index_cache.get();
   controller_params.command_encoder = agent_->context->GetImmediateEncoder();
   controller_params.screen_buffer = render_target;
-  controller_params.screen_size = screen_size;
-  controller_params.viewport = screen_size;
+  controller_params.screen_size = target_size;
+  controller_params.viewport = target_size;
 
   // 1) Execute pre-composite handler
   controller->BroadCastNotification(DrawableNode::kBeforeRender,
@@ -180,9 +176,10 @@ void RenderScreenImpl::RenderFrame(DrawNodeController* controller,
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::FrameBeginRenderPassInternal,
-                     base::Unretained(this), render_target, brightness));
+                     base::Unretained(this), render_target));
 
   // 3) Notify render a frame
+  controller_params.root_world = &agent_->world_binding;
   controller_params.world_binding = &agent_->world_binding;
   controller_params.renderpass_encoder = &agent_->render_pass;
   controller->BroadCastNotification(DrawableNode::kOnRendering,
@@ -192,12 +189,12 @@ void RenderScreenImpl::RenderFrame(DrawNodeController* controller,
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::FrameEndRenderPassInternal,
-                     base::Unretained(this), brightness));
+                     base::Unretained(this)));
 }
 
 void RenderScreenImpl::Update(ExceptionState& exception_state) {
   if (!frozen_ && !frame_skip_required_)
-    RenderFrame(&controller_, &agent_->screen_buffer);
+    RenderFrameInternal(&controller_, &agent_->screen_buffer, resolution_);
 
   // Process frame delay
   FrameProcessInternal(&agent_->screen_buffer);
@@ -252,7 +249,7 @@ void RenderScreenImpl::FadeIn(uint32_t duration,
 void RenderScreenImpl::Freeze(ExceptionState& exception_state) {
   if (!frozen_) {
     // Get frozen scene snapshot for transition
-    RenderFrame(&controller_, &agent_->frozen_buffer, brightness_);
+    RenderFrameInternal(&controller_, &agent_->frozen_buffer, resolution_);
 
     // Set forzen flag for blocking frame update
     frozen_ = true;
@@ -288,7 +285,7 @@ void RenderScreenImpl::Transition(uint32_t duration,
     transition_mapping = &CanvasImpl::FromBitmap(bitmap)->GetAgent()->data;
 
   // Get current scene snapshot for transition
-  RenderFrame(&controller_, &agent_->transition_buffer, brightness_);
+  RenderFrameInternal(&controller_, &agent_->transition_buffer, resolution_);
 
   // Create binding group
   base::ThreadWorker::PostTask(
@@ -325,7 +322,7 @@ scoped_refptr<Bitmap> RenderScreenImpl::SnapToBitmap(
   scoped_refptr<CanvasImpl> target = CanvasImpl::FromBitmap(Bitmap::New(
       &execution_context_, resolution_.x, resolution_.y, exception_state));
   if (target) {
-    RenderFrame(&controller_, &target->GetAgent()->data, brightness_);
+    RenderFrameInternal(&controller_, &target->GetAgent()->data, resolution_);
     base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
   }
 
@@ -615,8 +612,7 @@ int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
 }
 
 void RenderScreenImpl::FrameBeginRenderPassInternal(
-    wgpu::Texture* render_target,
-    int32_t brightness) {
+    wgpu::Texture* render_target) {
   auto* encoder = agent_->context->GetImmediateEncoder();
   base::Vec2i target_size(render_target->GetWidth(),
                           render_target->GetHeight());
@@ -640,12 +636,12 @@ void RenderScreenImpl::FrameBeginRenderPassInternal(
                        sizeof(world_matrix));
 
   // Update brightness
-  if (brightness < 255) {
+  if (brightness_ < 255) {
     renderer::FullVertexLayout effect_vertices[4];
     renderer::FullVertexLayout::SetPositionRect(effect_vertices,
                                                 base::Rect(target_size));
     renderer::FullVertexLayout::SetColor(
-        effect_vertices, base::Vec4(0, 0, 0, (255 - brightness) / 255.0f));
+        effect_vertices, base::Vec4(0, 0, 0, (255 - brightness_) / 255.0f));
     encoder->WriteBuffer(agent_->effect_vertex, 0,
                          reinterpret_cast<uint8_t*>(effect_vertices),
                          sizeof(effect_vertices));
@@ -657,8 +653,8 @@ void RenderScreenImpl::FrameBeginRenderPassInternal(
   agent_->render_pass.SetScissorRect(0, 0, target_size.x, target_size.y);
 }
 
-void RenderScreenImpl::FrameEndRenderPassInternal(int32_t brightness) {
-  if (brightness < 255) {
+void RenderScreenImpl::FrameEndRenderPassInternal() {
+  if (brightness_ < 255) {
     // Apply brightness effect
     auto& pipeline_set = agent_->device->GetPipelines()->color;
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNormal);

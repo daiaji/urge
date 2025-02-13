@@ -9,6 +9,7 @@
 #include "content/content_config.h"
 #include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
+#include "content/public/engine_bitmap.h"
 #include "content/public/engine_color.h"
 #include "content/public/engine_rect.h"
 #include "content/public/engine_tone.h"
@@ -58,6 +59,10 @@ class URGE_RUNTIME_API Viewport : public base::RefCounted<Viewport> {
 
   /*--urge()--*/
   virtual void Update(ExceptionState& exception_state) = 0;
+
+  /*--urge()--*/
+  virtual void Render(scoped_refptr<Bitmap> target,
+                      ExceptionState& exception_state) = 0;
 
   /*--urge()--*/
   URGE_EXPORT_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);

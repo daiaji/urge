@@ -63,12 +63,18 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
 
   execution->graphics->Freeze(exception_state);
 
-  auto vp = content::Viewport::New(execution, 0, 0, 300, 300, exception_state);
+  auto root_vp =
+      content::Viewport::New(execution, 50, 50, 400, 400, exception_state);
+  root_vp->Put_Z(30, exception_state);
+
+  auto vp = content::Viewport::New(execution, root_vp, exception_state);
+  vp->Put_Rect(content::Rect::New(50, 50, 300, 300, exception_state),
+               exception_state);
   vp->Put_Ox(-50, exception_state);
   vp->Put_Oy(-50, exception_state);
-  vp->Put_Z(30, exception_state);
+  vp->Put_Z(130, exception_state);
 
-  auto spr = content::Sprite::New(execution, vp, exception_state);
+  auto spr = content::Sprite::New(execution, root_vp, exception_state);
   spr->Put_Bitmap(bmp, exception_state);
   spr->Put_X(0, exception_state);
   spr->Put_Y(0, exception_state);
@@ -76,11 +82,11 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
 
   auto spr1 = content::Sprite::New(execution, vp, exception_state);
   spr1->Put_Bitmap(bmp2, exception_state);
-  spr1->Put_X(100, exception_state);
-  spr1->Put_Y(100, exception_state);
+  spr1->Put_X(0, exception_state);
+  spr1->Put_Y(0, exception_state);
   spr1->Put_Z(200, exception_state);
 
-  vp->Put_Tone(content::Tone::New(2, 1, 0, 68, exception_state),
+  vp->Put_Tone(content::Tone::New(-68, -68, 0, 68, exception_state),
                exception_state);
 
   auto spr2 = content::Sprite::New(execution, nullptr, exception_state);
@@ -101,6 +107,15 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
 
   execution->graphics->Transition(180, scoped_refptr<content::Bitmap>(), 0,
                                   exception_state);
+
+  auto snap = content::Bitmap::New(execution, 300, 300, exception_state);
+  vp->Render(snap, exception_state);
+
+  {
+    auto* surf =
+        static_cast<content::CanvasImpl*>(snap.get())->RequireMemorySurface();
+    IMG_SavePNG(surf, "out_vp.png");
+  }
 
   int32_t offset = 0;
   while (!exit_flag_) {

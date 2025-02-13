@@ -27,6 +27,8 @@ struct ViewportAgent {
     wgpu::BindGroup uniform_binding;
     wgpu::Buffer vertex_buffer;
   } effect;
+
+  wgpu::RenderPassEncoder render_pass;
 };
 
 class ViewportImpl : public Viewport, public GraphicsChild, public Disposable {
@@ -47,6 +49,8 @@ class ViewportImpl : public Viewport, public GraphicsChild, public Disposable {
              uint32_t duration,
              ExceptionState& exception_state) override;
   void Update(ExceptionState& exception_state) override;
+  void Render(scoped_refptr<Bitmap> target,
+              ExceptionState& exception_state) override;
 
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Rect, scoped_refptr<Rect>);

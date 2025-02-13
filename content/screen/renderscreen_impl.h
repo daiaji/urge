@@ -82,10 +82,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void PostTask(base::OnceClosure task);
   void WaitWorkerSynchronize();
 
-  void RenderFrame(DrawNodeController* controller,
-                   wgpu::Texture* render_target,
-                   int32_t brightness = 255);
-
  public:
   void Update(ExceptionState& exception_state) override;
   void Wait(uint32_t duration, ExceptionState& exception_state) override;
@@ -123,9 +119,12 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void ResetScreenBufferInternal();
   int DetermineRepeatNumberInternal(double delta_rate);
 
-  void FrameBeginRenderPassInternal(wgpu::Texture* render_target,
-                                    int32_t brightness);
-  void FrameEndRenderPassInternal(int32_t brightness);
+  void RenderFrameInternal(DrawNodeController* controller,
+                           wgpu::Texture* render_target,
+                           const base::Vec2i& target_size);
+
+  void FrameBeginRenderPassInternal(wgpu::Texture* render_target);
+  void FrameEndRenderPassInternal();
 
   void CreateTransitionUniformInternal(wgpu::Texture* transition_mapping);
   void RenderAlphaTransitionFrameInternal(float progress);
