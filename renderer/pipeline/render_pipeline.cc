@@ -4,17 +4,19 @@
 
 #include "renderer/pipeline/render_pipeline.h"
 
+#include <optional>
+
 #include "renderer/pipeline/builtin_wgsl.h"
 
 namespace renderer {
 
 namespace {
 
-wgpu::BlendState GetWGPUBlendState(BlendType type) {
+std::optional<wgpu::BlendState> GetWGPUBlendState(BlendType type) {
   wgpu::BlendState state;
   switch (type) {
     default:
-    case renderer::BlendType::kNormal:
+    case renderer::BlendType::NORMAL:
       state.color.operation = wgpu::BlendOperation::Add;
       state.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
       state.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
@@ -22,7 +24,7 @@ wgpu::BlendState GetWGPUBlendState(BlendType type) {
       state.alpha.srcFactor = wgpu::BlendFactor::One;
       state.alpha.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
       break;
-    case renderer::BlendType::kAddition:
+    case renderer::BlendType::ADDITION:
       state.color.operation = wgpu::BlendOperation::Add;
       state.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
       state.color.dstFactor = wgpu::BlendFactor::One;
@@ -30,7 +32,7 @@ wgpu::BlendState GetWGPUBlendState(BlendType type) {
       state.alpha.srcFactor = wgpu::BlendFactor::One;
       state.alpha.dstFactor = wgpu::BlendFactor::One;
       break;
-    case renderer::BlendType::kSubstraction:
+    case renderer::BlendType::SUBSTRACTION:
       state.color.operation = wgpu::BlendOperation::ReverseSubtract;
       state.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
       state.color.dstFactor = wgpu::BlendFactor::One;
@@ -38,8 +40,8 @@ wgpu::BlendState GetWGPUBlendState(BlendType type) {
       state.alpha.srcFactor = wgpu::BlendFactor::Zero;
       state.alpha.dstFactor = wgpu::BlendFactor::One;
       break;
-    case renderer::BlendType::kNoBlend:
-      break;
+    case renderer::BlendType::NO_BLEND:
+      return std::nullopt;
   }
 
   return state;
@@ -92,9 +94,14 @@ void RenderPipelineBase::BuildPipeline(
   descriptor.vertex = vertex_state;
   descriptor.fragment = &fragment_state;
 
-  for (int i = 0; i < BlendType::kBlendNums; ++i) {
+  for (int i = 0; i < BlendType::TYPE_NUMS; ++i) {
+    // Generate color blend structure.
     auto blend_state = GetWGPUBlendState(static_cast<BlendType>(i));
-    color_target.blend = &blend_state;
+    color_target.blend = nullptr;
+    if (blend_state.has_value())
+      color_target.blend = &blend_state.value();
+
+    // Create graphics pipeline
     pipelines_.push_back(device_.CreateRenderPipeline(&descriptor));
   }
 }

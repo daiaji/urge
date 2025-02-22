@@ -13,19 +13,19 @@
 namespace content {
 
 enum class ExceptionCode {
-  kNoException = 0,
-  kDisposedObject,
-  kContentError,
-  kIOError,
-  kGPUError,
-  kNums,
+  NO_EXCEPTION = 0,
+  DISPOSED_OBJECT,
+  CONTENT_ERROR,
+  IO_ERROR,
+  GPU_ERROR,
+  CODE_NUMS,
 };
 
 class ExceptionState {
   STACK_ALLOCATED();
 
  public:
-  ExceptionState() : code_(ExceptionCode::kNoException), message_() {}
+  ExceptionState() : code_(ExceptionCode::NO_EXCEPTION), message_() {}
   ~ExceptionState() = default;
 
   ExceptionState(const ExceptionState&) = delete;

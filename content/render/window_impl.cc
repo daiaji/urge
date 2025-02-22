@@ -241,16 +241,16 @@ void WindowImpl::OnObjectDisposed() {
 void WindowImpl::DrawableNodeHandlerBaseLayerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
-  if (stage == DrawableNode::RenderStage::kBeforeRender) {
-  } else if (stage == DrawableNode::RenderStage::kOnRendering) {
+  if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
+  } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
   }
 }
 
 void WindowImpl::DrawableNodeHandlerControlLayerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
-  if (stage == DrawableNode::RenderStage::kBeforeRender) {
-  } else if (stage == DrawableNode::RenderStage::kOnRendering) {
+  if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
+  } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
   }
 }
 

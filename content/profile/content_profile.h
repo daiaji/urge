@@ -15,9 +15,10 @@ namespace content {
 class ContentProfile {
  public:
   enum class APIVersion {
-    kRGSS1 = 0,
-    kRGSS2,
-    kRGSS3,
+    UNKNOWN = 0,
+    RGSS1,
+    RGSS2,
+    RGSS3,
   };
 
   ~ContentProfile();
@@ -29,7 +30,7 @@ class ContentProfile {
 
   std::string window_title = "URGE Widget";
   std::string script_path = "Data/Scripts.rxdata";
-  APIVersion api_version = APIVersion::kRGSS1;
+  APIVersion api_version = APIVersion::UNKNOWN;
   std::string default_font_path = "Fonts/Default.ttf";
 
  private:

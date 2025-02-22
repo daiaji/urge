@@ -267,7 +267,7 @@ void PlaneImpl::DrawableNodeHandlerInternal(
   if (!bitmap_)
     return;
 
-  if (stage == DrawableNode::RenderStage::kBeforeRender) {
+  if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     if (quad_array_dirty_) {
       quad_array_dirty_ = false;
       screen()->PostTask(base::BindOnce(
@@ -276,7 +276,7 @@ void PlaneImpl::DrawableNodeHandlerInternal(
           params->viewport.Size(), scale_, origin_, color_->AsNormColor(),
           tone_->AsNormColor(), opacity_));
     }
-  } else if (stage == DrawableNode::RenderStage::kOnRendering) {
+  } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(base::BindOnce(
         &GPUOnViewportRenderingInternal, params->device,
         params->renderpass_encoder, params->index_cache, params->world_binding,

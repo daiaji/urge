@@ -157,15 +157,15 @@ class CanvasImpl : public Bitmap,
                            float alpha);
 
   enum class CommandID {
-    kNone = 0,
-    kGradientFillRect,
-    kHueChange,
-    kRadialBlur,
-    kDrawText,
+    NONE = 0,
+    GRADIENT_FILL_RECT,
+    HUE_CHANGE,
+    RADIAL_BLUR,
+    DRAW_TEXT,
   };
 
   struct Command {
-    CommandID id = CommandID::kNone;
+    CommandID id = CommandID::NONE;
     Command* next = nullptr;
 
     virtual ~Command() = default;
@@ -177,13 +177,13 @@ class CanvasImpl : public Bitmap,
     base::Vec4 color2;
     bool vertical;
 
-    Command_GradientFillRect() { id = CommandID::kGradientFillRect; }
+    Command_GradientFillRect() { id = CommandID::GRADIENT_FILL_RECT; }
   };
 
   struct Command_HueChange : public Command {
     int32_t hue;
 
-    Command_HueChange() { id = CommandID::kHueChange; }
+    Command_HueChange() { id = CommandID::HUE_CHANGE; }
   };
 
   struct Command_RadialBlur : public Command {
@@ -191,7 +191,7 @@ class CanvasImpl : public Bitmap,
     int32_t angle;
     int32_t division;
 
-    Command_RadialBlur() { id = CommandID::kRadialBlur; }
+    Command_RadialBlur() { id = CommandID::RADIAL_BLUR; }
   };
 
   struct Command_DrawText : public Command {
@@ -200,7 +200,7 @@ class CanvasImpl : public Bitmap,
     float opacity;
     int align;
 
-    Command_DrawText() { id = CommandID::kDrawText; }
+    Command_DrawText() { id = CommandID::DRAW_TEXT; }
   };
 
   struct CommandBlock {

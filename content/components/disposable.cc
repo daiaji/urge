@@ -29,7 +29,7 @@ bool Disposable::IsDisposed(ExceptionState& exception_state) {
 bool Disposable::CheckDisposed(ExceptionState& exception_state) {
   if (disposed_)
     exception_state.ThrowContentError(
-        ExceptionCode::kDisposedObject,
+        ExceptionCode::DISPOSED_OBJECT,
         "disposed object: " + DisposedObjectName());
   return disposed_;
 }

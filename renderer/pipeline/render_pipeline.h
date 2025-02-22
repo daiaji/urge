@@ -11,12 +11,12 @@
 namespace renderer {
 
 enum BlendType {
-  kNormal = 0,
-  kAddition,
-  kSubstraction,
-  kNoBlend,
+  NORMAL = 0,
+  ADDITION,
+  SUBSTRACTION,
+  NO_BLEND,
 
-  kBlendNums,
+  TYPE_NUMS,
 };
 
 class RenderPipelineBase {

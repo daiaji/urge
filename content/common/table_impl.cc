@@ -26,7 +26,7 @@ scoped_refptr<Table> Table::Deserialize(const std::string& data,
   uint32_t data_size = *++ptr;
 
   if (data_size != impl->x_size_ * impl->y_size_ * impl->z_size_) {
-    exception_state.ThrowContentError(ExceptionCode::kContentError,
+    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                       "incorrect table serialize data");
     return nullptr;
   }

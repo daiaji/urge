@@ -11,7 +11,9 @@
 
 namespace content {
 
-struct WindowAgent {};
+struct WindowAgent {
+  
+};
 
 class WindowImpl : public Window, public GraphicsChild, public Disposable {
  public:
@@ -58,7 +60,9 @@ class WindowImpl : public Window, public GraphicsChild, public Disposable {
 
   DrawableNode node_base_;
   DrawableNode node_control_;
+
   WindowAgent* agent_;
+
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> windowskin_;
   scoped_refptr<CanvasImpl> contents_;

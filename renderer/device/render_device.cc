@@ -73,15 +73,14 @@ void OnUncapturedError(const wgpu::Device& /*device*/,
     case wgpu::ErrorType::OutOfMemory:
       type_str = "OutOfMemory";
       break;
+    case wgpu::ErrorType::Internal:
+      type_str = "Internal";
+      break;
     case wgpu::ErrorType::Unknown:
       type_str = "Unknown";
       break;
-    case wgpu::ErrorType::DeviceLost:
-      type_str = "DeviceLost";
-      break;
     default:
-      type_str = "UnrecognizedErrorType";
-      break;
+      return;
   }
 
   LOG(INFO) << "[Renderer] " << type_str
@@ -110,7 +109,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   // 1) Create a WGPU instance if needed
   if (!g_wgpu_instance) {
     wgpu::InstanceDescriptor instance_desc;
-    instance_desc.features.timedWaitAnyEnable = true;
+    instance_desc.capabilities.timedWaitAnyEnable = true;
     g_wgpu_instance = wgpu::CreateInstance(&instance_desc);
     if (!g_wgpu_instance) {
       LOG(ERROR) << "[Renderer] Failed to create WGPU instance.";

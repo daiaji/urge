@@ -132,7 +132,7 @@ DrawNodeController::~DrawNodeController() {
 void DrawNodeController::BroadCastNotification(
     DrawableNode::RenderStage nid,
     DrawableNode::RenderControllerParams* params) {
-  if (nid == DrawableNode::RenderStage::kOnRendering) {
+  if (nid == DrawableNode::RenderStage::ON_RENDERING) {
     for (auto& it : nodes_) {
       // Filter notification request
       if (!it.second->node_visibility_)

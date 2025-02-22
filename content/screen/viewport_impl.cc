@@ -139,7 +139,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
   renderpass.colorAttachments = &attachment;
 
   auto& pipeline_set = device->GetPipelines()->viewport;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
   wgpu::RenderPassEncoder pass = command_encoder->BeginRenderPass(&renderpass);
   pass.SetPipeline(*pipeline);
@@ -340,7 +340,7 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
       render_target ? render_target->GetAgent() : nullptr;
   if (!bitmap_agent) {
     exception_state.ThrowContentError(
-        ExceptionCode::kDisposedObject,
+        ExceptionCode::DISPOSED_OBJECT,
         "Viewport.Render: Invalid bitmap as render target.");
     return;
   }
@@ -359,7 +359,7 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   controller_params.viewport = bitmap_agent->size;
 
   // 1) Execute pre-composite handler
-  controller_.BroadCastNotification(DrawableNode::kBeforeRender,
+  controller_.BroadCastNotification(DrawableNode::BEFORE_RENDER,
                                     &controller_params);
 
   // 2) Setup renderpass
@@ -374,7 +374,7 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   controller_params.root_world = &bitmap_agent->world;
   controller_params.world_binding = &agent_->world_binding;
   controller_params.renderpass_encoder = &agent_->render_pass;
-  controller_.BroadCastNotification(DrawableNode::kOnRendering,
+  controller_.BroadCastNotification(DrawableNode::ON_RENDERING,
                                     &controller_params);
 
   // 4) End render pass and process after-render effect
@@ -487,7 +487,7 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   viewport_rect.y += params->viewport.y;
   transient_params.viewport = viewport_rect;
 
-  if (stage == DrawableNode::kBeforeRender) {
+  if (stage == DrawableNode::BEFORE_RENDER) {
     // Calculate viewport offset
     base::Vec2i offset = viewport_rect.Position() - origin_;
 

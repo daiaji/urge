@@ -68,14 +68,9 @@ struct SortKey {
 class DrawableNode final : public base::LinkNode<DrawableNode> {
  public:
   enum RenderStage {
-    // Receive the notification from controller.
-    //
-    kBeforeRender = 0,
-    kOnRendering,
-
-    // Non-render notification register
-    //
-    kNotification,
+    BEFORE_RENDER = 0,
+    ON_RENDERING,
+    NOTIFICATION,
   };
 
   struct RenderControllerParams {

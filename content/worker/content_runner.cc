@@ -28,12 +28,11 @@ void ContentRunner::InitializeContentInternal() {
 
   // Graphics initialize settings
   int frame_rate = 40;
-  if (profile_->api_version >= ContentProfile::APIVersion::kRGSS2)
-    frame_rate = 60;
-
   base::Vec2i resolution(640, 480);
-  if (profile_->api_version >= ContentProfile::APIVersion::kRGSS2)
+  if (profile_->api_version >= ContentProfile::APIVersion::RGSS2) {
     resolution = base::Vec2i(544, 416);
+    frame_rate = 60;
+  }
 
   io_service_ = filesystem::IO::Create();
   scoped_font_.reset(

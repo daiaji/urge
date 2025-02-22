@@ -128,7 +128,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                  const base::Rect& src_region,
                                  float blit_alpha) {
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNormal);
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
   wgpu::RenderPassColorAttachment attachment;
   attachment.view = dst_texture->view;
@@ -214,7 +214,7 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
   auto future = read_buffer.MapAsync(
       wgpu::MapMode::Read, 0, read_buffer.GetSize(),
       wgpu::CallbackMode::WaitAnyOnly,
-      [&](wgpu::MapAsyncStatus status, const char* message) {
+      [&](wgpu::MapAsyncStatus status, wgpu::StringView message) {
         const auto* src_pixels =
             static_cast<const uint8_t*>(read_buffer.GetConstMappedRange());
 
@@ -270,7 +270,7 @@ void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
                                const base::Rect& region,
                                const base::Vec4& color) {
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
   wgpu::RenderPassColorAttachment attachment;
   attachment.view = agent->view;
@@ -307,7 +307,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
                                        const base::Vec4& color2,
                                        bool vertical) {
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
   wgpu::RenderPassColorAttachment attachment;
   attachment.view = agent->view;
@@ -354,7 +354,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
                                       float opacity,
                                       int align) {
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNormal);
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
   if (!agent->text_surface_cache ||
       agent->text_surface_cache.GetWidth() < text->w ||
@@ -468,7 +468,7 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
   SDL_Surface* memory_texture = IMG_Load(filename.c_str());
   if (!memory_texture) {
     exception_state.ThrowContentError(
-        ExceptionCode::kContentError,
+        ExceptionCode::CONTENT_ERROR,
         "Failed to load image: " + filename + " - " + SDL_GetError());
     return nullptr;
   }
@@ -494,7 +494,7 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
                                   ExceptionState& exception_state) {
   if (width <= 0 || height <= 0) {
     exception_state.ThrowContentError(
-        ExceptionCode::kContentError,
+        ExceptionCode::CONTENT_ERROR,
         "Invalid bitmap size: " + std::to_string(width) + "x" +
             std::to_string(height));
     return nullptr;
@@ -613,7 +613,7 @@ void CanvasImpl::SubmitQueuedCommands() {
   // encode draw command in wgpu encoder.
   while (command_sequence) {
     switch (command_sequence->id) {
-      case CommandID::kGradientFillRect: {
+      case CommandID::GRADIENT_FILL_RECT: {
         const auto* c =
             static_cast<Command_GradientFillRect*>(command_sequence);
         base::ThreadWorker::PostTask(
@@ -622,15 +622,15 @@ void CanvasImpl::SubmitQueuedCommands() {
                            texture_, c->region, c->color1, c->color2,
                            c->vertical));
       } break;
-      case CommandID::kHueChange: {
+      case CommandID::HUE_CHANGE: {
         const auto* c = static_cast<Command_HueChange*>(command_sequence);
 
       } break;
-      case CommandID::kRadialBlur: {
+      case CommandID::RADIAL_BLUR: {
         const auto* c = static_cast<Command_RadialBlur*>(command_sequence);
 
       } break;
-      case CommandID::kDrawText: {
+      case CommandID::DRAW_TEXT: {
         const auto* c = static_cast<Command_DrawText*>(command_sequence);
         base::ThreadWorker::PostTask(
             scheduler_->render_worker(),

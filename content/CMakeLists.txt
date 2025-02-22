@@ -22,6 +22,8 @@ set(ENGINE_CONTENT_SRC
   common/tone_impl.h
   components/disposable.cc
   components/disposable.h
+  components/tilequad.cc
+  components/tilequad.h
   common/value_observer.h
   context/exception_state.cc
   context/exception_state.h

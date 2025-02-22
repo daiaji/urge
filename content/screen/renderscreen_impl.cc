@@ -169,7 +169,7 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   controller_params.viewport = target_size;
 
   // 1) Execute pre-composite handler
-  controller->BroadCastNotification(DrawableNode::kBeforeRender,
+  controller->BroadCastNotification(DrawableNode::BEFORE_RENDER,
                                     &controller_params);
 
   // 2) Setup renderpass
@@ -182,7 +182,7 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   controller_params.root_world = &agent_->world_binding;
   controller_params.world_binding = &agent_->world_binding;
   controller_params.renderpass_encoder = &agent_->render_pass;
-  controller->BroadCastNotification(DrawableNode::kOnRendering,
+  controller->BroadCastNotification(DrawableNode::ON_RENDERING,
                                     &controller_params);
 
   // 4) End render pass and process after-render effect
@@ -357,7 +357,7 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
 
 void RenderScreenImpl::PlayMovie(const std::string& filename,
                                  ExceptionState& exception_state) {
-  exception_state.ThrowContentError(ExceptionCode::kContentError,
+  exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                     "unimplement Graphics.play_movie");
 }
 
@@ -459,7 +459,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
   {
     // Setup binding and vertex
     wgpu::RenderPipeline& pipeline =
-        *agent_->present_pipeline->GetPipeline(renderer::BlendType::kNoBlend);
+        *agent_->present_pipeline->GetPipeline(renderer::BlendType::NO_BLEND);
     wgpu::BindGroup world_binding, texture_binding;
 
     {
@@ -506,7 +506,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     {
       auto pass = commander->BeginRenderPass(&renderpass);
       pass.SetPipeline(*agent_->present_pipeline->GetPipeline(
-          renderer::BlendType::kNoBlend));
+          renderer::BlendType::NO_BLEND));
       pass.SetViewport(0, 0, window->GetSize().x, window->GetSize().y, 0, 0);
       pass.SetBindGroup(0, world_binding);
       pass.SetBindGroup(1, texture_binding);
@@ -657,7 +657,7 @@ void RenderScreenImpl::FrameEndRenderPassInternal() {
   if (brightness_ < 255) {
     // Apply brightness effect
     auto& pipeline_set = agent_->device->GetPipelines()->color;
-    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNormal);
+    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
     agent_->render_pass.SetPipeline(*pipeline);
     agent_->render_pass.SetBindGroup(0, agent_->world_binding);
@@ -711,7 +711,7 @@ void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
 
   // Composite transition frame
   auto& pipeline_set = agent_->device->GetPipelines()->alphatrans;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
   wgpu::RenderPassEncoder render_pass =
       command_encoder->BeginRenderPass(&renderpass);
@@ -753,7 +753,7 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(float progress,
 
   // Composite transition frame
   auto& pipeline_set = agent_->device->GetPipelines()->mappedtrans;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::kNoBlend);
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
   wgpu::RenderPassEncoder render_pass =
       command_encoder->BeginRenderPass(&renderpass);

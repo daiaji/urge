@@ -478,7 +478,7 @@ void SpriteImpl::OnObjectDisposed() {
 void SpriteImpl::DrawableNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
-  if (stage == DrawableNode::RenderStage::kBeforeRender) {
+  if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     TextureAgent* texture = nullptr;
     if (bitmap_)
       texture = bitmap_->GetAgent();
@@ -503,7 +503,7 @@ void SpriteImpl::DrawableNodeHandlerInternal(
 
     wave_.dirty = false;
     src_rect_dirty_ = false;
-  } else if (stage == DrawableNode::RenderStage::kOnRendering) {
+  } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(base::BindOnce(
         &GPUOnSpriteRenderingInternal, params->device, params->index_cache,
         params->renderpass_encoder, params->world_binding, agent_,

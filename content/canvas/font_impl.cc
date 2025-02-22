@@ -418,7 +418,7 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
     font_names = font_names + it + " ";
 
   // Throw font not find error
-  exception_state.ThrowContentError(ExceptionCode::kContentError,
+  exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                     "Failed to load font: " + font_names);
 }
 
