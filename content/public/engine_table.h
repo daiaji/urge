@@ -15,55 +15,55 @@ namespace content {
 // IDL generator format:
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
-/*--urge(type=class)--*/
+/*--urge(name:Table)--*/
 class URGE_RUNTIME_API Table : public base::RefCounted<Table> {
  public:
   virtual ~Table() = default;
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Table> New(uint32_t xsize,
                                   uint32_t ysize,
                                   uint32_t zsize,
                                   ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize_copy)--*/
   static scoped_refptr<Table> Copy(ExecutionContext* execution_context,
                                    scoped_refptr<Table> other,
                                    ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(serializable)--*/
   URGE_EXPORT_SERIALIZABLE(Table);
 
-  /*--urge()--*/
+  /*--urge(name:resize)--*/
   virtual void Resize(uint32_t xsize, ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:resize)--*/
   virtual void Resize(uint32_t xsize,
                       uint32_t ysize,
                       ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:resize)--*/
   virtual void Resize(uint32_t xsize,
                       uint32_t ysize,
                       uint32_t zsize,
                       ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:xsize)--*/
   virtual uint32_t Xsize(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:ysize)--*/
   virtual uint32_t Ysize(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:zsize)--*/
   virtual uint32_t Zsize(ExceptionState& exception_state) = 0;
 
-  /*--urge(alias_name:[])--*/
+  /*--urge(name:[])--*/
   virtual int16_t Get(uint32_t x,
                       uint32_t y,
                       uint32_t z,
                       ExceptionState& exception_state) = 0;
 
-  /*--urge(alias_name:[]=)--*/
+  /*--urge(name:[]=)--*/
   virtual void Put(uint32_t x,
                    uint32_t y,
                    uint32_t z,

@@ -22,8 +22,6 @@ set(ENGINE_CONTENT_SRC
   common/tone_impl.h
   components/disposable.cc
   components/disposable.h
-  components/tilequad.cc
-  components/tilequad.h
   common/value_observer.h
   context/exception_state.cc
   context/exception_state.h
@@ -40,18 +38,14 @@ set(ENGINE_CONTENT_SRC
   public/engine_rect.h
   public/engine_sprite.h
   public/engine_table.h
-  public/engine_tilemap.h
   public/engine_tone.h
   public/engine_viewport.h
-  public/engine_window.h
   render/drawable_controller.cc
   render/drawable_controller.h
   render/plane_impl.cc
   render/plane_impl.h
   render/sprite_impl.cc
   render/sprite_impl.h
-  render/window_impl.cc
-  render/window_impl.h
   screen/renderscreen_impl.cc
   screen/renderscreen_impl.h
   screen/viewport_impl.cc

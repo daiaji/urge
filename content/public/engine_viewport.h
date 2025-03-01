@@ -19,21 +19,21 @@ namespace content {
 // IDL generator format:
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
-/*--urge(type=class)--*/
+/*--urge(name:Viewport)--*/
 class URGE_RUNTIME_API Viewport : public base::RefCounted<Viewport> {
  public:
   virtual ~Viewport() = default;
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Viewport> New(ExecutionContext* execution_context,
                                      ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Viewport> New(ExecutionContext* execution_context,
                                      scoped_refptr<Rect> rect,
                                      ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Viewport> New(ExecutionContext* execution_context,
                                      int32_t x,
                                      int32_t y,
@@ -41,51 +41,51 @@ class URGE_RUNTIME_API Viewport : public base::RefCounted<Viewport> {
                                      int32_t height,
                                      ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Viewport> New(ExecutionContext* execution_context,
                                      scoped_refptr<Viewport> parent,
                                      ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:dispose)--*/
   virtual void Dispose(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:disposed?)--*/
   virtual bool IsDisposed(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:flash)--*/
   virtual void Flash(scoped_refptr<Color> color,
                      uint32_t duration,
                      ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:update)--*/
   virtual void Update(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:render)--*/
   virtual void Render(scoped_refptr<Bitmap> target,
                       ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:viewport)--*/
   URGE_EXPORT_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
 
-  /*--urge()--*/
+  /*--urge(name:rect)--*/
   URGE_EXPORT_ATTRIBUTE(Rect, scoped_refptr<Rect>);
 
-  /*--urge()--*/
+  /*--urge(name:visible)--*/
   URGE_EXPORT_ATTRIBUTE(Visible, bool);
 
-  /*--urge()--*/
+  /*--urge(name:z)--*/
   URGE_EXPORT_ATTRIBUTE(Z, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:ox)--*/
   URGE_EXPORT_ATTRIBUTE(Ox, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:oy)--*/
   URGE_EXPORT_ATTRIBUTE(Oy, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:color)--*/
   URGE_EXPORT_ATTRIBUTE(Color, scoped_refptr<Color>);
 
-  /*--urge()--*/
+  /*--urge(name:tone)--*/
   URGE_EXPORT_ATTRIBUTE(Tone, scoped_refptr<Tone>);
 };
 

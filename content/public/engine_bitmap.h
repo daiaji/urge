@@ -18,46 +18,46 @@ namespace content {
 // IDL generator format:
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
-/*--urge(type=class)--*/
+/*--urge(name:Bitmap)--*/
 class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
  public:
   virtual ~Bitmap() = default;
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Bitmap> New(ExecutionContext* execution_context,
                                    const std::string& filename,
                                    ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Bitmap> New(ExecutionContext* execution_context,
                                    uint32_t width,
                                    uint32_t height,
                                    ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize_copy)--*/
   static scoped_refptr<Bitmap> Copy(ExecutionContext* execution_context,
                                     scoped_refptr<Bitmap> other,
                                     ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(serializable)--*/
   URGE_EXPORT_SERIALIZABLE(Bitmap);
 
-  /*--urge()--*/
+  /*--urge(name:dispose)--*/
   virtual void Dispose(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:disposed?)--*/
   virtual bool IsDisposed(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:width)--*/
   virtual uint32_t Width(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:height)--*/
   virtual uint32_t Height(ExceptionState& exception_state) = 0;
 
-  /*--urge(alias_name:rect)--*/
+  /*--urge(name:rect)--*/
   virtual scoped_refptr<Rect> GetRect(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:blt)--*/
   virtual void Blt(int32_t x,
                    int32_t y,
                    scoped_refptr<Bitmap> src_bitmap,
@@ -65,14 +65,14 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
                    uint32_t opacity,
                    ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:stretch_blt)--*/
   virtual void StretchBlt(scoped_refptr<Rect> dest_rect,
                           scoped_refptr<Bitmap> src_bitmap,
                           scoped_refptr<Rect> src_rect,
                           uint32_t opacity,
                           ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:fill_rect)--*/
   virtual void FillRect(int32_t x,
                         int32_t y,
                         uint32_t width,
@@ -80,12 +80,12 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
                         scoped_refptr<Color> color,
                         ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:fill_rect)--*/
   virtual void FillRect(scoped_refptr<Rect> rect,
                         scoped_refptr<Color> color,
                         ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:gradient_fill_rect)--*/
   virtual void GradientFillRect(int32_t x,
                                 int32_t y,
                                 uint32_t width,
@@ -95,50 +95,50 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
                                 bool vertical,
                                 ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:gradient_fill_rect)--*/
   virtual void GradientFillRect(scoped_refptr<Rect> rect,
                                 scoped_refptr<Color> color1,
                                 scoped_refptr<Color> color2,
                                 bool vertical,
                                 ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:clear)--*/
   virtual void Clear(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:clear_rect)--*/
   virtual void ClearRect(int32_t x,
                          int32_t y,
                          uint32_t width,
                          uint32_t height,
                          ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:clear_rect)--*/
   virtual void ClearRect(scoped_refptr<Rect> rect,
                          ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:get_pixel)--*/
   virtual scoped_refptr<Color> GetPixel(int32_t x,
                                         int32_t y,
                                         ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:set_pixel)--*/
   virtual void SetPixel(int32_t x,
                         int32_t y,
                         scoped_refptr<Color> color,
                         ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:hue_change)--*/
   virtual void HueChange(int32_t hue, ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:blur)--*/
   virtual void Blur(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:radial_blur)--*/
   virtual void RadialBlur(int32_t angle,
                           int32_t division,
                           ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:draw_text)--*/
   virtual void DrawText(int32_t x,
                         int32_t y,
                         uint32_t width,
@@ -147,17 +147,17 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
                         int32_t align,
                         ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:draw_text)--*/
   virtual void DrawText(scoped_refptr<Rect> rect,
                         const std::string& str,
                         int32_t align,
                         ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:text_size)--*/
   virtual scoped_refptr<Rect> TextSize(const std::string& str,
                                        ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:font)--*/
   URGE_EXPORT_ATTRIBUTE(Font, scoped_refptr<Font>);
 };
 

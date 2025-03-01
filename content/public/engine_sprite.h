@@ -17,103 +17,103 @@ namespace content {
 // IDL generator format:
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
-/*--urge(type=class)--*/
+/*--urge(name:Sprite)--*/
 class URGE_RUNTIME_API Sprite : public base::RefCounted<Sprite> {
  public:
   virtual ~Sprite() = default;
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Sprite> New(ExecutionContext* execution_context,
                                    scoped_refptr<Viewport> viewport,
                                    ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:dispose)--*/
   virtual void Dispose(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:disposed?)--*/
   virtual bool IsDisposed(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:flash)--*/
   virtual void Flash(scoped_refptr<Color> color,
                      uint32_t duration,
                      ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:update)--*/
   virtual void Update(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:width)--*/
   virtual uint32_t Width(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:height)--*/
   virtual uint32_t Height(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:bitmap)--*/
   URGE_EXPORT_ATTRIBUTE(Bitmap, scoped_refptr<Bitmap>);
 
-  /*--urge()--*/
+  /*--urge(name:src_rect)--*/
   URGE_EXPORT_ATTRIBUTE(SrcRect, scoped_refptr<Rect>);
 
-  /*--urge()--*/
+  /*--urge(name:viewport)--*/
   URGE_EXPORT_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
 
-  /*--urge()--*/
+  /*--urge(name:visible)--*/
   URGE_EXPORT_ATTRIBUTE(Visible, bool);
 
-  /*--urge()--*/
+  /*--urge(name:x)--*/
   URGE_EXPORT_ATTRIBUTE(X, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:y)--*/
   URGE_EXPORT_ATTRIBUTE(Y, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:z)--*/
   URGE_EXPORT_ATTRIBUTE(Z, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:ox)--*/
   URGE_EXPORT_ATTRIBUTE(Ox, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:oy)--*/
   URGE_EXPORT_ATTRIBUTE(Oy, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:zoom_x)--*/
   URGE_EXPORT_ATTRIBUTE(ZoomX, float);
 
-  /*--urge()--*/
+  /*--urge(name:zoom_y)--*/
   URGE_EXPORT_ATTRIBUTE(ZoomY, float);
 
-  /*--urge()--*/
+  /*--urge(name:angle)--*/
   URGE_EXPORT_ATTRIBUTE(Angle, float);
 
-  /*--urge()--*/
+  /*--urge(name:wave_amp)--*/
   URGE_EXPORT_ATTRIBUTE(WaveAmp, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:wave_length)--*/
   URGE_EXPORT_ATTRIBUTE(WaveLength, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:wave_speed)--*/
   URGE_EXPORT_ATTRIBUTE(WaveSpeed, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:wave_phase)--*/
   URGE_EXPORT_ATTRIBUTE(WavePhase, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:mirror)--*/
   URGE_EXPORT_ATTRIBUTE(Mirror, bool);
 
-  /*--urge()--*/
+  /*--urge(name:bush_depth)--*/
   URGE_EXPORT_ATTRIBUTE(BushDepth, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:bush_opacity)--*/
   URGE_EXPORT_ATTRIBUTE(BushOpacity, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:opacity)--*/
   URGE_EXPORT_ATTRIBUTE(Opacity, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:blend_type)--*/
   URGE_EXPORT_ATTRIBUTE(BlendType, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:color)--*/
   URGE_EXPORT_ATTRIBUTE(Color, scoped_refptr<Color>);
 
-  /*--urge()--*/
+  /*--urge(name:tone)--*/
   URGE_EXPORT_ATTRIBUTE(Tone, scoped_refptr<Tone>);
 };
 

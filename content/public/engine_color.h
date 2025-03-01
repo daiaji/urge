@@ -15,50 +15,50 @@ namespace content {
 // IDL generator format:
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
-/*--urge(type=class)--*/
+/*--urge(name:Color)--*/
 class URGE_RUNTIME_API Color : public base::RefCounted<Color> {
  public:
   virtual ~Color() = default;
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Color> New(ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Color> New(float red,
                                   float green,
                                   float blue,
                                   float alpha,
                                   ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize_copy)--*/
   static scoped_refptr<Color> Copy(ExecutionContext* execution_context,
                                    scoped_refptr<Color> other,
                                    ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(serializable)--*/
   URGE_EXPORT_SERIALIZABLE(Color);
 
-  /*--urge()--*/
+  /*--urge(name:set)--*/
   virtual void Set(float red,
                    float green,
                    float blue,
                    float alpha,
                    ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:set)--*/
   virtual void Set(scoped_refptr<Color> other,
                    ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:red)--*/
   URGE_EXPORT_ATTRIBUTE(Red, float);
 
-  /*--urge()--*/
+  /*--urge(name:green)--*/
   URGE_EXPORT_ATTRIBUTE(Green, float);
 
-  /*--urge()--*/
+  /*--urge(name:blue)--*/
   URGE_EXPORT_ATTRIBUTE(Blue, float);
 
-  /*--urge()--*/
+  /*--urge(name:alpha)--*/
   URGE_EXPORT_ATTRIBUTE(Alpha, float);
 };
 

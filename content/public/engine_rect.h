@@ -15,53 +15,53 @@ namespace content {
 // IDL generator format:
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
-/*--urge(type=class)--*/
+/*--urge(name:Rect)--*/
 class URGE_RUNTIME_API Rect : public base::RefCounted<Rect> {
  public:
   virtual ~Rect() = default;
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Rect> New(ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Rect> New(int32_t x,
                                  int32_t y,
                                  int32_t width,
                                  int32_t height,
                                  ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize_copy)--*/
   static scoped_refptr<Rect> Copy(ExecutionContext* execution_context,
                                   scoped_refptr<Rect> other,
                                   ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(serializable)--*/
   URGE_EXPORT_SERIALIZABLE(Rect);
 
-  /*--urge()--*/
+  /*--urge(name:set)--*/
   virtual void Set(int32_t x,
                    int32_t y,
                    int32_t width,
                    int32_t height,
                    ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:set)--*/
   virtual void Set(scoped_refptr<Rect> other,
                    ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:empty)--*/
   virtual void Empty(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:x)--*/
   URGE_EXPORT_ATTRIBUTE(X, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:y)--*/
   URGE_EXPORT_ATTRIBUTE(Y, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:width)--*/
   URGE_EXPORT_ATTRIBUTE(Width, int32_t);
 
-  /*--urge()--*/
+  /*--urge(name:height)--*/
   URGE_EXPORT_ATTRIBUTE(Height, int32_t);
 };
 

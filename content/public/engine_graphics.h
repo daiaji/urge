@@ -16,67 +16,67 @@ namespace content {
 // IDL generator format:
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
-/*--urge(type=module)--*/
+/*--urge(name:Graphics,is_module)--*/
 class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
  public:
   virtual ~Graphics() = default;
 
-  /*--urge()--*/
+  /*--urge(name:update)--*/
   virtual void Update(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:wait)--*/
   virtual void Wait(uint32_t duration, ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:fade_out)--*/
   virtual void FadeOut(uint32_t duration, ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:fade_in)--*/
   virtual void FadeIn(uint32_t duration, ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:freeze)--*/
   virtual void Freeze(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:transition)--*/
   virtual void Transition(uint32_t duration,
                           const std::string& filename,
                           uint32_t vague,
                           ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:transition)--*/
   virtual void Transition(uint32_t duration,
                           scoped_refptr<Bitmap> bitmap,
                           uint32_t vague,
                           ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:snap_to_bitmap)--*/
   virtual scoped_refptr<Bitmap> SnapToBitmap(
       ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:frame_reset)--*/
   virtual void FrameReset(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:width)--*/
   virtual uint32_t Width(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:height)--*/
   virtual uint32_t Height(ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:resize_screen)--*/
   virtual void ResizeScreen(uint32_t width,
                             uint32_t height,
                             ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:play_movie)--*/
   virtual void PlayMovie(const std::string& filename,
                          ExceptionState& exception_state) = 0;
 
-  /*--urge()--*/
+  /*--urge(name:frame_rate)--*/
   URGE_EXPORT_ATTRIBUTE(FrameRate, uint32_t);
 
-  /*--urge()--*/
+  /*--urge(name:frame_count)--*/
   URGE_EXPORT_ATTRIBUTE(FrameCount, uint32_t);
 
-  /*--urge()--*/
+  /*--urge(name:brightness)--*/
   URGE_EXPORT_ATTRIBUTE(Brightness, uint32_t);
 };
 

@@ -18,73 +18,73 @@ namespace content {
 // IDL generator format:
 // Inhert: refcounted only.
 // Interface referrence: RPGVXAce.chm
-/*--urge(type=class)--*/
+/*--urge(name:Font)--*/
 class URGE_RUNTIME_API Font : public base::RefCounted<Font> {
  public:
   virtual ~Font() = default;
 
-  /*--urge()--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Font> New(ExecutionContext* execution_context,
                                  const std::string& name,
                                  uint32_t size,
                                  ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:initialize_copy)--*/
   static scoped_refptr<Font> Copy(ExecutionContext* execution_context,
                                   scoped_refptr<Font> other,
                                   ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:exist?)--*/
   static bool IsExisted(ExecutionContext* execution_context,
                         const std::string& name,
                         ExceptionState& exception_state);
 
-  /*--urge()--*/
+  /*--urge(name:default_name)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultName, std::vector<std::string>);
 
-  /*--urge()--*/
+  /*--urge(name:default_size)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultSize, uint32_t);
 
-  /*--urge()--*/
+  /*--urge(name:default_bold)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultBold, bool);
 
-  /*--urge()--*/
+  /*--urge(name:default_italic)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultItalic, bool);
 
-  /*--urge()--*/
+  /*--urge(name:default_shadow)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultShadow, bool);
 
-  /*--urge()--*/
+  /*--urge(name:default_outline)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultOutline, bool);
 
-  /*--urge()--*/
+  /*--urge(name:default_color)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultColor, scoped_refptr<Color>);
 
-  /*--urge()--*/
+  /*--urge(name:default_out_color)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultOutColor, scoped_refptr<Color>);
 
-  /*--urge()--*/
+  /*--urge(name:name)--*/
   URGE_EXPORT_ATTRIBUTE(Name, std::vector<std::string>);
 
-  /*--urge()--*/
+  /*--urge(name:size)--*/
   URGE_EXPORT_ATTRIBUTE(Size, uint32_t);
 
-  /*--urge()--*/
+  /*--urge(name:bold)--*/
   URGE_EXPORT_ATTRIBUTE(Bold, bool);
 
-  /*--urge()--*/
+  /*--urge(name:italic)--*/
   URGE_EXPORT_ATTRIBUTE(Italic, bool);
 
-  /*--urge()--*/
+  /*--urge(name:outline)--*/
   URGE_EXPORT_ATTRIBUTE(Outline, bool);
 
-  /*--urge()--*/
+  /*--urge(name:shadow)--*/
   URGE_EXPORT_ATTRIBUTE(Shadow, bool);
 
-  /*--urge()--*/
+  /*--urge(name:color)--*/
   URGE_EXPORT_ATTRIBUTE(Color, scoped_refptr<Color>);
 
-  /*--urge()--*/
+  /*--urge(name:out_color)--*/
   URGE_EXPORT_ATTRIBUTE(OutColor, scoped_refptr<Color>);
 };
 
