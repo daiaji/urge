@@ -4,22 +4,20 @@ import json
 
 class APIParser:
   def __init__(self):
-    self.classes = []  # 存储所有类信息
-    self.current_class = None  # 当前解析中的类
-    self.expect_decl = False  # 是否期待接口声明
-    self.current_comment = {}  # 当前urge注释参数
-    self.buffer = ""  # 多行声明缓冲区
-    self.is_processing_params = False  # 是否正在处理多行参数
+    self.classes = []
+    self.current_class = None
+    self.expect_decl = False
+    self.current_comment = {}
+    self.buffer = ""
+    self.is_processing_params = False
 
   def parse_urge_comment(self, line):
-    """解析urge注释参数"""
     match = re.search(r'/\*--urge\((.*)\)--\*/', line)
     if not match: return {}
     return self.parse_params_dict(match.group(1))
 
   @staticmethod
   def parse_params_dict(param_str):
-    """将key:value字符串转换为字典"""
     params = {}
     if not param_str: return params
     for item in param_str.split(','):
@@ -27,7 +25,16 @@ class APIParser:
       if not item: continue
       if ':' in item:
         k, v = item.split(':', 1)
-        params[k.strip()] = v.strip()
+        k = k.strip()
+        v = v.strip()
+        # 处理多值键（例如多个 optional）
+        if k in params:
+          if isinstance(params[k], list):
+            params[k].append(v)
+          else:
+            params[k] = [params[k], v]
+        else:
+          params[k] = v
       else:
         params[item] = True
     return params
@@ -131,6 +138,18 @@ class APIParser:
         for excluded in ['ExceptionState', 'ExecutionContext']
       )
 
+    # 解析 optional 参数
+    optional_params = {}
+    if 'optional' in self.current_comment:
+      optional_list = self.current_comment['optional']
+      # 统一处理为列表
+      if not isinstance(optional_list, list):
+        optional_list = [optional_list]
+      for optional_param in optional_list:
+        if '=' in optional_param:
+          optional_name, default_value = optional_param.split('=', 1)
+          optional_params[optional_name.strip()] = default_value.strip()
+
     # 解析参数列表（支持模板类型）
     params = []
     raw_params = re.split(r',(?![^<>]*>)', match.group('params'))
@@ -148,7 +167,16 @@ class APIParser:
       else:
         p_type, p_name = parts[0], ''
 
-      param_info = {"type": p_type, "name": p_name}
+      # 检查是否是 optional 参数
+      is_optional = p_name.strip() in optional_params
+      default_value = optional_params.get(p_name.strip(), None)
+
+      param_info = {
+        "type": p_type,
+        "name": p_name,
+        "optional": is_optional,
+        "default_value": default_value
+      }
       if should_keep_param(param_info):
         params.append(param_info)
 
@@ -200,7 +228,6 @@ class APIParser:
     if self.current_class:
       self.classes.append(self.current_class)
 
-
 if __name__ == "__main__":
   cpp_code = """
     /*--urge(name:Graphics,is_module)--*/
@@ -215,6 +242,9 @@ if __name__ == "__main__":
 
       /*--urge(name:dispose)--*/
       virtual void Dispose(ExceptionState& exception_state) = 0;
+
+      /*--urge(name:set,optional:value=0,optional:opacity=255)--*/
+      virtual void Set(int32_t value, int32_t opacity, ExceptionState& exception_state) = 0;
 
       /*--urge(name:font)--*/
       URGE_EXPORT_ATTRIBUTE(Font, scoped_refptr<Font>);

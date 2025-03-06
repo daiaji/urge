@@ -70,6 +70,49 @@ add_subdirectory(third_party/dawn)
 ## Dear IMGUI
 add_subdirectory(third_party/imgui)
 
+## Zlib
+add_subdirectory(third_party/zlib)
+include_directories(third_party/zlib)
+
+## CRuby-Mri
+## TODO: Enhance ruby build ins
+if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+  add_subdirectory(third_party/cmake-ruby)
+  include_directories(third_party/cmake-ruby/include)
+else ()
+  add_library(mri_ruby UNKNOWN IMPORTED)
+  if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+      set(RUBY_INCLUDE_PATH
+        "${PROJECT_SOURCE_DIR}/third_party/ruby/include/"
+        "${PROJECT_SOURCE_DIR}/third_party/ruby/config/x86/"
+      )
+      set(RUBY_LIBRARY_PATH
+        "${PROJECT_SOURCE_DIR}/third_party/ruby/lib/x86/vcruntime140-ruby320-static.lib"
+      )
+    elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+      set(RUBY_INCLUDE_PATH
+        "${PROJECT_SOURCE_DIR}/third_party/ruby/include/"
+        "${PROJECT_SOURCE_DIR}/third_party/ruby/config/x64/"
+      )
+      set(RUBY_LIBRARY_PATH
+        "${PROJECT_SOURCE_DIR}/third_party/ruby/lib/x64/x64-vcruntime140-ruby320-static.lib"
+      )
+    else ()
+      message("No Implement")
+    endif ()
+  else ()
+    find_package(Ruby REQUIRED)
+    set(RUBY_INCLUDE_PATH "${Ruby_INCLUDE_DIRS}" "${Ruby_CONFIG_INCLUDE_DIR}")
+    set(RUBY_LIBRARY_PATH "${Ruby_LIBRARIES}")
+    message(${RUBY_INCLUDE_PATH} ${RUBY_LIBRARY_PATH})
+  endif ()
+  include_directories(${RUBY_INCLUDE_PATH})
+  set_target_properties(mri_ruby PROPERTIES
+                        IMPORTED_LOCATION "${RUBY_LIBRARY_PATH}"
+                        INTERFACE_INCLUDE_DIRECTORIES "${RUBY_INCLUDE_PATH}")
+endif ()
+
 #-------------------------------------------------------------------------
 # * source
 #-------------------------------------------------------------------------
@@ -81,5 +124,6 @@ add_subdirectory(base)
 add_subdirectory(ui)
 add_subdirectory(renderer)
 add_subdirectory(content)
+add_subdirectory(binding/mri)
 add_subdirectory(app)
 add_subdirectory(unittests)

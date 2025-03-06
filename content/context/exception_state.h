@@ -12,12 +12,13 @@
 
 namespace content {
 
-enum class ExceptionCode {
+enum ExceptionCode {
   NO_EXCEPTION = 0,
-  DISPOSED_OBJECT,
+
   CONTENT_ERROR,
-  IO_ERROR,
   GPU_ERROR,
+  IO_ERROR,
+
   CODE_NUMS,
 };
 

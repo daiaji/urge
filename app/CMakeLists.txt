@@ -12,6 +12,7 @@ set(URGE_DEP_LIBS
   engine_ui
 
   binding_unittests
+  binding_mri
 )
 
 add_executable(urge_console urge_main.cc resources/app.rc)

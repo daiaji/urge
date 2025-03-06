@@ -340,7 +340,7 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
       render_target ? render_target->GetAgent() : nullptr;
   if (!bitmap_agent) {
     exception_state.ThrowContentError(
-        ExceptionCode::DISPOSED_OBJECT,
+        ExceptionCode::CONTENT_ERROR,
         "Viewport.Render: Invalid bitmap as render target.");
     return;
   }
