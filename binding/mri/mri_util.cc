@@ -6,11 +6,12 @@
 
 namespace binding {
 
-namespace {
+static VALUE g_exception_list[content::ExceptionCode::CODE_NUMS];
+extern content::ExecutionContext* g_current_execution_context;
 
-VALUE g_exception_list[content::ExceptionCode::CODE_NUMS];
-
-}  // namespace
+content::ExecutionContext* MriGetCurrentContext() {
+  return g_current_execution_context;
+}
 
 int MriParseArgsTo(int argc, VALUE* argv, const char* fmt, ...) {
   va_list args_iter;

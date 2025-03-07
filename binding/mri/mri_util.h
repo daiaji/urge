@@ -13,8 +13,11 @@
 
 #include "base/memory/ref_counted.h"
 #include "content/context/exception_state.h"
+#include "content/context/execution_context.h"
 
 namespace binding {
+
+content::ExecutionContext* MriGetCurrentContext();
 
 #define MRI_DEFINE_DATATYPE(Klass, Name, Free) \
   const rb_data_type_t k##Klass##DataType = {Name, {0, Free, 0, 0, 0}, 0, 0, 0}
@@ -129,6 +132,10 @@ VALUE MriWrapObject(scoped_refptr<Ty> ptr,
   MriDefineModuleFunction(klass, rb_name, ktype##_Get_##ctype);    \
   MriDefineModuleFunction(klass, rb_name "=", ktype##_Put_##ctype);
 
+///
+/// Method template
+///
+
 #define MRI_DEFINE_ATTRIBUTE_OBJ(klass, attr)                        \
   MRI_METHOD(klass##_Put_##attr) {                                   \
     scoped_refptr obj = MriGetStructData<content::klass>(self);      \
@@ -201,6 +208,84 @@ VALUE MriWrapObject(scoped_refptr<Ty> ptr,
     bool value = obj->Get_##attr(exception_state);              \
     MriProcessException(exception_state);                       \
     return value ? Qtrue : Qfalse;                              \
+  }
+
+///
+/// Static template
+///
+
+#define MRI_DEFINE_STATIC_ATTRIBUTE_OBJ(klass, attr)                         \
+  MRI_METHOD(klass##_Put_##attr) {                                           \
+    VALUE value;                                                             \
+    MriParseArgsTo(argc, argv, "o", &value);                                 \
+    scoped_refptr value_obj =                                                \
+        MriCheckStructData<content::attr>(value, k##attr##DataType);         \
+    content::ExceptionState exception_state;                                 \
+    content::klass::Put_##attr(MriGetCurrentContext(), value_obj,            \
+                               exception_state);                             \
+    MriProcessException(exception_state);                                    \
+    return self;                                                             \
+  }                                                                          \
+  MRI_METHOD(klass##_Get_##attr) {                                           \
+    content::ExceptionState exception_state;                                 \
+    scoped_refptr value_obj =                                                \
+        content::klass::Get_##attr(MriGetCurrentContext(), exception_state); \
+    MriProcessException(exception_state);                                    \
+    return MriWrapObject(value_obj, k##attr##DataType);                      \
+  }
+
+#define MRI_DEFINE_STATIC_ATTRIBUTE_INTEGER(klass, attr)                     \
+  MRI_METHOD(klass##_Put_##attr) {                                           \
+    int32_t value;                                                           \
+    MriParseArgsTo(argc, argv, "i", &value);                                 \
+    content::ExceptionState exception_state;                                 \
+    content::klass::Put_##attr(MriGetCurrentContext(), value,                \
+                               exception_state);                             \
+    MriProcessException(exception_state);                                    \
+    return self;                                                             \
+  }                                                                          \
+  MRI_METHOD(klass##_Get_##attr) {                                           \
+    content::ExceptionState exception_state;                                 \
+    int32_t value =                                                          \
+        content::klass::Get_##attr(MriGetCurrentContext(), exception_state); \
+    MriProcessException(exception_state);                                    \
+    return rb_fix_new(value);                                                \
+  }
+
+#define MRI_DEFINE_STATIC_ATTRIBUTE_FLOAT(klass, attr)                       \
+  MRI_METHOD(klass##_Put_##attr) {                                           \
+    double value;                                                            \
+    MriParseArgsTo(argc, argv, "f", &value);                                 \
+    content::ExceptionState exception_state;                                 \
+    content::klass::Put_##attr(MriGetCurrentContext(),                       \
+                               static_cast<float>(value), exception_state);  \
+    MriProcessException(exception_state);                                    \
+    return self;                                                             \
+  }                                                                          \
+  MRI_METHOD(klass##_Get_##attr) {                                           \
+    content::ExceptionState exception_state;                                 \
+    float value =                                                            \
+        content::klass::Get_##attr(MriGetCurrentContext(), exception_state); \
+    MriProcessException(exception_state);                                    \
+    return rb_float_new(value);                                              \
+  }
+
+#define MRI_DEFINE_STATIC_ATTRIBUTE_BOOLEAN(klass, attr)                     \
+  MRI_METHOD(klass##_Put_##attr) {                                           \
+    bool value;                                                              \
+    MriParseArgsTo(argc, argv, "b", &value);                                 \
+    content::ExceptionState exception_state;                                 \
+    content::klass::Put_##attr(MriGetCurrentContext(), value,                \
+                               exception_state);                             \
+    MriProcessException(exception_state);                                    \
+    return self;                                                             \
+  }                                                                          \
+  MRI_METHOD(klass##_Get_##attr) {                                           \
+    content::ExceptionState exception_state;                                 \
+    bool value =                                                             \
+        content::klass::Get_##attr(MriGetCurrentContext(), exception_state); \
+    MriProcessException(exception_state);                                    \
+    return value ? Qtrue : Qfalse;                                           \
   }
 
 }  // namespace binding
