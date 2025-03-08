@@ -15,8 +15,19 @@
 #include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
 
+namespace content {
+class Graphics;
+class Input;
+}  // namespace content
+
 namespace binding {
 
+struct GlobalModules {
+  scoped_refptr<content::Graphics> Graphics;
+  scoped_refptr<content::Input> Input;
+};
+
+GlobalModules* MriGetGlobalModules();
 content::ExecutionContext* MriGetCurrentContext();
 
 #define MRI_DEFINE_DATATYPE(Klass, Name, Free) \

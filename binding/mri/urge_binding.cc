@@ -14,6 +14,8 @@
 
 namespace binding {
 
+content::ExecutionContext* g_current_execution_context = nullptr;
+
 namespace {
 
 MRI_METHOD(URGEOpenURL) {

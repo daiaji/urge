@@ -71,14 +71,16 @@ class APIParser:
         return
 
       if method := self.parse_method(line):
-        if method['is_virtual']:
-          existing = next((m for m in self.current_class['methods']
-                          if m['name'] == method['name'] and m['is_virtual']), None)
-          if existing:
-            existing['parameters_overloads'].append(method['parameters'])
-          else:
-            method['parameters_overloads'] = [method.pop('parameters')]
-            self.current_class['methods'].append(method)
+        # 合并重载逻辑（统一处理所有方法）
+        existing = next(
+          (m for m in self.current_class['methods']
+          if m['name'] == method['name']
+          and m['is_static'] == method['is_static']
+          and m['is_virtual'] == method['is_virtual']),
+          None
+        )
+        if existing:
+          existing['parameters'].extend(method['parameters'])
         else:
           self.current_class['methods'].append(method)
         self.expect_decl = False
@@ -128,17 +130,19 @@ class APIParser:
         "default_value": optional_params.get(p_name.strip(), None)
       })
 
+    # 过滤排除参数
+    filtered_params = [p for p in params if not any(
+      excl in p['type'] for excl in ['ExceptionState', 'ExecutionContext']
+    )]
+
     return {
       "name": self.current_comment.get('name', match.group('name')),
       "func": match.group('name'),
       "return_type": match.group('return_type').strip(),
-      "parameters": [p for p in params if not self._is_excluded_param(p)],
+      "parameters": [filtered_params],  # 所有方法参数统一用列表存储
       "is_static": bool(match.group('static')),
       "is_virtual": bool(match.group('virtual'))
     }
-
-  def _is_excluded_param(self, param):
-    return any(excl in param['type'] for excl in ['ExceptionState', 'ExecutionContext'])
 
   def parse_attribute(self, decl):
     decl = decl.replace(' ', '')
@@ -158,7 +162,6 @@ class APIParser:
   def parse(self, code):
     for line in code.split('\n'): self.process_line(line)
     if self.current_class: self.classes.append(self.current_class)
-
 
 if __name__ == "__main__":
   cpp_code = """
@@ -180,6 +183,9 @@ if __name__ == "__main__":
 
         /*--urge(name:dispose)--*/
         virtual void Dispose(ExceptionState& exception_state) = 0;
+
+        /*--urge(name:test)--*/
+        virtual scoped_refptr<Bitmap> Test(ExceptionState& exception_state) = 0;
 
         /*--urge(name:set,optional:value=0,optional:opacity=255)--*/
         virtual void Set(int32_t value, ExceptionState& exception_state) = 0;
@@ -206,6 +212,15 @@ if __name__ == "__main__":
 
         /*--urge(name:dispose)--*/
         virtual void Dispose(ExceptionState& exception_state) = 0;
+
+        /*--urge(name:test)--*/
+        virtual scoped_refptr<Bitmap> Test(ExceptionState& exception_state) = 0;
+
+        /*--urge(name:set,optional:value=0,optional:opacity=255)--*/
+        virtual void Set(int32_t value, ExceptionState& exception_state) = 0;
+
+        /*--urge(name:set,optional:value=0,optional:opacity=255)--*/
+        virtual void Set(int32_t value, int32_t opacity, ExceptionState& exception_state) = 0;
 
         /*--urge(name:font)--*/
         URGE_EXPORT_ATTRIBUTE(Font, scoped_refptr<Font>);
