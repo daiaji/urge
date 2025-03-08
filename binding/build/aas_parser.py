@@ -1,6 +1,7 @@
 import re
 import json
 
+
 class APIParser:
   def __init__(self):
     self.classes = []
@@ -25,10 +26,14 @@ class APIParser:
         k, v = item.split(':', 1)
         k, v = k.strip(), v.strip()
         if k in params:
-          if isinstance(params[k], list): params[k].append(v)
-          else: params[k] = [params[k], v]
-        else: params[k] = v
-      else: params[item] = True
+          if isinstance(params[k], list):
+            params[k].append(v)
+          else:
+            params[k] = [params[k], v]
+        else:
+          params[k] = v
+      else:
+        params[item] = True
     return params
 
   def process_line(self, line):
@@ -71,12 +76,11 @@ class APIParser:
         return
 
       if method := self.parse_method(line):
-        # 合并重载逻辑（统一处理所有方法）
         existing = next(
           (m for m in self.current_class['methods']
-          if m['name'] == method['name']
-          and m['is_static'] == method['is_static']
-          and m['is_virtual'] == method['is_virtual']),
+           if m['name'] == method['name']
+           and m['is_static'] == method['is_static']
+           and m['is_virtual'] == method['is_virtual']),
           None
         )
         if existing:
@@ -93,8 +97,20 @@ class APIParser:
       "methods": [],
       "attributes": [],
       "is_serializable": False,
-      "is_module": self.current_comment.get('is_module', False)
+      "is_module": self.current_comment.get('is_module', False),
+      "dependency": set()  # 新增依赖集合
     }
+
+  def _extract_scoped_ref_types(self, type_str):
+    """从类型字符串中提取所有 scoped_refptr 包裹的类型"""
+    pattern = r'scoped_refptr\s*<\s*([\w:]+)\s*>'
+    return set(re.findall(pattern, type_str))
+
+  def _update_class_dependency(self, type_str):
+    """更新当前类的依赖集合"""
+    if not self.current_class: return
+    types = self._extract_scoped_ref_types(type_str)
+    self.current_class['dependency'].update(types)
 
   def parse_method(self, decl):
     decl = re.sub(r'\s+', ' ', decl).replace(' ;', ';')
@@ -122,7 +138,7 @@ class APIParser:
       param = re.sub(r'(\w+)(\*+|\&+)', r'\1 \2', param).strip()
       if not param: continue
       parts = re.split(r'\s+(?=\w+$)', param.strip())
-      p_type, p_name = (parts[0], parts[1]) if len(parts)>1 else (parts[0], '')
+      p_type, p_name = (parts[0], parts[1]) if len(parts) > 1 else (parts[0], '')
       params.append({
         "type": p_type,
         "name": p_name,
@@ -135,11 +151,19 @@ class APIParser:
       excl in p['type'] for excl in ['ExceptionState', 'ExecutionContext']
     )]
 
+    # 处理返回类型
+    return_type = match.group('return_type').strip()
+    self._update_class_dependency(return_type)
+
+    # 处理参数类型
+    for param in params:
+      self._update_class_dependency(param['type'])
+
     return {
       "name": self.current_comment.get('name', match.group('name')),
       "func": match.group('name'),
-      "return_type": match.group('return_type').strip(),
-      "parameters": [filtered_params],  # 所有方法参数统一用列表存储
+      "return_type": return_type,
+      "parameters": [filtered_params],
       "is_static": bool(match.group('static')),
       "is_virtual": bool(match.group('virtual'))
     }
@@ -151,17 +175,27 @@ class APIParser:
       (r'URGE_EXPORT_STATIC_ATTRIBUTE\((\w+),\s*(.*?)\);?', True)
     ]:
       if match := re.match(pattern, decl):
+        # 处理属性类型
+        attr_type = match.group(2).strip()
+        self._update_class_dependency(attr_type)
+
         return {
           "func": match.group(1),
           "name": self.current_comment.get('name', match.group(1)),
-          "type": match.group(2).strip(),
+          "type": attr_type,
           "is_static": is_static
         }
     return None
 
   def parse(self, code):
     for line in code.split('\n'): self.process_line(line)
-    if self.current_class: self.classes.append(self.current_class)
+
+    # 最终处理依赖集合转换为列表并去重
+    for cls in self.classes:
+      cls['dependency'] = sorted(list(cls['dependency']))
+
+    if self.current_class:
+      self.classes.append(self.current_class)
 
 if __name__ == "__main__":
   cpp_code = """
@@ -232,4 +266,4 @@ if __name__ == "__main__":
 
   parser = APIParser()
   parser.parse(cpp_code)
-  print(json.dumps(parser.classes, indent=2, ensure_ascii=False))
+  print(parser.classes)

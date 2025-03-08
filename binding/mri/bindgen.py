@@ -5,9 +5,12 @@ import re
 class MriBindGen:
   def __init__(self):
     self.class_data = {}
+    self.file_name = ""
 
   def setup(self, klass_data: dict):
     self.class_data = klass_data
+    kname = self.class_data["class_name"]
+    self.file_name = "autogen_{}_binding".format(kname.lower())
 
   def gen_source_declaration(self):
     template = self.class_data
@@ -212,6 +215,43 @@ class MriBindGen:
 
     return func_body
 
+  def gen_source(self):
+    source_body = "\n"
+    source_body += "#include \"binding/mri/{}.h\"\n\n".format(self.file_name)
+
+    for dep in self.class_data["dependency"]:
+      if dep != self.class_data["class_name"]:
+        source_body += "#include \"binding/mri/autogen_{}_binding.h\"\n".format(dep.lower())
+
+    source_body += "\nnamespace binding {\n"
+
+    source_body += self.gen_source_defination()
+    source_body += "\n"
+    source_body += self.gen_source_declaration()
+
+    source_body += "} // namespace binding\n"
+
+    return source_body
+
+  def gen_header(self):
+    template = self.class_data
+    kname = template["class_name"]
+    is_module = template["is_module"]
+
+    header_body = "#ifndef BINDING_MRI_AUTOGEN_{}_BINDING_H_\n".format(kname.upper())
+    header_body += "#define BINDING_MRI_AUTOGEN_{}_BINDING_H_\n\n".format(kname.upper())
+    header_body += "#include \"binding/mri/mri_util.h\"\n\n"
+    header_body += "namespace binding {\n"
+
+    if not is_module:
+      header_body += "MRI_DECLARE_DATATYPE({});\n\n".format(kname)
+
+    header_body += "void Init{}Binding();\n".format(kname)
+
+    header_body += "} // namespace binding\n\n"
+    header_body += "#endif // !BINDING_MRI_AUTOGEN_{}_BINDING_H_\n".format(kname.upper())
+
+    return header_body
 
 if __name__ == "__main__":
   cpp_code = """
@@ -286,5 +326,8 @@ if __name__ == "__main__":
   for item in parser.classes:
     gen = MriBindGen()
     gen.setup(item)
-    print(gen.gen_source_declaration())
-    print(gen.gen_source_defination())
+    print("====================header=====================")
+    print(gen.gen_header())
+    print("=====================body=====================")
+    print(gen.gen_source())
+    print("=====================end=======================")
