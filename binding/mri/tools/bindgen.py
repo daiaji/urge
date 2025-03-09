@@ -123,9 +123,11 @@ class MriBindGen:
 
       params = method["parameters"]
       func_body += "MRI_METHOD({}_{}) {{\n".format(kname, func_name)
+      max_argument_count = 0
 
       func_body += "switch (argc) {\n"
       for i in range(len(params)):
+        max_argument_count = max(max_argument_count, len(params[i]))
         func_body += "case {}: {{\n".format(len(params[i]))
 
         parse_template = ""
@@ -225,6 +227,9 @@ class MriBindGen:
             func_body += "return rb_fix_new(result_value);\n"
 
         func_body += "} break;\n"
+      func_body += "default:\n"
+      func_body += "MriCheckArgc(argc, {});\n".format(max_argument_count)
+      func_body += "return Qnil;\n"
       func_body += "}\n"
       func_body += "}\n"
 
