@@ -185,17 +185,24 @@ class MriBindGen:
         if return_type != "void":
           caller_prefix += return_type + " result_value = "
 
+        if call_parameters != "":
+          call_parameters += ", "
+
         if static_method:
+          func_body += "content::ExceptionState exception_state;\n"
           func_body += caller_prefix
-          func_body += "content::{}::{}({});\n".format(kname, func_name, call_parameters)
+          func_body += "content::{}::{}(MriGetCurrentContext(), {}exception_state);\n".format(kname, func_name, call_parameters)
+          func_body += "MriProcessException(exception_state);\n"
         else:
           if not is_module:
             func_body += "scoped_refptr self_obj = MriGetStructData<{}>(self);\n".format(kname)
           else:
             func_body += "scoped_refptr self_obj = MriGetGlobalModules()->{};\n".format(kname)
 
+          func_body += "content::ExceptionState exception_state;\n"
           func_body += caller_prefix
-          func_body += "self_obj->{}({});\n".format(func_name, call_parameters)
+          func_body += "self_obj->{}({}exception_state);\n".format(func_name, call_parameters)
+          func_body += "MriProcessException(exception_state);\n"
 
         if return_type != "void":
           if return_type.startswith("scoped_refptr"):
