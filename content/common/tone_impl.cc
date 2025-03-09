@@ -8,11 +8,13 @@
 
 namespace content {
 
-scoped_refptr<Tone> Tone::New(ExceptionState& exception_state) {
+scoped_refptr<Tone> Tone::New(ExecutionContext* execution_context,
+                              ExceptionState& exception_state) {
   return new ToneImpl(base::Vec4(0));
 }
 
-scoped_refptr<Tone> Tone::New(float red,
+scoped_refptr<Tone> Tone::New(ExecutionContext* execution_context,
+                              float red,
                               float green,
                               float blue,
                               float gray,

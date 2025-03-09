@@ -265,13 +265,13 @@ void RenderScreenImpl::Transition(uint32_t duration,
   if (!transition_mapping)
     return;
 
-  Transition(duration, transition_mapping, vague, exception_state);
+  TransitionWithBitmap(duration, transition_mapping, vague, exception_state);
 }
 
-void RenderScreenImpl::Transition(uint32_t duration,
-                                  scoped_refptr<Bitmap> bitmap,
-                                  uint32_t vague,
-                                  ExceptionState& exception_state) {
+void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
+                                            scoped_refptr<Bitmap> bitmap,
+                                            uint32_t vague,
+                                            ExceptionState& exception_state) {
   if (!frozen_)
     return;
 

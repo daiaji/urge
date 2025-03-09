@@ -92,10 +92,10 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
                   const std::string& filename,
                   uint32_t vague,
                   ExceptionState& exception_state) override;
-  void Transition(uint32_t duration,
-                  scoped_refptr<Bitmap> bitmap,
-                  uint32_t vague,
-                  ExceptionState& exception_state) override;
+  void TransitionWithBitmap(uint32_t duration,
+                            scoped_refptr<Bitmap> bitmap,
+                            uint32_t vague,
+                            ExceptionState& exception_state) override;
   scoped_refptr<Bitmap> SnapToBitmap(ExceptionState& exception_state) override;
   void FrameReset(ExceptionState& exception_state) override;
   uint32_t Width(ExceptionState& exception_state) override;

@@ -21,10 +21,12 @@ class URGE_RUNTIME_API Rect : public base::RefCounted<Rect> {
   virtual ~Rect() = default;
 
   /*--urge(name:initialize)--*/
-  static scoped_refptr<Rect> New(ExceptionState& exception_state);
+  static scoped_refptr<Rect> New(ExecutionContext* execution_context,
+                                 ExceptionState& exception_state);
 
   /*--urge(name:initialize)--*/
-  static scoped_refptr<Rect> New(int32_t x,
+  static scoped_refptr<Rect> New(ExecutionContext* execution_context,
+                                 int32_t x,
                                  int32_t y,
                                  int32_t width,
                                  int32_t height,

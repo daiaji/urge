@@ -8,11 +8,13 @@
 
 namespace content {
 
-scoped_refptr<Color> Color::New(ExceptionState& exception_state) {
+scoped_refptr<Color> Color::New(ExecutionContext* execution_context,
+                                ExceptionState& exception_state) {
   return new ColorImpl(base::Vec4(0));
 }
 
-scoped_refptr<Color> Color::New(float red,
+scoped_refptr<Color> Color::New(ExecutionContext* execution_context,
+                                float red,
                                 float green,
                                 float blue,
                                 float gray,

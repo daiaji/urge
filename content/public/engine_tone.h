@@ -21,10 +21,12 @@ class URGE_RUNTIME_API Tone : public base::RefCounted<Tone> {
   virtual ~Tone() = default;
 
   /*--urge(name:initialize)--*/
-  static scoped_refptr<Tone> New(ExceptionState& exception_state);
+  static scoped_refptr<Tone> New(ExecutionContext* execution_context,
+                                 ExceptionState& exception_state);
 
   /*--urge(name:initialize)--*/
-  static scoped_refptr<Tone> New(float red,
+  static scoped_refptr<Tone> New(ExecutionContext* execution_context,
+                                 float red,
                                  float green,
                                  float blue,
                                  float gray,

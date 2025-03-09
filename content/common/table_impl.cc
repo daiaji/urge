@@ -6,7 +6,8 @@
 
 namespace content {
 
-scoped_refptr<Table> Table::New(uint32_t xsize,
+scoped_refptr<Table> Table::New(ExecutionContext* execution_context,
+                                uint32_t xsize,
                                 uint32_t ysize,
                                 uint32_t zsize,
                                 ExceptionState& exception_state) {

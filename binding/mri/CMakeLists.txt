@@ -1,5 +1,22 @@
 cmake_minimum_required(VERSION 3.20.1)
 
+set(PYTHON_SCRIPT "${PROJECT_SOURCE_DIR}/binding/mri/tools/autogen.py")
+set(INPUT_BINDING_DIR "${PROJECT_SOURCE_DIR}/content/public/")
+set(GENERATE_BINDING_DIR "${RGU_AUTOGEN_DIR}/binding/mri/")
+
+execute_process(
+  COMMAND "${PYTHON_EXECUTABLE}" -B "${PYTHON_SCRIPT}" "${INPUT_BINDING_DIR}" "${GENERATE_BINDING_DIR}"
+  WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+  RESULT_VARIABLE SCRIPT_RESULT
+)
+
+if(NOT SCRIPT_RESULT EQUAL 0)
+  message(FATAL_ERROR "Failed to create MRI binding source: ${SCRIPT_RESULT}")
+endif()
+
+file(GLOB GENERATED_SOURCES CONFIGURE_DEPENDS "${GENERATE_BINDING_DIR}/*.cc")
+file(GLOB GENERATED_HEADERS CONFIGURE_DEPENDS "${GENERATE_BINDING_DIR}/*.h")
+
 set(BINDING_MRI_SRC
   mri_file.cc
   mri_file.h
@@ -9,6 +26,9 @@ set(BINDING_MRI_SRC
   mri_util.h
   urge_binding.cc
   urge_binding.h
+
+  ${GENERATED_SOURCES}
+  ${GENERATED_HEADERS}
 
   zlib_binding.c
 )

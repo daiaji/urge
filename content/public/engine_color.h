@@ -21,10 +21,12 @@ class URGE_RUNTIME_API Color : public base::RefCounted<Color> {
   virtual ~Color() = default;
 
   /*--urge(name:initialize)--*/
-  static scoped_refptr<Color> New(ExceptionState& exception_state);
+  static scoped_refptr<Color> New(ExecutionContext* execution_context,
+                                  ExceptionState& exception_state);
 
   /*--urge(name:initialize,optional:alpha=255)--*/
-  static scoped_refptr<Color> New(float red,
+  static scoped_refptr<Color> New(ExecutionContext* execution_context,
+                                  float red,
                                   float green,
                                   float blue,
                                   float alpha,

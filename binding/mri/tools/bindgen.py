@@ -1,6 +1,12 @@
-import binding.build.aas_parser as aas
+# Copyright 2018-2025 Admenri.
+# Use of this source code is governed by a BSD - style license that can be
+# found in the LICENSE file.
+
+import sys
 import re
 
+sys.path.append(".")
+from binding.build import api_parser
 
 class MriBindGen:
   def __init__(self):
@@ -151,11 +157,10 @@ class MriBindGen:
           elif a_type.startswith("scoped_refptr"):
             parse_template += "o"
             call_parameters += a_name + "_obj"
-
             match = re.search(r'scoped_refptr<(\w+)>', a_type)
-            if match:
-              refptr_type = match.group(1)
-            object_convertion += "{} {}_obj = MriCheckStructData<content::{}>({}, k{}DataType);\n".format(a_type, a_name, refptr_type, a_name, refptr_type)
+            refptr_type = match.group(1)
+            object_convertion += "scoped_refptr {}_obj = MriCheckStructData<content::{}>({}, k{}DataType);\n".format(a_name, refptr_type, a_name, refptr_type)
+            a_type = "VALUE"
           else:
             parse_template += "i"
             call_parameters += a_name
@@ -183,7 +188,10 @@ class MriBindGen:
 
         caller_prefix = ""
         if return_type != "void":
-          caller_prefix += return_type + " result_value = "
+          if return_type.startswith("scoped_refptr"):
+            caller_prefix += "scoped_refptr result_value = "
+          else:
+            caller_prefix += return_type + " result_value = "
 
         if call_parameters != "":
           call_parameters += ", "
@@ -195,7 +203,7 @@ class MriBindGen:
           func_body += "MriProcessException(exception_state);\n"
         else:
           if not is_module:
-            func_body += "scoped_refptr self_obj = MriGetStructData<{}>(self);\n".format(kname)
+            func_body += "scoped_refptr self_obj = MriGetStructData<content::{}>(self);\n".format(kname)
           else:
             func_body += "scoped_refptr self_obj = MriGetGlobalModules()->{};\n".format(kname)
 
@@ -216,7 +224,7 @@ class MriBindGen:
           else:
             func_body += "return rb_fix_new(result_value);\n"
 
-        func_body += "}\n"
+        func_body += "} break;\n"
       func_body += "}\n"
       func_body += "}\n"
 
@@ -229,6 +237,10 @@ class MriBindGen:
     for dep in self.class_data["dependency"]:
       if dep != self.class_data["class_name"]:
         source_body += "#include \"binding/mri/autogen_{}_binding.h\"\n".format(dep.lower())
+
+    source_body += "\n"
+    for dep in self.class_data["dependency"]:
+      source_body += "#include \"content/public/engine_{}.h\"\n".format(dep.lower())
 
     source_body += "\nnamespace binding {\n"
 
@@ -327,7 +339,7 @@ if __name__ == "__main__":
       };
       """
 
-  parser = aas.APIParser()
+  parser = api_parser.APIParser()
   parser.parse(cpp_code)
 
   for item in parser.classes:

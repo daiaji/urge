@@ -6,11 +6,13 @@
 
 namespace content {
 
-scoped_refptr<Rect> Rect::New(ExceptionState& exception_state) {
+scoped_refptr<Rect> Rect::New(ExecutionContext* execution_context,
+                              ExceptionState& exception_state) {
   return new RectImpl(base::Rect());
 }
 
-scoped_refptr<Rect> Rect::New(int32_t x,
+scoped_refptr<Rect> Rect::New(ExecutionContext* execution_context,
+                              int32_t x,
                               int32_t y,
                               int32_t width,
                               int32_t height,
