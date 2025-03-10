@@ -15,5 +15,5 @@ set(URGE_DEP_LIBS
   binding_mri
 )
 
-add_executable(urge_console urge_main.cc resources/app.rc)
-target_link_libraries(urge_console PUBLIC ${URGE_DEP_LIBS})
+add_executable(console_engine urge_main.cc resources/app.rc)
+target_link_libraries(console_engine PUBLIC ${URGE_DEP_LIBS})

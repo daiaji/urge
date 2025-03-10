@@ -54,6 +54,18 @@ class CanvasImpl : public Bitmap,
   CanvasImpl(const CanvasImpl&) = delete;
   CanvasImpl& operator=(const CanvasImpl&) = delete;
 
+  static scoped_refptr<CanvasImpl> Create(CanvasScheduler* scheduler,
+                                          RenderScreenImpl* screen,
+                                          ScopedFontData* font_data,
+                                          const base::Vec2i& size,
+                                          ExceptionState& exception_state);
+
+  static scoped_refptr<CanvasImpl> Create(CanvasScheduler* scheduler,
+                                          RenderScreenImpl* screen,
+                                          ScopedFontData* font_data,
+                                          const std::string& filename,
+                                          ExceptionState& exception_state);
+
   static scoped_refptr<CanvasImpl> FromBitmap(scoped_refptr<Bitmap> host);
 
   // Synchronize pending commands and fetch texture to buffer.

@@ -23,8 +23,7 @@
 #include <SDL3_ttf/SDL_ttf.h>
 
 #include "SDL_hashtable.h"
-
-#define ATLAS_TEXTURE_SIZE 1024
+#include "SDL_hashtable_ttf.h"
 
 #define STB_RECT_PACK_IMPLEMENTATION
 #define STBRP_STATIC
@@ -37,10 +36,17 @@ typedef struct AtlasGlyph AtlasGlyph;
 typedef struct AtlasTexture AtlasTexture;
 typedef struct TTF_GPUAtlasDrawSequence AtlasDrawSequence;
 
+typedef struct GlyphSurface
+{
+    SDL_Surface *surface;
+    TTF_ImageType image_type;
+} GlyphSurface;
+
 struct AtlasGlyph
 {
     int refcount;
     AtlasTexture *atlas;
+    TTF_ImageType image_type;
     SDL_Rect rect;
     float texcoords[8];
     AtlasGlyph *next;
@@ -74,6 +80,7 @@ typedef struct TTF_GPUTextEngineData
     SDL_GPUDevice *device;
     SDL_HashTable *fonts;
     AtlasTexture *atlas;
+    int atlas_texture_size;
     TTF_GPUTextEngineWinding winding;
 } TTF_GPUTextEngineData;
 
@@ -172,7 +179,7 @@ static void DestroyAtlas(SDL_GPUDevice *device, AtlasTexture *atlas)
     SDL_free(atlas);
 }
 
-static AtlasTexture *CreateAtlas(SDL_GPUDevice *device)
+static AtlasTexture *CreateAtlas(SDL_GPUDevice *device, int atlas_texture_size)
 {
     AtlasTexture *atlas = (AtlasTexture *)SDL_calloc(1, sizeof(*atlas));
     if (!atlas) {
@@ -181,10 +188,10 @@ static AtlasTexture *CreateAtlas(SDL_GPUDevice *device)
 
     SDL_GPUTextureCreateInfo info = { 0 };
     info.type = SDL_GPU_TEXTURETYPE_2D;
-    info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    info.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
     info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
-    info.width = ATLAS_TEXTURE_SIZE;
-    info.height = ATLAS_TEXTURE_SIZE;
+    info.width = atlas_texture_size;
+    info.height = atlas_texture_size;
     info.layer_count_or_depth = 1;
     info.num_levels = 1;
 
@@ -206,13 +213,13 @@ static AtlasTexture *CreateAtlas(SDL_GPUDevice *device)
     SDL_EndGPURenderPass(rpass);
     SDL_SubmitGPUCommandBuffer(cbuf);
 
-    int num_nodes = ATLAS_TEXTURE_SIZE / 4;
+    int num_nodes = atlas_texture_size / 4;
     atlas->packing_nodes = (stbrp_node *)SDL_calloc(num_nodes, sizeof(*atlas->packing_nodes));
     if (!atlas->packing_nodes) {
         DestroyAtlas(device, atlas);
         return NULL;
     }
-    stbrp_init_target(&atlas->packer, ATLAS_TEXTURE_SIZE, ATLAS_TEXTURE_SIZE, atlas->packing_nodes, num_nodes);
+    stbrp_init_target(&atlas->packer, atlas_texture_size, atlas_texture_size, atlas->packing_nodes, num_nodes);
     stbrp_setup_heuristic(&atlas->packer, STBRP_HEURISTIC_Skyline_default);
 
     return atlas;
@@ -250,7 +257,7 @@ static void ReleaseGlyph(AtlasGlyph *glyph)
     }
 }
 
-static AtlasGlyph *CreateGlyph(AtlasTexture *atlas, const stbrp_rect *area)
+static AtlasGlyph *CreateGlyph(AtlasTexture *atlas, int atlas_texture_size, const stbrp_rect *area)
 {
     AtlasGlyph *glyph = (AtlasGlyph *)SDL_calloc(1, sizeof(*glyph));
     if (!glyph) {
@@ -265,10 +272,10 @@ static AtlasGlyph *CreateGlyph(AtlasTexture *atlas, const stbrp_rect *area)
     glyph->rect.w = area->w - 1;
     glyph->rect.h = area->h - 1;
 
-    const float minu = (float)glyph->rect.x / ATLAS_TEXTURE_SIZE;
-    const float minv = (float)glyph->rect.y / ATLAS_TEXTURE_SIZE;
-    const float maxu = (float)(glyph->rect.x + glyph->rect.w) / ATLAS_TEXTURE_SIZE;
-    const float maxv = (float)(glyph->rect.y + glyph->rect.h) / ATLAS_TEXTURE_SIZE;
+    const float minu = (float)glyph->rect.x / atlas_texture_size;
+    const float minv = (float)glyph->rect.y / atlas_texture_size;
+    const float maxu = (float)(glyph->rect.x + glyph->rect.w) / atlas_texture_size;
+    const float maxv = (float)(glyph->rect.y + glyph->rect.h) / atlas_texture_size;
     glyph->texcoords[0] = minu;
     glyph->texcoords[1] = minv;
     glyph->texcoords[2] = maxu;
@@ -378,22 +385,25 @@ static bool UpdateGPUTexture(SDL_GPUDevice *device, SDL_GPUTexture *texture,
     return true;
 }
 
-static bool UpdateGlyph(SDL_GPUDevice *device, AtlasGlyph *glyph, SDL_Surface *surface)
+static bool UpdateGlyph(SDL_GPUDevice *device, AtlasGlyph *glyph, SDL_Surface *surface, TTF_ImageType image_type)
 {
+    SDL_assert(glyph->rect.w > 0 && glyph->rect.h > 0);
+
     /* FIXME: We should update the whole texture at once or at least cache the transfer buffers */
     UpdateGPUTexture(device, glyph->atlas->texture, &glyph->rect, surface->pixels, surface->pitch);
+    glyph->image_type = image_type;
     return true;
 }
 
-static bool AddGlyphToFont(TTF_GPUTextEngineFontData *fontdata, Uint32 glyph_index, AtlasGlyph *glyph)
+static bool AddGlyphToFont(TTF_GPUTextEngineFontData *fontdata, TTF_Font *glyph_font, Uint32 glyph_index, AtlasGlyph *glyph)
 {
-    if (!SDL_InsertIntoHashTable(fontdata->glyphs, (const void *)(uintptr_t)glyph_index, glyph)) {
+    if (!SDL_InsertIntoGlyphHashTable(fontdata->glyphs, glyph_font, glyph_index, glyph)) {
         return false;
     }
     return true;
 }
 
-static bool ResolveMissingGlyphs(TTF_GPUTextEngineData *enginedata, AtlasTexture *atlas, TTF_GPUTextEngineFontData *fontdata, SDL_Surface **surfaces, TTF_DrawOperation *ops, int num_ops, stbrp_rect *missing, int num_missing)
+static bool ResolveMissingGlyphs(TTF_GPUTextEngineData *enginedata, AtlasTexture *atlas, TTF_GPUTextEngineFontData *fontdata, GlyphSurface *surfaces, TTF_DrawOperation *ops, int num_ops, stbrp_rect *missing, int num_missing)
 {
     // See if we can reuse any existing entries
     if (atlas->free_glyphs) {
@@ -404,17 +414,19 @@ static bool ResolveMissingGlyphs(TTF_GPUTextEngineData *enginedata, AtlasTexture
                 continue;
             }
 
-            if (!UpdateGlyph(enginedata->device, glyph, surfaces[missing[i].id])) {
+            GlyphSurface *surface = &surfaces[missing[i].id];
+            if (!UpdateGlyph(enginedata->device, glyph, surface->surface, surface->image_type)) {
                 ReleaseGlyph(glyph);
                 return false;
             }
 
-            if (!AddGlyphToFont(fontdata, ops[missing[i].id].copy.glyph_index, glyph)) {
+            TTF_DrawOperation *op = &ops[missing[i].id];
+            if (!AddGlyphToFont(fontdata, op->copy.glyph_font, op->copy.glyph_index, glyph)) {
                 ReleaseGlyph(glyph);
                 return false;
             }
 
-            ops[missing[i].id].copy.reserved = glyph;
+            op->copy.reserved = glyph;
 
             // Remove this from the missing entries
             --num_missing;
@@ -435,22 +447,24 @@ static bool ResolveMissingGlyphs(TTF_GPUTextEngineData *enginedata, AtlasTexture
             continue;
         }
 
-        AtlasGlyph *glyph = CreateGlyph(atlas, &missing[i]);
+        AtlasGlyph *glyph = CreateGlyph(atlas, enginedata->atlas_texture_size, &missing[i]);
         if (!glyph) {
             return false;
         }
 
-        if (!UpdateGlyph(enginedata->device, glyph, surfaces[missing[i].id])) {
+        GlyphSurface *surface = &surfaces[missing[i].id];
+        if (!UpdateGlyph(enginedata->device, glyph, surface->surface, surface->image_type)) {
             ReleaseGlyph(glyph);
             return false;
         }
 
-        if (!AddGlyphToFont(fontdata, ops[missing[i].id].copy.glyph_index, glyph)) {
+        TTF_DrawOperation *op = &ops[missing[i].id];
+        if (!AddGlyphToFont(fontdata, op->copy.glyph_font, op->copy.glyph_index, glyph)) {
             ReleaseGlyph(glyph);
             return false;
         }
 
-        ops[missing[i].id].copy.reserved = glyph;
+        op->copy.reserved = glyph;
     }
 
     if (all_packed) {
@@ -468,7 +482,7 @@ static bool ResolveMissingGlyphs(TTF_GPUTextEngineData *enginedata, AtlasTexture
     }
 
     if (!atlas->next) {
-        atlas->next = CreateAtlas(enginedata->device);
+        atlas->next = CreateAtlas(enginedata->device, enginedata->atlas_texture_size);
         if (!atlas->next) {
             return false;
         }
@@ -479,9 +493,10 @@ static bool ResolveMissingGlyphs(TTF_GPUTextEngineData *enginedata, AtlasTexture
 static bool CreateMissingGlyphs(TTF_GPUTextEngineData *enginedata, TTF_GPUTextEngineFontData *fontdata, TTF_DrawOperation *ops, int num_ops, int num_missing)
 {
     stbrp_rect *missing = NULL;
-    SDL_Surface **surfaces = NULL;
+    GlyphSurface *surfaces = NULL;
     SDL_HashTable *checked = NULL;
     bool result = false;
+    int atlas_texture_size = enginedata->atlas_texture_size;
 
     // Build a list of missing glyphs
     missing = (stbrp_rect *)SDL_calloc(num_missing, sizeof(*missing));
@@ -489,12 +504,12 @@ static bool CreateMissingGlyphs(TTF_GPUTextEngineData *enginedata, TTF_GPUTextEn
         goto done;
     }
 
-    surfaces = (SDL_Surface **)SDL_calloc(num_ops, sizeof(*surfaces));
+    surfaces = (GlyphSurface *)SDL_calloc(num_ops, sizeof(*surfaces));
     if (!surfaces) {
         goto done;
     }
 
-    checked = SDL_CreateHashTable(NULL, 4, SDL_HashID, SDL_KeyMatchID, NULL, false, false);
+    checked = SDL_CreateGlyphHashTable(NULL);
     if (!checked) {
         goto done;
     }
@@ -503,29 +518,34 @@ static bool CreateMissingGlyphs(TTF_GPUTextEngineData *enginedata, TTF_GPUTextEn
     for (int i = 0; i < num_ops; ++i) {
         TTF_DrawOperation *op = &ops[i];
         if (op->cmd == TTF_DRAW_COMMAND_COPY && !op->copy.reserved) {
+            TTF_Font *glyph_font = op->copy.glyph_font;
             Uint32 glyph_index = op->copy.glyph_index;
-            if (SDL_FindInHashTable(checked, (const void *)(uintptr_t)glyph_index, NULL)) {
+            if (SDL_FindInGlyphHashTable(checked, glyph_font, glyph_index, NULL)) {
                 continue;
             }
-            if (!SDL_InsertIntoHashTable(checked, (const void *)(uintptr_t)glyph_index, NULL)) {
+            if (!SDL_InsertIntoGlyphHashTable(checked, glyph_font, glyph_index, NULL)) {
                 goto done;
             }
 
-            surfaces[i] = TTF_GetGlyphImageForIndex(fontdata->font, glyph_index);
-            if (!surfaces[i]) {
+            TTF_ImageType image_type = TTF_IMAGE_INVALID;
+            SDL_Surface *surface = TTF_GetGlyphImageForIndex(glyph_font, glyph_index, &image_type);
+            if (!surface) {
                 goto done;
             }
-            if (surfaces[i]->w > ATLAS_TEXTURE_SIZE || surfaces[i]->h > ATLAS_TEXTURE_SIZE) {
+            if (surface->w > atlas_texture_size || surface->h > atlas_texture_size) {
                 SDL_SetError("Glyph surface %dx%d larger than atlas texture %dx%d",
-                    surfaces[i]->w, surfaces[i]->h,
-                    ATLAS_TEXTURE_SIZE, ATLAS_TEXTURE_SIZE);
+                    surface->w, surface->h,
+                    atlas_texture_size, atlas_texture_size);
                 goto done;
             }
+
+            surfaces[i].surface = surface;
+            surfaces[i].image_type = image_type;
 
             missing[missing_index].id = i;
             // Add one pixel extra padding between glyphs
-            missing[missing_index].w = surfaces[i]->w + 1;
-            missing[missing_index].h = surfaces[i]->h + 1;
+            missing[missing_index].w = surface->w + 1;
+            missing[missing_index].h = surface->h + 1;
             ++missing_index;
         }
     }
@@ -536,7 +556,7 @@ static bool CreateMissingGlyphs(TTF_GPUTextEngineData *enginedata, TTF_GPUTextEn
 
     // Create the texture atlas if necessary
     if (!enginedata->atlas) {
-        enginedata->atlas = CreateAtlas(enginedata->device);
+        enginedata->atlas = CreateAtlas(enginedata->device, atlas_texture_size);
         if (!enginedata->atlas) {
             goto done;
         }
@@ -550,7 +570,7 @@ static bool CreateMissingGlyphs(TTF_GPUTextEngineData *enginedata, TTF_GPUTextEn
     for (int i = 0; i < num_ops; ++i) {
         TTF_DrawOperation *op = &ops[i];
         if (op->cmd == TTF_DRAW_COMMAND_COPY && !op->copy.reserved) {
-            if (!SDL_FindInHashTable(fontdata->glyphs, (const void *)(uintptr_t)op->copy.glyph_index, (const void **)&op->copy.reserved)) {
+            if (!SDL_FindInGlyphHashTable(fontdata->glyphs, op->copy.glyph_font, op->copy.glyph_index, (const void **)&op->copy.reserved)) {
                 // Something is very wrong...
                 goto done;
             }
@@ -560,10 +580,10 @@ static bool CreateMissingGlyphs(TTF_GPUTextEngineData *enginedata, TTF_GPUTextEn
     result = true;
 
 done:
-    SDL_DestroyHashTable(checked);
+    SDL_DestroyGlyphHashTable(checked);
     if (surfaces) {
         for (int i = 0; i < num_ops; ++i) {
-            SDL_DestroySurface(surfaces[i]);
+            SDL_DestroySurface(surfaces[i].surface);
         }
         SDL_free(surfaces);
     }
@@ -595,6 +615,15 @@ static SDL_GPUTexture *GetOperationTexture(TTF_DrawOperation *op)
     return NULL;
 }
 
+static TTF_ImageType GetOperationImageType(TTF_DrawOperation *op)
+{
+    if (op->cmd == TTF_DRAW_COMMAND_COPY) {
+        AtlasGlyph *glyph = (AtlasGlyph *)op->copy.reserved;
+        return glyph->image_type;
+    }
+    return TTF_IMAGE_INVALID;
+}
+
 static AtlasDrawSequence *CreateDrawSequence(TTF_DrawOperation *ops, int num_ops, TTF_GPUTextEngineWinding winding)
 {
     AtlasDrawSequence *sequence = (AtlasDrawSequence *)SDL_calloc(1, sizeof(*sequence));
@@ -606,9 +635,11 @@ static AtlasDrawSequence *CreateDrawSequence(TTF_DrawOperation *ops, int num_ops
     SDL_COMPILE_TIME_ASSERT(sizeof_SDL_FPoint, sizeof(SDL_FPoint) == 2 * sizeof(float));
 
     SDL_GPUTexture *texture = GetOperationTexture(&ops[0]);
+    TTF_ImageType image_type = GetOperationImageType(&ops[0]);
     TTF_DrawOperation *end = NULL;
     for (int i = 1; i < num_ops; ++i) {
-        if (GetOperationTexture(&ops[i]) != texture) {
+        if (GetOperationTexture(&ops[i]) != texture ||
+            GetOperationImageType(&ops[i]) != image_type) {
             end = &ops[i];
             break;
         }
@@ -616,6 +647,7 @@ static AtlasDrawSequence *CreateDrawSequence(TTF_DrawOperation *ops, int num_ops
 
     int count = (end ? (int)(end - ops) : num_ops);
     sequence->atlas_texture = texture;
+    sequence->image_type = image_type;
     sequence->num_vertices = count * 4;
     sequence->num_indices = count * 6;
 
@@ -744,7 +776,7 @@ static TTF_GPUTextEngineTextData *CreateTextData(TTF_GPUTextEngineData *engineda
 
         ++num_glyphs;
 
-        if (!SDL_FindInHashTable(fontdata->glyphs, (const void *)(uintptr_t)op->copy.glyph_index, (const void **)&op->copy.reserved)) {
+        if (!SDL_FindInGlyphHashTable(fontdata->glyphs, op->copy.glyph_font, op->copy.glyph_index, (const void **)&op->copy.reserved)) {
             ++num_missing;
         }
     }
@@ -788,17 +820,15 @@ static void DestroyFontData(TTF_GPUTextEngineFontData *data)
 {
     if (data) {
         if (data->glyphs) {
-            SDL_DestroyHashTable(data->glyphs);
+            SDL_DestroyGlyphHashTable(data->glyphs);
         }
         SDL_free(data);
     }
 }
 
-static void NukeGlyph(const void *key, const void *value, void *unused)
+static void NukeGlyph(const void *value)
 {
     AtlasGlyph *glyph = (AtlasGlyph *)value;
-    (void)key;
-    (void)unused;
     ReleaseGlyph(glyph);
 }
 
@@ -810,13 +840,13 @@ static TTF_GPUTextEngineFontData *CreateFontData(TTF_GPUTextEngineData *engineda
     }
     data->font = font;
     data->generation = font_generation;
-    data->glyphs = SDL_CreateHashTable(NULL, 4, SDL_HashID, SDL_KeyMatchID, NukeGlyph, false, false);
+    data->glyphs = SDL_CreateGlyphHashTable(NukeGlyph);
     if (!data->glyphs) {
         DestroyFontData(data);
         return NULL;
     }
 
-    if (!SDL_InsertIntoHashTable(enginedata->fonts, font, data)) {
+    if (!SDL_InsertIntoHashTable(enginedata->fonts, font, data, true)) {
         DestroyFontData(data);
         return NULL;
     }
@@ -842,7 +872,7 @@ static void DestroyEngineData(TTF_GPUTextEngineData *data)
     SDL_free(data);
 }
 
-static void NukeFontData(const void *key, const void *value, void *unused)
+static void SDLCALL NukeFontData(void *unused, const void *key, const void *value)
 {
     TTF_GPUTextEngineFontData *data = (TTF_GPUTextEngineFontData *)value;
     (void)key;
@@ -850,16 +880,17 @@ static void NukeFontData(const void *key, const void *value, void *unused)
     DestroyFontData(data);
 }
 
-static TTF_GPUTextEngineData *CreateEngineData(SDL_GPUDevice *device)
+static TTF_GPUTextEngineData *CreateEngineData(SDL_GPUDevice *device, int atlas_texture_size)
 {
     TTF_GPUTextEngineData *data = (TTF_GPUTextEngineData *)SDL_calloc(1, sizeof(*data));
     if (!data) {
         return NULL;
     }
     data->device = device;
+    data->atlas_texture_size = atlas_texture_size;
     data->winding = TTF_GPU_TEXTENGINE_WINDING_CLOCKWISE;
 
-    data->fonts = SDL_CreateHashTable(NULL, 4, SDL_HashPointer, SDL_KeyMatchPointer, NukeFontData, false, false);
+    data->fonts = SDL_CreateHashTable(0, false, SDL_HashPointer, SDL_KeyMatchPointer, NukeFontData, NULL);
     if (!data->fonts) {
         DestroyEngineData(data);
         return NULL;
@@ -883,7 +914,7 @@ static bool SDLCALL CreateText(void *userdata, TTF_Text *text)
             return false;
         }
     } else if (font_generation != fontdata->generation) {
-        SDL_EmptyHashTable(fontdata->glyphs);
+        SDL_ClearHashTable(fontdata->glyphs);
         fontdata->generation = font_generation;
     }
 
@@ -924,8 +955,21 @@ void TTF_DestroyGPUTextEngine(TTF_TextEngine *engine)
 
 TTF_TextEngine *TTF_CreateGPUTextEngine(SDL_GPUDevice *device)
 {
+    SDL_PropertiesID props = SDL_CreateProperties();
+    if (props == 0) {
+        SDL_SetError("Failed to create GPU text engine.");
+        return NULL;
+    }
+    SDL_SetPointerProperty(props, TTF_PROP_GPU_TEXT_ENGINE_DEVICE, device);
+
+    return TTF_CreateGPUTextEngineWithProperties(props);
+}
+
+TTF_TextEngine *TTF_CreateGPUTextEngineWithProperties(SDL_PropertiesID props)
+{
+    SDL_GPUDevice *device = SDL_GetPointerProperty(props, TTF_PROP_GPU_TEXT_ENGINE_DEVICE, NULL);
     if (!device) {
-        SDL_InvalidParamError("device");
+        SDL_SetError("Failed to create GPU text engine: Invalid device.");
         return NULL;
     }
 
@@ -934,10 +978,16 @@ TTF_TextEngine *TTF_CreateGPUTextEngine(SDL_GPUDevice *device)
         return NULL;
     }
 
+    int atlas_texture_size = (int)SDL_GetNumberProperty(props, TTF_PROP_GPU_TEXT_ENGINE_ATLAS_TEXTURE_SIZE, 1024);
+    if (atlas_texture_size <= 0) {
+        SDL_SetError("Failed to create GPU text engine: Invalid texture atlas size.");
+        return NULL;
+    }
+
     SDL_INIT_INTERFACE(engine);
     engine->CreateText = CreateText;
     engine->DestroyText = DestroyText;
-    engine->userdata = CreateEngineData(device);
+    engine->userdata = CreateEngineData(device, atlas_texture_size);
     if (!engine->userdata) {
         TTF_DestroyGPUTextEngine(engine);
         return NULL;

@@ -1,8 +1,8 @@
-# Main entry
+# Binding - Unittests
 cmake_minimum_required(VERSION 3.20.1)
 
 #--------------------------------------------------------------------------------
-# Player entry source
+# Unittests binding source
 #--------------------------------------------------------------------------------
 
 set(BINDING_UNITTESTS_SRC

@@ -5,11 +5,13 @@
 #ifndef COMPONENTS_FILESYSTEM_IO_H_
 #define COMPONENTS_FILESYSTEM_IO_H_
 
-#include "SDL3/SDL_iostream.h"
-
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "SDL3/SDL_iostream.h"
+
+#include "base/bind/callback.h"
 
 namespace filesystem {
 
@@ -20,6 +22,11 @@ class IO {
   IO(const IO&) = delete;
   IO& operator=(const IO&) = delete;
 
+  struct ExceptionFrame {
+    int error_count = 0;
+    std::string error_msg;
+  };
+
   // Make filesystem io instance
   static std::unique_ptr<IO> Create();
 
@@ -28,7 +35,14 @@ class IO {
   // Open an iostream based on filename,
   // io reader will match extname automatically.
   // When |raw| is true, it will open file with name directly.
-  SDL_IOStream* OpenFile(const std::string& filename, bool raw);
+  SDL_IOStream* OpenFile(const std::string& filename,
+                         ExceptionFrame* exception_state);
+
+  using OpenCallback =
+      base::RepeatingCallback<bool(SDL_IOStream*, const std::string&)>;
+  void OpenRead(const std::string& file_path,
+                OpenCallback callback,
+                ExceptionFrame* exception_state);
 
   // Check file status in matched path.
   bool IsFileExisted(const std::string& filename);

@@ -13,33 +13,11 @@
 
 #include "components/filesystem/io.h"
 #include "content/common/color_impl.h"
+#include "content/components/font_context.h"
 #include "content/content_config.h"
 #include "content/public/engine_font.h"
 
 namespace content {
-
-struct ScopedFontData {
-  std::string default_font;
-  std::vector<std::string> default_name;
-  int default_size = 24;
-  bool default_bold = false;
-  bool default_italic = false;
-  bool default_outline = true;
-  bool default_shadow = false;
-  scoped_refptr<ColorImpl> default_color = nullptr;
-  scoped_refptr<ColorImpl> default_out_color = nullptr;
-
-  std::map<std::pair<std::string, int>, TTF_Font*> font_cache;
-  std::map<std::string, std::pair<int64_t, void*>> data_cache;
-
-  ScopedFontData(filesystem::IO* io, const std::string& default_font_name);
-  ~ScopedFontData();
-
-  ScopedFontData(const ScopedFontData&) = delete;
-  ScopedFontData& operator=(const ScopedFontData&) = delete;
-
-  bool IsFontExisted(const std::string& name);
-};
 
 class FontImpl : public Font {
  public:

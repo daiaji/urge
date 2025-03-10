@@ -4,7 +4,6 @@
 
 #include "content/worker/content_runner.h"
 
-#include "content/canvas/font_impl.h"
 #include "content/context/execution_context.h"
 
 namespace content {
@@ -39,6 +38,8 @@ void ContentRunner::InitializeContentInternal() {
       new ScopedFontData(io_service_.get(), profile_->default_font_path));
   graphics_impl_.reset(new RenderScreenImpl(cc_.get(), scoped_font_.get(),
                                             resolution, frame_rate));
+  input_impl_.reset(
+      new KeyboardControllerImpl(window_->AsWeakPtr(), profile_.get()));
 
   // Init all module workers
   graphics_impl_->InitWithRenderWorker(render_worker_.get(), window_);
@@ -76,13 +77,20 @@ void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
 
   // Make script binding execution context
   // Call binding boot handler before running loop handler
-  ExecutionContext ec;
-  ec.font_context = self->scoped_font_.get();
-  ec.canvas_scheduler = self->graphics_impl_->GetCanvasScheduler();
-  ec.graphics = self->graphics_impl_.get();
+  ExecutionContext execution_context;
+  execution_context.font_context = self->scoped_font_.get();
+  execution_context.canvas_scheduler =
+      self->graphics_impl_->GetCanvasScheduler();
+  execution_context.graphics = self->graphics_impl_.get();
+  execution_context.input = self->input_impl_.get();
+
+  // Make module context
+  EngineBindingBase::ScopedModuleContext module_context;
+  module_context.graphics = self->graphics_impl_.get();
+  module_context.input = self->input_impl_.get();
 
   // Execute main loop
-  self->binding_->OnMainMessageLoopRun(&ec);
+  self->binding_->OnMainMessageLoopRun(&execution_context, &module_context);
 
   // End of running
   self->binding_->PostMainLoopRunning();

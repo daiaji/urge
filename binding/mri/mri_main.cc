@@ -7,7 +7,23 @@
 
 #include "binding/mri/mri_main.h"
 
+#include "SDL3/SDL_messagebox.h"
 #include "zlib/zlib.h"
+
+#include "binding/mri/mri_file.h"
+#include "binding/mri/urge_binding.h"
+
+#include "binding/mri/autogen_bitmap_binding.h"
+#include "binding/mri/autogen_color_binding.h"
+#include "binding/mri/autogen_font_binding.h"
+#include "binding/mri/autogen_graphics_binding.h"
+#include "binding/mri/autogen_input_binding.h"
+#include "binding/mri/autogen_plane_binding.h"
+#include "binding/mri/autogen_rect_binding.h"
+#include "binding/mri/autogen_sprite_binding.h"
+#include "binding/mri/autogen_table_binding.h"
+#include "binding/mri/autogen_tone_binding.h"
+#include "binding/mri/autogen_viewport_binding.h"
 
 extern "C" {
 void rb_call_builtin_inits();
@@ -15,6 +31,8 @@ void Init_zlib();
 }
 
 namespace binding {
+
+content::ExecutionContext* g_current_execution_context = nullptr;
 
 namespace {
 
@@ -60,9 +78,8 @@ void ParseExeceptionInfo(VALUE exc,
   LOG(INFO) << "[Binding] " << error_info;
 
   error_info = InsertNewLines(error_info, 128);
-  SDL_ShowSimpleMessageBox(
-      SDL_MESSAGEBOX_ERROR, "RGU Error", error_info.c_str(),
-      MriGetGlobalRunner()->graphics()->window()->AsSDLWindow());
+  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Engine Error",
+                           error_info.c_str(), nullptr);
 }
 
 VALUE RgssMainCb(VALUE block) {
@@ -79,18 +96,12 @@ VALUE RgssMainRescue(VALUE arg, VALUE exc) {
 }
 
 void MriProcessReset() {
-  scoped_refptr<content::BindingRunner> binding = MriGetGlobalRunner();
-
-  LOG(INFO) << "[Binding] User trigger Content Reset.";
-  binding->graphics()->Reset();
-  binding->audio()->Reset();
-
-  binding->ClearResetFlag();
+  // TODO:
 }
 
 }  // namespace
 
-MRI_METHOD(mri_rgssmain) {
+MRI_METHOD(MRI_RGSSMain) {
   bool gc_required = false;
 
   while (true) {
@@ -107,7 +118,8 @@ MRI_METHOD(mri_rgssmain) {
     if (NIL_P(exc))
       break;
 
-    if (rb_obj_class(exc) == MriGetException(MriException::RGSSReset)) {
+    if (rb_obj_class(exc) ==
+        MriGetException(content::ExceptionCode::CODE_NUMS)) {
       gc_required = true;
       MriProcessReset();
     } else
@@ -117,62 +129,129 @@ MRI_METHOD(mri_rgssmain) {
   return Qnil;
 }
 
-MRI_METHOD(mri_rgssstop) {
-  scoped_refptr<content::Graphics> screen = MriGetGlobalRunner()->graphics();
+MRI_METHOD(MRI_RGSSSTOP) {
+  scoped_refptr<content::Graphics> screen = MriGetGlobalModules()->Graphics;
 
+  content::ExceptionState exception_state;
   while (true)
-    screen->Update();
+    screen->Update(exception_state);
 
   return Qnil;
 }
 
 template <int id>
-MRI_METHOD(mri_return_id) {
+MRI_METHOD(MRI_Return) {
   return rb_fix_new(id);
 }
 
-BindingEngineMri::BindingEngineMri() {}
+BindingEngineMri::BindingEngineMri() = default;
 
-BindingEngineMri::~BindingEngineMri() {}
+BindingEngineMri::~BindingEngineMri() = default;
 
-void BindingEngineMri::InitializeBinding(
-    scoped_refptr<content::BindingRunner> binding_host) {}
+void BindingEngineMri::PreEarlyInitialization(
+    content::ContentProfile* profile) {
+  profile_ = profile;
 
-void BindingEngineMri::RunBindingMain() {
-  LoadPackedScripts();
+  int argc = 0;
+  char** argv = 0;
+  ruby_sysinit(&argc, &argv);
+
+  RUBY_INIT_STACK;
+  ruby_init();
+  ruby_init_loadpath();
+  rb_call_builtin_inits();
+
+  rb_enc_set_default_internal(rb_enc_from_encoding(rb_utf8_encoding()));
+  rb_enc_set_default_external(rb_enc_from_encoding(rb_utf8_encoding()));
+
+  MriInitException(profile->api_version >=
+                   content::ContentProfile::APIVersion::RGSS3);
+
+  Init_zlib();
+  InitURGEBinding();
+
+  InitBitmapBinding();
+  InitColorBinding();
+  InitFontBinding();
+  InitGraphicsBinding();
+  InitInputBinding();
+  InitPlaneBinding();
+  InitRectBinding();
+  InitSpriteBinding();
+  InitTableBinding();
+  InitToneBinding();
+  InitViewportBinding();
+
+  if (profile->api_version < content::ContentProfile::APIVersion::RGSS3) {
+    if (sizeof(void*) == 4) {
+      MriDefineMethod(rb_cNilClass, "id", MRI_Return<4>);
+      MriDefineMethod(rb_cTrueClass, "id", MRI_Return<2>);
+    } else if (sizeof(void*) == 8) {
+      MriDefineMethod(rb_cNilClass, "id", MRI_Return<8>);
+      MriDefineMethod(rb_cTrueClass, "id", MRI_Return<20>);
+    } else {
+      NOTREACHED();
+    }
+
+    rb_const_set(rb_cObject, rb_intern("TRUE"), Qtrue);
+    rb_const_set(rb_cObject, rb_intern("FALSE"), Qfalse);
+    rb_const_set(rb_cObject, rb_intern("NIL"), Qnil);
+  }
+
+  MriDefineModuleFunction(rb_mKernel, "rgss_main", MRI_RGSSMain);
+  MriDefineModuleFunction(rb_mKernel, "rgss_stop", MRI_RGSSSTOP);
+
+  LOG(INFO) << "[Binding] CRuby Interpreter Version: " << RUBY_API_VERSION_CODE;
+  LOG(INFO) << "[Binding] CRuby Interpreter Platform: " << RUBY_PLATFORM;
 }
 
-void BindingEngineMri::QuitRequired() {
-  rb_raise(rb_eSystemExit, "");
+void BindingEngineMri::OnMainMessageLoopRun(
+    content::ExecutionContext* execution,
+    ScopedModuleContext* module_context) {
+  // Set global execution context
+  g_current_execution_context = execution;
+
+  // Define running modules
+  MriGetGlobalModules()->Graphics = module_context->graphics;
+  MriGetGlobalModules()->Input = module_context->input;
+
+  // Run packed scripts
+  content::ExceptionState exception_state;
+  LoadPackedScripts(profile_, exception_state);
+  if (exception_state.HadException()) {
+    std::string error_message;
+    exception_state.FetchException(error_message);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Engine Error",
+                             error_message.c_str(), nullptr);
+  }
 }
 
-void BindingEngineMri::ResetRequired() {
-  VALUE rb_eReset = MriGetException(MriException::RGSSReset);
-  rb_raise(rb_eReset, "");
-}
-
-void BindingEngineMri::FinalizeBinding() {
+void BindingEngineMri::PostMainLoopRunning() {
   VALUE exc = rb_errinfo();
   if (!NIL_P(exc) && !rb_obj_is_kind_of(exc, rb_eSystemExit))
     ParseExeceptionInfo(exc, backtrace_);
 
   ruby_cleanup(0);
-
-  g_mri_manager.reset();
+  g_current_execution_context = nullptr;
 
   LOG(INFO) << "[Binding] Quit mri binding engine.";
 }
 
-void BindingEngineMri::LoadPackedScripts(content::ContentProfile* profile) {
-  VALUE packed_scripts;
+void BindingEngineMri::ExitSignalRequired() {
+  rb_raise(rb_eSystemExit, "");
+}
 
-  try {
-    packed_scripts = MriLoadData(config->game_scripts(), false);
-  } catch (const base::Exception& exception) {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "RGU Binding",
-                             exception.GetErrorMessage().c_str(), nullptr);
+void BindingEngineMri::ResetSignalRequired() {
+  VALUE rb_eReset = MriGetException(content::ExceptionCode::CODE_NUMS);
+  rb_raise(rb_eReset, "");
+}
+
+void BindingEngineMri::LoadPackedScripts(
+    content::ContentProfile* profile,
+    content::ExceptionState& exception_state) {
+  VALUE packed_scripts = MriLoadData(profile->script_path, exception_state);
+  if (exception_state.HadException())
     return;
-  }
 
   if (!RB_TYPE_P(packed_scripts, RUBY_T_ARRAY)) {
     LOG(INFO) << "[Binding] Failed to read script data.";
@@ -259,90 +338,5 @@ void BindingEngineMri::LoadPackedScripts(content::ContentProfile* profile) {
     MriProcessReset();
   }
 }
-
-void BindingEngineMri::PreEarlyInitialization(
-    content::ContentProfile* profile) {
-  profile_ = profile;
-
-  int argc = 0;
-  char** argv = 0;
-  ruby_sysinit(&argc, &argv);
-
-  RUBY_INIT_STACK;
-  ruby_init();
-  ruby_init_loadpath();
-  rb_call_builtin_inits();
-
-  rb_enc_set_default_internal(rb_enc_from_encoding(rb_utf8_encoding()));
-  rb_enc_set_default_external(rb_enc_from_encoding(rb_utf8_encoding()));
-
-  MriInitException(profile->api_version >=
-                   content::ContentProfile::APIVersion::RGSS3);
-
-#if HAS_LIBFFI_SUPPORT
-  LOG(INFO) << "[Binding] Fiddle extension loaded.";
-  Init_fiddle();
-  rb_eval_string(fiddle_wrapper);
-#endif
-
-#if HAS_STEAMWORKS_SUPPORT
-  InitSteamworksBinding();
-#endif
-
-  if (config->content_version() < content::RGSSVersion::RGSS3) {
-    if (sizeof(void*) == 4) {
-      MriDefineMethod(rb_cNilClass, "id", mri_return_id<4>);
-      MriDefineMethod(rb_cTrueClass, "id", mri_return_id<2>);
-    } else if (sizeof(void*) == 8) {
-      MriDefineMethod(rb_cNilClass, "id", mri_return_id<8>);
-      MriDefineMethod(rb_cTrueClass, "id", mri_return_id<20>);
-    } else {
-      NOTREACHED();
-    }
-
-    rb_const_set(rb_cObject, rb_intern("TRUE"), Qtrue);
-    rb_const_set(rb_cObject, rb_intern("FALSE"), Qfalse);
-    rb_const_set(rb_cObject, rb_intern("NIL"), Qnil);
-  }
-
-  MriDefineModuleFunction(rb_mKernel, "rgss_main", mri_rgssmain);
-  MriDefineModuleFunction(rb_mKernel, "rgss_stop", mri_rgssstop);
-
-  switch (config->content_version()) {
-    case content::RGSSVersion::RGSS1:
-      LOG(INFO) << "[Binding] Content Version: RGSS1";
-      rb_eval_string(module_rpg1);
-      break;
-    case content::RGSSVersion::RGSS2:
-      LOG(INFO) << "[Binding] Content Version: RGSS2";
-      rb_eval_string(module_rpg2);
-      break;
-    case content::RGSSVersion::RGSS3:
-      LOG(INFO) << "[Binding] Content Version: RGSS3";
-      rb_eval_string(module_rpg3);
-      break;
-    default:
-      break;
-  }
-
-  VALUE debug = MRI_BOOL_NEW(config->game_debug());
-  if (config->content_version() < content::RGSSVersion::RGSS2)
-    rb_gv_set("DEBUG", debug);
-  else if (config->content_version() >= content::RGSSVersion::RGSS2)
-    rb_gv_set("TEST", debug);
-  rb_gv_set("BTEST", MRI_BOOL_NEW(config->game_battle_test()));
-
-  LOG(INFO) << "[Binding] CRuby Interpreter Version: " << RUBY_API_VERSION_CODE;
-  LOG(INFO) << "[Binding] CRuby Interpreter Platform: " << RUBY_PLATFORM;
-}
-
-void BindingEngineMri::OnMainMessageLoopRun(
-    content::ExecutionContext* execution) {}
-
-void BindingEngineMri::PostMainLoopRunning() {}
-
-void BindingEngineMri::ExitSignalRequired() {}
-
-void BindingEngineMri::ResetSignalRequired() {}
 
 }  // namespace binding

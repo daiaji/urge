@@ -9,7 +9,7 @@
 - URGE is a game engine compatible with RGSS 1/2/3 series APIs, utilizing SDL3 as the cross-platform underlying library and WebGPU/Dawn as the rendering RHI, providing support for modern APIs like D3D12/Vulkan (legacy OpenGL family and pre-D3D11 APIs are no longer supported).  
 - This project is open-source under the BSD-2-Clause License.  
 - Project style follows The Chromium Project.  
-- Inspired by Chromium, RGModern, and RPGMZ.  
+- Inspired by Chromium.  
 
 ## Snapshots
 

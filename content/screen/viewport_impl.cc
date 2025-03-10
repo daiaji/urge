@@ -7,6 +7,7 @@
 #include "content/canvas/canvas_impl.h"
 #include "content/canvas/canvas_scheduler.h"
 #include "content/common/rect_impl.h"
+#include "content/context/execution_context.h"
 #include "renderer/utils/buffer_utils.h"
 #include "renderer/utils/texture_utils.h"
 
@@ -101,7 +102,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
       effect_region.y > screen_buffer->GetHeight())
     return;
 
-  wgpu::ImageCopyTexture src_texture, dst_texture;
+  wgpu::TexelCopyTextureInfo src_texture, dst_texture;
   wgpu::Extent3D extent;
   src_texture.texture = *screen_buffer;
   src_texture.origin.x = effect_region.x;
@@ -268,9 +269,9 @@ scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
 
 scoped_refptr<Viewport> Viewport::New(ExecutionContext* execution_context,
                                       scoped_refptr<Viewport> parent,
+                                      scoped_refptr<Rect> rect,
                                       ExceptionState& exception_state) {
-  scoped_refptr<RectImpl> region =
-      RectImpl::From(parent->Get_Rect(exception_state));
+  scoped_refptr<RectImpl> region = RectImpl::From(rect);
   return new ViewportImpl(execution_context->graphics,
                           ViewportImpl::From(parent), region->AsBaseRect());
 }

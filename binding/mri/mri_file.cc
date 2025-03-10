@@ -15,15 +15,14 @@ struct CoreFileInfo {
   bool closed;
 };
 
-VALUE CreateCoreFileFrom(const std::string& filename, bool mri_exc) {
-  SDL_IOStream* ops = nullptr;
-  try {
-    ops = MriGetGlobalRunner()->share_data()->filesystem->OpenReadRaw(filename);
-  } catch (base::Exception& e) {
-    if (mri_exc) {
-      MriProcessException(e);
-    } else
-      throw e;
+VALUE CreateCoreFileFrom(const std::string& filename,
+                         content::ExceptionState& exception_state) {
+  filesystem::IO::ExceptionFrame io_state;
+  SDL_IOStream* ops = MriGetCurrentContext()->io->OpenFile(filename, &io_state);
+  if (io_state.error_count) {
+    exception_state.ThrowContentError(content::ExceptionCode::IO_ERROR,
+                                      io_state.error_msg);
+    return Qnil;
   }
 
   CoreFileInfo* info = new CoreFileInfo;
@@ -110,10 +109,13 @@ MRI_METHOD(corefile_close) {
   return Qnil;
 }
 
-VALUE MriLoadData(const std::string& filename, bool mri_exc) {
+VALUE MriLoadData(const std::string& filename,
+                  content::ExceptionState& exception_state) {
   rb_gc_start();
 
-  VALUE port = CreateCoreFileFrom(filename, mri_exc);
+  VALUE port = CreateCoreFileFrom(filename, exception_state);
+  if (exception_state.HadException())
+    return Qnil;
 
   VALUE marshal_klass = rb_const_get(rb_cObject, rb_intern("Marshal"));
 
@@ -127,7 +129,12 @@ MRI_METHOD(kernel_load_data) {
   std::string filename;
   MriParseArgsTo(argc, argv, "s", &filename);
 
-  return MriLoadData(filename, true);
+  content::ExceptionState exception_state;
+
+  VALUE data = MriLoadData(filename, exception_state);
+  MriProcessException(exception_state);
+
+  return data;
 }
 
 MRI_METHOD(kernel_save_data) {

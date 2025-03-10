@@ -7,7 +7,6 @@
 
 #include "base/math/rectangle.h"
 #include "renderer/vertex/vertex_layout.h"
-#include "webgpu/webgpu_cpp.h"
 
 namespace renderer {
 

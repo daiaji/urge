@@ -20,7 +20,7 @@ class URGE_RUNTIME_API Table : public base::RefCounted<Table> {
  public:
   virtual ~Table() = default;
 
-  /*--urge(name:initialize)--*/
+  /*--urge(name:initialize,optional:ysize=1,optional:zsize=1)--*/
   static scoped_refptr<Table> New(ExecutionContext* execution_context,
                                   uint32_t xsize,
                                   uint32_t ysize,
@@ -59,10 +59,29 @@ class URGE_RUNTIME_API Table : public base::RefCounted<Table> {
   virtual uint32_t Zsize(ExceptionState& exception_state) = 0;
 
   /*--urge(name:[])--*/
+  virtual int16_t Get(uint32_t x, ExceptionState& exception_state) = 0;
+
+  /*--urge(name:[])--*/
+  virtual int16_t Get(uint32_t x,
+                      uint32_t y,
+                      ExceptionState& exception_state) = 0;
+
+  /*--urge(name:[])--*/
   virtual int16_t Get(uint32_t x,
                       uint32_t y,
                       uint32_t z,
                       ExceptionState& exception_state) = 0;
+
+  /*--urge(name:[]=)--*/
+  virtual void Put(uint32_t x,
+                   int16_t value,
+                   ExceptionState& exception_state) = 0;
+
+  /*--urge(name:[]=)--*/
+  virtual void Put(uint32_t x,
+                   uint32_t y,
+                   int16_t value,
+                   ExceptionState& exception_state) = 0;
 
   /*--urge(name:[]=)--*/
   virtual void Put(uint32_t x,

@@ -5,10 +5,10 @@
 #ifndef RENDERER_VERTEX_VERTEX_LAYOUT_H_
 #define RENDERER_VERTEX_VERTEX_LAYOUT_H_
 
+#include "webgpu/webgpu_cpp.h"
+
 #include "base/math/rectangle.h"
 #include "base/math/vector.h"
-
-#include "webgpu/webgpu_cpp.h"
 
 namespace renderer {
 

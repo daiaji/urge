@@ -21,6 +21,7 @@
 #include <SDL3_ttf/SDL_textengine.h>
 
 #include "SDL_hashtable.h"
+#include "SDL_hashtable_ttf.h"
 
 
 typedef struct TTF_SurfaceTextEngineGlyphData
@@ -28,6 +29,7 @@ typedef struct TTF_SurfaceTextEngineGlyphData
     int refcount;
     SDL_Color color;
     SDL_Surface *surface;
+    TTF_ImageType image_type;
 } TTF_SurfaceTextEngineGlyphData;
 
 typedef struct TTF_SurfaceTextEngineTextData
@@ -66,7 +68,7 @@ static void DestroyGlyphData(TTF_SurfaceTextEngineGlyphData *data)
     }
 }
 
-static TTF_SurfaceTextEngineGlyphData *CreateGlyphData(SDL_Surface *surface)
+static TTF_SurfaceTextEngineGlyphData *CreateGlyphData(SDL_Surface *surface, TTF_ImageType image_type)
 {
     TTF_SurfaceTextEngineGlyphData *data = (TTF_SurfaceTextEngineGlyphData *)SDL_malloc(sizeof(*data));
     if (data) {
@@ -76,26 +78,28 @@ static TTF_SurfaceTextEngineGlyphData *CreateGlyphData(SDL_Surface *surface)
         data->color.b = 0xFF;
         data->color.a = 0xFF;
         data->surface = surface;
+        data->image_type = image_type;
     }
     return data;
 }
 
-static TTF_SurfaceTextEngineGlyphData *GetGlyphData(TTF_SurfaceTextEngineFontData *fontdata, Uint32 idx)
+static TTF_SurfaceTextEngineGlyphData *GetGlyphData(TTF_SurfaceTextEngineFontData *fontdata, TTF_Font *glyph_font, Uint32 glyph_index)
 {
     TTF_SurfaceTextEngineGlyphData *data;
 
-    if (!SDL_FindInHashTable(fontdata->glyphs, (const void *)(uintptr_t)idx, (const void **)&data)) {
-        SDL_Surface *surface = TTF_GetGlyphImageForIndex(fontdata->font, idx);
+    if (!SDL_FindInGlyphHashTable(fontdata->glyphs, glyph_font, glyph_index, (const void **)&data)) {
+        TTF_ImageType image_type = TTF_IMAGE_INVALID;
+        SDL_Surface *surface = TTF_GetGlyphImageForIndex(glyph_font, glyph_index, &image_type);
         if (!surface) {
             return NULL;
         }
 
-        data = CreateGlyphData(surface);
+        data = CreateGlyphData(surface, image_type);
         if (!data) {
             return NULL;
         }
 
-        if (!SDL_InsertIntoHashTable(fontdata->glyphs, (const void *)(uintptr_t)idx, data)) {
+        if (!SDL_InsertIntoGlyphHashTable(fontdata->glyphs, glyph_font, glyph_index, data)) {
             DestroyGlyphData(data);
             return NULL;
         }
@@ -140,7 +144,7 @@ static TTF_SurfaceTextEngineTextData *CreateTextData(TTF_SurfaceTextEngineFontDa
     for (int i = 0; i < data->num_ops; ++i) {
         TTF_DrawOperation *op = &data->ops[i];
         if (op->cmd == TTF_DRAW_COMMAND_COPY) {
-            TTF_SurfaceTextEngineGlyphData *glyph = GetGlyphData(fontdata, op->copy.glyph_index);
+            TTF_SurfaceTextEngineGlyphData *glyph = GetGlyphData(fontdata, op->copy.glyph_font, op->copy.glyph_index);
             if (!glyph) {
                 DestroyTextData(data);
                 return NULL;
@@ -159,16 +163,14 @@ static void DestroyFontData(TTF_SurfaceTextEngineFontData *data)
     }
 
     if (data->glyphs) {
-        SDL_DestroyHashTable(data->glyphs);
+        SDL_DestroyGlyphHashTable(data->glyphs);
     }
     SDL_free(data);
 }
 
-static void NukeGlyphData(const void *key, const void *value, void *unused)
+static void NukeGlyphData(const void *value)
 {
     TTF_SurfaceTextEngineGlyphData *data = (TTF_SurfaceTextEngineGlyphData *)value;
-    (void)key;
-    (void)unused;
     DestroyGlyphData(data);
 }
 
@@ -181,13 +183,13 @@ static TTF_SurfaceTextEngineFontData *CreateFontData(TTF_SurfaceTextEngineData *
 
     data->font = font;
     data->generation = font_generation;
-    data->glyphs = SDL_CreateHashTable(NULL, 4, SDL_HashID, SDL_KeyMatchID, NukeGlyphData, false, false);
+    data->glyphs = SDL_CreateGlyphHashTable(NukeGlyphData);
     if (!data->glyphs) {
         DestroyFontData(data);
         return NULL;
     }
 
-    if (!SDL_InsertIntoHashTable(enginedata->fonts, font, data)) {
+    if (!SDL_InsertIntoHashTable(enginedata->fonts, font, data, true)) {
         DestroyFontData(data);
         return NULL;
     }
@@ -207,7 +209,7 @@ static void DestroyEngineData(TTF_SurfaceTextEngineData *data)
     SDL_free(data);
 }
 
-static void NukeFontData(const void *key, const void *value, void *unused)
+static void SDLCALL NukeFontData(void *unused, const void *key, const void *value)
 {
     TTF_SurfaceTextEngineFontData *data = (TTF_SurfaceTextEngineFontData *)value;
     (void)key;
@@ -222,7 +224,7 @@ static TTF_SurfaceTextEngineData *CreateEngineData(void)
         return NULL;
     }
 
-    data->fonts = SDL_CreateHashTable(NULL, 4, SDL_HashPointer, SDL_KeyMatchPointer, NukeFontData, false, false);
+    data->fonts = SDL_CreateHashTable(0, false, SDL_HashPointer, SDL_KeyMatchPointer, NukeFontData, NULL);
     if (!data->fonts) {
         DestroyEngineData(data);
         return NULL;
@@ -246,7 +248,7 @@ static bool SDLCALL CreateText(void *userdata, TTF_Text *text)
             return false;
         }
     } else if (font_generation != fontdata->generation) {
-        SDL_EmptyHashTable(fontdata->glyphs);
+        SDL_ClearHashTable(fontdata->glyphs);
         fontdata->generation = font_generation;
     }
 
@@ -312,7 +314,11 @@ static void DrawCopy(TTF_SurfaceTextEngineTextData *data, const TTF_CopyOperatio
         data->color.g != glyph->color.g ||
         data->color.b != glyph->color.b ||
         data->color.a != glyph->color.a) {
-        SDL_SetSurfaceColorMod(glyph->surface, data->color.r, data->color.g, data->color.b);
+        if (glyph->image_type == TTF_IMAGE_ALPHA) {
+            SDL_SetSurfaceColorMod(glyph->surface, data->color.r, data->color.g, data->color.b);
+        } else {
+            // Don't alter the color data in the image
+        }
         SDL_SetSurfaceAlphaMod(glyph->surface, data->color.a);
         SDL_copyp(&glyph->color, &data->color);
     }

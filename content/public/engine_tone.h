@@ -24,7 +24,7 @@ class URGE_RUNTIME_API Tone : public base::RefCounted<Tone> {
   static scoped_refptr<Tone> New(ExecutionContext* execution_context,
                                  ExceptionState& exception_state);
 
-  /*--urge(name:initialize)--*/
+  /*--urge(name:initialize,optional:gray=0)--*/
   static scoped_refptr<Tone> New(ExecutionContext* execution_context,
                                  float red,
                                  float green,

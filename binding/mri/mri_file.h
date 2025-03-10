@@ -11,7 +11,8 @@
 
 namespace binding {
 
-VALUE MriLoadData(const std::string& filename, bool mri_exc);
+VALUE MriLoadData(const std::string& filename,
+                  content::ExceptionState& exception_state);
 
 void InitCoreFileBinding();
 

@@ -29,10 +29,19 @@ class TableImpl : public Table {
   uint32_t Xsize(ExceptionState& exception_state) override;
   uint32_t Ysize(ExceptionState& exception_state) override;
   uint32_t Zsize(ExceptionState& exception_state) override;
+
+  int16_t Get(uint32_t x, ExceptionState& exception_state) override;
+  int16_t Get(uint32_t x, uint32_t y, ExceptionState& exception_state) override;
   int16_t Get(uint32_t x,
               uint32_t y,
               uint32_t z,
               ExceptionState& exception_state) override;
+
+  void Put(uint32_t x, int16_t value, ExceptionState& exception_state) override;
+  void Put(uint32_t x,
+           uint32_t y,
+           int16_t value,
+           ExceptionState& exception_state) override;
   void Put(uint32_t x,
            uint32_t y,
            uint32_t z,

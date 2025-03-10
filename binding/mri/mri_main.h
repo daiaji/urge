@@ -23,13 +23,15 @@ class BindingEngineMri : public content::EngineBindingBase {
   BindingEngineMri& operator=(const BindingEngineMri&) = delete;
 
   void PreEarlyInitialization(content::ContentProfile* profile) override;
-  void OnMainMessageLoopRun(content::ExecutionContext* execution) override;
+  void OnMainMessageLoopRun(content::ExecutionContext* execution,
+                            ScopedModuleContext* module_context) override;
   void PostMainLoopRunning() override;
   void ExitSignalRequired() override;
   void ResetSignalRequired() override;
 
  private:
-  void LoadPackedScripts(content::ContentProfile* profile);
+  void LoadPackedScripts(content::ContentProfile* profile,
+                         content::ExceptionState& exception_state);
 
   content::ContentProfile* profile_;
   BacktraceData backtrace_;

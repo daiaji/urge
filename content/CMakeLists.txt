@@ -22,11 +22,17 @@ set(ENGINE_CONTENT_SRC
   common/tone_impl.h
   components/disposable.cc
   components/disposable.h
+  components/font_context.cc
+  components/font_context.h
+  components/tilequad.cc
+  components/tilequad.h
   common/value_observer.h
   context/exception_state.cc
   context/exception_state.h
   context/execution_context.cc
   context/execution_context.h
+  input/keyboard_controller.cc
+  input/keyboard_controller.h
   profile/content_profile.cc
   profile/content_profile.h
   public/engine_bitmap.h

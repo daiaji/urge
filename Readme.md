@@ -9,7 +9,7 @@
  - URGE 是一款兼容RGSS 1/2/3系API的游戏引擎, 使用了 SDL3 作为跨平台底层库与 WebGPU/Dawn 作为渲染RHI，提供了 D3D12/Vulkan 等现代API的支持（不再支持OpenGL系与D3D11之前的API）。  
  - 本项目使用 BSD-2-Clause 许可证开源。    
  - 项目风格来自 The Chromium Project。  
- - 项目启发于 Chromium, RGModern, RPGMZ。  
+ - 项目启发于 Chromium。  
  
 ## 快照
 

@@ -94,17 +94,24 @@ class MriBindGen:
       if is_static:
         preprocessor_prefix = "STATIC_"
 
+      refptr_type = ""
       preprocessor_suffix = ""
       if attr_type.startswith("scoped_refptr"):
         preprocessor_suffix = "OBJ"
+        match = re.search(r'scoped_refptr<(\w+)>', attr_type)
+        refptr_type = ", " + match.group(1)
       elif attr_type.startswith("float"):
         preprocessor_suffix = "FLOAT"
       elif attr_type.startswith("bool"):
         preprocessor_suffix = "BOOLEAN"
+      elif attr_type.startswith("std::vector<std::string>"):
+        preprocessor_suffix = "STRINGLIST"
+      elif attr_type.startswith("std::string"):
+        preprocessor_suffix = "STRING"
       else:
         preprocessor_suffix = "INTEGER"
 
-      func_body += "MRI_DEFINE_{}ATTRIBUTE_{}({}, {});\n".format(preprocessor_prefix, preprocessor_suffix, kname, fname)
+      func_body += "MRI_DEFINE_{}ATTRIBUTE_{}({}, {}{});\n".format(preprocessor_prefix, preprocessor_suffix, kname, fname, refptr_type)
 
     func_body += "\n"
 
@@ -163,9 +170,24 @@ class MriBindGen:
             refptr_type = match.group(1)
             object_convertion += "scoped_refptr {}_obj = MriCheckStructData<content::{}>({}, k{}DataType);\n".format(a_name, refptr_type, a_name, refptr_type)
             a_type = "VALUE"
+            def_value = "Qnil"
+          elif a_type.startswith("const std::vector"):
+            parse_template += "o"
+            call_parameters += a_name + "_list"
+            match = re.search(r'std::vector<(\w+)>', a_type)
+            vector_type = match.group(1)
+            object_convertion += """
+std::vector<{}> {}_list;
+if (rb_type({}) != RUBY_T_ARRAY)
+  rb_raise(rb_eArgError, "Argument {}: Expected array");
+for (int i = 0; i < RARRAY_LEN({}); ++i)
+  {}_list.push_back(NUM2INT(rb_ary_entry({}, i)));
+            """.format(vector_type, a_name, a_name, a_name, a_name, a_name, a_name)
+            a_type = "VALUE"
           else:
             parse_template += "i"
             call_parameters += a_name
+            a_type = "int32_t"
 
           func_body += "{} {}".format(a_type, a_name)
           if is_optional:
@@ -223,6 +245,13 @@ class MriBindGen:
             func_body += "return result_value ? Qtrue : Qfalse;\n"
           elif return_type.startswith("std::string"):
             func_body += "return rb_utf8_str_new(result_value.c_str(), result_value.size());\n"
+          elif return_type.startswith("std::vector"):
+            func_body += """
+VALUE ary = rb_ary_new();
+for (auto& it : result_value)
+  rb_ary_push(ary, INT2NUM(it));
+return ary;
+            """
           else:
             func_body += "return rb_fix_new(result_value);\n"
 
@@ -231,6 +260,7 @@ class MriBindGen:
       func_body += "MriCheckArgc(argc, {});\n".format(max_argument_count)
       func_body += "return Qnil;\n"
       func_body += "}\n"
+      func_body += "return self;\n"
       func_body += "}\n"
 
     return func_body

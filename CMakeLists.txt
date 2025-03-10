@@ -54,20 +54,20 @@ include_directories(third_party/SDL/include)
 
 ## image loader (SDL_image)
 add_subdirectory(third_party/image_loader)
-include_directories(third_party/image_loader/include/SDL3_image)
+include_directories(third_party/image_loader/include)
 
 ## text render (SDL_ttf)
 add_subdirectory(third_party/freetype)
 include_directories(third_party/freetype/include)
 add_subdirectory(third_party/text_render)
-include_directories(third_party/text_render/include/SDL3_ttf)
+include_directories(third_party/text_render/include)
 
 ## WebGPU Renderer
 set(DAWN_FETCH_DEPENDENCIES ON)
-add_compile_definitions(IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
 add_subdirectory(third_party/dawn)
 
 ## Dear IMGUI
+add_compile_definitions(IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
 add_subdirectory(third_party/imgui)
 
 ## Zlib
@@ -117,13 +117,18 @@ endif ()
 # * source
 #-------------------------------------------------------------------------
 
+add_subdirectory(base)
+
 add_subdirectory(components/filesystem)
 add_subdirectory(components/audioservice)
-add_subdirectory(binding/unittests)
-add_subdirectory(base)
+
 add_subdirectory(ui)
 add_subdirectory(renderer)
 add_subdirectory(content)
+
+add_subdirectory(binding/unittests)
 add_subdirectory(binding/mri)
+
 add_subdirectory(app)
+
 add_subdirectory(unittests)

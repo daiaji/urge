@@ -1,4 +1,9 @@
+# Binding - MRI
 cmake_minimum_required(VERSION 3.20.1)
+
+#--------------------------------------------------------------------------------
+# Autogen MRI binding source collection
+#--------------------------------------------------------------------------------
 
 set(PYTHON_SCRIPT "${PROJECT_SOURCE_DIR}/binding/mri/tools/autogen.py")
 set(INPUT_BINDING_DIR "${PROJECT_SOURCE_DIR}/content/public/")
@@ -37,5 +42,6 @@ add_library(binding_mri STATIC ${BINDING_MRI_SRC})
 target_link_directories(binding_mri PUBLIC
   engine_base
   engine_content
+  engine_renderer
   mri_ruby
 )

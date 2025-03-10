@@ -21,6 +21,10 @@ if __name__ == "__main__":
         template_classes.append(klass)
 
   os.makedirs(out_dir, exist_ok=True)
+
+  for filepath in os.listdir(out_dir):
+    os.remove(out_dir + filepath)
+
   for klass in template_classes:
     generator = bgen.MriBindGen()
     generator.setup(klass)

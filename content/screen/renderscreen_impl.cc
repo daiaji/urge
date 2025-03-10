@@ -121,11 +121,6 @@ bool RenderScreenImpl::ExecuteEventMainLoop() {
                      base::Unretained(this), agent_->present_target));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 
-  // Build internal execution context
-  execution_context_.font_context = scoped_font_;
-  execution_context_.canvas_scheduler = GetCanvasScheduler();
-  execution_context_.graphics = this;
-
   return true;
 }
 
@@ -260,8 +255,8 @@ void RenderScreenImpl::Transition(uint32_t duration,
                                   const std::string& filename,
                                   uint32_t vague,
                                   ExceptionState& exception_state) {
-  scoped_refptr<Bitmap> transition_mapping =
-      Bitmap::New(&execution_context_, filename, exception_state);
+  scoped_refptr<CanvasImpl> transition_mapping = CanvasImpl::Create(
+      GetCanvasScheduler(), this, scoped_font_, filename, exception_state);
   if (!transition_mapping)
     return;
 
@@ -319,8 +314,9 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
 
 scoped_refptr<Bitmap> RenderScreenImpl::SnapToBitmap(
     ExceptionState& exception_state) {
-  scoped_refptr<CanvasImpl> target = CanvasImpl::FromBitmap(Bitmap::New(
-      &execution_context_, resolution_.x, resolution_.y, exception_state));
+  scoped_refptr<CanvasImpl> target = CanvasImpl::Create(
+      GetCanvasScheduler(), this, scoped_font_, resolution_, exception_state);
+
   if (target) {
     RenderFrameInternal(&controller_, &target->GetAgent()->data, resolution_);
     base::ThreadWorker::WaitWorkerSynchronize(render_worker_);

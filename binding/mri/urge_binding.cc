@@ -14,10 +14,6 @@
 
 namespace binding {
 
-content::ExecutionContext* g_current_execution_context = nullptr;
-
-namespace {
-
 MRI_METHOD(URGEOpenURL) {
   std::string url;
   MriParseArgsTo(argc, argv, "s", &url);

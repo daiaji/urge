@@ -8,7 +8,6 @@
 #include "renderer/pipeline/render_pipeline.h"
 #include "renderer/utils/buffer_utils.h"
 #include "ui/widget/widget.h"
-#include "webgpu/webgpu_cpp.h"
 
 #include <memory>
 

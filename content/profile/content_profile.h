@@ -28,6 +28,8 @@ class ContentProfile {
 
   static std::unique_ptr<ContentProfile> MakeFrom(SDL_IOStream* stream);
 
+  std::string program_path;
+
   std::string window_title = "URGE Widget";
   std::string script_path = "Data/Scripts.rxdata";
   APIVersion api_version = APIVersion::UNKNOWN;

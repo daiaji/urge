@@ -15,10 +15,8 @@
 #include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
 
-namespace content {
-class Graphics;
-class Input;
-}  // namespace content
+#include "content/public/engine_graphics.h"
+#include "content/public/engine_input.h"
 
 namespace binding {
 
@@ -88,6 +86,8 @@ Ty* MriGetStructData(VALUE obj) {
 
 template <typename Ty>
 Ty* MriCheckStructData(VALUE obj, const rb_data_type_t& type) {
+  if (RB_NIL_P(obj))
+    return nullptr;
   return static_cast<Ty*>(Check_TypedStruct(obj, &type));
 }
 
@@ -118,6 +118,9 @@ template <typename Ty>
 VALUE MriWrapObject(scoped_refptr<Ty> ptr,
                     const rb_data_type_t& type,
                     VALUE super = rb_cObject) {
+  if (!ptr)
+    return Qnil;
+
   VALUE klass = rb_const_get(super, rb_intern(type.wrap_struct_name));
   VALUE obj = rb_obj_alloc(klass);
 
@@ -125,6 +128,22 @@ VALUE MriWrapObject(scoped_refptr<Ty> ptr,
   MriSetStructData<Ty>(obj, ptr.get());
 
   return obj;
+}
+
+inline void MriCollectStrings(VALUE obj, std::vector<std::string>& out) {
+  if (RB_TYPE_P(obj, RUBY_T_STRING)) {
+    out.push_back(RSTRING_PTR(obj));
+    return;
+  }
+
+  if (RB_TYPE_P(obj, RUBY_T_ARRAY)) {
+    for (long i = 0; i < RARRAY_LEN(obj); ++i) {
+      VALUE str = rb_ary_entry(obj, i);
+      if (!RB_TYPE_P(str, RUBY_T_STRING))
+        continue;
+      out.push_back(RSTRING_PTR(str));
+    }
+  }
 }
 
 ///
@@ -147,13 +166,13 @@ VALUE MriWrapObject(scoped_refptr<Ty> ptr,
 /// Method template
 ///
 
-#define MRI_DEFINE_ATTRIBUTE_OBJ(klass, attr)                        \
+#define MRI_DEFINE_ATTRIBUTE_OBJ(klass, attr, type)                  \
   MRI_METHOD(klass##_Put_##attr) {                                   \
     scoped_refptr obj = MriGetStructData<content::klass>(self);      \
     VALUE value;                                                     \
     MriParseArgsTo(argc, argv, "o", &value);                         \
     scoped_refptr value_obj =                                        \
-        MriCheckStructData<content::attr>(value, k##attr##DataType); \
+        MriCheckStructData<content::type>(value, k##type##DataType); \
     content::ExceptionState exception_state;                         \
     obj->Put_##attr(value_obj, exception_state);                     \
     MriProcessException(exception_state);                            \
@@ -164,7 +183,7 @@ VALUE MriWrapObject(scoped_refptr<Ty> ptr,
     content::ExceptionState exception_state;                         \
     scoped_refptr value_obj = obj->Get_##attr(exception_state);      \
     MriProcessException(exception_state);                            \
-    return MriWrapObject(value_obj, k##attr##DataType);              \
+    return MriWrapObject(value_obj, k##type##DataType);              \
   }
 
 #define MRI_DEFINE_ATTRIBUTE_INTEGER(klass, attr)               \
@@ -221,16 +240,57 @@ VALUE MriWrapObject(scoped_refptr<Ty> ptr,
     return value ? Qtrue : Qfalse;                              \
   }
 
+#define MRI_DEFINE_ATTRIBUTE_STRING(klass, attr)                \
+  MRI_METHOD(klass##_Put_##attr) {                              \
+    scoped_refptr obj = MriGetStructData<content::klass>(self); \
+    std::string value;                                          \
+    MriParseArgsTo(argc, argv, "s", &value);                    \
+    content::ExceptionState exception_state;                    \
+    obj->Put_##attr(value, exception_state);                    \
+    MriProcessException(exception_state);                       \
+    return self;                                                \
+  }                                                             \
+  MRI_METHOD(klass##_Get_##attr) {                              \
+    scoped_refptr obj = MriGetStructData<content::klass>(self); \
+    content::ExceptionState exception_state;                    \
+    auto value = obj->Get_##attr(exception_state);              \
+    MriProcessException(exception_state);                       \
+    return rb_str_new(value.c_str(), value.size());             \
+  }
+
+#define MRI_DEFINE_ATTRIBUTE_STRINGLIST(klass, attr)            \
+  MRI_METHOD(klass##_Put_##attr) {                              \
+    scoped_refptr obj = MriGetStructData<content::klass>(self); \
+    VALUE value;                                                \
+    MriParseArgsTo(argc, argv, "o", &value);                    \
+    content::ExceptionState exception_state;                    \
+    std::vector<std::string> collection;                        \
+    MriCollectStrings(value, collection);                       \
+    obj->Put_##attr(collection, exception_state);               \
+    MriProcessException(exception_state);                       \
+    return self;                                                \
+  }                                                             \
+  MRI_METHOD(klass##_Get_##attr) {                              \
+    scoped_refptr obj = MriGetStructData<content::klass>(self); \
+    content::ExceptionState exception_state;                    \
+    auto value = obj->Get_##attr(exception_state);              \
+    MriProcessException(exception_state);                       \
+    VALUE ary = rb_ary_new();                                   \
+    for (auto it : value)                                       \
+      rb_ary_push(ary, rb_str_new(it.c_str(), it.size()));      \
+    return ary;                                                 \
+  }
+
 ///
 /// Static template
 ///
 
-#define MRI_DEFINE_STATIC_ATTRIBUTE_OBJ(klass, attr)                         \
+#define MRI_DEFINE_STATIC_ATTRIBUTE_OBJ(klass, attr, type)                   \
   MRI_METHOD(klass##_Put_##attr) {                                           \
     VALUE value;                                                             \
     MriParseArgsTo(argc, argv, "o", &value);                                 \
     scoped_refptr value_obj =                                                \
-        MriCheckStructData<content::attr>(value, k##attr##DataType);         \
+        MriCheckStructData<content::type>(value, k##type##DataType);         \
     content::ExceptionState exception_state;                                 \
     content::klass::Put_##attr(MriGetCurrentContext(), value_obj,            \
                                exception_state);                             \
@@ -242,7 +302,7 @@ VALUE MriWrapObject(scoped_refptr<Ty> ptr,
     scoped_refptr value_obj =                                                \
         content::klass::Get_##attr(MriGetCurrentContext(), exception_state); \
     MriProcessException(exception_state);                                    \
-    return MriWrapObject(value_obj, k##attr##DataType);                      \
+    return MriWrapObject(value_obj, k##type##DataType);                      \
   }
 
 #define MRI_DEFINE_STATIC_ATTRIBUTE_INTEGER(klass, attr)                     \
@@ -297,6 +357,47 @@ VALUE MriWrapObject(scoped_refptr<Ty> ptr,
         content::klass::Get_##attr(MriGetCurrentContext(), exception_state); \
     MriProcessException(exception_state);                                    \
     return value ? Qtrue : Qfalse;                                           \
+  }
+
+#define MRI_DEFINE_STATIC_ATTRIBUTE_STRING(klass, attr)                      \
+  MRI_METHOD(klass##_Put_##attr) {                                           \
+    std::string value;                                                       \
+    MriParseArgsTo(argc, argv, "s", &value);                                 \
+    content::ExceptionState exception_state;                                 \
+    content::klass::Put_##attr(MriGetCurrentContext(), value,                \
+                               exception_state);                             \
+    MriProcessException(exception_state);                                    \
+    return self;                                                             \
+  }                                                                          \
+  MRI_METHOD(klass##_Get_##attr) {                                           \
+    content::ExceptionState exception_state;                                 \
+    auto value =                                                             \
+        content::klass::Get_##attr(MriGetCurrentContext(), exception_state); \
+    MriProcessException(exception_state);                                    \
+    return rb_str_new(value.c_str(), value.size());                          \
+  }
+
+#define MRI_DEFINE_STATIC_ATTRIBUTE_STRINGLIST(klass, attr)                  \
+  MRI_METHOD(klass##_Put_##attr) {                                           \
+    VALUE value;                                                             \
+    MriParseArgsTo(argc, argv, "o", &value);                                 \
+    content::ExceptionState exception_state;                                 \
+    std::vector<std::string> collection;                                     \
+    MriCollectStrings(value, collection);                                    \
+    content::klass::Put_##attr(MriGetCurrentContext(), collection,           \
+                               exception_state);                             \
+    MriProcessException(exception_state);                                    \
+    return self;                                                             \
+  }                                                                          \
+  MRI_METHOD(klass##_Get_##attr) {                                           \
+    content::ExceptionState exception_state;                                 \
+    auto value =                                                             \
+        content::klass::Get_##attr(MriGetCurrentContext(), exception_state); \
+    MriProcessException(exception_state);                                    \
+    VALUE ary = rb_ary_new();                                                \
+    for (auto it : value)                                                    \
+      rb_ary_push(ary, rb_str_new(it.c_str(), it.size()));                   \
+    return ary;                                                              \
   }
 
 }  // namespace binding

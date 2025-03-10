@@ -208,9 +208,6 @@ wgpu::Device CreateDevice(const wgpu::Instance& instance,
           case wgpu::ErrorType::Unknown:
             errorTypeName = "Unknown";
             break;
-          case wgpu::ErrorType::DeviceLost:
-            errorTypeName = "Device lost";
-            break;
           default:
             break;
         }
@@ -259,7 +256,7 @@ wgpu::Adapter CreateAdapter(const wgpu::Instance& instance) {
 
 wgpu::Instance CreateInstance() {
   wgpu::InstanceDescriptor instance_desc = {};
-  instance_desc.features.timedWaitAnyEnable = true;
+  instance_desc.capabilities.timedWaitAnyEnable = true;
   return wgpu::CreateInstance(&instance_desc);
 }
 
@@ -273,9 +270,9 @@ int SDL_main(int argc, char* argv[]) {
   adapter.GetInfo(&info);
   std::cout << "[Adapter] " << std::string_view(info.device) << "\n";
 
-  wgpu::SupportedLimits lmts;
+  wgpu::Limits lmts;
   adapter.GetLimits(&lmts);
-  std::cout << "[Adapter] Max bind group: " << lmts.limits.maxBindGroups;
+  std::cout << "[Adapter] Max bind group: " << lmts.maxBindGroups;
 
   wgpu::Device device = CreateDevice(instance, adapter);
   wgpu::Queue queue = device.GetQueue();
@@ -334,10 +331,10 @@ int SDL_main(int argc, char* argv[]) {
   wgpu::Texture tex = device.CreateTexture(&tex_desc);
 
   {
-    wgpu::ImageCopyTexture copy_tex;
+    wgpu::TexelCopyTextureInfo copy_tex;
     copy_tex.texture = tex;
 
-    wgpu::TextureDataLayout dlat;
+    wgpu::TexelCopyBufferLayout dlat;
     dlat.bytesPerRow = ss->pitch;
 
     wgpu::Extent3D ex3d;

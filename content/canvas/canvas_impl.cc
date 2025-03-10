@@ -8,9 +8,9 @@
 #include "SDL3_ttf/SDL_ttf.h"
 
 #include "content/canvas/canvas_scheduler.h"
-#include "content/canvas/font_impl.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
+#include "content/context/execution_context.h"
 #include "content/screen/renderscreen_impl.h"
 #include "renderer/utils/texture_utils.h"
 
@@ -89,10 +89,10 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
                                                    agent->view, agent->sampler);
 
   // Write data in video memory
-  wgpu::ImageCopyTexture copy_texture;
+  wgpu::TexelCopyTextureInfo copy_texture;
   copy_texture.texture = agent->data;
 
-  wgpu::TextureDataLayout texture_data_layout;
+  wgpu::TexelCopyBufferLayout texture_data_layout;
   texture_data_layout.bytesPerRow = initial_data->pitch;
 
   wgpu::Extent3D write_size;
@@ -196,8 +196,8 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
   wgpu::Buffer read_buffer = device->CreateBuffer(&buffer_desc);
 
   // Copy pixels data to temp buffer
-  wgpu::ImageCopyTexture copy_texture;
-  wgpu::ImageCopyBuffer copy_buffer;
+  wgpu::TexelCopyTextureInfo copy_texture;
+  wgpu::TexelCopyBufferInfo copy_buffer;
   wgpu::Extent3D copy_extent;
   copy_texture.texture = agent->data;
   copy_buffer.buffer = read_buffer;
@@ -253,8 +253,8 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
   uint32_t aligned_bytes_per_row = (surface_size.x * 4 + 255) & ~255;
 
   // Copy pixels data to texture
-  wgpu::ImageCopyTexture copy_texture;
-  wgpu::ImageCopyBuffer copy_buffer;
+  wgpu::TexelCopyTextureInfo copy_texture;
+  wgpu::TexelCopyBufferInfo copy_buffer;
   wgpu::Extent3D copy_extent;
   copy_texture.texture = agent->data;
   copy_buffer.buffer = write_buffer;
@@ -407,8 +407,8 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
         static_cast<uint8_t*>(text->pixels) + text->pitch * i, text->pitch);
 
   // Copy pixels data to texture
-  wgpu::ImageCopyTexture copy_texture;
-  wgpu::ImageCopyBuffer copy_buffer;
+  wgpu::TexelCopyTextureInfo copy_texture;
+  wgpu::TexelCopyBufferInfo copy_buffer;
   wgpu::Extent3D copy_extent;
   copy_texture.texture = agent->text_surface_cache;
   copy_buffer.buffer = agent->text_write_cache;
@@ -465,53 +465,19 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
 scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
                                   const std::string& filename,
                                   ExceptionState& exception_state) {
-  SDL_Surface* memory_texture = IMG_Load(filename.c_str());
-  if (!memory_texture) {
-    exception_state.ThrowContentError(
-        ExceptionCode::CONTENT_ERROR,
-        "Failed to load image: " + filename + " - " + SDL_GetError());
-    return nullptr;
-  }
-
-  auto* canvas_texture_agent = new TextureAgent;
-  canvas_texture_agent->size =
-      base::Vec2i(memory_texture->w, memory_texture->h);
-
-  auto* scheduler = execution_context->canvas_scheduler;
-  base::ThreadWorker::PostTask(
-      scheduler->render_worker(),
-      base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
-                     memory_texture, canvas_texture_agent));
-
-  return new CanvasImpl(execution_context->graphics, scheduler,
-                        canvas_texture_agent,
-                        new FontImpl(execution_context->font_context));
+  return CanvasImpl::Create(
+      execution_context->canvas_scheduler, execution_context->graphics,
+      execution_context->font_context, filename, exception_state);
 }
 
 scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
                                   uint32_t width,
                                   uint32_t height,
                                   ExceptionState& exception_state) {
-  if (width <= 0 || height <= 0) {
-    exception_state.ThrowContentError(
-        ExceptionCode::CONTENT_ERROR,
-        "Invalid bitmap size: " + std::to_string(width) + "x" +
-            std::to_string(height));
-    return nullptr;
-  }
-
-  auto* canvas_texture_agent = new TextureAgent;
-  canvas_texture_agent->size = base::Vec2i(width, height);
-
-  auto* scheduler = execution_context->canvas_scheduler;
-  base::ThreadWorker::PostTask(
-      scheduler->render_worker(),
-      base::BindOnce(&GPUCreateTextureWithSizeInternal, scheduler->GetDevice(),
-                     base::Vec2i(width, height), canvas_texture_agent));
-
-  return new CanvasImpl(execution_context->graphics, scheduler,
-                        canvas_texture_agent,
-                        new FontImpl(execution_context->font_context));
+  return CanvasImpl::Create(execution_context->canvas_scheduler,
+                            execution_context->graphics,
+                            execution_context->font_context,
+                            base::Vec2i(width, height), exception_state);
 }
 
 scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,
@@ -534,6 +500,57 @@ scoped_refptr<Bitmap> Bitmap::Deserialize(const std::string&,
 std::string Bitmap::Serialize(scoped_refptr<Bitmap>,
                               ExceptionState& exception_state) {
   return std::string();
+}
+
+scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
+                                             RenderScreenImpl* screen,
+                                             ScopedFontData* font_data,
+                                             const base::Vec2i& size,
+                                             ExceptionState& exception_state) {
+  if (size.x <= 0 || size.y <= 0) {
+    exception_state.ThrowContentError(
+        ExceptionCode::CONTENT_ERROR,
+        "Invalid bitmap size: " + std::to_string(size.x) + "x" +
+            std::to_string(size.y));
+    return nullptr;
+  }
+
+  auto* canvas_texture_agent = new TextureAgent;
+  canvas_texture_agent->size = size;
+
+  base::ThreadWorker::PostTask(
+      scheduler->render_worker(),
+      base::BindOnce(&GPUCreateTextureWithSizeInternal, scheduler->GetDevice(),
+                     size, canvas_texture_agent));
+
+  return new CanvasImpl(screen, scheduler, canvas_texture_agent,
+                        new FontImpl(font_data));
+}
+
+scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
+                                             RenderScreenImpl* screen,
+                                             ScopedFontData* font_data,
+                                             const std::string& filename,
+                                             ExceptionState& exception_state) {
+  SDL_Surface* memory_texture = IMG_Load(filename.c_str());
+  if (!memory_texture) {
+    exception_state.ThrowContentError(
+        ExceptionCode::CONTENT_ERROR,
+        "Failed to load image: " + filename + " - " + SDL_GetError());
+    return nullptr;
+  }
+
+  auto* canvas_texture_agent = new TextureAgent;
+  canvas_texture_agent->size =
+      base::Vec2i(memory_texture->w, memory_texture->h);
+
+  base::ThreadWorker::PostTask(
+      scheduler->render_worker(),
+      base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
+                     memory_texture, canvas_texture_agent));
+
+  return new CanvasImpl(screen, scheduler, canvas_texture_agent,
+                        new FontImpl(font_data));
 }
 
 CanvasImpl::CanvasImpl(RenderScreenImpl* screen,
@@ -681,7 +698,7 @@ scoped_refptr<Rect> CanvasImpl::GetRect(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return nullptr;
 
-  return Rect::New(0, 0, texture_->size.x, texture_->size.y, exception_state);
+  return new RectImpl(texture_->size);
 }
 
 void CanvasImpl::Blt(int32_t x,
@@ -829,7 +846,7 @@ scoped_refptr<Color> CanvasImpl::GetPixel(int32_t x,
   SDL_GetRGBA(*reinterpret_cast<uint32_t*>(pixel), pixel_detail, nullptr,
               &color[0], &color[1], &color[2], &color[3]);
 
-  return Color::New(color[0], color[1], color[2], color[3], exception_state);
+  return new ColorImpl(base::Vec4(color[0], color[1], color[2], color[3]));
 }
 
 void CanvasImpl::SetPixel(int32_t x,
@@ -943,7 +960,7 @@ scoped_refptr<Rect> CanvasImpl::TextSize(const std::string& str,
 
   int w, h;
   TTF_GetStringSize(font, str.c_str(), str.size(), &w, &h);
-  return Rect::New(0, 0, w, h, exception_state);
+  return new RectImpl(base::Rect(0, 0, w, h));
 }
 
 void CanvasImpl::OnObjectDisposed() {

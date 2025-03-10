@@ -6,8 +6,7 @@
 #define BASE_WORKER_THREAD_WORKER_H_
 
 #include <memory>
-
-#include "concurrentqueue/blockingconcurrentqueue.h"
+#include <mutex>
 
 #include "base/bind/callback.h"
 
@@ -78,6 +77,8 @@ class ReleaseHelper {
 
 class ThreadWorker {
  public:
+  struct QueueInternal;
+
   ~ThreadWorker();
 
   ThreadWorker(const ThreadWorker&) = delete;
@@ -150,8 +151,8 @@ class ThreadWorker {
                                    const void* object);
 
   std::thread thread_;
-  moodycamel::ConcurrentQueue<OnceClosure> task_queue_;
   std::atomic<int32_t> quit_flag_;
+  std::unique_ptr<QueueInternal> task_queue_;
 };
 
 }  // namespace base

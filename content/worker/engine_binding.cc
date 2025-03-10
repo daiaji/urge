@@ -8,7 +8,9 @@ namespace content {
 
 void EngineBindingBase::PreEarlyInitialization(ContentProfile* profile) {}
 
-void EngineBindingBase::OnMainMessageLoopRun(ExecutionContext* execution) {}
+void EngineBindingBase::OnMainMessageLoopRun(
+    ExecutionContext* execution,
+    ScopedModuleContext* module_context) {}
 
 void EngineBindingBase::PostMainLoopRunning() {}
 

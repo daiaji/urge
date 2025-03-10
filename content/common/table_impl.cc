@@ -122,6 +122,16 @@ uint32_t TableImpl::Zsize(ExceptionState& exception_state) {
   return z_size_;
 }
 
+int16_t TableImpl::Get(uint32_t x, ExceptionState& exception_state) {
+  return data_.at(x);
+}
+
+int16_t TableImpl::Get(uint32_t x,
+                       uint32_t y,
+                       ExceptionState& exception_state) {
+  return data_.at(x + x_size_ * y);
+}
+
 int16_t TableImpl::Get(uint32_t x,
                        uint32_t y,
                        uint32_t z,
@@ -130,11 +140,33 @@ int16_t TableImpl::Get(uint32_t x,
 }
 
 void TableImpl::Put(uint32_t x,
+                    int16_t value,
+                    ExceptionState& exception_state) {
+  if (x < 0 || x >= x_size_)
+    return;
+  data_[x] = value;
+  dirty_ = true;
+}
+
+void TableImpl::Put(uint32_t x,
+                    uint32_t y,
+                    int16_t value,
+                    ExceptionState& exception_state) {
+  if (x < 0 || x >= x_size_ || y < 0 || y >= y_size_)
+    return;
+  data_[x + x_size_ * y] = value;
+  dirty_ = true;
+}
+
+void TableImpl::Put(uint32_t x,
                     uint32_t y,
                     uint32_t z,
                     int16_t value,
                     ExceptionState& exception_state) {
+  if (x < 0 || x >= x_size_ || y < 0 || y >= y_size_ || z < 0 || z >= z_size_)
+    return;
   data_[x + x_size_ * y + x_size_ * y_size_ * z] = value;
+  dirty_ = true;
 }
 
 bool TableImpl::FetchDirtyStatus() {

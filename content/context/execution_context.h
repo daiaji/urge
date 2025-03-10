@@ -7,16 +7,23 @@
 
 #include <memory>
 
+#include "components/filesystem/io.h"
+
 namespace content {
 
 class ScopedFontData;
 class CanvasScheduler;
 class RenderScreenImpl;
+class KeyboardControllerImpl;
 
 struct ExecutionContext {
   ScopedFontData* font_context = nullptr;
   CanvasScheduler* canvas_scheduler = nullptr;
+
   RenderScreenImpl* graphics = nullptr;
+  KeyboardControllerImpl* input = nullptr;
+
+  filesystem::IO* io = nullptr;
 
   ExecutionContext();
   ~ExecutionContext();

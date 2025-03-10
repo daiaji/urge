@@ -40,6 +40,44 @@ class URGE_RUNTIME_API Input : public base::RefCounted<Input> {
 
   /*--urge(name:dir8)--*/
   virtual int32_t Dir8(ExceptionState& exception_state) = 0;
+
+  /*--urge(name:press_key?)--*/
+  virtual bool KeyPressed(int32_t scancode,
+                          ExceptionState& exception_state) = 0;
+
+  /*--urge(name:trigger_key?)--*/
+  virtual bool KeyTriggered(int32_t scancode,
+                            ExceptionState& exception_state) = 0;
+
+  /*--urge(name:repeat_key?)--*/
+  virtual bool KeyRepeated(int32_t scancode,
+                           ExceptionState& exception_state) = 0;
+
+  /*--urge(name:get_key_name)--*/
+  virtual std::string GetKeyName(int32_t scancode,
+                                 ExceptionState& exception_state) = 0;
+
+  /*--urge(name:get_keys_from_flag)--*/
+  virtual std::vector<int32_t> GetKeysFromFlag(
+      const std::string& flag,
+      ExceptionState& exception_state) = 0;
+
+  /*--urge(name:set_keys_from_flag)--*/
+  virtual void SetKeysFromFlag(const std::string& flag,
+                               const std::vector<int32_t>& keys,
+                               ExceptionState& exception_state) = 0;
+
+  /*--urge(name:recent_pressed_keys)--*/
+  virtual std::vector<int32_t> GetRecentPressed(
+      ExceptionState& exception_state) = 0;
+
+  /*--urge(name:recent_triggered_keys)--*/
+  virtual std::vector<int32_t> GetRecentTriggered(
+      ExceptionState& exception_state) = 0;
+
+  /*--urge(name:recent_repeated_keys)--*/
+  virtual std::vector<int32_t> GetRecentRepeated(
+      ExceptionState& exception_state) = 0;
 };
 
 }  // namespace content

@@ -7,6 +7,7 @@
 
 #include "base/worker/thread_worker.h"
 #include "content/components/disposable.h"
+#include "content/components/font_context.h"
 #include "content/public/engine_graphics.h"
 #include "content/render/drawable_controller.h"
 #include "content/worker/coroutine_context.h"
@@ -134,7 +135,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void RemoveDisposable(Disposable* disp) override;
 
   DrawNodeController controller_;
-  ExecutionContext execution_context_;
 
   CoroutineContext* cc_;
   base::ThreadWorker* render_worker_;

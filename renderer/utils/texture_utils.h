@@ -6,7 +6,7 @@
 #define RENDERER_UTILS_TEXTURE_UTILS_H_
 
 #include "base/math/rectangle.h"
-#include "webgpu/webgpu_cpp.h"
+#include "renderer/vertex/vertex_layout.h"
 
 namespace renderer {
 

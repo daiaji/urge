@@ -5,8 +5,11 @@
 #ifndef CONTENT_WORKER_ENGINE_BINDING_H_
 #define CONTENT_WORKER_ENGINE_BINDING_H_
 
+#include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
 #include "content/profile/content_profile.h"
+#include "content/public/engine_graphics.h"
+#include "content/public/engine_input.h"
 
 namespace content {
 
@@ -14,12 +17,20 @@ class EngineBindingBase {
  public:
   virtual ~EngineBindingBase() = default;
 
+  // Scoped script context modules info.
+  // Usage: module-like class method calling.
+  struct ScopedModuleContext {
+    scoped_refptr<Graphics> graphics;
+    scoped_refptr<Input> input;
+  };
+
   // Raised before engine running, after engine other module initialized,
   // prepared for binding creation.
   virtual void PreEarlyInitialization(ContentProfile* profile);
 
   // Raise for running main loop.
-  virtual void OnMainMessageLoopRun(ExecutionContext* execution);
+  virtual void OnMainMessageLoopRun(ExecutionContext* execution_context,
+                                    ScopedModuleContext* module_context);
 
   // After running and release engine resource.
   virtual void PostMainLoopRunning();

@@ -44,6 +44,7 @@ class URGE_RUNTIME_API Viewport : public base::RefCounted<Viewport> {
   /*--urge(name:initialize)--*/
   static scoped_refptr<Viewport> New(ExecutionContext* execution_context,
                                      scoped_refptr<Viewport> parent,
+                                     scoped_refptr<Rect> rect,
                                      ExceptionState& exception_state);
 
   /*--urge(name:dispose)--*/

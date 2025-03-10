@@ -8,6 +8,7 @@
 
 #include "base/debug/logging.h"
 #include "content/canvas/canvas_impl.h"
+#include "content/context/execution_context.h"
 #include "content/render/plane_impl.h"
 #include "content/render/sprite_impl.h"
 #include "content/screen/renderscreen_impl.h"
@@ -22,7 +23,8 @@ void EngineBindingUnittests::PreEarlyInitialization(
 }
 
 void EngineBindingUnittests::OnMainMessageLoopRun(
-    content::ExecutionContext* execution) {
+    content::ExecutionContext* execution,
+    ScopedModuleContext* module_context) {
   content::ExceptionState exception_state;
   scoped_refptr<content::Bitmap> bmp =
       content::Bitmap::New(execution, "test.png", exception_state);
@@ -49,10 +51,11 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
     return;
   }
 
-  bmp2->GradientFillRect(0, 0, 100, 50,
-                         content::Color::New(0, 0, 255, 255, exception_state),
-                         content::Color::New(255, 255, 0, 255, exception_state),
-                         false, exception_state);
+  bmp2->GradientFillRect(
+      0, 0, 100, 50,
+      content::Color::New(execution, 0, 0, 255, 255, exception_state),
+      content::Color::New(execution, 255, 255, 0, 255, exception_state), false,
+      exception_state);
 
   bmp2->DrawText(100, 100, 200, 50, "test draw text string", 0,
                  exception_state);
@@ -67,8 +70,9 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
       content::Viewport::New(execution, 50, 50, 400, 400, exception_state);
   root_vp->Put_Z(30, exception_state);
 
-  auto vp = content::Viewport::New(execution, root_vp, exception_state);
-  vp->Put_Rect(content::Rect::New(50, 50, 300, 300, exception_state),
+  auto vp = content::Viewport::New(
+      execution, root_vp, root_vp->Get_Rect(exception_state), exception_state);
+  vp->Put_Rect(content::Rect::New(execution, 50, 50, 300, 300, exception_state),
                exception_state);
   vp->Put_Ox(-50, exception_state);
   vp->Put_Oy(-50, exception_state);
@@ -86,7 +90,7 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
   spr1->Put_Y(0, exception_state);
   spr1->Put_Z(200, exception_state);
 
-  vp->Put_Tone(content::Tone::New(-68, -68, 0, 68, exception_state),
+  vp->Put_Tone(content::Tone::New(execution, -68, -68, 0, 68, exception_state),
                exception_state);
 
   auto spr2 = content::Sprite::New(execution, nullptr, exception_state);
@@ -105,8 +109,8 @@ void EngineBindingUnittests::OnMainMessageLoopRun(
   pl->Put_Z(10, exception_state);
   pl->Put_Opacity(100, exception_state);
 
-  execution->graphics->Transition(180, scoped_refptr<content::Bitmap>(), 0,
-                                  exception_state);
+  execution->graphics->TransitionWithBitmap(
+      180, scoped_refptr<content::Bitmap>(), 0, exception_state);
 
   auto snap = content::Bitmap::New(execution, 300, 300, exception_state);
   vp->Render(snap, exception_state);
