@@ -76,42 +76,33 @@ include_directories(third_party/zlib)
 
 ## CRuby-Mri
 ## TODO: Enhance ruby build ins
-if (CMAKE_SYSTEM_NAME STREQUAL "Android")
-  add_subdirectory(third_party/cmake-ruby)
-  include_directories(third_party/cmake-ruby/include)
-else ()
-  add_library(mri_ruby UNKNOWN IMPORTED)
-  if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-      set(RUBY_INCLUDE_PATH
-        "${PROJECT_SOURCE_DIR}/third_party/ruby/include/"
-        "${PROJECT_SOURCE_DIR}/third_party/ruby/config/x86/"
-      )
-      set(RUBY_LIBRARY_PATH
-        "${PROJECT_SOURCE_DIR}/third_party/ruby/lib/x86/vcruntime140-ruby320-static.lib"
-      )
-    elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
-      set(RUBY_INCLUDE_PATH
-        "${PROJECT_SOURCE_DIR}/third_party/ruby/include/"
-        "${PROJECT_SOURCE_DIR}/third_party/ruby/config/x64/"
-      )
-      set(RUBY_LIBRARY_PATH
-        "${PROJECT_SOURCE_DIR}/third_party/ruby/lib/x64/x64-vcruntime140-ruby320-static.lib"
-      )
-    else ()
-      message("No Implement")
-    endif ()
+add_library(mri_ruby UNKNOWN IMPORTED)
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(RUBY_INCLUDE_PATH
+      "${PROJECT_SOURCE_DIR}/third_party/ruby/include/"
+      "${PROJECT_SOURCE_DIR}/third_party/ruby/config/x86/"
+    )
+    set(RUBY_LIBRARY_PATH
+      "${PROJECT_SOURCE_DIR}/third_party/ruby/lib/x86/vcruntime140-ruby320-static.lib"
+    )
+  elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(RUBY_INCLUDE_PATH
+      "${PROJECT_SOURCE_DIR}/third_party/ruby/include/"
+      "${PROJECT_SOURCE_DIR}/third_party/ruby/config/x64/"
+    )
+    set(RUBY_LIBRARY_PATH
+      "${PROJECT_SOURCE_DIR}/third_party/ruby/lib/x64/x64-vcruntime140-ruby320-static.lib"
+    )
   else ()
-    find_package(Ruby REQUIRED)
-    set(RUBY_INCLUDE_PATH "${Ruby_INCLUDE_DIRS}" "${Ruby_CONFIG_INCLUDE_DIR}")
-    set(RUBY_LIBRARY_PATH "${Ruby_LIBRARIES}")
-    message(${RUBY_INCLUDE_PATH} ${RUBY_LIBRARY_PATH})
+    message(FATAL_ERROR "No Implement")
   endif ()
-  include_directories(${RUBY_INCLUDE_PATH})
-  set_target_properties(mri_ruby PROPERTIES
-                        IMPORTED_LOCATION "${RUBY_LIBRARY_PATH}"
-                        INTERFACE_INCLUDE_DIRECTORIES "${RUBY_INCLUDE_PATH}")
 endif ()
+message(STATUS "Ruby Library: ${RUBY_LIBRARY_PATH}")
+set_target_properties(mri_ruby PROPERTIES
+                      IMPORTED_LOCATION "${RUBY_LIBRARY_PATH}"
+                      INTERFACE_INCLUDE_DIRECTORIES "${RUBY_INCLUDE_PATH}")
+
 
 #-------------------------------------------------------------------------
 # * source

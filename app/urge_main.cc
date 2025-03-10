@@ -6,7 +6,7 @@
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
 
-#include "binding/unittests/engine_binding_unittests.h"
+#include "binding/mri/mri_main.h"
 #include "content/worker/content_runner.h"
 
 int SDL_main(int argc, char* argv[]) {
@@ -27,7 +27,7 @@ int SDL_main(int argc, char* argv[]) {
   content::ContentRunner::InitParams content_params;
   content_params.profile = std::move(profile);
   content_params.window = widget->AsWeakPtr();
-  content_params.entry = std::make_unique<EngineBindingUnittests>();
+  content_params.entry = std::make_unique<binding::BindingEngineMri>();
 
   std::unique_ptr<content::ContentRunner> runner =
       content::ContentRunner::Create(std::move(content_params));

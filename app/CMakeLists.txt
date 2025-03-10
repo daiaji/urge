@@ -11,7 +11,6 @@ set(URGE_DEP_LIBS
   engine_renderer
   engine_ui
 
-  binding_unittests
   binding_mri
 )
 

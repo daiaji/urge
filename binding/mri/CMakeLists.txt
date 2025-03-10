@@ -39,9 +39,10 @@ set(BINDING_MRI_SRC
 )
 
 add_library(binding_mri STATIC ${BINDING_MRI_SRC})
-target_link_directories(binding_mri PUBLIC
+target_link_libraries(binding_mri PUBLIC
   engine_base
   engine_content
   engine_renderer
   mri_ruby
+  zlibstatic
 )
