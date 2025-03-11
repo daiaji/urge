@@ -252,4 +252,8 @@ RenderDevice::RenderDevice(base::WeakPtr<ui::Widget> window,
       surface_format_(surface_format),
       pipelines_(std::move(pipelines)) {}
 
+RenderDevice::~RenderDevice() {
+  g_wgpu_instance = nullptr;
+}
+
 }  // namespace renderer

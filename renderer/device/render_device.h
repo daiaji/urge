@@ -38,6 +38,8 @@ class RenderDevice {
 
   static wgpu::Instance* GetGPUInstance();
 
+  ~RenderDevice();
+
   RenderDevice(const RenderDevice&) = delete;
   RenderDevice& operator=(const RenderDevice&) = delete;
 
