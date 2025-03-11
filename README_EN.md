@@ -37,6 +37,7 @@
 - dawn - https://dawn.googlesource.com/dawn  
 - SDL3 - https://github.com/libsdl-org/SDL  
 - freetype - https://github.com/freetype/freetype  
+- zlib - https://github.com/madler/zlib  
 
 ## Contact
 
