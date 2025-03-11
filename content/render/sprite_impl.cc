@@ -188,6 +188,11 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
 }  // namespace
 
 scoped_refptr<Sprite> Sprite::New(ExecutionContext* execution_context,
+                                  ExceptionState& exception_state) {
+  return new SpriteImpl(execution_context->graphics, nullptr);
+}
+
+scoped_refptr<Sprite> Sprite::New(ExecutionContext* execution_context,
                                   scoped_refptr<Viewport> viewport,
                                   ExceptionState& exception_state) {
   return new SpriteImpl(execution_context->graphics,

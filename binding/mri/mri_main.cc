@@ -169,6 +169,7 @@ void BindingEngineMri::PreEarlyInitialization(
 
   Init_zlib();
   InitURGEBinding();
+  InitCoreFileBinding();
 
   InitBitmapBinding();
   InitColorBinding();

@@ -47,6 +47,7 @@ class ContentRunner {
                 std::unique_ptr<EngineBindingBase> binding,
                 base::WeakPtr<ui::Widget> window);
   void InitializeContentInternal();
+  void TickHandlerInternal();
   static void EngineEntryFunctionInternal(fiber_t* fiber);
 
   std::unique_ptr<ContentProfile> profile_;
@@ -54,6 +55,8 @@ class ContentRunner {
   std::unique_ptr<base::ThreadWorker> render_worker_;
   base::WeakPtr<ui::Widget> window_;
   std::atomic<int32_t> exit_code_;
+  base::CallbackListSubscription tick_observer_;
+  std::atomic<int32_t> binding_quit_flag_;
 
   std::unique_ptr<EngineBindingBase> binding_;
   std::unique_ptr<ExecutionContext> execution_context_;

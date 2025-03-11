@@ -37,6 +37,18 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
   virtual void Freeze(ExceptionState& exception_state) = 0;
 
   /*--urge(name:transition)--*/
+  virtual void Transition(ExceptionState& exception_state) = 0;
+
+  /*--urge(name:transition)--*/
+  virtual void Transition(uint32_t duration,
+                          ExceptionState& exception_state) = 0;
+
+  /*--urge(name:transition)--*/
+  virtual void Transition(uint32_t duration,
+                          const std::string& filename,
+                          ExceptionState& exception_state) = 0;
+
+  /*--urge(name:transition)--*/
   virtual void Transition(uint32_t duration,
                           const std::string& filename,
                           uint32_t vague,

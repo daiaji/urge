@@ -24,6 +24,10 @@ class URGE_RUNTIME_API Plane : public base::RefCounted<Plane> {
 
   /*--urge(name:initialize)--*/
   static scoped_refptr<Plane> New(ExecutionContext* execution_context,
+                                  ExceptionState& exception_state);
+
+  /*--urge(name:initialize)--*/
+  static scoped_refptr<Plane> New(ExecutionContext* execution_context,
                                   scoped_refptr<Viewport> viewport,
                                   ExceptionState& exception_state);
 

@@ -20,7 +20,18 @@ class URGE_RUNTIME_API Table : public base::RefCounted<Table> {
  public:
   virtual ~Table() = default;
 
-  /*--urge(name:initialize,optional:ysize=1,optional:zsize=1)--*/
+  /*--urge(name:initialize)--*/
+  static scoped_refptr<Table> New(ExecutionContext* execution_context,
+                                  uint32_t xsize,
+                                  ExceptionState& exception_state);
+
+  /*--urge(name:initialize)--*/
+  static scoped_refptr<Table> New(ExecutionContext* execution_context,
+                                  uint32_t xsize,
+                                  uint32_t ysize,
+                                  ExceptionState& exception_state);
+
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Table> New(ExecutionContext* execution_context,
                                   uint32_t xsize,
                                   uint32_t ysize,

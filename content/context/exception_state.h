@@ -26,7 +26,8 @@ class ExceptionState {
   STACK_ALLOCATED();
 
  public:
-  ExceptionState() : code_(ExceptionCode::NO_EXCEPTION), message_() {}
+  ExceptionState()
+      : had_exception_(false), code_(ExceptionCode::NO_EXCEPTION) {}
   ~ExceptionState() = default;
 
   ExceptionState(const ExceptionState&) = delete;
@@ -48,7 +49,7 @@ class ExceptionState {
   ExceptionState& ReturnThis() { return *this; }
 
  private:
-  bool had_exception_ = false;
+  int32_t had_exception_;
   ExceptionCode code_;
   std::string message_;
 };

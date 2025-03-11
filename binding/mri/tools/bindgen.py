@@ -65,7 +65,7 @@ class MriBindGen:
       if is_module:
         preprocessor = "MriDefineModuleFunction"
       else:
-        if is_static:
+        if is_static and mname != "initialize" and mname != "initialize_copy":
           preprocessor = "MriDefineClassMethod"
 
       func_body += "{}(klass, \"{}\", {}_{});\n".format(preprocessor, mname, kname, fname)
@@ -129,13 +129,16 @@ class MriBindGen:
       generated_methods.append(func_name)
 
       params = method["parameters"]
+      overload_count = len(params)
       func_body += "MRI_METHOD({}_{}) {{\n".format(kname, func_name)
       max_argument_count = 0
 
-      func_body += "switch (argc) {\n"
+      if overload_count > 1:
+        func_body += "switch (argc) {\n"
       for i in range(len(params)):
         max_argument_count = max(max_argument_count, len(params[i]))
-        func_body += "case {}: {{\n".format(len(params[i]))
+        if overload_count > 1:
+          func_body += "case {}: {{\n".format(len(params[i]))
 
         parse_template = ""
         parser_arguments = ""
@@ -236,7 +239,11 @@ for (int i = 0; i < RARRAY_LEN({}); ++i)
           func_body += "self_obj->{}({}exception_state);\n".format(func_name, call_parameters)
           func_body += "MriProcessException(exception_state);\n"
 
-        if return_type != "void":
+        if func_name == "New" or func_name == "Copy":
+          func_body += "result_value->AddRef();\n"  
+          func_body += "MriSetStructData(self, result_value.get());\n"
+          func_body += "return self;\n"
+        elif return_type != "void":
           if return_type.startswith("scoped_refptr"):
             func_body += "return MriWrapObject(result_value, k{}DataType);\n".format(return_refptr_type)
           elif return_type.startswith("float"):
@@ -255,11 +262,13 @@ return ary;
           else:
             func_body += "return rb_fix_new(result_value);\n"
 
-        func_body += "} break;\n"
-      func_body += "default:\n"
-      func_body += "MriCheckArgc(argc, {});\n".format(max_argument_count)
-      func_body += "return Qnil;\n"
-      func_body += "}\n"
+        if overload_count > 1:
+          func_body += "} break;\n"
+      if overload_count > 1:
+        func_body += "default:\n"
+        func_body += "MriCheckArgc(argc, {});\n".format(max_argument_count)
+        func_body += "return Qnil;\n"
+        func_body += "}\n"
       func_body += "return self;\n"
       func_body += "}\n"
 

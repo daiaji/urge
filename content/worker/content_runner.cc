@@ -16,6 +16,7 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
       render_worker_(std::move(render_worker)),
       window_(window),
       exit_code_(0),
+      binding_quit_flag_(0),
       binding_(std::move(binding)) {}
 
 void ContentRunner::InitializeContentInternal() {
@@ -43,16 +44,23 @@ void ContentRunner::InitializeContentInternal() {
 
   // Init all module workers
   graphics_impl_->InitWithRenderWorker(render_worker_.get(), window_);
+  tick_observer_ = graphics_impl_->AddTickObserver(base::BindRepeating(
+      &ContentRunner::TickHandlerInternal, base::Unretained(this)));
 
   // Reset exit code
   exit_code_.store(1);
+}
+
+void ContentRunner::TickHandlerInternal() {
+  if (binding_quit_flag_.load())
+    binding_->ExitSignalRequired();
 }
 
 ContentRunner::~ContentRunner() = default;
 
 bool ContentRunner::RunMainLoop() {
   if (!graphics_impl_->ExecuteEventMainLoop())
-    binding_->ExitSignalRequired();
+    binding_quit_flag_.store(1);
 
   return exit_code_.load();
 }

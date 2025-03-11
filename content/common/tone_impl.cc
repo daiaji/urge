@@ -22,6 +22,14 @@ scoped_refptr<Tone> Tone::New(ExecutionContext* execution_context,
   return new ToneImpl(base::Vec4(red, green, blue, gray));
 }
 
+scoped_refptr<Tone> Tone::New(ExecutionContext* execution_context,
+                              float red,
+                              float green,
+                              float blue,
+                              ExceptionState& exception_state) {
+  return new ToneImpl(base::Vec4(red, green, blue, 0.0f));
+}
+
 scoped_refptr<Tone> Tone::Copy(ExecutionContext* execution_context,
                                scoped_refptr<Tone> other,
                                ExceptionState& exception_state) {
@@ -73,6 +81,13 @@ void ToneImpl::Set(float red,
   value_.z = std::clamp(blue, -255.0f, 255.0f);
   value_.w = std::clamp(gray, 0.0f, 255.0f);
   NotifyObservers();
+}
+
+void ToneImpl::Set(float red,
+                   float green,
+                   float blue,
+                   ExceptionState& exception_state) {
+  Set(red, green, blue, 0.0f, exception_state);
 }
 
 void ToneImpl::Set(scoped_refptr<Tone> other, ExceptionState& exception_state) {

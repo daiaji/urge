@@ -17,9 +17,17 @@ scoped_refptr<Color> Color::New(ExecutionContext* execution_context,
                                 float red,
                                 float green,
                                 float blue,
-                                float gray,
+                                float alpha,
                                 ExceptionState& exception_state) {
-  return new ColorImpl(base::Vec4(red, green, blue, gray));
+  return new ColorImpl(base::Vec4(red, green, blue, alpha));
+}
+
+scoped_refptr<Color> Color::New(ExecutionContext* execution_context,
+                                float red,
+                                float green,
+                                float blue,
+                                ExceptionState& exception_state) {
+  return new ColorImpl(base::Vec4(red, green, blue, 255.0f));
 }
 
 scoped_refptr<Color> Color::Copy(ExecutionContext* execution_context,
@@ -66,13 +74,20 @@ scoped_refptr<ColorImpl> ColorImpl::From(scoped_refptr<Color> host) {
 void ColorImpl::Set(float red,
                     float green,
                     float blue,
-                    float gray,
+                    float alpha,
                     ExceptionState& exception_state) {
   value_.x = std::clamp(red, 0.0f, 255.0f);
   value_.y = std::clamp(green, 0.0f, 255.0f);
   value_.z = std::clamp(blue, 0.0f, 255.0f);
-  value_.w = std::clamp(gray, 0.0f, 255.0f);
+  value_.w = std::clamp(alpha, 0.0f, 255.0f);
   NotifyObservers();
+}
+
+void ColorImpl::Set(float red,
+                    float green,
+                    float blue,
+                    ExceptionState& exception_state) {
+  Set(red, green, blue, 255.0f, exception_state);
 }
 
 void ColorImpl::Set(scoped_refptr<Color> other,

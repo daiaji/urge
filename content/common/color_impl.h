@@ -28,7 +28,11 @@ class ColorImpl : public Color, public ValueNotification {
   void Set(float red,
            float green,
            float blue,
-           float gray,
+           float alpha,
+           ExceptionState& exception_state) override;
+  void Set(float red,
+           float green,
+           float blue,
            ExceptionState& exception_state) override;
   void Set(scoped_refptr<Color> other,
            ExceptionState& exception_state) override;

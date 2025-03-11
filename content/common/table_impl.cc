@@ -8,6 +8,19 @@ namespace content {
 
 scoped_refptr<Table> Table::New(ExecutionContext* execution_context,
                                 uint32_t xsize,
+                                ExceptionState& exception_state) {
+  return new TableImpl(xsize, 1, 1);
+}
+
+scoped_refptr<Table> Table::New(ExecutionContext* execution_context,
+                                uint32_t xsize,
+                                uint32_t ysize,
+                                ExceptionState& exception_state) {
+  return new TableImpl(xsize, ysize, 1);
+}
+
+scoped_refptr<Table> Table::New(ExecutionContext* execution_context,
+                                uint32_t xsize,
                                 uint32_t ysize,
                                 uint32_t zsize,
                                 ExceptionState& exception_state) {

@@ -24,12 +24,19 @@ class URGE_RUNTIME_API Tone : public base::RefCounted<Tone> {
   static scoped_refptr<Tone> New(ExecutionContext* execution_context,
                                  ExceptionState& exception_state);
 
-  /*--urge(name:initialize,optional:gray=0)--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Tone> New(ExecutionContext* execution_context,
                                  float red,
                                  float green,
                                  float blue,
                                  float gray,
+                                 ExceptionState& exception_state);
+
+  /*--urge(name:initialize)--*/
+  static scoped_refptr<Tone> New(ExecutionContext* execution_context,
+                                 float red,
+                                 float green,
+                                 float blue,
                                  ExceptionState& exception_state);
 
   /*--urge(name:initialize_copy)--*/
@@ -45,6 +52,12 @@ class URGE_RUNTIME_API Tone : public base::RefCounted<Tone> {
                    float green,
                    float blue,
                    float gray,
+                   ExceptionState& exception_state) = 0;
+
+  /*--urge(name:set)--*/
+  virtual void Set(float red,
+                   float green,
+                   float blue,
                    ExceptionState& exception_state) = 0;
 
   /*--urge(name:set)--*/

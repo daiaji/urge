@@ -108,6 +108,11 @@ void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
 }  // namespace
 
 scoped_refptr<Plane> Plane::New(ExecutionContext* execution_context,
+                                ExceptionState& exception_state) {
+  return new PlaneImpl(execution_context->graphics, nullptr);
+}
+
+scoped_refptr<Plane> Plane::New(ExecutionContext* execution_context,
                                 scoped_refptr<Viewport> viewport,
                                 ExceptionState& exception_state) {
   return new PlaneImpl(execution_context->graphics,

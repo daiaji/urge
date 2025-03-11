@@ -28,6 +28,10 @@ class ToneImpl : public Tone, public ValueNotification {
            float blue,
            float gray,
            ExceptionState& exception_state) override;
+  void Set(float red,
+           float green,
+           float blue,
+           ExceptionState& exception_state) override;
   void Set(scoped_refptr<Tone> other, ExceptionState& exception_state) override;
 
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Red, float);

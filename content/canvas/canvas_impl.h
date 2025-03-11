@@ -119,10 +119,21 @@ class CanvasImpl : public Bitmap,
                         scoped_refptr<Color> color2,
                         bool vertical,
                         ExceptionState& exception_state) override;
+  void GradientFillRect(int32_t x,
+                        int32_t y,
+                        uint32_t width,
+                        uint32_t height,
+                        scoped_refptr<Color> color1,
+                        scoped_refptr<Color> color2,
+                        ExceptionState& exception_state) override;
   void GradientFillRect(scoped_refptr<Rect> rect,
                         scoped_refptr<Color> color1,
                         scoped_refptr<Color> color2,
                         bool vertical,
+                        ExceptionState& exception_state) override;
+  void GradientFillRect(scoped_refptr<Rect> rect,
+                        scoped_refptr<Color> color1,
+                        scoped_refptr<Color> color2,
                         ExceptionState& exception_state) override;
   void Clear(ExceptionState& exception_state) override;
   void ClearRect(int32_t x,
@@ -151,9 +162,18 @@ class CanvasImpl : public Bitmap,
                 const std::string& str,
                 int32_t align,
                 ExceptionState& exception_state) override;
+  void DrawText(int32_t x,
+                int32_t y,
+                uint32_t width,
+                uint32_t height,
+                const std::string& str,
+                ExceptionState& exception_state) override;
   void DrawText(scoped_refptr<Rect> rect,
                 const std::string& str,
                 int32_t align,
+                ExceptionState& exception_state) override;
+  void DrawText(scoped_refptr<Rect> rect,
+                const std::string& str,
                 ExceptionState& exception_state) override;
   scoped_refptr<Rect> TextSize(const std::string& str,
                                ExceptionState& exception_state) override;

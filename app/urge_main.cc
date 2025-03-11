@@ -15,25 +15,27 @@ int SDL_main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   TTF_Init();
 
-  std::unique_ptr<content::ContentProfile> profile =
-      content::ContentProfile::MakeFrom(nullptr);
+  {
+    std::unique_ptr<content::ContentProfile> profile =
+        content::ContentProfile::MakeFrom(nullptr);
 
-  std::unique_ptr<ui::Widget> widget(new ui::Widget);
-  ui::Widget::InitParams widget_params;
-  widget_params.size = base::Vec2i(640, 480);
-  widget_params.resizable = true;
-  widget->Init(std::move(widget_params));
+    std::unique_ptr<ui::Widget> widget(new ui::Widget);
+    ui::Widget::InitParams widget_params;
+    widget_params.size = base::Vec2i(640, 480);
+    widget_params.resizable = true;
+    widget->Init(std::move(widget_params));
 
-  content::ContentRunner::InitParams content_params;
-  content_params.profile = std::move(profile);
-  content_params.window = widget->AsWeakPtr();
-  content_params.entry = std::make_unique<binding::BindingEngineMri>();
+    content::ContentRunner::InitParams content_params;
+    content_params.profile = std::move(profile);
+    content_params.window = widget->AsWeakPtr();
+    content_params.entry = std::make_unique<binding::BindingEngineMri>();
 
-  std::unique_ptr<content::ContentRunner> runner =
-      content::ContentRunner::Create(std::move(content_params));
-  for (;;) {
-    if (!runner->RunMainLoop())
-      break;
+    std::unique_ptr<content::ContentRunner> runner =
+        content::ContentRunner::Create(std::move(content_params));
+    for (;;) {
+      if (!runner->RunMainLoop())
+        break;
+    }
   }
 
   TTF_Quit();

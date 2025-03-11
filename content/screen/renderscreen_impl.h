@@ -83,12 +83,20 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void PostTask(base::OnceClosure task);
   void WaitWorkerSynchronize();
 
+  base::CallbackListSubscription AddTickObserver(
+      const base::RepeatingClosure& handler);
+
  public:
   void Update(ExceptionState& exception_state) override;
   void Wait(uint32_t duration, ExceptionState& exception_state) override;
   void FadeOut(uint32_t duration, ExceptionState& exception_state) override;
   void FadeIn(uint32_t duration, ExceptionState& exception_state) override;
   void Freeze(ExceptionState& exception_state) override;
+  void Transition(ExceptionState& exception_state) override;
+  void Transition(uint32_t duration, ExceptionState& exception_state) override;
+  void Transition(uint32_t duration,
+                  const std::string& filename,
+                  ExceptionState& exception_state) override;
   void Transition(uint32_t duration,
                   const std::string& filename,
                   uint32_t vague,
@@ -135,6 +143,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void RemoveDisposable(Disposable* disp) override;
 
   DrawNodeController controller_;
+  base::RepeatingClosureList tick_observers_;
 
   CoroutineContext* cc_;
   base::ThreadWorker* render_worker_;

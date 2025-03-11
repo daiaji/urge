@@ -148,6 +148,11 @@ void RenderScreenImpl::WaitWorkerSynchronize() {
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
+base::CallbackListSubscription RenderScreenImpl::AddTickObserver(
+    const base::RepeatingClosure& handler) {
+  return tick_observers_.Add(handler);
+}
+
 void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
                                            wgpu::Texture* render_target,
                                            const base::Vec2i& target_size) {
@@ -251,13 +256,30 @@ void RenderScreenImpl::Freeze(ExceptionState& exception_state) {
   }
 }
 
+void RenderScreenImpl::Transition(ExceptionState& exception_state) {
+  Transition(10, std::string(), 40, exception_state);
+}
+
+void RenderScreenImpl::Transition(uint32_t duration,
+                                  ExceptionState& exception_state) {
+  Transition(duration, std::string(), 40, exception_state);
+}
+
+void RenderScreenImpl::Transition(uint32_t duration,
+                                  const std::string& filename,
+                                  ExceptionState& exception_state) {
+  Transition(duration, filename, 40, exception_state);
+}
+
 void RenderScreenImpl::Transition(uint32_t duration,
                                   const std::string& filename,
                                   uint32_t vague,
                                   ExceptionState& exception_state) {
-  scoped_refptr<CanvasImpl> transition_mapping = CanvasImpl::Create(
-      GetCanvasScheduler(), this, scoped_font_, filename, exception_state);
-  if (!transition_mapping)
+  scoped_refptr<CanvasImpl> transition_mapping = nullptr;
+  if (!filename.empty())
+    transition_mapping = CanvasImpl::Create(
+        GetCanvasScheduler(), this, scoped_font_, filename, exception_state);
+  if (!transition_mapping || exception_state.HadException())
     return;
 
   TransitionWithBitmap(duration, transition_mapping, vague, exception_state);
@@ -360,7 +382,8 @@ void RenderScreenImpl::PlayMovie(const std::string& filename,
 void RenderScreenImpl::InitGraphicsDeviceInternal(
     base::WeakPtr<ui::Widget> window) {
   // Create device on window
-  agent_->device = renderer::RenderDevice::Create(window);
+  agent_->device =
+      renderer::RenderDevice::Create(window, wgpu::BackendType::Undefined);
 
   // Create immediate command encoder
   agent_->context =
@@ -538,6 +561,9 @@ void RenderScreenImpl::FrameProcessInternal(wgpu::Texture* present_target) {
 
   // Increase frame render count
   ++frame_count_;
+
+  // Tick callback
+  tick_observers_.Notify();
 
   // Switch to primary fiber
   fiber_switch(cc_->primary_fiber);

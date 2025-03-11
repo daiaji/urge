@@ -57,7 +57,7 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
   /*--urge(name:rect)--*/
   virtual scoped_refptr<Rect> GetRect(ExceptionState& exception_state) = 0;
 
-  /*--urge(name:blt)--*/
+  /*--urge(name:blt,optional:opacity=255)--*/
   virtual void Blt(int32_t x,
                    int32_t y,
                    scoped_refptr<Bitmap> src_bitmap,
@@ -65,7 +65,7 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
                    uint32_t opacity,
                    ExceptionState& exception_state) = 0;
 
-  /*--urge(name:stretch_blt)--*/
+  /*--urge(name:stretch_blt,optional:opacity=255)--*/
   virtual void StretchBlt(scoped_refptr<Rect> dest_rect,
                           scoped_refptr<Bitmap> src_bitmap,
                           scoped_refptr<Rect> src_rect,
@@ -96,10 +96,25 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
                                 ExceptionState& exception_state) = 0;
 
   /*--urge(name:gradient_fill_rect)--*/
+  virtual void GradientFillRect(int32_t x,
+                                int32_t y,
+                                uint32_t width,
+                                uint32_t height,
+                                scoped_refptr<Color> color1,
+                                scoped_refptr<Color> color2,
+                                ExceptionState& exception_state) = 0;
+
+  /*--urge(name:gradient_fill_rect)--*/
   virtual void GradientFillRect(scoped_refptr<Rect> rect,
                                 scoped_refptr<Color> color1,
                                 scoped_refptr<Color> color2,
                                 bool vertical,
+                                ExceptionState& exception_state) = 0;
+
+  /*--urge(name:gradient_fill_rect)--*/
+  virtual void GradientFillRect(scoped_refptr<Rect> rect,
+                                scoped_refptr<Color> color1,
+                                scoped_refptr<Color> color2,
                                 ExceptionState& exception_state) = 0;
 
   /*--urge(name:clear)--*/
@@ -148,9 +163,22 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
                         ExceptionState& exception_state) = 0;
 
   /*--urge(name:draw_text)--*/
+  virtual void DrawText(int32_t x,
+                        int32_t y,
+                        uint32_t width,
+                        uint32_t height,
+                        const std::string& str,
+                        ExceptionState& exception_state) = 0;
+
+  /*--urge(name:draw_text)--*/
   virtual void DrawText(scoped_refptr<Rect> rect,
                         const std::string& str,
                         int32_t align,
+                        ExceptionState& exception_state) = 0;
+
+  /*--urge(name:draw_text)--*/
+  virtual void DrawText(scoped_refptr<Rect> rect,
+                        const std::string& str,
                         ExceptionState& exception_state) = 0;
 
   /*--urge(name:text_size)--*/

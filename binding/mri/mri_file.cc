@@ -171,7 +171,7 @@ MRI_METHOD(marshal_load_utf8) {
 }
 
 void InitCoreFileBinding() {
-  VALUE klass = rb_define_class("EngineFileSystem", rb_cIO);
+  VALUE klass = rb_define_class("CoreFile", rb_cIO);
   rb_define_alloc_func(klass, MriClassAllocate<&kCoreFileDataType>);
 
   MriDefineMethod(klass, "read", corefile_read);

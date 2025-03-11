@@ -24,12 +24,19 @@ class URGE_RUNTIME_API Color : public base::RefCounted<Color> {
   static scoped_refptr<Color> New(ExecutionContext* execution_context,
                                   ExceptionState& exception_state);
 
-  /*--urge(name:initialize,optional:alpha=255)--*/
+  /*--urge(name:initialize)--*/
   static scoped_refptr<Color> New(ExecutionContext* execution_context,
                                   float red,
                                   float green,
                                   float blue,
                                   float alpha,
+                                  ExceptionState& exception_state);
+
+  /*--urge(name:initialize)--*/
+  static scoped_refptr<Color> New(ExecutionContext* execution_context,
+                                  float red,
+                                  float green,
+                                  float blue,
                                   ExceptionState& exception_state);
 
   /*--urge(name:initialize_copy)--*/
@@ -45,6 +52,12 @@ class URGE_RUNTIME_API Color : public base::RefCounted<Color> {
                    float green,
                    float blue,
                    float alpha,
+                   ExceptionState& exception_state) = 0;
+
+  /*--urge(name:set)--*/
+  virtual void Set(float red,
+                   float green,
+                   float blue,
                    ExceptionState& exception_state) = 0;
 
   /*--urge(name:set)--*/
