@@ -11,7 +11,6 @@
 #include "SDL3/SDL_surface.h"
 #include "SDL3_ttf/SDL_ttf.h"
 
-#include "components/filesystem/io.h"
 #include "content/common/color_impl.h"
 #include "content/components/font_context.h"
 #include "content/content_config.h"

@@ -58,6 +58,7 @@ class GraphicsChild {
 class RenderScreenImpl : public Graphics, public DisposableCollection {
  public:
   RenderScreenImpl(CoroutineContext* cc,
+                   filesystem::IOService* io_service,
                    ScopedFontData* scoped_font,
                    const base::Vec2i& resolution,
                    int frame_rate);
@@ -67,7 +68,8 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   RenderScreenImpl& operator=(const RenderScreenImpl&) = delete;
 
   void InitWithRenderWorker(base::ThreadWorker* render_worker,
-                            base::WeakPtr<ui::Widget> window);
+                            base::WeakPtr<ui::Widget> window,
+                            const std::string& wgpu_backend);
   bool ExecuteEventMainLoop();
 
   renderer::RenderDevice* GetDevice() const;
@@ -119,7 +121,8 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Brightness, uint32_t);
 
  private:
-  void InitGraphicsDeviceInternal(base::WeakPtr<ui::Widget> window);
+  void InitGraphicsDeviceInternal(base::WeakPtr<ui::Widget> window,
+                                  const std::string& wgpu_backend);
   void DestroyGraphicsDeviceInternal();
 
   void PresentScreenBufferInternal(wgpu::Texture* render_target);
@@ -146,6 +149,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   base::RepeatingClosureList tick_observers_;
 
   CoroutineContext* cc_;
+  filesystem::IOService* io_service_;
   base::ThreadWorker* render_worker_;
   ScopedFontData* scoped_font_;
 

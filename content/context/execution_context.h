@@ -7,8 +7,6 @@
 
 #include <memory>
 
-#include "components/filesystem/io.h"
-
 namespace content {
 
 class ScopedFontData;
@@ -22,8 +20,6 @@ struct ExecutionContext {
 
   RenderScreenImpl* graphics = nullptr;
   KeyboardControllerImpl* input = nullptr;
-
-  filesystem::IO* io = nullptr;
 
   ExecutionContext();
   ~ExecutionContext();

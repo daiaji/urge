@@ -372,7 +372,7 @@ void KeyboardControllerImpl::UpdateDir8Internal() {
 }
 
 void KeyboardControllerImpl::TryReadBindingsInternal() {
-  std::string filepath = profile_->program_path;
+  std::string filepath = profile_->program_name;
   filepath += INPUT_CONFIG_SUBFIX;
   filepath += std::to_string(static_cast<int32_t>(profile_->api_version));
 
@@ -398,7 +398,7 @@ void KeyboardControllerImpl::TryReadBindingsInternal() {
 }
 
 void KeyboardControllerImpl::StorageBindingsInternal() {
-  std::string filepath = profile_->program_path;
+  std::string filepath = profile_->program_name;
   filepath += INPUT_CONFIG_SUBFIX;
   filepath += std::to_string(static_cast<int32_t>(profile_->api_version));
 

@@ -74,6 +74,13 @@ add_subdirectory(third_party/imgui)
 add_subdirectory(third_party/zlib)
 include_directories(third_party/zlib)
 
+## Physfs
+set(PHYSFS_BUILD_STATIC TRUE)
+set(PHYSFS_BUILD_SHARED FALSE)
+set(PHYSFS_BUILD_DOCS FALSE)
+add_subdirectory(third_party/physfs)
+include_directories(third_party/physfs/src)
+
 ## CRuby-Mri
 ## TODO: Enhance ruby build ins
 add_library(mri_ruby UNKNOWN IMPORTED)

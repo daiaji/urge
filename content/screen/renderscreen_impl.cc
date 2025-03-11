@@ -4,6 +4,8 @@
 
 #include "content/screen/renderscreen_impl.h"
 
+#include <unordered_map>
+
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_timer.h"
 #include "third_party/imgui/imgui.h"
@@ -15,11 +17,35 @@
 
 namespace content {
 
+namespace {
+
+wgpu::BackendType GetWGPUBackend(const std::string& wgpu_backend) {
+  static const std::unordered_map<std::string, wgpu::BackendType> backend_map =
+      {{"Null", wgpu::BackendType::Null},
+       {"WebGPU", wgpu::BackendType::WebGPU},
+       {"D3D11", wgpu::BackendType::D3D11},
+       {"D3D12", wgpu::BackendType::D3D12},
+       {"Metal", wgpu::BackendType::Metal},
+       {"Vulkan", wgpu::BackendType::Vulkan},
+       {"OpenGL", wgpu::BackendType::OpenGL},
+       {"OpenGLES", wgpu::BackendType::OpenGLES}};
+
+  auto it = backend_map.find(wgpu_backend);
+  if (it != backend_map.end())
+    return it->second;
+
+  return wgpu::BackendType::Undefined;
+}
+
+}  // namespace
+
 RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
+                                   filesystem::IOService* io_service,
                                    ScopedFontData* scoped_font,
                                    const base::Vec2i& resolution,
                                    int frame_rate)
     : cc_(cc),
+      io_service_(io_service),
       render_worker_(nullptr),
       scoped_font_(scoped_font),
       agent_(nullptr),
@@ -43,7 +69,8 @@ RenderScreenImpl::~RenderScreenImpl() {
 }
 
 void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
-                                            base::WeakPtr<ui::Widget> window) {
+                                            base::WeakPtr<ui::Widget> window,
+                                            const std::string& wgpu_backend) {
   // Setup render thread worker (maybe null)
   render_worker_ = render_worker;
 
@@ -75,7 +102,7 @@ void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
   base::ThreadWorker::PostTask(
       render_worker,
       base::BindOnce(&RenderScreenImpl::InitGraphicsDeviceInternal,
-                     base::Unretained(this), window));
+                     base::Unretained(this), window, wgpu_backend));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker);
 }
 
@@ -380,10 +407,11 @@ void RenderScreenImpl::PlayMovie(const std::string& filename,
 }
 
 void RenderScreenImpl::InitGraphicsDeviceInternal(
-    base::WeakPtr<ui::Widget> window) {
+    base::WeakPtr<ui::Widget> window,
+    const std::string& wgpu_backend) {
   // Create device on window
   agent_->device =
-      renderer::RenderDevice::Create(window, wgpu::BackendType::Undefined);
+      renderer::RenderDevice::Create(window, GetWGPUBackend(wgpu_backend));
 
   // Create immediate command encoder
   agent_->context =
@@ -395,8 +423,9 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
   agent_->index_cache->Allocate(1 << 10);
 
   // Create global canvas scheduler
-  agent_->canvas_scheduler = CanvasScheduler::MakeInstance(
-      agent_->device.get(), agent_->context.get(), agent_->index_cache.get());
+  agent_->canvas_scheduler =
+      CanvasScheduler::MakeInstance(agent_->device.get(), agent_->context.get(),
+                                    agent_->index_cache.get(), io_service_);
   agent_->canvas_scheduler->InitWithRenderWorker(render_worker_);
 
   // Create screen world matrix buffer
@@ -475,7 +504,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
   renderpass.colorAttachmentCount = 1;
   renderpass.colorAttachments = &attachment;
 
-  {
+  if (render_target) {
     // Setup binding and vertex
     wgpu::RenderPipeline& pipeline =
         *agent_->present_pipeline->GetPipeline(renderer::BlendType::NO_BLEND);
@@ -534,20 +563,20 @@ void RenderScreenImpl::PresentScreenBufferInternal(
       pass.DrawIndexed(6);
       pass.End();
     }
+  }
 
-    // Start imgui layer render
-    {
-      // New frame
-      ImGui_ImplWGPU_NewFrame();
+  // Start imgui layer render
+  {
+    // New frame
+    ImGui_ImplWGPU_NewFrame();
 
-      // Rendering IMGUI
-      ImGui::Render();
+    // Rendering IMGUI
+    ImGui::Render();
 
-      attachment.loadOp = wgpu::LoadOp::Load;
-      auto pass = commander->BeginRenderPass(&renderpass);
-      ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), pass.Get());
-      pass.End();
-    }
+    attachment.loadOp = wgpu::LoadOp::Load;
+    auto pass = commander->BeginRenderPass(&renderpass);
+    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), pass.Get());
+    pass.End();
   }
 
   // Flush command buffer and present WGPU surface

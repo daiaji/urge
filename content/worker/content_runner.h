@@ -6,7 +6,7 @@
 #define CONTENT_WORKER_CONTENT_RUNNER_H_
 
 #include "base/worker/thread_worker.h"
-#include "components/filesystem/io.h"
+#include "components/filesystem/io_service.h"
 #include "content/components/font_context.h"
 #include "content/input/keyboard_controller.h"
 #include "content/profile/content_profile.h"
@@ -30,6 +30,9 @@ class ContentRunner {
 
     // Graphics renderer target.
     base::WeakPtr<ui::Widget> window;
+
+    // Runner filesystem service.
+    std::unique_ptr<filesystem::IOService> io_service;
   };
 
   ~ContentRunner();
@@ -43,6 +46,7 @@ class ContentRunner {
 
  private:
   ContentRunner(std::unique_ptr<ContentProfile> profile,
+                std::unique_ptr<filesystem::IOService> io_service,
                 std::unique_ptr<base::ThreadWorker> render_worker,
                 std::unique_ptr<EngineBindingBase> binding,
                 base::WeakPtr<ui::Widget> window);
@@ -62,7 +66,7 @@ class ContentRunner {
   std::unique_ptr<ExecutionContext> execution_context_;
   std::unique_ptr<RenderScreenImpl> graphics_impl_;
   std::unique_ptr<KeyboardControllerImpl> input_impl_;
-  std::unique_ptr<filesystem::IO> io_service_;
+  std::unique_ptr<filesystem::IOService> io_service_;
   std::unique_ptr<ScopedFontData> scoped_font_;
 };
 

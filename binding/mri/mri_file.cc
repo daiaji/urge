@@ -5,8 +5,11 @@
 #include "binding/mri/mri_file.h"
 
 #include "SDL3/SDL_iostream.h"
+#include "components/filesystem/io_service.h"
 
 namespace binding {
+
+filesystem::IOService* g_io_service = nullptr;
 
 namespace {
 
@@ -17,11 +20,11 @@ struct CoreFileInfo {
 
 VALUE CreateCoreFileFrom(const std::string& filename,
                          content::ExceptionState& exception_state) {
-  filesystem::IO::ExceptionFrame io_state;
-  SDL_IOStream* ops = MriGetCurrentContext()->io->OpenFile(filename, &io_state);
+  filesystem::IOState io_state;
+  SDL_IOStream* ops = g_io_service->OpenReadRaw(filename, &io_state);
   if (io_state.error_count) {
     exception_state.ThrowContentError(content::ExceptionCode::IO_ERROR,
-                                      io_state.error_msg);
+                                      io_state.error_message);
     return Qnil;
   }
 

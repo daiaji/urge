@@ -38,6 +38,7 @@
 - SDL3 - https://github.com/libsdl-org/SDL  
 - freetype - https://github.com/freetype/freetype  
 - zlib - https://github.com/madler/zlib  
+- physfs - https://github.com/icculus/physfs  
 
 ## 联系方式
 

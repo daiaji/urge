@@ -12,7 +12,7 @@
 #include "SDL3/SDL_surface.h"
 #include "SDL3_ttf/SDL_ttf.h"
 
-#include "components/filesystem/io.h"
+#include "components/filesystem/io_service.h"
 #include "content/common/color_impl.h"
 #include "content/content_config.h"
 
@@ -32,7 +32,8 @@ struct ScopedFontData {
   std::map<std::pair<std::string, int>, TTF_Font*> font_cache;
   std::map<std::string, std::pair<int64_t, void*>> data_cache;
 
-  ScopedFontData(filesystem::IO* io, const std::string& default_font_name);
+  ScopedFontData(filesystem::IOService* io,
+                 const std::string& default_font_name);
   ~ScopedFontData();
 
   ScopedFontData(const ScopedFontData&) = delete;

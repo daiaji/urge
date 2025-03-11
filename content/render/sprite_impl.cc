@@ -188,11 +188,6 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
 }  // namespace
 
 scoped_refptr<Sprite> Sprite::New(ExecutionContext* execution_context,
-                                  ExceptionState& exception_state) {
-  return new SpriteImpl(execution_context->graphics, nullptr);
-}
-
-scoped_refptr<Sprite> Sprite::New(ExecutionContext* execution_context,
                                   scoped_refptr<Viewport> viewport,
                                   ExceptionState& exception_state) {
   return new SpriteImpl(execution_context->graphics,
@@ -277,7 +272,8 @@ scoped_refptr<Bitmap> SpriteImpl::Get_Bitmap(ExceptionState& exception_state) {
 void SpriteImpl::Put_Bitmap(const scoped_refptr<Bitmap>& value,
                             ExceptionState& exception_state) {
   bitmap_ = CanvasImpl::FromBitmap(value);
-  src_rect_->SetBase(bitmap_->AsBaseSize());
+  if (bitmap_)
+    src_rect_->SetBase(bitmap_->AsBaseSize());
 }
 
 scoped_refptr<Rect> SpriteImpl::Get_SrcRect(ExceptionState& exception_state) {
@@ -483,11 +479,10 @@ void SpriteImpl::OnObjectDisposed() {
 void SpriteImpl::DrawableNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
-  if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
-    TextureAgent* texture = nullptr;
-    if (bitmap_)
-      texture = bitmap_->GetAgent();
+  if (!bitmap_)
+    return;
 
+  if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     TransformMatrix trans_mat;
     std::memcpy(trans_mat.data, transform_.GetMatrixDataUnsafe(),
                 sizeof(trans_mat));
@@ -501,10 +496,10 @@ void SpriteImpl::DrawableNodeHandlerInternal(
 
     screen()->PostTask(base::BindOnce(
         &GPUUpdateSpriteVerticesInternal, params->device,
-        params->command_encoder, agent_, texture, src_rect_->AsBaseRect(),
-        trans_mat, opacity_, target_color, tone_->AsNormColor(), bush_.depth,
-        bush_.opacity, mirror_, wave_, transform_.GetPosition(),
-        src_rect_dirty_));
+        params->command_encoder, agent_, bitmap_->GetAgent(),
+        src_rect_->AsBaseRect(), trans_mat, opacity_, target_color,
+        tone_->AsNormColor(), bush_.depth, bush_.opacity, mirror_, wave_,
+        transform_.GetPosition(), src_rect_dirty_));
 
     wave_.dirty = false;
     src_rect_dirty_ = false;

@@ -11,9 +11,10 @@ CanvasScheduler::~CanvasScheduler() = default;
 std::unique_ptr<CanvasScheduler> CanvasScheduler::MakeInstance(
     renderer::RenderDevice* device,
     renderer::DeviceContext* context,
-    renderer::QuadrangleIndexCache* index_cache) {
+    renderer::QuadrangleIndexCache* index_cache,
+    filesystem::IOService* io_service) {
   return std::unique_ptr<CanvasScheduler>(
-      new CanvasScheduler(device, context, index_cache));
+      new CanvasScheduler(device, context, index_cache, io_service));
 }
 
 renderer::RenderDevice* CanvasScheduler::GetDevice() {
@@ -22,6 +23,10 @@ renderer::RenderDevice* CanvasScheduler::GetDevice() {
 
 renderer::DeviceContext* CanvasScheduler::GetContext() {
   return immediate_context_;
+}
+
+filesystem::IOService* CanvasScheduler::GetIO() {
+  return io_service_;
 }
 
 void CanvasScheduler::InitWithRenderWorker(base::ThreadWorker* worker) {
@@ -46,10 +51,12 @@ void CanvasScheduler::SubmitPendingPaintCommands() {
 
 CanvasScheduler::CanvasScheduler(renderer::RenderDevice* device,
                                  renderer::DeviceContext* context,
-                                 renderer::QuadrangleIndexCache* index_cache)
+                                 renderer::QuadrangleIndexCache* index_cache,
+                                 filesystem::IOService* io_service)
     : device_base_(device),
       immediate_context_(context),
       render_worker_(nullptr),
-      index_cache_(index_cache) {}
+      index_cache_(index_cache),
+      io_service_(io_service) {}
 
 }  // namespace content

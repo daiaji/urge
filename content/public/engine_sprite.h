@@ -22,11 +22,7 @@ class URGE_RUNTIME_API Sprite : public base::RefCounted<Sprite> {
  public:
   virtual ~Sprite() = default;
 
-  /*--urge(name:initialize)--*/
-  static scoped_refptr<Sprite> New(ExecutionContext* execution_context,
-                                   ExceptionState& exception_state);
-
-  /*--urge(name:initialize)--*/
+  /*--urge(name:initialize,optional:viewport=nullptr)--*/
   static scoped_refptr<Sprite> New(ExecutionContext* execution_context,
                                    scoped_refptr<Viewport> viewport,
                                    ExceptionState& exception_state);

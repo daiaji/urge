@@ -532,7 +532,24 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
                                              ScopedFontData* font_data,
                                              const std::string& filename,
                                              ExceptionState& exception_state) {
-  SDL_Surface* memory_texture = IMG_Load(filename.c_str());
+  SDL_Surface* memory_texture = nullptr;
+  auto file_handler = base::BindRepeating(
+      [](SDL_Surface** surf, SDL_IOStream* ops, const std::string& ext) {
+        *surf = IMG_LoadTyped_IO(ops, true, ext.c_str());
+        return !!*surf;
+      },
+      &memory_texture);
+
+  filesystem::IOState io_state;
+  scheduler->GetIO()->OpenRead(filename, file_handler, &io_state);
+
+  if (io_state.error_count) {
+    exception_state.ThrowContentError(
+        ExceptionCode::IO_ERROR,
+        "Failed to read file: " + filename + " - " + io_state.error_message);
+    return nullptr;
+  }
+
   if (!memory_texture) {
     exception_state.ThrowContentError(
         ExceptionCode::CONTENT_ERROR,
@@ -561,7 +578,9 @@ CanvasImpl::CanvasImpl(RenderScreenImpl* screen,
       scheduler_(scheduler),
       texture_(texture),
       canvas_cache_(nullptr),
-      font_(FontImpl::From(font)) {}
+      font_(FontImpl::From(font)) {
+  scheduler->AttachChildCanvas(this);
+}
 
 CanvasImpl::~CanvasImpl() {
   ExceptionState exception_state;

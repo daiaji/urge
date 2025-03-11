@@ -19,7 +19,7 @@ std::pair<int64_t, void*> ReadFontToMemory(SDL_IOStream* io) {
 
 }  // namespace
 
-ScopedFontData::ScopedFontData(filesystem::IO* io,
+ScopedFontData::ScopedFontData(filesystem::IOService* io,
                                const std::string& default_font_name)
     : default_color(new ColorImpl(base::Vec4(255.0f, 255.0f, 255.0f, 255.0f))),
       default_out_color(new ColorImpl(base::Vec4(0, 0, 0, 255.0f))) {
@@ -42,11 +42,10 @@ ScopedFontData::ScopedFontData(filesystem::IO* io,
   LOG(INFO) << "[Font] Default Font: " << file;
 
   // Load all font to memory as cache
-  std::vector<std::string> font_files;
-  io->EnumDirectory(dir, font_files);
+  std::vector<std::string> font_files = io->EnumDir(dir);
   for (auto& it : font_files) {
     std::string filepath = dir + it;
-    SDL_IOStream* font_stream = io->OpenFile(filepath, nullptr);
+    SDL_IOStream* font_stream = io->OpenReadRaw(filepath, nullptr);
     if (font_stream) {
       // Cached in memory
       data_cache.emplace(it, ReadFontToMemory(font_stream));

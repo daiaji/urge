@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace content {
 
@@ -28,15 +29,26 @@ class ContentProfile {
 
   static std::unique_ptr<ContentProfile> MakeFrom(SDL_IOStream* stream);
 
-  std::string program_path;
+  void LoadCommandLine(int argc, char** argv);
+  bool LoadConfigure(const std::string& app);
 
-  std::string window_title = "URGE Widget";
+  std::vector<std::string> args;
+  std::string program_name;
+
+  std::string window_title = "Engine Widget";
   std::string script_path = "Data/Scripts.rxdata";
+
+  bool game_debug = false;
+  bool game_battle_test = false;
+
   APIVersion api_version = APIVersion::UNKNOWN;
   std::string default_font_path = "Fonts/Default.ttf";
+  std::string wgpu_backend = "";
 
  private:
-  ContentProfile();
+  ContentProfile(SDL_IOStream* stream);
+
+  SDL_IOStream* ini_stream_;
 };
 
 }  // namespace content

@@ -22,7 +22,8 @@ class BindingEngineMri : public content::EngineBindingBase {
   BindingEngineMri(const BindingEngineMri&) = delete;
   BindingEngineMri& operator=(const BindingEngineMri&) = delete;
 
-  void PreEarlyInitialization(content::ContentProfile* profile) override;
+  void PreEarlyInitialization(content::ContentProfile* profile,
+                              filesystem::IOService* io_service) override;
   void OnMainMessageLoopRun(content::ExecutionContext* execution,
                             ScopedModuleContext* module_context) override;
   void PostMainLoopRunning() override;

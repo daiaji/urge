@@ -33,6 +33,7 @@ void Init_zlib();
 namespace binding {
 
 content::ExecutionContext* g_current_execution_context = nullptr;
+extern filesystem::IOService* g_io_service;
 
 namespace {
 
@@ -149,8 +150,10 @@ BindingEngineMri::BindingEngineMri() = default;
 BindingEngineMri::~BindingEngineMri() = default;
 
 void BindingEngineMri::PreEarlyInitialization(
-    content::ContentProfile* profile) {
+    content::ContentProfile* profile,
+    filesystem::IOService* io_service) {
   profile_ = profile;
+  g_io_service = io_service;
 
   int argc = 0;
   char** argv = 0;

@@ -5,6 +5,7 @@
 #ifndef CONTENT_WORKER_ENGINE_BINDING_H_
 #define CONTENT_WORKER_ENGINE_BINDING_H_
 
+#include "components/filesystem/io_service.h"
 #include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
 #include "content/profile/content_profile.h"
@@ -26,7 +27,8 @@ class EngineBindingBase {
 
   // Raised before engine running, after engine other module initialized,
   // prepared for binding creation.
-  virtual void PreEarlyInitialization(ContentProfile* profile);
+  virtual void PreEarlyInitialization(ContentProfile* profile,
+                                      filesystem::IOService* io_service);
 
   // Raise for running main loop.
   virtual void OnMainMessageLoopRun(ExecutionContext* execution_context,

@@ -6,6 +6,7 @@
 #define CONTENT_CANVAS_CANVAS_SCHEDULER_H_
 
 #include "base/worker/thread_worker.h"
+#include "components/filesystem/io_service.h"
 #include "content/canvas/canvas_impl.h"
 #include "renderer/context/device_context.h"
 #include "renderer/device/render_device.h"
@@ -23,10 +24,12 @@ class CanvasScheduler {
   static std::unique_ptr<CanvasScheduler> MakeInstance(
       renderer::RenderDevice* device,
       renderer::DeviceContext* context,
-      renderer::QuadrangleIndexCache* index_cache);
+      renderer::QuadrangleIndexCache* index_cache,
+      filesystem::IOService* io_service);
 
   renderer::RenderDevice* GetDevice();
   renderer::DeviceContext* GetContext();
+  filesystem::IOService* GetIO();
 
   // Bind a worker for current scheduler,
   // all bitmap/canvas draw command will be encoded on this worker.
@@ -52,15 +55,17 @@ class CanvasScheduler {
   friend class CanvasImpl;
   CanvasScheduler(renderer::RenderDevice* device,
                   renderer::DeviceContext* context,
-                  renderer::QuadrangleIndexCache* index_cache);
+                  renderer::QuadrangleIndexCache* index_cache,
+                  filesystem::IOService* io_service);
 
   base::LinkedList<CanvasImpl> children_;
 
   renderer::RenderDevice* device_base_;
   renderer::DeviceContext* immediate_context_;
   base::ThreadWorker* render_worker_;
-
   renderer::QuadrangleIndexCache* index_cache_;
+  filesystem::IOService* io_service_;
+
   std::unique_ptr<renderer::VertexBufferController<renderer::FullVertexLayout>>
       common_vertex_buffer_controller_;
 };

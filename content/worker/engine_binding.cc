@@ -6,7 +6,9 @@
 
 namespace content {
 
-void EngineBindingBase::PreEarlyInitialization(ContentProfile* profile) {}
+void EngineBindingBase::PreEarlyInitialization(
+    ContentProfile* profile,
+    filesystem::IOService* io_service) {}
 
 void EngineBindingBase::OnMainMessageLoopRun(
     ExecutionContext* execution,

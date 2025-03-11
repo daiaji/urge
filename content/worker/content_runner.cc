@@ -9,6 +9,7 @@
 namespace content {
 
 ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
+                             std::unique_ptr<filesystem::IOService> io_service,
                              std::unique_ptr<base::ThreadWorker> render_worker,
                              std::unique_ptr<EngineBindingBase> binding,
                              base::WeakPtr<ui::Widget> window)
@@ -17,7 +18,8 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
       window_(window),
       exit_code_(0),
       binding_quit_flag_(0),
-      binding_(std::move(binding)) {}
+      binding_(std::move(binding)),
+      io_service_(std::move(io_service)) {}
 
 void ContentRunner::InitializeContentInternal() {
   // Initialize CC
@@ -34,16 +36,17 @@ void ContentRunner::InitializeContentInternal() {
     frame_rate = 60;
   }
 
-  io_service_ = filesystem::IO::Create();
   scoped_font_.reset(
       new ScopedFontData(io_service_.get(), profile_->default_font_path));
-  graphics_impl_.reset(new RenderScreenImpl(cc_.get(), scoped_font_.get(),
-                                            resolution, frame_rate));
+  graphics_impl_.reset(new RenderScreenImpl(cc_.get(), io_service_.get(),
+                                            scoped_font_.get(), resolution,
+                                            frame_rate));
   input_impl_.reset(
       new KeyboardControllerImpl(window_->AsWeakPtr(), profile_.get()));
 
   // Init all module workers
-  graphics_impl_->InitWithRenderWorker(render_worker_.get(), window_);
+  graphics_impl_->InitWithRenderWorker(render_worker_.get(), window_,
+                                       profile_->wgpu_backend);
   tick_observer_ = graphics_impl_->AddTickObserver(base::BindRepeating(
       &ContentRunner::TickHandlerInternal, base::Unretained(this)));
 
@@ -69,9 +72,9 @@ std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
   std::unique_ptr<base::ThreadWorker> render_worker =
       base::ThreadWorker::Create();
 
-  auto* runner =
-      new ContentRunner(std::move(params.profile), std::move(render_worker),
-                        std::move(params.entry), params.window);
+  auto* runner = new ContentRunner(
+      std::move(params.profile), std::move(params.io_service),
+      std::move(render_worker), std::move(params.entry), params.window);
   runner->InitializeContentInternal();
 
   return std::unique_ptr<ContentRunner>(runner);
@@ -81,7 +84,8 @@ void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
   auto* self = static_cast<ContentRunner*>(fiber->userdata);
 
   // Before running loop handler
-  self->binding_->PreEarlyInitialization(self->profile_.get());
+  self->binding_->PreEarlyInitialization(self->profile_.get(),
+                                         self->io_service_.get());
 
   // Make script binding execution context
   // Call binding boot handler before running loop handler
