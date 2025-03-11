@@ -10,3 +10,6 @@
 [submodule "third_party/zlib"]
 	path = third_party/zlib
 	url = https://github.com/madler/zlib
+[submodule "third_party/physfs"]
+	path = third_party/physfs
+	url = https://github.com/icculus/physfs.git
