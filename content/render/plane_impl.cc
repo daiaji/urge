@@ -10,11 +10,6 @@ namespace content {
 
 namespace {
 
-float fwrap(float value, float range) {
-  float res = std::fmod(value, range);
-  return res < 0 ? res + range : res;
-}
-
 void GPUCreatePlaneInternal(renderer::RenderDevice* device, PlaneAgent* agent) {
   agent->quad_controller = renderer::FullQuadController::Make(device, 0);
   agent->uniform_buffer =
@@ -40,36 +35,51 @@ void GPUUpdatePlaneQuadArrayInternal(
     const base::Vec4& color,
     const base::Vec4& tone,
     int32_t opacity) {
+  // Pre-calculate tile dimensions with scaling
   const float item_x =
-      std::max(1.0f, static_cast<float>(texture->size.x * scale.x));
+      std::max(1.0f, static_cast<float>(texture->size.x) * scale.x);
   const float item_y =
-      std::max(1.0f, static_cast<float>(texture->size.y * scale.y));
+      std::max(1.0f, static_cast<float>(texture->size.y) * scale.y);
 
-  const float wrap_ox = fwrap(origin.x, item_x);
-  const float wrap_oy = fwrap(origin.y, item_y);
+  // Wrap float into desire value
+  auto value_wrap = [](float value, float range) {
+    float result = std::fmod(value, range);
+    return result < 0 ? result + range : result;
+  };
 
-  const int tile_x =
-      std::ceil((viewport_size.x + wrap_ox - item_x) / item_x) + 1;
-  const int tile_y =
-      std::ceil((viewport_size.y + wrap_oy - item_y) / item_y) + 1;
+  // Calculate wrapped origin offsets
+  const float wrap_ox = value_wrap(origin.x, item_x);
+  const float wrap_oy = value_wrap(origin.y, item_y);
 
+  // Optimized tile calculation using simplified formula
+  const float total_x = static_cast<float>(viewport_size.x) + wrap_ox;
+  const float total_y = static_cast<float>(viewport_size.y) + wrap_oy;
+  const int tile_x = static_cast<int>(std::ceil(total_x / item_x));
+  const int tile_y = static_cast<int>(std::ceil(total_y / item_y));
+
+  // Prepare vertex buffer
   const int quad_size = tile_x * tile_y;
   agent->vertices.resize(quad_size * 4);
+  const base::Vec4 opacity_norm(static_cast<float>(opacity) / 255.0f);
 
-  base::Vec4 opacity_norm(static_cast<float>(opacity) / 255.0f);
-
+  // Pointer-based vertex writing with accumulative positioning
+  renderer::FullVertexLayout* vert_ptr = agent->vertices.data();
+  float current_y = -wrap_oy;
   for (int y = 0; y < tile_y; ++y) {
+    float current_x = -wrap_ox;
     for (int x = 0; x < tile_x; ++x) {
-      size_t index = (y * tile_x + x) * 4;
-      renderer::FullVertexLayout* vert = &agent->vertices[index];
-      base::RectF pos(x * item_x - wrap_ox, y * item_y - wrap_oy, item_x,
-                      item_y);
-
-      renderer::FullVertexLayout::SetPositionRect(vert, pos);
-      renderer::FullVertexLayout::SetTexCoordRect(vert,
+      // Set vertex properties directly through pointer
+      const base::RectF pos(current_x, current_y, item_x, item_y);
+      renderer::FullVertexLayout::SetPositionRect(vert_ptr, pos);
+      renderer::FullVertexLayout::SetTexCoordRect(vert_ptr,
                                                   base::Vec2(item_x, item_y));
-      renderer::FullVertexLayout::SetColor(vert, opacity_norm);
+      renderer::FullVertexLayout::SetColor(vert_ptr, opacity_norm);
+
+      // Move to next quad using pointer arithmetic
+      vert_ptr += 4;
+      current_x += item_x;  // X-axis accumulation
     }
+    current_y += item_y;  // Y-axis accumulation
   }
 
   index_cache->Allocate(quad_size);

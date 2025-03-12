@@ -269,7 +269,7 @@ return ary;
         func_body += "MriCheckArgc(argc, {});\n".format(max_argument_count)
         func_body += "return Qnil;\n"
         func_body += "}\n"
-        func_body += "return self;\n"
+      func_body += "return self;\n"
       func_body += "}\n"
 
     return func_body
