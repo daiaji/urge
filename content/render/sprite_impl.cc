@@ -319,6 +319,11 @@ int32_t SpriteImpl::Get_Y(ExceptionState& exception_state) {
 
 void SpriteImpl::Put_Y(const int32_t& value, ExceptionState& exception_state) {
   transform_.SetPosition(base::Vec2(transform_.GetPosition().x, value));
+  // Sort with Z and Y attribute on RGSS 2/3.
+  if (screen()->GetAPIVersion() >= ContentProfile::APIVersion::RGSS2) {
+    int64_t current_order = node_.GetSortKeys()->weight[0];
+    node_.SetNodeSortWeight(current_order, value);
+  }
 }
 
 int32_t SpriteImpl::Get_Z(ExceptionState& exception_state) {

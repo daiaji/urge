@@ -38,9 +38,9 @@ void ContentRunner::InitializeContentInternal() {
 
   scoped_font_.reset(
       new ScopedFontData(io_service_.get(), profile_->default_font_path));
-  graphics_impl_.reset(new RenderScreenImpl(cc_.get(), io_service_.get(),
-                                            scoped_font_.get(), resolution,
-                                            frame_rate));
+  graphics_impl_.reset(
+      new RenderScreenImpl(cc_.get(), profile_.get(), io_service_.get(),
+                           scoped_font_.get(), resolution, frame_rate));
   input_impl_.reset(
       new KeyboardControllerImpl(window_->AsWeakPtr(), profile_.get()));
 

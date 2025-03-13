@@ -8,6 +8,7 @@
 #include "base/worker/thread_worker.h"
 #include "content/components/disposable.h"
 #include "content/components/font_context.h"
+#include "content/profile/content_profile.h"
 #include "content/public/engine_graphics.h"
 #include "content/render/drawable_controller.h"
 #include "content/worker/coroutine_context.h"
@@ -58,6 +59,7 @@ class GraphicsChild {
 class RenderScreenImpl : public Graphics, public DisposableCollection {
  public:
   RenderScreenImpl(CoroutineContext* cc,
+                   ContentProfile* profile,
                    filesystem::IOService* io_service,
                    ScopedFontData* scoped_font,
                    const base::Vec2i& resolution,
@@ -81,6 +83,10 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   DrawNodeController* GetDrawableController() { return &controller_; }
   base::ThreadWorker* GetRenderRunner() const { return render_worker_; }
   base::Vec2i GetResolution() const { return resolution_; }
+
+  ContentProfile::APIVersion GetAPIVersion() const {
+    return profile_->api_version;
+  }
 
   void PostTask(base::OnceClosure task);
   void WaitWorkerSynchronize();
@@ -149,6 +155,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   base::RepeatingClosureList tick_observers_;
 
   CoroutineContext* cc_;
+  ContentProfile* profile_;
   filesystem::IOService* io_service_;
   base::ThreadWorker* render_worker_;
   ScopedFontData* scoped_font_;

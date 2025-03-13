@@ -40,11 +40,13 @@ wgpu::BackendType GetWGPUBackend(const std::string& wgpu_backend) {
 }  // namespace
 
 RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
+                                   ContentProfile* profile,
                                    filesystem::IOService* io_service,
                                    ScopedFontData* scoped_font,
                                    const base::Vec2i& resolution,
                                    int frame_rate)
     : cc_(cc),
+      profile_(profile),
       io_service_(io_service),
       render_worker_(nullptr),
       scoped_font_(scoped_font),
