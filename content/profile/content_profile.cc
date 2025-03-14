@@ -39,10 +39,7 @@ char* IniStreamReader(char* str, int num, void* stream) {
 
 ContentProfile::ContentProfile(SDL_IOStream* stream) : ini_stream_(stream) {}
 
-ContentProfile::~ContentProfile() {
-  if (ini_stream_)
-    SDL_CloseIO(ini_stream_);
-}
+ContentProfile::~ContentProfile() = default;
 
 std::unique_ptr<ContentProfile> ContentProfile::MakeFrom(SDL_IOStream* stream) {
   return std::unique_ptr<ContentProfile>(new ContentProfile(stream));
@@ -87,6 +84,9 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   api_version = static_cast<ContentProfile::APIVersion>(reader->GetInteger(
       "Engine", "APIVersion", static_cast<int32_t>(api_version)));
   wgpu_backend = reader->Get("Engine", "WGPUBackend", wgpu_backend);
+
+  if (ini_stream_)
+    SDL_CloseIO(ini_stream_);
 
   return true;
 }

@@ -18,10 +18,6 @@ inline float DegreesToRadians(float degrees) {
   return degrees * (kPi / 180.0f);
 }
 
-using TransformMatrix = struct {
-  float data[16];
-};
-
 void GPUCreateSpriteInternal(renderer::RenderDevice* device,
                              SpriteAgent* agent) {
   wgpu::BufferDescriptor buffer_desc;
@@ -32,10 +28,10 @@ void GPUCreateSpriteInternal(renderer::RenderDevice* device,
   agent->vertex_buffer = (*device)->CreateBuffer(&buffer_desc);
 
   agent->uniform_buffer =
-      renderer::CreateUniformBuffer<renderer::SpriteFragmentUniform>(
+      renderer::CreateUniformBuffer<renderer::SpriteUniform>(
           **device, "sprite.uniform", wgpu::BufferUsage::CopyDst);
-  agent->uniform_binding = renderer::SpriteFragmentUniform::CreateGroup(
-      **device, agent->uniform_buffer);
+  agent->uniform_binding =
+      renderer::SpriteUniform::CreateGroup(**device, agent->uniform_buffer);
 }
 
 void GPUDestroySpriteInternal(SpriteAgent* agent) {
@@ -107,13 +103,9 @@ void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
                                      wgpu::CommandEncoder* encoder,
                                      SpriteAgent* agent,
                                      TextureAgent* texture,
+                                     const renderer::SpriteUniform& uniform,
                                      const base::Rect& src_rect,
-                                     const TransformMatrix& trans_mat,
                                      int32_t opacity,
-                                     const base::Vec4& color,
-                                     const base::Vec4& tone,
-                                     int32_t bush_depth,
-                                     int32_t bush_opacity,
                                      int32_t mirror,
                                      const SpriteImpl::WaveParams& wave,
                                      const base::Vec2& position,
@@ -148,15 +140,9 @@ void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
                          sizeof(vertices));
   }
 
-  renderer::SpriteFragmentUniform uniform;
-  std::memcpy(uniform.transform, &trans_mat, sizeof(float) * 16);
-  uniform.color = color;
-  uniform.tone = tone;
-  uniform.bush_depth =
-      static_cast<float>(src_rect.y + src_rect.height - bush_depth);
-  uniform.bush_opacity = static_cast<float>(bush_opacity) / 255.0f;
   encoder->WriteBuffer(agent->uniform_buffer, 0,
-                       reinterpret_cast<uint8_t*>(&uniform), sizeof(uniform));
+                       reinterpret_cast<const uint8_t*>(&uniform),
+                       sizeof(uniform));
 }
 
 void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
@@ -211,6 +197,9 @@ SpriteImpl::SpriteImpl(RenderScreenImpl* screen,
   src_rect_observer_ = src_rect_->AddObserver(base::BindRepeating(
       &SpriteImpl::SrcRectChangedInternal, base::Unretained(this)));
 
+  std::memset(&uniform_params_, 0, sizeof(uniform_params_));
+  uniform_params_.scale = base::Vec2(1.0f);
+
   agent_ = new SpriteAgent;
   screen->PostTask(
       base::BindOnce(&GPUCreateSpriteInternal, screen->GetDevice(), agent_));
@@ -246,7 +235,6 @@ void SpriteImpl::Update(ExceptionState& exception_state) {
     return;
 
   flash_emitter_.Update();
-
   wave_.phase += wave_.speed / 180.0f;
   wave_.dirty = true;
 }
@@ -266,59 +254,97 @@ uint32_t SpriteImpl::Height(ExceptionState& exception_state) {
 }
 
 scoped_refptr<Bitmap> SpriteImpl::Get_Bitmap(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return bitmap_;
 }
 
 void SpriteImpl::Put_Bitmap(const scoped_refptr<Bitmap>& value,
                             ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   bitmap_ = CanvasImpl::FromBitmap(value);
   if (bitmap_)
     src_rect_->SetBase(bitmap_->AsBaseSize());
 }
 
 scoped_refptr<Rect> SpriteImpl::Get_SrcRect(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return src_rect_;
 }
 
 void SpriteImpl::Put_SrcRect(const scoped_refptr<Rect>& value,
                              ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   *src_rect_ = *RectImpl::From(value);
 }
 
 scoped_refptr<Viewport> SpriteImpl::Get_Viewport(
     ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return viewport_;
 }
 
 void SpriteImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
                               ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   viewport_ = ViewportImpl::From(value);
   node_.RebindController(viewport_->GetDrawableController());
 }
 
 bool SpriteImpl::Get_Visible(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return false;
+
   return node_.GetVisibility();
 }
 
 void SpriteImpl::Put_Visible(const bool& value,
                              ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   node_.SetNodeVisibility(value);
 }
 
 int32_t SpriteImpl::Get_X(ExceptionState& exception_state) {
-  return transform_.GetPosition().x;
+  if (CheckDisposed(exception_state))
+    return 0;
+
+  return uniform_params_.position.x;
 }
 
 void SpriteImpl::Put_X(const int32_t& value, ExceptionState& exception_state) {
-  transform_.SetPosition(base::Vec2(value, transform_.GetPosition().y));
+  if (CheckDisposed(exception_state))
+    return;
+
+  uniform_params_.position.x = value;
 }
 
 int32_t SpriteImpl::Get_Y(ExceptionState& exception_state) {
-  return transform_.GetPosition().y;
+  if (CheckDisposed(exception_state))
+    return 0;
+
+  return uniform_params_.position.y;
 }
 
 void SpriteImpl::Put_Y(const int32_t& value, ExceptionState& exception_state) {
-  transform_.SetPosition(base::Vec2(transform_.GetPosition().x, value));
+  if (CheckDisposed(exception_state))
+    return;
+
+  // Set normal Y attribute for all version.
+  uniform_params_.position.y = value;
+
   // Sort with Z and Y attribute on RGSS 2/3.
   if (screen()->GetAPIVersion() >= ContentProfile::APIVersion::RGSS2) {
     int64_t current_order = node_.GetSortKeys()->weight[0];
@@ -327,152 +353,255 @@ void SpriteImpl::Put_Y(const int32_t& value, ExceptionState& exception_state) {
 }
 
 int32_t SpriteImpl::Get_Z(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return node_.GetSortKeys()->weight[0];
 }
 
 void SpriteImpl::Put_Z(const int32_t& value, ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   node_.SetNodeSortWeight(value);
 }
 
 int32_t SpriteImpl::Get_Ox(ExceptionState& exception_state) {
-  return transform_.GetOrigin().x;
+  if (CheckDisposed(exception_state))
+    return 0;
+
+  return uniform_params_.origin.x;
 }
 
 void SpriteImpl::Put_Ox(const int32_t& value, ExceptionState& exception_state) {
-  transform_.SetOrigin(base::Vec2(value, transform_.GetOrigin().y));
+  if (CheckDisposed(exception_state))
+    return;
+
+  uniform_params_.origin.x = value;
 }
 
 int32_t SpriteImpl::Get_Oy(ExceptionState& exception_state) {
-  return transform_.GetOrigin().y;
+  if (CheckDisposed(exception_state))
+    return 0;
+
+  return uniform_params_.origin.y;
 }
 
 void SpriteImpl::Put_Oy(const int32_t& value, ExceptionState& exception_state) {
-  transform_.SetOrigin(base::Vec2(transform_.GetOrigin().x, value));
+  if (CheckDisposed(exception_state))
+    return;
+
+  uniform_params_.origin.y = value;
 }
 
 float SpriteImpl::Get_ZoomX(ExceptionState& exception_state) {
-  return transform_.GetScale().x;
+  if (CheckDisposed(exception_state))
+    return 0;
+
+  return uniform_params_.scale.x;
 }
 
 void SpriteImpl::Put_ZoomX(const float& value,
                            ExceptionState& exception_state) {
-  transform_.SetScale(base::Vec2(value, transform_.GetScale().y));
+  if (CheckDisposed(exception_state))
+    return;
+
+  uniform_params_.scale.x = value;
 }
 
 float SpriteImpl::Get_ZoomY(ExceptionState& exception_state) {
-  return transform_.GetScale().y;
+  if (CheckDisposed(exception_state))
+    return 0;
+
+  return uniform_params_.scale.y;
 }
 
 void SpriteImpl::Put_ZoomY(const float& value,
                            ExceptionState& exception_state) {
-  transform_.SetScale(base::Vec2(transform_.GetScale().x, value));
+  if (CheckDisposed(exception_state))
+    return;
+
+  uniform_params_.scale.y = value;
 }
 
 float SpriteImpl::Get_Angle(ExceptionState& exception_state) {
-  return transform_.GetRotation();
+  if (CheckDisposed(exception_state))
+    return 0;
+
+  return angle_;
 }
 
 void SpriteImpl::Put_Angle(const float& value,
                            ExceptionState& exception_state) {
-  transform_.SetRotation(value);
+  if (CheckDisposed(exception_state))
+    return;
+
+  angle_ = value;
+  uniform_params_.rotation = angle_ * kPi / 180.0f;
 }
 
 int32_t SpriteImpl::Get_WaveAmp(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return wave_.amp;
 }
 
 void SpriteImpl::Put_WaveAmp(const int32_t& value,
                              ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   wave_.amp = value;
 }
 
 int32_t SpriteImpl::Get_WaveLength(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return wave_.length;
 }
 
 void SpriteImpl::Put_WaveLength(const int32_t& value,
                                 ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   wave_.length = value;
 }
 
 int32_t SpriteImpl::Get_WaveSpeed(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return wave_.speed;
 }
 
 void SpriteImpl::Put_WaveSpeed(const int32_t& value,
                                ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   wave_.speed = value;
 }
 
 int32_t SpriteImpl::Get_WavePhase(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return wave_.phase;
 }
 
 void SpriteImpl::Put_WavePhase(const int32_t& value,
                                ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   wave_.phase = value;
 }
 
 bool SpriteImpl::Get_Mirror(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return false;
+
   return mirror_;
 }
 
 void SpriteImpl::Put_Mirror(const bool& value,
                             ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   mirror_ = value;
 }
 
 int32_t SpriteImpl::Get_BushDepth(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return bush_.depth;
 }
 
 void SpriteImpl::Put_BushDepth(const int32_t& value,
                                ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   bush_.depth = value;
 }
 
 int32_t SpriteImpl::Get_BushOpacity(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return bush_.opacity;
 }
 
 void SpriteImpl::Put_BushOpacity(const int32_t& value,
                                  ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   bush_.opacity = value;
 }
 
 int32_t SpriteImpl::Get_Opacity(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return opacity_;
 }
 
 void SpriteImpl::Put_Opacity(const int32_t& value,
                              ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   opacity_ = value;
 }
 
 int32_t SpriteImpl::Get_BlendType(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return blend_type_;
 }
 
 void SpriteImpl::Put_BlendType(const int32_t& value,
                                ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   blend_type_ = value;
 }
 
 scoped_refptr<Color> SpriteImpl::Get_Color(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return color_;
 }
 
 void SpriteImpl::Put_Color(const scoped_refptr<Color>& value,
                            ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   *color_ = *ColorImpl::From(value);
 }
 
 scoped_refptr<Tone> SpriteImpl::Get_Tone(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return tone_;
 }
 
 void SpriteImpl::Put_Tone(const scoped_refptr<Tone>& value,
                           ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   *tone_ = *ToneImpl::From(value);
 }
 
@@ -488,10 +617,6 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     return;
 
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
-    TransformMatrix trans_mat;
-    std::memcpy(trans_mat.data, transform_.GetMatrixDataUnsafe(),
-                sizeof(trans_mat));
-
     base::Vec4 composite_color = color_->AsNormColor();
     base::Vec4 flash_color = flash_emitter_.GetColor();
     base::Vec4 target_color = composite_color;
@@ -499,12 +624,18 @@ void SpriteImpl::DrawableNodeHandlerInternal(
       target_color =
           (flash_color.w > composite_color.w ? flash_color : composite_color);
 
-    screen()->PostTask(base::BindOnce(
-        &GPUUpdateSpriteVerticesInternal, params->device,
-        params->command_encoder, agent_, bitmap_->GetAgent(),
-        src_rect_->AsBaseRect(), trans_mat, opacity_, target_color,
-        tone_->AsNormColor(), bush_.depth, bush_.opacity, mirror_, wave_,
-        transform_.GetPosition(), src_rect_dirty_));
+    base::Rect src_rect = src_rect_->AsBaseRect();
+    uniform_params_.color = target_color;
+    uniform_params_.tone = tone_->AsNormColor();
+    uniform_params_.bush_depth =
+        static_cast<float>(src_rect.y + src_rect.height - bush_.depth);
+    uniform_params_.bush_opacity = static_cast<float>(bush_.opacity) / 255.0f;
+
+    screen()->PostTask(
+        base::BindOnce(&GPUUpdateSpriteVerticesInternal, params->device,
+                       params->command_encoder, agent_, bitmap_->GetAgent(),
+                       uniform_params_, src_rect, opacity_, mirror_, wave_,
+                       uniform_params_.position, src_rect_dirty_));
 
     wave_.dirty = false;
     src_rect_dirty_ = false;

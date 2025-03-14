@@ -158,7 +158,7 @@ Pipeline_Sprite::Pipeline_Sprite(const wgpu::Device& device,
                 {
                     WorldMatrixUniform::GetLayout(device),
                     TextureBindingUniform::GetLayout(device),
-                    SpriteFragmentUniform::GetLayout(device),
+                    SpriteUniform::GetLayout(device),
                 },
                 target);
 }

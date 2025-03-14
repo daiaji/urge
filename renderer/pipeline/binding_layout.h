@@ -10,17 +10,19 @@
 
 namespace renderer {
 
-struct alignas(16) WorldMatrixUniform {
-  float projection[16];
-  float transform[16];
+#define WGPU_ALIGN_TYPE(ty) alignas(sizeof(ty)) ty
+
+struct WorldMatrixUniform {
+  WGPU_ALIGN_TYPE(float) projection[16];
+  WGPU_ALIGN_TYPE(float) transform[16];
 
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
   static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
                                      const wgpu::Buffer& buffer);
 };
 
-struct alignas(16) TextureBindingUniform {
-  base::Vec2 texture_size;
+struct TextureBindingUniform {
+  WGPU_ALIGN_TYPE(base::Vec2) texture_size;
 
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
   static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
@@ -29,28 +31,32 @@ struct alignas(16) TextureBindingUniform {
                                      const wgpu::Buffer& buffer);
 };
 
-struct alignas(16) ViewportFragmentUniform {
-  base::Vec4 color;
-  base::Vec4 tone;
+struct ViewportFragmentUniform {
+  WGPU_ALIGN_TYPE(base::Vec4) color;
+  WGPU_ALIGN_TYPE(base::Vec4) tone;
 
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
   static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
                                      const wgpu::Buffer& buffer);
 };
 
-struct alignas(16) SpriteFragmentUniform {
-  float transform[16];
-  base::Vec4 color;
-  base::Vec4 tone;
-  float bush_depth;
-  float bush_opacity;
+struct SpriteUniform {
+  WGPU_ALIGN_TYPE(base::Vec2) position;
+  WGPU_ALIGN_TYPE(base::Vec2) origin;
+  WGPU_ALIGN_TYPE(base::Vec2) scale;
+  WGPU_ALIGN_TYPE(float) rotation;
+
+  WGPU_ALIGN_TYPE(base::Vec4) color;
+  WGPU_ALIGN_TYPE(base::Vec4) tone;
+  WGPU_ALIGN_TYPE(float) bush_depth;
+  WGPU_ALIGN_TYPE(float) bush_opacity;
 
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
   static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
                                      const wgpu::Buffer& buffer);
 };
 
-struct alignas(16) AlphaTransitionUniform {
+struct AlphaTransitionUniform {
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
   static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
                                      const wgpu::TextureView& frozen,
@@ -58,7 +64,7 @@ struct alignas(16) AlphaTransitionUniform {
                                      const wgpu::Sampler& sampler);
 };
 
-struct alignas(16) VagueTransitionUniform {
+struct VagueTransitionUniform {
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
   static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
                                      const wgpu::TextureView& frozen,

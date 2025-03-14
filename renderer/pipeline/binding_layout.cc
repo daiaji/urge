@@ -126,8 +126,7 @@ wgpu::BindGroup ViewportFragmentUniform::CreateGroup(
 /// Sprite Binding
 /// </summary>
 
-wgpu::BindGroupLayout SpriteFragmentUniform::GetLayout(
-    const wgpu::Device& device) {
+wgpu::BindGroupLayout SpriteUniform::GetLayout(const wgpu::Device& device) {
   wgpu::BindGroupLayoutEntry entries[1];
   entries[0].binding = 0;
   entries[0].visibility =
@@ -142,8 +141,8 @@ wgpu::BindGroupLayout SpriteFragmentUniform::GetLayout(
   return device.CreateBindGroupLayout(&binding_desc);
 }
 
-wgpu::BindGroup SpriteFragmentUniform::CreateGroup(const wgpu::Device& device,
-                                                   const wgpu::Buffer& buffer) {
+wgpu::BindGroup SpriteUniform::CreateGroup(const wgpu::Device& device,
+                                           const wgpu::Buffer& buffer) {
   wgpu::BindGroupEntry entries;
   entries.binding = 0;
   entries.buffer = buffer;

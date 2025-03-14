@@ -136,7 +136,11 @@ struct WorldMatrix {
 };
 
 struct EffectParams {
-  transMat: mat4x4<f32>,
+  position: vec2<f32>,
+  origin: vec2<f32>,
+  scale: vec2<f32>,
+  rotation: f32,  
+
   color: vec4<f32>,
   tone: vec4<f32>,
   bushDepth: f32,
@@ -161,9 +165,21 @@ const lumaF: vec3<f32> = vec3<f32>(0.299, 0.587, 0.114);
     @location(0) pos: vec4<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) color: vec4<f32>) -> VertexOutput {
+  var sine = sin(u_effect.rotation);
+  var cosine = cos(u_effect.rotation);
+
+  var sxs = u_effect.scale.x * sine;
+  var sys = u_effect.scale.y * sine;
+  var sxc = u_effect.scale.x * cosine;
+  var syc = u_effect.scale.y * cosine;
+
+  var tx = -u_effect.origin.x * sxc - u_effect.origin.y * sys + u_effect.position.x;
+  var ty = u_effect.origin.x * sxs - u_effect.origin.y * syc + u_effect.position.y;
+
+  var trans_pos = vec4<f32>(pos.x * sxc + pos.y * sys + tx, -pos.x * sxs + pos.y * syc + ty, pos.z, pos.w);
+
   var result: VertexOutput;
-  var sprite_pos = u_effect.transMat * pos;
-  result.pos = u_transform.projMat * sprite_pos;
+  result.pos = u_transform.projMat * trans_pos;
   result.pos = u_transform.transMat * result.pos;
   result.uv = u_texSize * uv;
   result.color = color;
@@ -181,7 +197,7 @@ const lumaF: vec3<f32> = vec3<f32>(0.299, 0.587, 0.114);
   frag = vec4<f32>(mix(frag.rgb, u_effect.color.rgb, u_effect.color.a), frag.a);
 
   let currentPos = vertex.uv.y / u_texSize.y;
-  let underBush = select(0.0, 1.0, u_effect.bushDepth > currentPos);
+  let underBush = select(1.0, 0.0, currentPos > u_effect.bushDepth);
   frag.a *= clamp(u_effect.bushOpacity + underBush, 0.0, 1.0);
 
   return frag;

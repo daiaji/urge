@@ -156,113 +156,185 @@ bool PlaneImpl::IsDisposed(ExceptionState& exception_state) {
 }
 
 scoped_refptr<Bitmap> PlaneImpl::Get_Bitmap(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return bitmap_;
 }
 
 void PlaneImpl::Put_Bitmap(const scoped_refptr<Bitmap>& value,
                            ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   bitmap_ = CanvasImpl::FromBitmap(value);
   quad_array_dirty_ = true;
 }
 
 scoped_refptr<Viewport> PlaneImpl::Get_Viewport(
     ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return viewport_;
 }
 
 void PlaneImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
                              ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   viewport_ = ViewportImpl::From(value);
   node_.RebindController(viewport_->GetDrawableController());
   quad_array_dirty_ = true;
 }
 
 bool PlaneImpl::Get_Visible(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return false;
+
   return node_.GetVisibility();
 }
 
 void PlaneImpl::Put_Visible(const bool& value,
                             ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   node_.SetNodeVisibility(value);
 }
 
 int32_t PlaneImpl::Get_Z(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return node_.GetSortKeys()->weight[0];
 }
 
 void PlaneImpl::Put_Z(const int32_t& value, ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   node_.SetNodeSortWeight(value);
 }
 
 int32_t PlaneImpl::Get_Ox(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return origin_.x;
 }
 
 void PlaneImpl::Put_Ox(const int32_t& value, ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   origin_.x = value;
   quad_array_dirty_ = true;
 }
 
 int32_t PlaneImpl::Get_Oy(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return origin_.y;
 }
 
 void PlaneImpl::Put_Oy(const int32_t& value, ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   origin_.y = value;
   quad_array_dirty_ = true;
 }
 
 float PlaneImpl::Get_ZoomX(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return scale_.x;
 }
 
 void PlaneImpl::Put_ZoomX(const float& value, ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   scale_.x = value;
   quad_array_dirty_ = true;
 }
 
 float PlaneImpl::Get_ZoomY(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return scale_.y;
 }
 
 void PlaneImpl::Put_ZoomY(const float& value, ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   scale_.y = value;
   quad_array_dirty_ = true;
 }
 
 uint32_t PlaneImpl::Get_Opacity(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return opacity_;
 }
 
 void PlaneImpl::Put_Opacity(const uint32_t& value,
                             ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   opacity_ = value;
 }
 
 uint32_t PlaneImpl::Get_BlendType(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return blend_type_;
 }
 
 void PlaneImpl::Put_BlendType(const uint32_t& value,
                               ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   blend_type_ = value;
 }
 
 scoped_refptr<Color> PlaneImpl::Get_Color(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return color_;
 }
 
 void PlaneImpl::Put_Color(const scoped_refptr<Color>& value,
                           ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   color_ = ColorImpl::From(value);
 }
 
 scoped_refptr<Tone> PlaneImpl::Get_Tone(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return tone_;
 }
 
 void PlaneImpl::Put_Tone(const scoped_refptr<Tone>& value,
                          ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   tone_ = ToneImpl::From(value);
 }
 

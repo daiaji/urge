@@ -25,7 +25,6 @@ set(ENGINE_BASE_SRC
   debug/logging.h
   math/rectangle.cc
   math/rectangle.h
-  math/transform.h
   math/vector.cc
   math/vector.h
   memory/atomic_flag.cc

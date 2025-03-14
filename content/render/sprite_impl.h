@@ -5,7 +5,6 @@
 #ifndef CONTENT_RENDER_SPRITE_IMPL_H_
 #define CONTENT_RENDER_SPRITE_IMPL_H_
 
-#include "base/math/transform.h"
 #include "content/canvas/canvas_impl.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
@@ -94,7 +93,7 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
   scoped_refptr<CanvasImpl> bitmap_;
   scoped_refptr<RectImpl> src_rect_;
 
-  base::TransformMatrix transform_;
+  renderer::SpriteUniform uniform_params_;
   WaveParams wave_;
 
   struct {
@@ -102,6 +101,7 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
     int32_t opacity = 128;
   } bush_;
 
+  float angle_ = 0.0f;
   int32_t mirror_ = 0;
   int32_t opacity_ = 255;
   int32_t blend_type_ = 0;
