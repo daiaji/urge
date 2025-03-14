@@ -821,12 +821,8 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(float progress,
   render_pass.End();
 }
 
-void RenderScreenImpl::AddDisposable(Disposable* disp) {
+void RenderScreenImpl::AddDisposable(base::LinkNode<Disposable>* disp) {
   disposable_elements_.Append(disp);
-}
-
-void RenderScreenImpl::RemoveDisposable(Disposable* disp) {
-  disp->RemoveFromList();
 }
 
 uint32_t RenderScreenImpl::Get_FrameRate(ExceptionState&) {

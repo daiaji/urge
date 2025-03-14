@@ -38,10 +38,6 @@ void CanvasScheduler::InitWithRenderWorker(base::ThreadWorker* worker) {
           device_base_, 4);
 }
 
-void CanvasScheduler::AttachChildCanvas(CanvasImpl* child) {
-  children_.Append(child);
-}
-
 void CanvasScheduler::SubmitPendingPaintCommands() {
   for (auto it = children_.head(); it != children_.end(); it = it->next()) {
     // Submit all pending commands (except Blt, StretchBlt)

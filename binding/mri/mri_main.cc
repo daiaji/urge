@@ -237,6 +237,7 @@ void BindingEngineMri::PostMainLoopRunning() {
 
   ruby_cleanup(0);
   g_current_execution_context = nullptr;
+  *MriGetGlobalModules() = GlobalModules();
 
   LOG(INFO) << "[Binding] Quit mri binding engine.";
 }

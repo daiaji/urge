@@ -41,9 +41,7 @@ struct TextureAgent {
   wgpu::Buffer text_write_cache;
 };
 
-class CanvasImpl : public Bitmap,
-                   public base::LinkNode<CanvasImpl>,
-                   public Disposable {
+class CanvasImpl : public Bitmap, public Disposable {
  public:
   CanvasImpl(RenderScreenImpl* screen,
              CanvasScheduler* scheduler,
@@ -289,6 +287,8 @@ class CanvasImpl : public Bitmap,
     commands_ = nullptr;
     current_block_ = 0;
   }
+
+  base::LinkNode<CanvasImpl> node_;
 
   CanvasScheduler* scheduler_;
   TextureAgent* texture_;

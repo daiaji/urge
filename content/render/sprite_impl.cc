@@ -184,13 +184,13 @@ SpriteImpl::SpriteImpl(RenderScreenImpl* screen,
                        scoped_refptr<ViewportImpl> parent)
     : GraphicsChild(screen),
       Disposable(screen),
-      node_(SortKey()),
+      node_(parent ? parent->GetDrawableController()
+                   : screen->GetDrawableController(),
+            SortKey()),
       viewport_(parent),
       src_rect_(new RectImpl(base::Rect())),
       color_(new ColorImpl(base::Vec4())),
       tone_(new ToneImpl(base::Vec4())) {
-  node_.RebindController(parent ? parent->GetDrawableController()
-                                : screen->GetDrawableController());
   node_.RegisterEventHandler(base::BindRepeating(
       &SpriteImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
 
@@ -296,6 +296,9 @@ scoped_refptr<Viewport> SpriteImpl::Get_Viewport(
 void SpriteImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
                               ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
+    return;
+
+  if (viewport_ == value)
     return;
 
   viewport_ = ViewportImpl::From(value);

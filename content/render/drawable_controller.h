@@ -54,10 +54,11 @@ struct SortKey {
   SortKey(int64_t key1, int64_t key2);
   SortKey(int64_t key1, int64_t key2, int64_t key3);
 
-  inline bool operator()(const SortKey& lv, const SortKey& rv) const {
+  // Compare self with other for displaying under other object.
+  inline bool operator<(const SortKey& other) const {
     for (int i = 0; i < 3; ++i)
-      if (lv.weight[i] != rv.weight[i])
-        return lv.weight[i] < rv.weight[i];
+      if (weight[i] != other.weight[i])
+        return weight[i] < other.weight[i];
 
     return false;
   }
@@ -65,7 +66,7 @@ struct SortKey {
 
 // Drawable child node,
 // expect to be set in class as a node variable.
-class DrawableNode final : public base::LinkNode<DrawableNode> {
+class DrawableNode final {
  public:
   enum RenderStage {
     BEFORE_RENDER = 0,
@@ -112,7 +113,10 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
       base::RepeatingCallback<void(RenderStage stage,
                                    RenderControllerParams* params)>;
 
-  DrawableNode(const SortKey& default_sort_weight);
+  DrawableNode(DrawNodeController* controller, const SortKey& default_key);
+  DrawableNode(DrawNodeController* controller,
+               const SortKey& default_key,
+               bool visible);
   ~DrawableNode();
 
   // Register the main executer for current drawable node's host
@@ -145,10 +149,14 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
  private:
   friend class DrawNodeController;
 
-  SortKey key_;
-  int32_t node_visibility_;
-  NotificationHandler handler_;
+  base::LinkNode<DrawableNode> associated_node_;
+  base::LinkNode<DrawableNode> orderly_node_;
+
   DrawNodeController* controller_;
+  NotificationHandler handler_;
+
+  SortKey key_;
+  bool visible_;
 };
 
 // Controller node implement with sorted-map contrainer.
@@ -169,11 +177,14 @@ class DrawNodeController final {
  private:
   friend class DrawableNode;
 
-  // Associated boardcast list
-  base::LinkedList<DrawableNode> associated_nodes_;
+  // Insert child node to controller by sorted key.
+  void InsertChildNodeInternal(DrawableNode* node);
 
-  // Sorted map based contrainer.
-  std::pmr::map<SortKey, DrawableNode*, SortKey> nodes_;
+  // Associated boardcast list (no-order)
+  base::LinkedList<DrawableNode> associated_list_;
+
+  // Nodes sorted by key boardcast list (in-order, Z min to max)
+  base::LinkedList<DrawableNode> orderly_list_;
 };
 
 // Flash duration controller components

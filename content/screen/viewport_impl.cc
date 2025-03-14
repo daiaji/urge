@@ -281,14 +281,14 @@ ViewportImpl::ViewportImpl(RenderScreenImpl* screen,
                            const base::Rect& region)
     : GraphicsChild(screen),
       Disposable(screen),
-      node_(SortKey()),
+      node_(parent ? parent->GetDrawableController()
+                   : screen->GetDrawableController(),
+            SortKey()),
       rect_(new RectImpl(region)),
       color_(new ColorImpl(base::Vec4())),
       tone_(new ToneImpl(base::Vec4())) {
   node_.RegisterEventHandler(base::BindRepeating(
       &ViewportImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
-  node_.RebindController(parent ? parent->GetDrawableController()
-                                : screen->GetDrawableController());
 
   agent_ = new ViewportAgent;
   screen->PostTask(

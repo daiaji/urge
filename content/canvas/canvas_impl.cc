@@ -575,11 +575,12 @@ CanvasImpl::CanvasImpl(RenderScreenImpl* screen,
                        TextureAgent* texture,
                        scoped_refptr<Font> font)
     : Disposable(screen),
+      node_(this),
       scheduler_(scheduler),
       texture_(texture),
       canvas_cache_(nullptr),
       font_(FontImpl::From(font)) {
-  scheduler->AttachChildCanvas(this);
+  scheduler->children_.Append(&node_);
 }
 
 CanvasImpl::~CanvasImpl() {
@@ -1021,7 +1022,7 @@ scoped_refptr<Rect> CanvasImpl::TextSize(const std::string& str,
 
 void CanvasImpl::OnObjectDisposed() {
   // Unlink from canvas scheduler
-  base::LinkNode<CanvasImpl>::RemoveFromList();
+  node_.RemoveFromList();
 
   // Destroy GPU texture
   base::ThreadWorker::PostTask(

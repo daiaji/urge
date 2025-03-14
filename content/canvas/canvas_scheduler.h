@@ -36,10 +36,6 @@ class CanvasScheduler {
   // If worker set to null, it will be executed immediately on caller thread.
   void InitWithRenderWorker(base::ThreadWorker* worker);
 
-  // Bind child canvas in linked node,
-  // scheduler will auto clear pending commands in canvas queue.
-  void AttachChildCanvas(CanvasImpl* child);
-
   // Sync all pending command to device queue,
   // clear children canvas command queue.
   void SubmitPendingPaintCommands();

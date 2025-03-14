@@ -128,12 +128,12 @@ PlaneImpl::PlaneImpl(RenderScreenImpl* screen,
                      scoped_refptr<ViewportImpl> parent)
     : GraphicsChild(screen),
       Disposable(screen),
-      node_(SortKey()),
+      node_(parent ? parent->GetDrawableController()
+                   : screen->GetDrawableController(),
+            SortKey()),
       viewport_(parent),
       color_(new ColorImpl(base::Vec4())),
       tone_(new ToneImpl(base::Vec4())) {
-  node_.RebindController(parent ? parent->GetDrawableController()
-                                : screen->GetDrawableController());
   node_.RegisterEventHandler(base::BindRepeating(
       &PlaneImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
 
@@ -182,6 +182,9 @@ scoped_refptr<Viewport> PlaneImpl::Get_Viewport(
 void PlaneImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
                              ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
+    return;
+
+  if (viewport_ == value)
     return;
 
   viewport_ = ViewportImpl::From(value);

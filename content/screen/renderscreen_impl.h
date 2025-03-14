@@ -6,6 +6,7 @@
 #define CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 
 #include "base/worker/thread_worker.h"
+#include "content/canvas/canvas_scheduler.h"
 #include "content/components/disposable.h"
 #include "content/components/font_context.h"
 #include "content/profile/content_profile.h"
@@ -17,8 +18,6 @@
 #include "renderer/resource/render_buffer.h"
 
 namespace content {
-
-class CanvasScheduler;
 
 struct RenderGraphicsAgent {
   std::unique_ptr<renderer::RenderDevice> device;
@@ -148,8 +147,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void RenderAlphaTransitionFrameInternal(float progress);
   void RenderVagueTransitionFrameInternal(float progress, float vague);
 
-  void AddDisposable(Disposable* disp) override;
-  void RemoveDisposable(Disposable* disp) override;
+  void AddDisposable(base::LinkNode<Disposable>* disp) override;
 
   DrawNodeController controller_;
   base::RepeatingClosureList tick_observers_;

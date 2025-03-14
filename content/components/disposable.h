@@ -19,11 +19,10 @@ class Disposable;
 
 class DisposableCollection {
  public:
-  virtual void AddDisposable(Disposable* disp) = 0;
-  virtual void RemoveDisposable(Disposable* disp) = 0;
+  virtual void AddDisposable(base::LinkNode<Disposable>* disp) = 0;
 };
 
-class Disposable : public base::LinkNode<Disposable> {
+class Disposable {
  public:
   Disposable(DisposableCollection* parent);
   virtual ~Disposable();
@@ -41,6 +40,8 @@ class Disposable : public base::LinkNode<Disposable> {
   virtual std::string DisposedObjectName() = 0;
 
  private:
+  friend class RenderScreenImpl;
+  base::LinkNode<Disposable> node_;
   DisposableCollection* parent_;
   int32_t disposed_;
 };
