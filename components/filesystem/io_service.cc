@@ -273,9 +273,12 @@ void IOService::OpenRead(const std::string& file_path,
 SDL_IOStream* IOService::OpenReadRaw(const std::string& filename,
                                      IOState* io_state) {
   PHYSFS_File* file = PHYSFS_openRead(filename.c_str());
-  if (!file && io_state) {
-    io_state->error_count++;
-    io_state->error_message = "Failed to load file: " + filename;
+  if (!file) {
+    if (io_state) {
+      io_state->error_count++;
+      io_state->error_message = "Failed to load file: " + filename;
+    }
+
     return nullptr;
   }
 

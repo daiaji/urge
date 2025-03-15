@@ -13,6 +13,7 @@
 #include "third_party/imgui/imgui_impl_wgpu.h"
 
 #include "content/canvas/canvas_scheduler.h"
+#include "content/profile/command_ids.h"
 #include "renderer/utils/texture_utils.h"
 
 namespace content {
@@ -41,12 +42,14 @@ wgpu::BackendType GetWGPUBackend(const std::string& wgpu_backend) {
 
 RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
                                    ContentProfile* profile,
+                                   I18NProfile* i18n_profile,
                                    filesystem::IOService* io_service,
                                    ScopedFontData* scoped_font,
                                    const base::Vec2i& resolution,
                                    int frame_rate)
     : cc_(cc),
       profile_(profile),
+      i18n_profile_(i18n_profile),
       io_service_(io_service),
       render_worker_(nullptr),
       scoped_font_(scoped_font),
@@ -60,7 +63,11 @@ RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
       smooth_delta_time_(1.0),
       last_count_time_(SDL_GetPerformanceCounter()),
       desired_delta_time_(SDL_GetPerformanceFrequency() / frame_rate_),
-      frame_skip_required_(false) {}
+      frame_skip_required_(false),
+      keep_ratio_(true),
+      smooth_scale_(false),
+      allow_skip_frame_(true),
+      allow_background_running_(true) {}
 
 RenderScreenImpl::~RenderScreenImpl() {
   base::ThreadWorker::PostTask(
@@ -93,6 +100,15 @@ void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
   float window_scale = SDL_GetWindowDisplayScale(window->AsSDLWindow());
   ImGui::GetStyle().ScaleAllSizes(window_scale);
 
+  // Apply default font
+  int64_t font_data_size;
+  auto* font_data = scoped_font_->GetUIDefaultFont(&font_data_size);
+  ImFontConfig font_config;
+  font_config.FontDataOwnedByAtlas = false;
+  io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(font_data), font_data_size,
+                                 16.0f * window_scale, &font_config,
+                                 io.Fonts->GetGlyphRangesChineseFull());
+
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
 
@@ -108,7 +124,9 @@ void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
   base::ThreadWorker::WaitWorkerSynchronize(render_worker);
 }
 
-bool RenderScreenImpl::ExecuteEventMainLoop() {
+bool RenderScreenImpl::ExecuteEventMainLoop(
+    const base::RepeatingClosure& gui_handler,
+    bool disable_imgui_input) {
   // Poll event queue
   SDL_Event queued_event;
   while (SDL_PollEvent(&queued_event)) {
@@ -117,7 +135,8 @@ bool RenderScreenImpl::ExecuteEventMainLoop() {
       return false;
 
     // IMGUI Event
-    ImGui_ImplSDL3_ProcessEvent(&queued_event);
+    if (!disable_imgui_input)
+      ImGui_ImplSDL3_ProcessEvent(&queued_event);
   }
 
   // Start IMGUI frame
@@ -125,7 +144,7 @@ bool RenderScreenImpl::ExecuteEventMainLoop() {
 
   // Layout new frame
   ImGui::NewFrame();
-  ImGui::ShowDemoWindow();
+  gui_handler.Run();
   ImGui::EndFrame();
 
   // Determine update repeat time
@@ -151,6 +170,64 @@ bool RenderScreenImpl::ExecuteEventMainLoop() {
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 
   return true;
+}
+
+void RenderScreenImpl::CreateButtonGUISettings() {
+  if (ImGui::CollapsingHeader(
+          i18n_profile_->GetI18NString(IDS_SETTINGS_GRAPHICS, "Graphics")
+              .c_str())) {
+    ImGui::TextWrapped(
+        "%s: %s",
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_RENDERER, "Renderer").c_str(),
+        renderer_info_.device.c_str());
+    ImGui::Separator();
+    ImGui::TextWrapped(
+        "%s: %s",
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_VENDOR, "Vendor").c_str(),
+        renderer_info_.vendor.c_str());
+    ImGui::Separator();
+    ImGui::TextWrapped(
+        "%s: %s",
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_DESCRIPTION, "Description")
+            .c_str(),
+        renderer_info_.description.c_str());
+    ImGui::Separator();
+
+    // Keep Ratio
+    ImGui::Checkbox(
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_KEEP_RATIO, "Keep Ratio")
+            .c_str(),
+        &keep_ratio_);
+
+    // Smooth Scale
+    ImGui::Checkbox(
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_SMOOTH_SCALE, "Smooth Scale")
+            .c_str(),
+        &smooth_scale_);
+
+    // Skip Frame
+    ImGui::Checkbox(
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_SKIP_FRAME, "Skip Frame")
+            .c_str(),
+        &allow_skip_frame_);
+
+    // Fullscreen
+    bool is_fullscreen = GetDevice()->GetWindow()->IsFullscreen(),
+         last_fullscreen = is_fullscreen;
+    ImGui::Checkbox(
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_FULLSCREEN, "Fullscreen")
+            .c_str(),
+        &is_fullscreen);
+    if (last_fullscreen != is_fullscreen)
+      GetDevice()->GetWindow()->SetFullscreen(is_fullscreen);
+
+    // Background running
+    ImGui::Checkbox(i18n_profile_
+                        ->GetI18NString(IDS_GRAPHICS_BACKGROUND_RUNNING,
+                                        "Background Running")
+                        .c_str(),
+                    &allow_background_running_);
+  }
 }
 
 renderer::RenderDevice* RenderScreenImpl::GetDevice() const {
@@ -222,8 +299,10 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
 }
 
 void RenderScreenImpl::Update(ExceptionState& exception_state) {
-  if (!frozen_ && !frame_skip_required_)
-    RenderFrameInternal(&controller_, &agent_->screen_buffer, resolution_);
+  if (!frozen_) {
+    if (!(allow_skip_frame_ && frame_skip_required_))
+      RenderFrameInternal(&controller_, &agent_->screen_buffer, resolution_);
+  }
 
   // Process frame delay
   FrameProcessInternal(&agent_->screen_buffer);
@@ -462,6 +541,13 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
   ImGui_ImplWGPU_Init(&init_info);
   ImGui_ImplWGPU_NewFrame();
 
+  // Setup renderer info
+  wgpu::AdapterInfo adapter_info;
+  GetDevice()->GetAdapter()->GetInfo(&adapter_info);
+  renderer_info_.device = adapter_info.device;
+  renderer_info_.vendor = adapter_info.vendor;
+  renderer_info_.description = adapter_info.description;
+
   // Create screen buffer
   ResetScreenBufferInternal();
 }
@@ -481,11 +567,19 @@ void RenderScreenImpl::PresentScreenBufferInternal(
   // Update drawing viewport
   UpdateWindowViewportInternal();
 
-  // Flip screen for Y
+  // Process mouse coordinate and viewport rect
+  base::Rect target_rect;
   base::WeakPtr<ui::Widget> window = agent_->device->GetWindow();
   window->GetMouseState().resolution = resolution_;
-  window->GetMouseState().screen_offset = display_viewport_.Position();
-  window->GetMouseState().screen = display_viewport_.Size();
+  if (keep_ratio_) {
+    target_rect = display_viewport_;
+    window->GetMouseState().screen_offset = display_viewport_.Position();
+    window->GetMouseState().screen = display_viewport_.Size();
+  } else {
+    target_rect = window_size_;
+    window->GetMouseState().screen_offset = base::Vec2i();
+    window->GetMouseState().screen = window_size_;
+  }
 
   // Get screen surface
   auto* hardware_surface = agent_->device->GetSurface();
@@ -515,7 +609,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     {
       renderer::FullVertexLayout transient_vertices[4];
       renderer::FullVertexLayout::SetPositionRect(transient_vertices,
-                                                  display_viewport_);
+                                                  target_rect);
       renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
                                                   base::Rect(resolution_));
       renderer::FullVertexLayout::SetColor(transient_vertices, base::Vec4(1));
@@ -539,6 +633,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
           **agent_->device, world_matrix_uniform);
     }
 
+    // Make present texture bindgroup
     {
       renderer::TextureBindingUniform uniform;
       uniform.texture_size = base::MakeInvert(resolution_);
@@ -547,9 +642,19 @@ void RenderScreenImpl::PresentScreenBufferInternal(
               **agent_->device, "present.texture", wgpu::BufferUsage::None,
               &uniform);
 
+      wgpu::SamplerDescriptor sampler_desc;
+      if (smooth_scale_) {
+        sampler_desc.minFilter = wgpu::FilterMode::Linear;
+        sampler_desc.minFilter = wgpu::FilterMode::Linear;
+        sampler_desc.mipmapFilter = wgpu::MipmapFilterMode::Linear;
+      }
+
+      wgpu::Sampler present_sampler =
+          (*agent_->device)->CreateSampler(&sampler_desc);
+
       texture_binding = renderer::TextureBindingUniform::CreateGroup(
-          **agent_->device, render_target->CreateView(),
-          (*agent_->device)->CreateSampler(), uniform_buffer);
+          **agent_->device, render_target->CreateView(), present_sampler,
+          uniform_buffer);
     }
 
     // Start screen render

@@ -10,6 +10,7 @@
 #include "content/components/disposable.h"
 #include "content/components/font_context.h"
 #include "content/profile/content_profile.h"
+#include "content/profile/i18n_profile.h"
 #include "content/public/engine_graphics.h"
 #include "content/render/drawable_controller.h"
 #include "content/worker/coroutine_context.h"
@@ -59,6 +60,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
  public:
   RenderScreenImpl(CoroutineContext* cc,
                    ContentProfile* profile,
+                   I18NProfile* i18n_profile,
                    filesystem::IOService* io_service,
                    ScopedFontData* scoped_font,
                    const base::Vec2i& resolution,
@@ -71,7 +73,9 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void InitWithRenderWorker(base::ThreadWorker* render_worker,
                             base::WeakPtr<ui::Widget> window,
                             const std::string& wgpu_backend);
-  bool ExecuteEventMainLoop();
+  bool ExecuteEventMainLoop(const base::RepeatingClosure& gui_handler,
+                            bool disable_imgui_input);
+  void CreateButtonGUISettings();
 
   renderer::RenderDevice* GetDevice() const;
   renderer::DeviceContext* GetContext() const;
@@ -154,6 +158,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
 
   CoroutineContext* cc_;
   ContentProfile* profile_;
+  I18NProfile* i18n_profile_;
   filesystem::IOService* io_service_;
   base::ThreadWorker* render_worker_;
   ScopedFontData* scoped_font_;
@@ -174,6 +179,17 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   uint64_t last_count_time_;
   uint64_t desired_delta_time_;
   bool frame_skip_required_;
+
+  bool keep_ratio_;
+  bool smooth_scale_;
+  bool allow_skip_frame_;
+  bool allow_background_running_;
+
+  struct {
+    std::string device;
+    std::string vendor;
+    std::string description;
+  } renderer_info_;
 };
 
 }  // namespace content

@@ -5,11 +5,11 @@
 #ifndef CONTENT_PROFILE_CONTENT_PROFILE_H_
 #define CONTENT_PROFILE_CONTENT_PROFILE_H_
 
-#include "SDL3/SDL_iostream.h"
-
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "SDL3/SDL_iostream.h"
 
 namespace content {
 
@@ -43,7 +43,8 @@ class ContentProfile {
 
   APIVersion api_version = APIVersion::UNKNOWN;
   std::string default_font_path = "Fonts/Default.ttf";
-  std::string wgpu_backend = "";
+  std::string wgpu_backend;
+  std::string i18n_xml_path;
 
  private:
   ContentProfile(SDL_IOStream* stream);

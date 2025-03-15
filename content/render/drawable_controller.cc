@@ -128,7 +128,7 @@ void DrawNodeController::BroadCastNotification(
                                                      : &associated_list_;
 
   for (auto* it = list->head(); it != list->end(); it = it->next()) {
-    // Broadcast non-render notification
+    // Broadcast render job notification
     if (it->value()->visible_)
       it->value()->handler_.Run(nid, params);
   }

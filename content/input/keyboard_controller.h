@@ -6,6 +6,7 @@
 #define CONTENT_INPUT_KEYBOARD_CONTROLLER_H_
 
 #include "content/profile/content_profile.h"
+#include "content/profile/i18n_profile.h"
 #include "content/public/engine_input.h"
 #include "ui/widget/widget.h"
 
@@ -31,13 +32,16 @@ class KeyboardControllerImpl : public Input {
   };
 
   KeyboardControllerImpl(base::WeakPtr<ui::Widget> window,
-                         ContentProfile* profile);
+                         ContentProfile* profile,
+                         I18NProfile* i18n_profile);
   ~KeyboardControllerImpl() override;
 
   KeyboardControllerImpl(const KeyboardControllerImpl&) = delete;
   KeyboardControllerImpl& operator=(const KeyboardControllerImpl&) = delete;
 
   void ApplyKeySymBinding(const KeySymMap& keysyms);
+  bool CreateButtonGUISettings();
+  void SetUpdateEnable(bool enable) { enable_update_ = enable; }
 
  public:
   void Update(ExceptionState& exception_state) override;
@@ -78,7 +82,11 @@ class KeyboardControllerImpl : public Input {
 
   base::WeakPtr<ui::Widget> window_;
   ContentProfile* profile_;
+  I18NProfile* i18n_profile_;
   KeySymMap key_bindings_;
+  KeySymMap setting_bindings_;
+  bool disable_gui_key_input_;
+  bool enable_update_;
 
   std::array<KeyState, SDL_SCANCODE_COUNT> key_states_;
   std::array<KeyState, SDL_SCANCODE_COUNT> recent_key_states_;

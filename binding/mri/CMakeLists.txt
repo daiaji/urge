@@ -35,6 +35,9 @@ set(BINDING_MRI_SRC
   ${GENERATED_SOURCES}
   ${GENERATED_HEADERS}
 
+  input_binding_patch.cc
+  input_binding_patch.h
+
   zlib_binding.c
 )
 

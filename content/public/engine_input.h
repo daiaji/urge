@@ -23,15 +23,10 @@ class URGE_RUNTIME_API Input : public base::RefCounted<Input> {
   /*--urge(name:update)--*/
   virtual void Update(ExceptionState& exception_state) = 0;
 
-  /*--urge(name:press?)--*/
   virtual bool IsPressed(const std::string& sym,
                          ExceptionState& exception_state) = 0;
-
-  /*--urge(name:trigger?)--*/
   virtual bool IsTriggered(const std::string& sym,
                            ExceptionState& exception_state) = 0;
-
-  /*--urge(name:repeat?)--*/
   virtual bool IsRepeated(const std::string& sym,
                           ExceptionState& exception_state) = 0;
 

@@ -52,8 +52,11 @@ struct SpriteUniform {
   WGPU_ALIGN_TYPE(float) bush_opacity;
 
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
+  static wgpu::BindGroupLayout GetInstanceLayout(const wgpu::Device& device);
   static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
                                      const wgpu::Buffer& buffer);
+  static wgpu::BindGroup CreateInstanceGroup(const wgpu::Device& device,
+                                             const wgpu::Buffer& buffer);
 };
 
 struct AlphaTransitionUniform {

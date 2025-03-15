@@ -155,6 +155,37 @@ wgpu::BindGroup SpriteUniform::CreateGroup(const wgpu::Device& device,
   return device.CreateBindGroup(&binding_desc);
 }
 
+wgpu::BindGroupLayout SpriteUniform::GetInstanceLayout(
+    const wgpu::Device& device) {
+  wgpu::BindGroupLayoutEntry entries[1];
+  entries[0].binding = 0;
+  entries[0].visibility =
+      wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
+  entries[0].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+  entries[0].buffer.minBindingSize = sizeof(SpriteUniform);
+
+  wgpu::BindGroupLayoutDescriptor binding_desc;
+  binding_desc.label = "sprite.fragment.binding";
+  binding_desc.entryCount = _countof(entries);
+  binding_desc.entries = entries;
+
+  return device.CreateBindGroupLayout(&binding_desc);
+}
+
+wgpu::BindGroup SpriteUniform::CreateInstanceGroup(const wgpu::Device& device,
+                                                   const wgpu::Buffer& buffer) {
+  wgpu::BindGroupEntry entries;
+  entries.binding = 0;
+  entries.buffer = buffer;
+
+  wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.entryCount = 1;
+  binding_desc.entries = &entries;
+  binding_desc.layout = GetInstanceLayout(device);
+
+  return device.CreateBindGroup(&binding_desc);
+}
+
 /// <summary>
 /// Alpha Transition Uniform
 /// </summary>

@@ -40,7 +40,6 @@ class Disposable {
   virtual std::string DisposedObjectName() = 0;
 
  private:
-  friend class RenderScreenImpl;
   base::LinkNode<Disposable> node_;
   DisposableCollection* parent_;
   int32_t disposed_;

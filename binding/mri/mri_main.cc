@@ -10,6 +10,7 @@
 #include "SDL3/SDL_messagebox.h"
 #include "zlib/zlib.h"
 
+#include "binding/mri/input_binding_patch.h"
 #include "binding/mri/mri_file.h"
 #include "binding/mri/urge_binding.h"
 
@@ -179,6 +180,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitFontBinding();
   InitGraphicsBinding();
   InitInputBinding();
+  ApplyInputBindingPatch();
   InitPlaneBinding();
   InitRectBinding();
   InitSpriteBinding();

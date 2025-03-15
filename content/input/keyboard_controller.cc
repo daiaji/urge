@@ -9,6 +9,8 @@
 #include "SDL3/SDL_events.h"
 #include "imgui/imgui.h"
 
+#include "content/profile/command_ids.h"
+
 #define INPUT_CONFIG_SUBFIX ".cfg"
 
 namespace content {
@@ -70,8 +72,13 @@ const std::array<std::string, 12> kButtonItems = {
 }  // namespace
 
 KeyboardControllerImpl::KeyboardControllerImpl(base::WeakPtr<ui::Widget> window,
-                                               ContentProfile* profile)
-    : window_(window), profile_(profile) {
+                                               ContentProfile* profile,
+                                               I18NProfile* i18n_profile)
+    : window_(window),
+      profile_(profile),
+      i18n_profile_(i18n_profile),
+      disable_gui_key_input_(false),
+      enable_update_(true) {
   memset(key_states_.data(), 0, key_states_.size() * sizeof(KeyState));
   memset(recent_key_states_.data(), 0,
          recent_key_states_.size() * sizeof(KeyState));
@@ -89,6 +96,7 @@ KeyboardControllerImpl::KeyboardControllerImpl(base::WeakPtr<ui::Widget> window,
       key_bindings_.push_back(kKeyboardBindings2[i]);
 
   TryReadBindingsInternal();
+  setting_bindings_ = key_bindings_;
 }
 
 KeyboardControllerImpl::~KeyboardControllerImpl() {
@@ -100,6 +108,9 @@ void KeyboardControllerImpl::ApplyKeySymBinding(const KeySymMap& keysyms) {
 }
 
 void KeyboardControllerImpl::Update(ExceptionState& exception_state) {
+  if (!enable_update_)
+    return;
+
   for (int i = 0; i < SDL_SCANCODE_COUNT; ++i) {
     bool key_pressed = window_->GetKeyState(static_cast<SDL_Scancode>(i));
 
@@ -416,6 +427,132 @@ void KeyboardControllerImpl::StorageBindingsInternal() {
     }
 
     fs.close();
+  }
+}
+
+bool KeyboardControllerImpl::CreateButtonGUISettings() {
+  static int selected_button = 0, selected_binding = -1;
+  disable_gui_key_input_ = (selected_binding != -1);
+
+  if (ImGui::CollapsingHeader(
+          i18n_profile_->GetI18NString(IDS_SETTINGS_BUTTON, "Button")
+              .c_str())) {
+    auto list_height = 6 * ImGui::GetTextLineHeightWithSpacing();
+    // Button name list box
+    if (ImGui::BeginListBox(
+            "##button_list",
+            ImVec2(ImGui::CalcItemWidth() / 2.0f, list_height + 64))) {
+      for (size_t i = 0; i < kButtonItems.size(); ++i) {
+        if (ImGui::Selectable(kButtonItems[i].c_str(),
+                              static_cast<int>(i) == selected_button)) {
+          selected_button = i;
+          selected_binding = -1;
+        }
+      }
+
+      ImGui::EndListBox();
+    }
+
+    ImGui::SameLine();
+    std::string button_name = kButtonItems[selected_button];
+
+    // Binding list box
+    {
+      ImGui::BeginGroup();
+      if (ImGui::BeginListBox("##binding_list",
+                              ImVec2(-FLT_MIN, list_height))) {
+        for (size_t i = 0; i < setting_bindings_.size(); ++i) {
+          auto& it = setting_bindings_[i];
+          if (it.sym == button_name) {
+            const bool is_select = (selected_binding == static_cast<int>(i));
+
+            // Generate button sign
+            std::string display_button_name = SDL_GetScancodeName(it.scancode);
+            if (it.scancode == SDL_SCANCODE_UNKNOWN)
+              display_button_name = "<x>";
+            if (is_select)
+              display_button_name = "<...>";
+            display_button_name += "##";
+            display_button_name.push_back(i);
+
+            // Find conflict bindings
+            int conflict_count = -1;
+            for (auto& item : setting_bindings_)
+              if (item == it)
+                conflict_count++;
+
+            // Draw selectable
+            const bool is_conflict = !!conflict_count;
+            if (is_conflict)
+              ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+
+            if (ImGui::Selectable(display_button_name.c_str(), is_select)) {
+              selected_binding = (is_select ? -1 : i);
+            }
+
+            if (is_conflict)
+              ImGui::PopStyleColor();
+          }
+        }
+
+        ImGui::EndListBox();
+      }
+
+      // Get any keys state for binding
+      if (disable_gui_key_input_) {
+        for (int code = 0; code < SDL_SCANCODE_COUNT; ++code) {
+          bool key_pressed =
+              window_->GetKeyState(static_cast<SDL_Scancode>(code));
+          if (key_pressed) {
+            setting_bindings_[selected_binding].scancode =
+                static_cast<SDL_Scancode>(code);
+            selected_binding = -1;
+          }
+        }
+      }
+
+      // Add binding
+      if (ImGui::Button(
+              i18n_profile_->GetI18NString(IDS_BUTTON_ADD, "Add").c_str())) {
+        selected_binding = -1;
+        setting_bindings_.push_back(
+            KeyBinding{button_name, SDL_SCANCODE_UNKNOWN});
+      }
+
+      ImGui::SameLine();
+
+      // Remove binding
+      if (selected_binding >= 0 &&
+          ImGui::Button(
+              i18n_profile_->GetI18NString(IDS_BUTTON_REMOVE, "Remove")
+                  .c_str())) {
+        auto it = setting_bindings_.begin();
+        for (int i = 0; i < selected_binding; ++i)
+          it++;
+
+        setting_bindings_.erase(it);
+        selected_binding = -1;
+      }
+
+      ImGui::EndGroup();
+    }
+
+    if (ImGui::Button(
+            i18n_profile_
+                ->GetI18NString(IDS_BUTTON_SAVE_SETTINGS, "Save Settings")
+                .c_str())) {
+      key_bindings_ = setting_bindings_;
+      selected_binding = -1;
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button(
+            i18n_profile_
+                ->GetI18NString(IDS_BUTTON_RESET_SETTINGS, "Reset Settings")
+                .c_str())) {
+      setting_bindings_ = key_bindings_;
+      selected_binding = -1;
+    }
   }
 }
 

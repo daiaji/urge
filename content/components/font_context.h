@@ -31,6 +31,7 @@ struct ScopedFontData {
 
   std::map<std::pair<std::string, int>, TTF_Font*> font_cache;
   std::map<std::string, std::pair<int64_t, void*>> data_cache;
+  TTF_Font* internal_font = nullptr;
 
   ScopedFontData(filesystem::IOService* io,
                  const std::string& default_font_name);
@@ -40,6 +41,9 @@ struct ScopedFontData {
   ScopedFontData& operator=(const ScopedFontData&) = delete;
 
   bool IsFontExisted(const std::string& name);
+
+  // Fetch GUI font from cache
+  const void* GetUIDefaultFont(int64_t* font_size);
 };
 
 }  // namespace content

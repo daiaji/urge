@@ -84,6 +84,7 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   api_version = static_cast<ContentProfile::APIVersion>(reader->GetInteger(
       "Engine", "APIVersion", static_cast<int32_t>(api_version)));
   wgpu_backend = reader->Get("Engine", "WGPUBackend", wgpu_backend);
+  i18n_xml_path = reader->Get("Engine", "I18nXMLPath", app + ".xml");
 
   if (ini_stream_)
     SDL_CloseIO(ini_stream_);

@@ -33,8 +33,11 @@ set(ENGINE_CONTENT_SRC
   context/execution_context.h
   input/keyboard_controller.cc
   input/keyboard_controller.h
+  profile/command_ids.h
   profile/content_profile.cc
   profile/content_profile.h
+  profile/i18n_profile.cc
+  profile/i18n_profile.h
   public/engine_bitmap.h
   public/engine_color.h
   public/engine_font.h
@@ -62,6 +65,15 @@ set(ENGINE_CONTENT_SRC
   worker/engine_binding.cc
   worker/engine_binding.h
   content_config.h
+)
+
+#--------------------------------------------------------------------------------
+# Embeded program resource
+#--------------------------------------------------------------------------------
+
+execute_process(
+  COMMAND "${PYTHON_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/buildtools/build_file_binary.py" "${PROJECT_SOURCE_DIR}/content/resource/embed.ttf" -o "${RGU_AUTOGEN_DIR}/content/resource/embed.ttf.bin"
+  OUTPUT_QUIET
 )
 
 add_library(engine_content STATIC ${ENGINE_CONTENT_SRC})

@@ -120,6 +120,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   // 2) Request an adapter that is "compatibilityMode" = true (for broad
   // compatibility)
   wgpu::RequestAdapterOptions adapter_options;
+  adapter_options.powerPreference = wgpu::PowerPreference::HighPerformance;
   adapter_options.backendType = required_backend;
 
   wgpu::Adapter adapter;
@@ -146,10 +147,12 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   // 3) Log some adapter info
   wgpu::AdapterInfo info;
   adapter.GetInfo(&info);
-  LOG(INFO) << "[Renderer] Using adapter device: "
-            << std::string_view(info.device);
-  LOG(INFO) << "[Renderer] Using adapter description: "
-            << std::string_view(info.description);
+
+  LOG(INFO) << "[Renderer] Vendor: " << std::string_view(info.vendor);
+  LOG(INFO) << "[Renderer] Architecture: "
+            << std::string_view(info.architecture);
+  LOG(INFO) << "[Renderer] Device: " << std::string_view(info.device);
+  LOG(INFO) << "[Renderer] Description: " << std::string_view(info.description);
 
   // 4) Request the actual WGPU device
   wgpu::DeviceDescriptor device_desc = {};
@@ -182,7 +185,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
       SDL_GetWindowProperties(window_target->AsSDLWindow());
 
   wgpu::SurfaceDescriptor surface_desc;
-  surface_desc.label = nullptr;
+  surface_desc.label = "present.main.surface";
 
 #if defined(OS_WIN)
   wgpu::SurfaceSourceWindowsHWND hwnd_desc;

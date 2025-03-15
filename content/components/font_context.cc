@@ -4,6 +4,8 @@
 
 #include "content/components/font_context.h"
 
+#include "content/resource/embed.ttf.bin"
+
 namespace content {
 
 namespace {
@@ -56,6 +58,19 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
       LOG(INFO) << "[Font] Loaded Font: " << it;
     }
   }
+
+  // Load internal font if default missing
+  auto default_font_it = data_cache.find(default_font_name);
+  if (default_font_it == data_cache.end()) {
+    LOG(INFO) << "[Font] Default font missing, use internal font for instead.";
+
+    void* internal_duplicate_data = SDL_malloc(embed_ttf_len);
+    memcpy(internal_duplicate_data, embed_ttf, embed_ttf_len);
+
+    std::pair<int64_t, void*> cache_pair =
+        std::make_pair(embed_ttf_len, internal_duplicate_data);
+    data_cache.emplace(default_font_name, std::move(cache_pair));
+  }
 }
 
 ScopedFontData::~ScopedFontData() {
@@ -65,6 +80,17 @@ ScopedFontData::~ScopedFontData() {
 
 bool ScopedFontData::IsFontExisted(const std::string& name) {
   return data_cache.find(name) != data_cache.end();
+}
+
+const void* ScopedFontData::GetUIDefaultFont(int64_t* font_size) {
+  auto it = data_cache.find(default_font);
+  if (it != data_cache.end()) {
+    *font_size = it->second.first;
+    return it->second.second;
+  }
+
+  *font_size = embed_ttf_len;
+  return embed_ttf;
 }
 
 }  // namespace content

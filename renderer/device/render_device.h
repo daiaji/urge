@@ -20,6 +20,7 @@ class RenderDevice {
     Pipeline_Color color;
     Pipeline_Viewport viewport;
     Pipeline_Sprite sprite;
+    Pipeline_SpriteInstance spriteinstance;
     Pipeline_AlphaTransition alphatrans;
     Pipeline_MappedTransition mappedtrans;
 
@@ -28,6 +29,7 @@ class RenderDevice {
           color(device, target),
           viewport(device, target),
           sprite(device, target),
+          spriteinstance(device, target),
           alphatrans(device, target),
           mappedtrans(device, target) {}
   };
@@ -76,7 +78,6 @@ class RenderDevice {
   wgpu::Surface surface_;
 
   wgpu::TextureFormat surface_format_;
-
   std::unique_ptr<PipelineSet> pipelines_;
 };
 
