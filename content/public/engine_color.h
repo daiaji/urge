@@ -14,7 +14,7 @@ namespace content {
 
 // IDL generator format:
 // Inhert: refcounted only.
-// Interface referrence: RPGVXAce.chm
+// Interface referrence: RGSS Referrence
 /*--urge(name:Color)--*/
 class URGE_RUNTIME_API Color : public base::RefCounted<Color> {
  public:

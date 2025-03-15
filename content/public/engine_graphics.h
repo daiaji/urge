@@ -15,7 +15,7 @@ namespace content {
 
 // IDL generator format:
 // Inhert: refcounted only.
-// Interface referrence: RPGVXAce.chm
+// Interface referrence: RGSS Referrence
 /*--urge(name:Graphics,is_module)--*/
 class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
  public:

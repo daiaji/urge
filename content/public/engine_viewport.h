@@ -18,7 +18,7 @@ namespace content {
 
 // IDL generator format:
 // Inhert: refcounted only.
-// Interface referrence: RPGVXAce.chm
+// Interface referrence: RGSS Referrence
 /*--urge(name:Viewport)--*/
 class URGE_RUNTIME_API Viewport : public base::RefCounted<Viewport> {
  public:
