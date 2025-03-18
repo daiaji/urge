@@ -24,7 +24,6 @@ class CanvasScheduler {
   static std::unique_ptr<CanvasScheduler> MakeInstance(
       renderer::RenderDevice* device,
       renderer::DeviceContext* context,
-      renderer::QuadrangleIndexCache* index_cache,
       filesystem::IOService* io_service);
 
   renderer::RenderDevice* GetDevice();
@@ -41,29 +40,22 @@ class CanvasScheduler {
   void SubmitPendingPaintCommands();
 
   base::ThreadWorker* render_worker() { return render_worker_; }
-  renderer::QuadrangleIndexCache* index_cache() { return index_cache_; }
-  renderer::VertexBufferController<renderer::FullVertexLayout>*
-  vertex_buffer() {
-    return common_vertex_buffer_controller_.get();
-  }
+  renderer::QuadBatch* quad_batch() { return common_quad_batch_.get(); }
 
  private:
   friend class CanvasImpl;
   CanvasScheduler(renderer::RenderDevice* device,
                   renderer::DeviceContext* context,
-                  renderer::QuadrangleIndexCache* index_cache,
                   filesystem::IOService* io_service);
 
   base::LinkedList<CanvasImpl> children_;
 
-  renderer::RenderDevice* device_base_;
+  renderer::RenderDevice* device_;
   renderer::DeviceContext* immediate_context_;
   base::ThreadWorker* render_worker_;
-  renderer::QuadrangleIndexCache* index_cache_;
   filesystem::IOService* io_service_;
 
-  std::unique_ptr<renderer::VertexBufferController<renderer::FullVertexLayout>>
-      common_vertex_buffer_controller_;
+  std::unique_ptr<renderer::QuadBatch> common_quad_batch_;
 };
 
 }  // namespace content

@@ -18,7 +18,8 @@ EngineBindingUnittests::EngineBindingUnittests() : exit_flag_(0) {}
 EngineBindingUnittests::~EngineBindingUnittests() {}
 
 void EngineBindingUnittests::PreEarlyInitialization(
-    content::ContentProfile* profile) {
+    content::ContentProfile* profile,
+    filesystem::IOService* io_service) {
   LOG(INFO) << "preload engine";
 }
 

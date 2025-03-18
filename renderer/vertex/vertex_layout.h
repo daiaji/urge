@@ -72,27 +72,31 @@ inline void MakeProjectionMatrix(float* out,
   out[13] = bb * offset.y + 1.0f;
 }
 
-struct FullVertexLayout {
+struct Vertex {
   base::Vec4 position;
   base::Vec2 texcoord;
   base::Vec4 color;
 
-  FullVertexLayout() : position(0), texcoord(0), color(0, 0, 0, 1) {}
-  FullVertexLayout(const base::Vec4& pos,
-                   const base::Vec2& tex,
-                   const base::Vec4& cr)
+  Vertex() : position(0), texcoord(0), color(1) {}
+  Vertex(const base::Vec4& pos, const base::Vec2& tex, const base::Vec4& cr)
       : position(pos), texcoord(tex), color(cr) {}
-  FullVertexLayout(const FullVertexLayout&) = default;
-  FullVertexLayout& operator=(const FullVertexLayout&) = default;
 
-  static void SetPositionRect(FullVertexLayout* data, const base::RectF& pos);
-  static void SetTexCoordRect(FullVertexLayout* data,
-                              const base::RectF& texcoord);
-  static void SetColor(FullVertexLayout* data,
-                       const base::Vec4& color,
-                       int index = -1);
+  Vertex(const Vertex&) = default;
+  Vertex& operator=(const Vertex&) = default;
 
   static wgpu::VertexBufferLayout GetLayout();
+};
+
+struct Quad {
+  Vertex vertices[4];
+
+  Quad() = default;
+
+  static void SetPositionRect(Quad* data, const base::RectF& pos);
+  static void SetTexCoordRect(Quad* data, const base::RectF& texcoord);
+  static void SetColor(Quad* data, const base::Vec4& color);
+
+  Vertex* data() { return vertices; }
 };
 
 }  // namespace renderer

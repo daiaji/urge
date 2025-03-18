@@ -11,6 +11,7 @@
 #include "content/context/execution_context.h"
 #include "content/public/engine_bitmap.h"
 #include "content/public/engine_table.h"
+#include "content/public/engine_tilemapautotile.h"
 #include "content/public/engine_viewport.h"
 
 namespace content {
@@ -18,22 +19,6 @@ namespace content {
 // IDL generator format:
 // Inhert: refcounted only.
 // Interface referrence: RGSS Referrence
-/*--urge(name:Autotile)--*/
-class URGE_RUNTIME_API TilemapAutotile
-    : public virtual base::RefCounted<TilemapAutotile> {
- public:
-  virtual ~TilemapAutotile() = default;
-
-  /*--urge(name:[])--*/
-  virtual scoped_refptr<Bitmap> Get(int32_t index,
-                                    ExceptionState& exception_state) = 0;
-
-  /*--urge(name:[]=)--*/
-  virtual void Put(int32_t index,
-                   scoped_refptr<Bitmap>,
-                   ExceptionState& exception_state) = 0;
-};
-
 /*--urge(name:Tilemap)--*/
 class URGE_RUNTIME_API Tilemap : public base::RefCounted<Tilemap> {
  public:
@@ -57,14 +42,15 @@ class URGE_RUNTIME_API Tilemap : public base::RefCounted<Tilemap> {
   /*--urge(name:update)--*/
   virtual void Update(ExceptionState& exception_state) = 0;
 
+  /*--urge(name:autotile)--*/
+  virtual scoped_refptr<TilemapAutotile> Autotile(
+      ExceptionState& exception_state) = 0;
+
   /*--urge(name:viewport)--*/
   URGE_EXPORT_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
 
   /*--urge(name:tileset)--*/
   URGE_EXPORT_ATTRIBUTE(Tileset, scoped_refptr<Bitmap>);
-
-  /*--urge(name:autotiles)--*/
-  URGE_EXPORT_ATTRIBUTE(Autotiles, scoped_refptr<TilemapAutotile>);
 
   /*--urge(name:map_data)--*/
   URGE_EXPORT_ATTRIBUTE(MapData, scoped_refptr<Table>);

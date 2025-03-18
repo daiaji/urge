@@ -19,10 +19,10 @@ class Disposable;
 
 class DisposableCollection {
  public:
-  virtual void AddDisposable(base::LinkNode<Disposable>* disp) = 0;
+  virtual void AddDisposable(Disposable* disp) = 0;
 };
 
-class Disposable {
+class Disposable : public base::LinkNode<Disposable> {
  public:
   Disposable(DisposableCollection* parent);
   virtual ~Disposable();
@@ -40,7 +40,6 @@ class Disposable {
   virtual std::string DisposedObjectName() = 0;
 
  private:
-  base::LinkNode<Disposable> node_;
   DisposableCollection* parent_;
   int32_t disposed_;
 };

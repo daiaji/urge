@@ -63,7 +63,8 @@ add_subdirectory(third_party/text_render)
 include_directories(third_party/text_render/include)
 
 ## WebGPU Renderer
-set(DAWN_FETCH_DEPENDENCIES ON)
+set(BUILD_SHARED_LIBS FALSE)
+set(DAWN_FETCH_DEPENDENCIES TRUE)
 add_subdirectory(third_party/dawn)
 
 ## Dear IMGUI

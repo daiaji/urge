@@ -14,8 +14,8 @@
 namespace content {
 
 struct PlaneAgent {
-  std::unique_ptr<renderer::FullQuadController> quad_controller;
-  std::vector<renderer::FullVertexLayout> vertices;
+  std::unique_ptr<renderer::QuadBatch> batch;
+  std::vector<renderer::Quad> cache;
   uint32_t quad_size;
 
   wgpu::BindGroup uniform_binding;

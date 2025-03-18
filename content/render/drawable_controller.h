@@ -5,11 +5,6 @@
 #ifndef CONTENT_RENDER_DRAWABLE_CONTROLLER_H_
 #define CONTENT_RENDER_DRAWABLE_CONTROLLER_H_
 
-#include <array>
-#include <map>
-#include <memory_resource>
-#include <optional>
-
 #include "base/bind/callback.h"
 #include "base/containers/linked_list.h"
 #include "base/math/rectangle.h"
@@ -66,7 +61,7 @@ struct SortKey {
 
 // Drawable child node,
 // expect to be set in class as a node variable.
-class DrawableNode final {
+class DrawableNode final : public base::LinkNode<DrawableNode> {
  public:
   enum RenderStage {
     BEFORE_RENDER = 0,
@@ -79,10 +74,6 @@ class DrawableNode final {
     // Logic abstract render device for drawable node.
     // Never be null whenever events.
     renderer::RenderDevice* device = nullptr;
-
-    // [Stage: all]
-    // Generic quadangle drawing index buffer.
-    renderer::QuadrangleIndexCache* index_cache = nullptr;
 
     // [Stage: all]
     // Hardware render command encoder,
@@ -113,10 +104,9 @@ class DrawableNode final {
       base::RepeatingCallback<void(RenderStage stage,
                                    RenderControllerParams* params)>;
 
-  DrawableNode(DrawNodeController* controller, const SortKey& default_key);
   DrawableNode(DrawNodeController* controller,
                const SortKey& default_key,
-               bool visible);
+               bool visible = true);
   ~DrawableNode();
 
   // Register the main executer for current drawable node's host
@@ -146,11 +136,12 @@ class DrawableNode final {
   // Get current controller
   DrawNodeController* GetController() const { return controller_; }
 
+  // Get linked node (previous / next)
+  DrawableNode* GetPreviousNode();
+  DrawableNode* GetNextNode();
+
  private:
   friend class DrawNodeController;
-
-  base::LinkNode<DrawableNode> associated_node_;
-  base::LinkNode<DrawableNode> orderly_node_;
 
   DrawNodeController* controller_;
   NotificationHandler handler_;
@@ -180,11 +171,8 @@ class DrawNodeController final {
   // Insert child node to controller by sorted key.
   void InsertChildNodeInternal(DrawableNode* node);
 
-  // Associated boardcast list (no-order)
-  base::LinkedList<DrawableNode> associated_list_;
-
   // Nodes sorted by key boardcast list (in-order, Z min to max)
-  base::LinkedList<DrawableNode> orderly_list_;
+  base::LinkedList<DrawableNode> children_list_;
 };
 
 // Flash duration controller components

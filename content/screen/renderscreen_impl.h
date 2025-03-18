@@ -16,15 +16,12 @@
 #include "content/worker/coroutine_context.h"
 #include "renderer/context/device_context.h"
 #include "renderer/device/render_device.h"
-#include "renderer/resource/render_buffer.h"
 
 namespace content {
 
 struct RenderGraphicsAgent {
   std::unique_ptr<renderer::RenderDevice> device;
   std::unique_ptr<renderer::DeviceContext> context;
-
-  std::unique_ptr<renderer::QuadrangleIndexCache> index_cache;
   std::unique_ptr<CanvasScheduler> canvas_scheduler;
 
   wgpu::Texture* present_target;
@@ -79,8 +76,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
 
   renderer::RenderDevice* GetDevice() const;
   renderer::DeviceContext* GetContext() const;
-
-  renderer::QuadrangleIndexCache* GetQuadIndexCache() const;
   CanvasScheduler* GetCanvasScheduler() const;
 
   DrawNodeController* GetDrawableController() { return &controller_; }
@@ -151,7 +146,8 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void RenderAlphaTransitionFrameInternal(float progress);
   void RenderVagueTransitionFrameInternal(float progress, float vague);
 
-  void AddDisposable(base::LinkNode<Disposable>* disp) override;
+  // DisposableCollection methods:
+  void AddDisposable(Disposable* disp) override;
 
   DrawNodeController controller_;
   base::RepeatingClosureList tick_observers_;

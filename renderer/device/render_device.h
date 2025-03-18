@@ -6,6 +6,7 @@
 #define RENDERER_DEVICE_RENDER_DEVICE_H_
 
 #include "renderer/pipeline/render_pipeline.h"
+#include "renderer/resource/render_buffer.h"
 #include "renderer/utils/buffer_utils.h"
 #include "ui/widget/widget.h"
 
@@ -59,6 +60,7 @@ class RenderDevice {
 
   // Pre-compile shaders set storage
   PipelineSet* GetPipelines() const { return pipelines_.get(); }
+  QuadIndexCache* GetQuadIndex() const { return quad_index_.get(); }
   wgpu::TextureFormat SurfaceFormat() const { return surface_format_; }
 
  private:
@@ -68,7 +70,8 @@ class RenderDevice {
                const wgpu::Queue& queue,
                const wgpu::Surface& surface,
                wgpu::TextureFormat surface_format,
-               std::unique_ptr<PipelineSet> pipelines);
+               std::unique_ptr<PipelineSet> pipelines,
+               std::unique_ptr<QuadIndexCache> quad_index);
 
   base::WeakPtr<ui::Widget> window_;
 
@@ -79,6 +82,7 @@ class RenderDevice {
 
   wgpu::TextureFormat surface_format_;
   std::unique_ptr<PipelineSet> pipelines_;
+  std::unique_ptr<QuadIndexCache> quad_index_;
 };
 
 }  // namespace renderer

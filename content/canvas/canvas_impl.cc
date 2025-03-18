@@ -144,20 +144,20 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   base::Vec4 blend_alpha;
   blend_alpha.w = blit_alpha / 255.0f;
 
-  renderer::FullVertexLayout transient_vertices[4];
-  renderer::FullVertexLayout::SetTexCoordRect(transient_vertices, src_region);
-  renderer::FullVertexLayout::SetPositionRect(transient_vertices, dst_region);
-  renderer::FullVertexLayout::SetColor(transient_vertices, blend_alpha);
-  scheduler->vertex_buffer()->QueueWrite(*command_encoder, transient_vertices,
-                                         _countof(transient_vertices));
+  renderer::Quad transient_quad;
+  renderer::Quad::SetTexCoordRect(&transient_quad, src_region);
+  renderer::Quad::SetPositionRect(&transient_quad, dst_region);
+  renderer::Quad::SetColor(&transient_quad, blend_alpha);
+  scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);
 
   auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
   renderpass_encoder.SetViewport(0, 0, dst_texture->size.x, dst_texture->size.y,
                                  0, 0);
   renderpass_encoder.SetPipeline(*pipeline);
-  renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
-  renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
-                                    scheduler->index_cache()->format());
+  renderpass_encoder.SetVertexBuffer(0, **scheduler->quad_batch());
+  renderpass_encoder.SetIndexBuffer(
+      **scheduler->GetDevice()->GetQuadIndex(),
+      scheduler->GetDevice()->GetQuadIndex()->format());
   renderpass_encoder.SetBindGroup(0, dst_texture->world);
   renderpass_encoder.SetBindGroup(1, src_texture->binding);
   renderpass_encoder.DrawIndexed(6);
@@ -283,18 +283,18 @@ void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
 
   auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
 
-  renderer::FullVertexLayout transient_vertices[4];
-  renderer::FullVertexLayout::SetPositionRect(transient_vertices, region);
-  renderer::FullVertexLayout::SetColor(transient_vertices, color);
-  scheduler->vertex_buffer()->QueueWrite(*command_encoder, transient_vertices,
-                                         _countof(transient_vertices));
+  renderer::Quad transient_quad;
+  renderer::Quad::SetPositionRect(&transient_quad, region);
+  renderer::Quad::SetColor(&transient_quad, color);
+  scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);
 
   auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
   renderpass_encoder.SetViewport(0, 0, agent->size.x, agent->size.y, 0, 0);
   renderpass_encoder.SetPipeline(*pipeline);
-  renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
-  renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
-                                    scheduler->index_cache()->format());
+  renderpass_encoder.SetVertexBuffer(0, **scheduler->quad_batch());
+  renderpass_encoder.SetIndexBuffer(
+      **scheduler->GetDevice()->GetQuadIndex(),
+      scheduler->GetDevice()->GetQuadIndex()->format());
   renderpass_encoder.SetBindGroup(0, agent->world);
   renderpass_encoder.DrawIndexed(6);
   renderpass_encoder.End();
@@ -320,28 +320,28 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
 
   auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
 
-  renderer::FullVertexLayout transient_vertices[4];
-  renderer::FullVertexLayout::SetPositionRect(transient_vertices, region);
+  renderer::Quad transient_quad;
+  renderer::Quad::SetPositionRect(&transient_quad, region);
   if (vertical) {
-    renderer::FullVertexLayout::SetColor(transient_vertices, color1, 0);
-    renderer::FullVertexLayout::SetColor(transient_vertices, color1, 1);
-    renderer::FullVertexLayout::SetColor(transient_vertices, color2, 2);
-    renderer::FullVertexLayout::SetColor(transient_vertices, color2, 3);
+    transient_quad.vertices[0].color = color1;
+    transient_quad.vertices[1].color = color1;
+    transient_quad.vertices[2].color = color2;
+    transient_quad.vertices[3].color = color2;
   } else {
-    renderer::FullVertexLayout::SetColor(transient_vertices, color1, 0);
-    renderer::FullVertexLayout::SetColor(transient_vertices, color2, 1);
-    renderer::FullVertexLayout::SetColor(transient_vertices, color2, 2);
-    renderer::FullVertexLayout::SetColor(transient_vertices, color1, 3);
+    transient_quad.vertices[0].color = color1;
+    transient_quad.vertices[1].color = color2;
+    transient_quad.vertices[2].color = color2;
+    transient_quad.vertices[3].color = color1;
   }
-  scheduler->vertex_buffer()->QueueWrite(*command_encoder, transient_vertices,
-                                         _countof(transient_vertices));
+  scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);
 
   auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
   renderpass_encoder.SetViewport(0, 0, agent->size.x, agent->size.y, 0, 0);
   renderpass_encoder.SetPipeline(*pipeline);
-  renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
-  renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
-                                    scheduler->index_cache()->format());
+  renderpass_encoder.SetVertexBuffer(0, **scheduler->quad_batch());
+  renderpass_encoder.SetIndexBuffer(
+      **scheduler->GetDevice()->GetQuadIndex(),
+      scheduler->GetDevice()->GetQuadIndex()->format());
   renderpass_encoder.SetBindGroup(0, agent->world);
   renderpass_encoder.DrawIndexed(6);
   renderpass_encoder.End();
@@ -439,21 +439,20 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   zoom_x = std::min(zoom_x, 1.0f);
   base::Rect compose_position(align_x, align_y, text->w * zoom_x, text->h);
 
-  renderer::FullVertexLayout transient_vertices[4];
-  renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
-                                              base::Vec2(text->w, text->h));
-  renderer::FullVertexLayout::SetPositionRect(transient_vertices,
-                                              compose_position);
-  renderer::FullVertexLayout::SetColor(transient_vertices, blend_alpha);
-  scheduler->vertex_buffer()->QueueWrite(*command_encoder, transient_vertices,
-                                         _countof(transient_vertices));
+  renderer::Quad transient_quad;
+  renderer::Quad::SetTexCoordRect(&transient_quad,
+                                  base::Vec2(text->w, text->h));
+  renderer::Quad::SetPositionRect(&transient_quad, compose_position);
+  renderer::Quad::SetColor(&transient_quad, blend_alpha);
+  scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);
 
   auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
   renderpass_encoder.SetViewport(0, 0, agent->size.x, agent->size.y, 0, 0);
   renderpass_encoder.SetPipeline(*pipeline);
-  renderpass_encoder.SetVertexBuffer(0, **scheduler->vertex_buffer());
-  renderpass_encoder.SetIndexBuffer(**scheduler->index_cache(),
-                                    scheduler->index_cache()->format());
+  renderpass_encoder.SetVertexBuffer(0, **scheduler->quad_batch());
+  renderpass_encoder.SetIndexBuffer(
+      **scheduler->GetDevice()->GetQuadIndex(),
+      scheduler->GetDevice()->GetQuadIndex()->format());
   renderpass_encoder.SetBindGroup(0, agent->world);
   renderpass_encoder.SetBindGroup(1, agent->text_cache_binding);
   renderpass_encoder.DrawIndexed(6);
@@ -575,12 +574,11 @@ CanvasImpl::CanvasImpl(RenderScreenImpl* screen,
                        TextureAgent* texture,
                        scoped_refptr<Font> font)
     : Disposable(screen),
-      node_(this),
       scheduler_(scheduler),
       texture_(texture),
       canvas_cache_(nullptr),
       font_(FontImpl::From(font)) {
-  scheduler->children_.Append(&node_);
+  scheduler->children_.Append(this);
 }
 
 CanvasImpl::~CanvasImpl() {
@@ -1022,7 +1020,7 @@ scoped_refptr<Rect> CanvasImpl::TextSize(const std::string& str,
 
 void CanvasImpl::OnObjectDisposed() {
   // Unlink from canvas scheduler
-  node_.RemoveFromList();
+  base::LinkNode<CanvasImpl>::RemoveFromList();
 
   // Destroy GPU texture
   base::ThreadWorker::PostTask(

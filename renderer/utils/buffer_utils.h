@@ -10,6 +10,12 @@
 
 namespace renderer {
 
+wgpu::Buffer CreateQuadBuffer(const wgpu::Device& device,
+                              const std::string_view& label,
+                              wgpu::BufferUsage usage,
+                              size_t count = 1,
+                              Quad* data = nullptr);
+
 template <typename VertexType>
 wgpu::Buffer CreateVertexBuffer(const wgpu::Device& device,
                                 const std::string_view& label,

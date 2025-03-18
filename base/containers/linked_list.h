@@ -117,11 +117,11 @@ class LinkNodeBase {
 }  // namespace internal
 
 template <typename T>
-class LinkNode final : public internal::LinkNodeBase {
+class LinkNode : public internal::LinkNodeBase {
  public:
-  LinkNode(T* self) : self_(self) {}
-  LinkNode(T* self, LinkNode<T>* previous, LinkNode<T>* next)
-      : internal::LinkNodeBase(previous, next), self_(self) {}
+  LinkNode() = default;
+  LinkNode(LinkNode<T>* previous, LinkNode<T>* next)
+      : internal::LinkNodeBase(previous, next) {}
 
   LinkNode(LinkNode<T>&&) = default;
 
@@ -143,11 +143,9 @@ class LinkNode final : public internal::LinkNodeBase {
   LinkNode<T>* next() const { return static_cast<LinkNode<T>*>(next_base()); }
 
   // Cast from the node-type to the value type.
-  const T* value() const { return self_; }
-  T* value() { return self_; }
+  const T* value() const { return static_cast<const T*>(this); }
 
- private:
-  T* self_;
+  T* value() { return static_cast<T*>(this); }
 };
 
 template <typename T>
@@ -156,7 +154,7 @@ class LinkedList {
   // The "root" node is self-referential, and forms the basis of a circular
   // list (root_.next() will point back to the start of the list,
   // and root_->previous() wraps around to the end of the list).
-  LinkedList() : root_(nullptr, &root_, &root_) {}
+  LinkedList() : root_(&root_, &root_) {}
   LinkedList(const LinkedList&) = delete;
   LinkedList& operator=(const LinkedList&) = delete;
 

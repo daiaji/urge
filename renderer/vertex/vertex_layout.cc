@@ -6,41 +6,7 @@
 
 namespace renderer {
 
-void FullVertexLayout::SetPositionRect(FullVertexLayout* data,
-                                       const base::RectF& pos) {
-  int i = 0;
-  data[i++].position = base::Vec4(pos.x, pos.y, 0, 1);
-  data[i++].position = base::Vec4(pos.x + pos.width, pos.y, 0, 1);
-  data[i++].position = base::Vec4(pos.x + pos.width, pos.y + pos.height, 0, 1);
-  data[i++].position = base::Vec4(pos.x, pos.y + pos.height, 0, 1);
-}
-
-void FullVertexLayout::SetTexCoordRect(FullVertexLayout* data,
-                                       const base::RectF& texcoord) {
-  int i = 0;
-  data[i++].texcoord = base::Vec2(texcoord.x, texcoord.y);
-  data[i++].texcoord = base::Vec2(texcoord.x + texcoord.width, texcoord.y);
-  data[i++].texcoord =
-      base::Vec2(texcoord.x + texcoord.width, texcoord.y + texcoord.height);
-  data[i++].texcoord = base::Vec2(texcoord.x, texcoord.y + texcoord.height);
-}
-
-void FullVertexLayout::SetColor(FullVertexLayout* data,
-                                const base::Vec4& color,
-                                int index) {
-  if (index == -1) {
-    int i = 0;
-    data[i++].color = color;
-    data[i++].color = color;
-    data[i++].color = color;
-    data[i++].color = color;
-    return;
-  }
-
-  (data + index)->color = color;
-}
-
-wgpu::VertexBufferLayout FullVertexLayout::GetLayout() {
+wgpu::VertexBufferLayout Vertex::GetLayout() {
   static wgpu::VertexAttribute attrs[3];
 
   // Position: vec4<f32>
@@ -59,12 +25,40 @@ wgpu::VertexBufferLayout FullVertexLayout::GetLayout() {
   attrs[2].shaderLocation = 2;
 
   wgpu::VertexBufferLayout layout;
-  layout.arrayStride = sizeof(FullVertexLayout);
+  layout.arrayStride = sizeof(Vertex);
   layout.attributeCount = _countof(attrs);
   layout.attributes = attrs;
   layout.stepMode = wgpu::VertexStepMode::Vertex;
 
   return layout;
+}
+
+void Quad::SetPositionRect(Quad* data, const base::RectF& pos) {
+  int i = 0;
+  data->vertices[i++].position = base::Vec4(pos.x, pos.y, 0, 1);
+  data->vertices[i++].position = base::Vec4(pos.x + pos.width, pos.y, 0, 1);
+  data->vertices[i++].position =
+      base::Vec4(pos.x + pos.width, pos.y + pos.height, 0, 1);
+  data->vertices[i++].position = base::Vec4(pos.x, pos.y + pos.height, 0, 1);
+}
+
+void Quad::SetTexCoordRect(Quad* data, const base::RectF& texcoord) {
+  int i = 0;
+  data->vertices[i++].texcoord = base::Vec2(texcoord.x, texcoord.y);
+  data->vertices[i++].texcoord =
+      base::Vec2(texcoord.x + texcoord.width, texcoord.y);
+  data->vertices[i++].texcoord =
+      base::Vec2(texcoord.x + texcoord.width, texcoord.y + texcoord.height);
+  data->vertices[i++].texcoord =
+      base::Vec2(texcoord.x, texcoord.y + texcoord.height);
+}
+
+void Quad::SetColor(Quad* data, const base::Vec4& color) {
+  int i = 0;
+  data->vertices[i++].color = color;
+  data->vertices[i++].color = color;
+  data->vertices[i++].color = color;
+  data->vertices[i++].color = color;
 }
 
 }  // namespace renderer

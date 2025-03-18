@@ -11,7 +11,7 @@ namespace content {
 namespace {
 
 void GPUCreatePlaneInternal(renderer::RenderDevice* device, PlaneAgent* agent) {
-  agent->quad_controller = renderer::FullQuadController::Make(device, 0);
+  agent->batch = renderer::QuadBatch::Make(**device, 0);
   agent->uniform_buffer =
       renderer::CreateUniformBuffer<renderer::ViewportFragmentUniform>(
           **device, "plane.uniform", wgpu::BufferUsage::CopyDst);
@@ -20,21 +20,19 @@ void GPUCreatePlaneInternal(renderer::RenderDevice* device, PlaneAgent* agent) {
 }
 
 void GPUDestroyPlaneInternal(PlaneAgent* agent) {
-  agent->quad_controller.reset();
   delete agent;
 }
 
-void GPUUpdatePlaneQuadArrayInternal(
-    wgpu::CommandEncoder* command_encoder,
-    renderer::QuadrangleIndexCache* index_cache,
-    PlaneAgent* agent,
-    TextureAgent* texture,
-    const base::Vec2i& viewport_size,
-    const base::Vec2& scale,
-    const base::Vec2i& origin,
-    const base::Vec4& color,
-    const base::Vec4& tone,
-    int32_t opacity) {
+void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
+                                     wgpu::CommandEncoder* command_encoder,
+                                     PlaneAgent* agent,
+                                     TextureAgent* texture,
+                                     const base::Vec2i& viewport_size,
+                                     const base::Vec2& scale,
+                                     const base::Vec2i& origin,
+                                     const base::Vec4& color,
+                                     const base::Vec4& tone,
+                                     int32_t opacity) {
   // Pre-calculate tile dimensions with scaling
   const float item_x =
       std::max(1.0f, static_cast<float>(texture->size.x) * scale.x);
@@ -59,33 +57,32 @@ void GPUUpdatePlaneQuadArrayInternal(
 
   // Prepare vertex buffer
   const int quad_size = tile_x * tile_y;
-  agent->vertices.resize(quad_size * 4);
+  agent->cache.resize(quad_size);
   const base::Vec4 opacity_norm(static_cast<float>(opacity) / 255.0f);
 
   // Pointer-based vertex writing with accumulative positioning
-  renderer::FullVertexLayout* vert_ptr = agent->vertices.data();
+  renderer::Quad* quad_ptr = agent->cache.data();
   float current_y = -wrap_oy;
   for (int y = 0; y < tile_y; ++y) {
     float current_x = -wrap_ox;
     for (int x = 0; x < tile_x; ++x) {
       // Set vertex properties directly through pointer
       const base::RectF pos(current_x, current_y, item_x, item_y);
-      renderer::FullVertexLayout::SetPositionRect(vert_ptr, pos);
-      renderer::FullVertexLayout::SetTexCoordRect(vert_ptr,
-                                                  base::Vec2(item_x, item_y));
-      renderer::FullVertexLayout::SetColor(vert_ptr, opacity_norm);
+      renderer::Quad::SetPositionRect(quad_ptr, pos);
+      renderer::Quad::SetTexCoordRect(quad_ptr, base::Vec2(item_x, item_y));
+      renderer::Quad::SetColor(quad_ptr, opacity_norm);
 
       // Move to next quad using pointer arithmetic
-      vert_ptr += 4;
+      ++quad_ptr;
       current_x += item_x;  // X-axis accumulation
     }
     current_y += item_y;  // Y-axis accumulation
   }
 
-  index_cache->Allocate(quad_size);
+  device->GetQuadIndex()->Allocate(quad_size);
   agent->quad_size = quad_size;
-  agent->quad_controller->QueueWrite(*command_encoder, agent->vertices.data(),
-                                     agent->vertices.size());
+  agent->batch->QueueWrite(*command_encoder, agent->cache.data(),
+                           agent->cache.size());
 
   renderer::ViewportFragmentUniform transient_uniform;
   transient_uniform.color = color;
@@ -97,7 +94,6 @@ void GPUUpdatePlaneQuadArrayInternal(
 
 void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
                                     wgpu::RenderPassEncoder* encoder,
-                                    renderer::QuadrangleIndexCache* index_cache,
                                     wgpu::BindGroup* world_binding,
                                     PlaneAgent* agent,
                                     TextureAgent* texture,
@@ -107,8 +103,9 @@ void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
       pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
   encoder->SetPipeline(*pipeline);
-  encoder->SetVertexBuffer(0, **agent->quad_controller);
-  encoder->SetIndexBuffer(**index_cache, index_cache->format());
+  encoder->SetVertexBuffer(0, **agent->batch);
+  encoder->SetIndexBuffer(**device->GetQuadIndex(),
+                          device->GetQuadIndex()->format());
   encoder->SetBindGroup(0, *world_binding);
   encoder->SetBindGroup(1, texture->binding);
   encoder->SetBindGroup(2, agent->uniform_binding);
@@ -342,6 +339,8 @@ void PlaneImpl::Put_Tone(const scoped_refptr<Tone>& value,
 }
 
 void PlaneImpl::OnObjectDisposed() {
+  node_.DisposeNode();
+
   screen()->PostTask(base::BindOnce(&GPUDestroyPlaneInternal, agent_));
   agent_ = nullptr;
 }
@@ -356,16 +355,16 @@ void PlaneImpl::DrawableNodeHandlerInternal(
     if (quad_array_dirty_) {
       quad_array_dirty_ = false;
       screen()->PostTask(base::BindOnce(
-          &GPUUpdatePlaneQuadArrayInternal, params->command_encoder,
-          params->index_cache, agent_, bitmap_->GetAgent(),
+          &GPUUpdatePlaneQuadArrayInternal, params->device,
+          params->command_encoder, agent_, bitmap_->GetAgent(),
           params->viewport.Size(), scale_, origin_, color_->AsNormColor(),
           tone_->AsNormColor(), opacity_));
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(base::BindOnce(
-        &GPUOnViewportRenderingInternal, params->device,
-        params->renderpass_encoder, params->index_cache, params->world_binding,
-        agent_, bitmap_->GetAgent(), blend_type_));
+    screen()->PostTask(
+        base::BindOnce(&GPUOnViewportRenderingInternal, params->device,
+                       params->renderpass_encoder, params->world_binding,
+                       agent_, bitmap_->GetAgent(), blend_type_));
   }
 }
 

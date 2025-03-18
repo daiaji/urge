@@ -238,10 +238,6 @@ renderer::DeviceContext* RenderScreenImpl::GetContext() const {
   return agent_->context.get();
 }
 
-renderer::QuadrangleIndexCache* RenderScreenImpl::GetQuadIndexCache() const {
-  return agent_->index_cache.get();
-}
-
 CanvasScheduler* RenderScreenImpl::GetCanvasScheduler() const {
   return agent_->canvas_scheduler.get();
 }
@@ -268,7 +264,6 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
   controller_params.device = agent_->device.get();
-  controller_params.index_cache = agent_->index_cache.get();
   controller_params.command_encoder = agent_->context->GetImmediateEncoder();
   controller_params.screen_buffer = render_target;
   controller_params.screen_size = target_size;
@@ -498,15 +493,9 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
   agent_->context =
       renderer::DeviceContext::MakeContextFor(agent_->device.get());
 
-  // Quad index generic buffer (reserved 1024)
-  agent_->index_cache =
-      renderer::QuadrangleIndexCache::Make(agent_->device.get());
-  agent_->index_cache->Allocate(1 << 10);
-
   // Create global canvas scheduler
-  agent_->canvas_scheduler =
-      CanvasScheduler::MakeInstance(agent_->device.get(), agent_->context.get(),
-                                    agent_->index_cache.get(), io_service_);
+  agent_->canvas_scheduler = CanvasScheduler::MakeInstance(
+      agent_->device.get(), agent_->context.get(), io_service_);
   agent_->canvas_scheduler->InitWithRenderWorker(render_worker_);
 
   // Create screen world matrix buffer
@@ -519,17 +508,15 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
       **agent_->device, agent_->world_buffer);
 
   // Create effect vertex buffer
-  agent_->effect_vertex =
-      renderer::CreateVertexBuffer<renderer::FullVertexLayout>(
-          **agent_->device, "screen.brightness.vertex",
-          wgpu::BufferUsage::CopyDst, 4);
+  agent_->effect_vertex = renderer::CreateVertexBuffer<renderer::Vertex>(
+      **agent_->device, "screen.brightness.vertex", wgpu::BufferUsage::CopyDst,
+      4);
 
   // Create screen present pipeline and buffer
   agent_->present_pipeline.reset(new renderer::Pipeline_Base(
       **agent_->device, agent_->device->SurfaceFormat()));
-  agent_->present_vertex =
-      renderer::CreateVertexBuffer<renderer::FullVertexLayout>(
-          **agent_->device, "screen.vertex", wgpu::BufferUsage::CopyDst, 4);
+  agent_->present_vertex = renderer::CreateVertexBuffer<renderer::Vertex>(
+      **agent_->device, "screen.vertex", wgpu::BufferUsage::CopyDst, 4);
 
   // Setup imgui renderer backends
   ImGui_ImplWGPU_InitInfo init_info;
@@ -607,15 +594,13 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     wgpu::BindGroup world_binding, texture_binding;
 
     {
-      renderer::FullVertexLayout transient_vertices[4];
-      renderer::FullVertexLayout::SetPositionRect(transient_vertices,
-                                                  target_rect);
-      renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
-                                                  base::Rect(resolution_));
-      renderer::FullVertexLayout::SetColor(transient_vertices, base::Vec4(1));
+      renderer::Quad transient_quad;
+      renderer::Quad::SetPositionRect(&transient_quad, target_rect);
+      renderer::Quad::SetTexCoordRect(&transient_quad, base::Rect(resolution_));
+      renderer::Quad::SetColor(&transient_quad, base::Vec4(1));
       commander->WriteBuffer(agent_->present_vertex, 0,
-                             reinterpret_cast<uint8_t*>(transient_vertices),
-                             sizeof(transient_vertices));
+                             reinterpret_cast<uint8_t*>(&transient_quad),
+                             sizeof(transient_quad));
     }
 
     {
@@ -666,7 +651,8 @@ void RenderScreenImpl::PresentScreenBufferInternal(
       pass.SetBindGroup(0, world_binding);
       pass.SetBindGroup(1, texture_binding);
       pass.SetVertexBuffer(0, agent_->present_vertex);
-      pass.SetIndexBuffer(**agent_->index_cache, agent_->index_cache->format());
+      pass.SetIndexBuffer(**agent_->device->GetQuadIndex(),
+                          agent_->device->GetQuadIndex()->format());
       pass.DrawIndexed(6);
       pass.End();
     }
@@ -795,14 +781,13 @@ void RenderScreenImpl::FrameBeginRenderPassInternal(
 
   // Update brightness
   if (brightness_ < 255) {
-    renderer::FullVertexLayout effect_vertices[4];
-    renderer::FullVertexLayout::SetPositionRect(effect_vertices,
-                                                base::Rect(target_size));
-    renderer::FullVertexLayout::SetColor(
-        effect_vertices, base::Vec4(0, 0, 0, (255 - brightness_) / 255.0f));
+    renderer::Quad effect_quad;
+    renderer::Quad::SetPositionRect(&effect_quad, base::Rect(target_size));
+    renderer::Quad::SetColor(&effect_quad,
+                             base::Vec4((255 - brightness_) / 255.0f));
     encoder->WriteBuffer(agent_->effect_vertex, 0,
-                         reinterpret_cast<uint8_t*>(effect_vertices),
-                         sizeof(effect_vertices));
+                         reinterpret_cast<uint8_t*>(&effect_quad),
+                         sizeof(effect_quad));
   }
 
   // Begin render pass
@@ -820,8 +805,9 @@ void RenderScreenImpl::FrameEndRenderPassInternal() {
     agent_->render_pass.SetPipeline(*pipeline);
     agent_->render_pass.SetBindGroup(0, agent_->world_binding);
     agent_->render_pass.SetVertexBuffer(0, agent_->effect_vertex);
-    agent_->render_pass.SetIndexBuffer(**agent_->index_cache,
-                                       agent_->index_cache->format());
+    agent_->render_pass.SetIndexBuffer(
+        **agent_->device->GetQuadIndex(),
+        agent_->device->GetQuadIndex()->format());
     agent_->render_pass.DrawIndexed(6);
   }
 
@@ -856,16 +842,15 @@ void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
   renderpass.colorAttachments = &attachment;
 
   // Update transition uniform
-  renderer::FullVertexLayout transient_vertices[4];
-  renderer::FullVertexLayout::SetPositionRect(
-      transient_vertices, base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
-  renderer::FullVertexLayout::SetTexCoordRect(
-      transient_vertices, base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
-  renderer::FullVertexLayout::SetColor(transient_vertices,
-                                       base::Vec4(progress));
+  renderer::Quad transient_quad;
+  renderer::Quad::SetPositionRect(&transient_quad,
+                                  base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
+  renderer::Quad::SetTexCoordRect(&transient_quad,
+                                  base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
+  renderer::Quad::SetColor(&transient_quad, base::Vec4(progress));
   command_encoder->WriteBuffer(agent_->effect_vertex, 0,
-                               reinterpret_cast<uint8_t*>(transient_vertices),
-                               sizeof(transient_vertices));
+                               reinterpret_cast<uint8_t*>(&transient_quad),
+                               sizeof(transient_quad));
 
   // Composite transition frame
   auto& pipeline_set = agent_->device->GetPipelines()->alphatrans;
@@ -878,8 +863,8 @@ void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
                           agent_->screen_buffer.GetHeight(), 0, 0);
   render_pass.SetBindGroup(0, agent_->transition_binding);
   render_pass.SetVertexBuffer(0, agent_->effect_vertex);
-  render_pass.SetIndexBuffer(**agent_->index_cache,
-                             agent_->index_cache->format());
+  render_pass.SetIndexBuffer(**agent_->device->GetQuadIndex(),
+                             agent_->device->GetQuadIndex()->format());
   render_pass.DrawIndexed(6);
   render_pass.End();
 }
@@ -898,16 +883,15 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(float progress,
   renderpass.colorAttachments = &attachment;
 
   // Update transition uniform
-  renderer::FullVertexLayout transient_vertices[4];
-  renderer::FullVertexLayout::SetPositionRect(
-      transient_vertices, base::RectF(-1.0f, -1.0f, 2.0f, 2.0f));
-  renderer::FullVertexLayout::SetTexCoordRect(
-      transient_vertices, base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
-  renderer::FullVertexLayout::SetColor(transient_vertices,
-                                       base::Vec4(vague, 0, 0, progress));
+  renderer::Quad transient_quad;
+  renderer::Quad::SetPositionRect(&transient_quad,
+                                  base::RectF(-1.0f, -1.0f, 2.0f, 2.0f));
+  renderer::Quad::SetTexCoordRect(&transient_quad,
+                                  base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
+  renderer::Quad::SetColor(&transient_quad, base::Vec4(vague, 0, 0, progress));
   command_encoder->WriteBuffer(agent_->effect_vertex, 0,
-                               reinterpret_cast<uint8_t*>(transient_vertices),
-                               sizeof(transient_vertices));
+                               reinterpret_cast<uint8_t*>(&transient_quad),
+                               sizeof(transient_quad));
 
   // Composite transition frame
   auto& pipeline_set = agent_->device->GetPipelines()->mappedtrans;
@@ -920,13 +904,13 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(float progress,
                           agent_->screen_buffer.GetHeight(), 0, 0);
   render_pass.SetBindGroup(0, agent_->transition_binding);
   render_pass.SetVertexBuffer(0, agent_->effect_vertex);
-  render_pass.SetIndexBuffer(**agent_->index_cache,
-                             agent_->index_cache->format());
+  render_pass.SetIndexBuffer(**agent_->device->GetQuadIndex(),
+                             agent_->device->GetQuadIndex()->format());
   render_pass.DrawIndexed(6);
   render_pass.End();
 }
 
-void RenderScreenImpl::AddDisposable(base::LinkNode<Disposable>* disp) {
+void RenderScreenImpl::AddDisposable(Disposable* disp) {
   disposable_elements_.Append(disp);
 }
 

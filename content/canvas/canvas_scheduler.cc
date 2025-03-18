@@ -11,14 +11,13 @@ CanvasScheduler::~CanvasScheduler() = default;
 std::unique_ptr<CanvasScheduler> CanvasScheduler::MakeInstance(
     renderer::RenderDevice* device,
     renderer::DeviceContext* context,
-    renderer::QuadrangleIndexCache* index_cache,
     filesystem::IOService* io_service) {
   return std::unique_ptr<CanvasScheduler>(
-      new CanvasScheduler(device, context, index_cache, io_service));
+      new CanvasScheduler(device, context, io_service));
 }
 
 renderer::RenderDevice* CanvasScheduler::GetDevice() {
-  return device_base_;
+  return device_;
 }
 
 renderer::DeviceContext* CanvasScheduler::GetContext() {
@@ -33,9 +32,7 @@ void CanvasScheduler::InitWithRenderWorker(base::ThreadWorker* worker) {
   render_worker_ = worker;
 
   // Make canvas drawing common transient vertex buffer
-  common_vertex_buffer_controller_ =
-      renderer::VertexBufferController<renderer::FullVertexLayout>::Make(
-          device_base_, 4);
+  common_quad_batch_ = renderer::QuadBatch::Make(**device_);
 }
 
 void CanvasScheduler::SubmitPendingPaintCommands() {
@@ -47,12 +44,10 @@ void CanvasScheduler::SubmitPendingPaintCommands() {
 
 CanvasScheduler::CanvasScheduler(renderer::RenderDevice* device,
                                  renderer::DeviceContext* context,
-                                 renderer::QuadrangleIndexCache* index_cache,
                                  filesystem::IOService* io_service)
-    : device_base_(device),
+    : device_(device),
       immediate_context_(context),
       render_worker_(nullptr),
-      index_cache_(index_cache),
       io_service_(io_service) {}
 
 }  // namespace content

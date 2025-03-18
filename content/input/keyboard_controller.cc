@@ -554,6 +554,8 @@ bool KeyboardControllerImpl::CreateButtonGUISettings() {
       selected_binding = -1;
     }
   }
+
+  return disable_gui_key_input_;
 }
 
 }  // namespace content

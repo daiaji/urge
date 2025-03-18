@@ -111,7 +111,7 @@ Pipeline_Base::Pipeline_Base(const wgpu::Device& device,
     : RenderPipelineBase(device) {
   BuildPipeline(kBaseRenderWGSL, "vertexMain", "fragmentMain",
                 {
-                    VertexType::GetLayout(),
+                    Vertex::GetLayout(),
                 },
                 {
                     WorldMatrixUniform::GetLayout(device),
@@ -125,7 +125,7 @@ Pipeline_Color::Pipeline_Color(const wgpu::Device& device,
     : RenderPipelineBase(device) {
   BuildPipeline(kColorRenderWGSL, "vertexMain", "fragmentMain",
                 {
-                    VertexType::GetLayout(),
+                    Vertex::GetLayout(),
                 },
                 {
                     WorldMatrixUniform::GetLayout(device),
@@ -138,7 +138,7 @@ Pipeline_Viewport::Pipeline_Viewport(const wgpu::Device& device,
     : RenderPipelineBase(device) {
   BuildPipeline(kViewportBaseRenderWGSL, "vertexMain", "fragmentMain",
                 {
-                    VertexType::GetLayout(),
+                    Vertex::GetLayout(),
                 },
                 {
                     WorldMatrixUniform::GetLayout(device),
@@ -153,7 +153,7 @@ Pipeline_Sprite::Pipeline_Sprite(const wgpu::Device& device,
     : RenderPipelineBase(device) {
   BuildPipeline(kSpriteRenderWGSL, "vertexMain", "fragmentMain",
                 {
-                    VertexType::GetLayout(),
+                    Vertex::GetLayout(),
                 },
                 {
                     WorldMatrixUniform::GetLayout(device),
@@ -168,7 +168,7 @@ Pipeline_SpriteInstance::Pipeline_SpriteInstance(const wgpu::Device& device,
     : RenderPipelineBase(device) {
   BuildPipeline(kSpriteRenderInstanceWGSL, "vertexMain", "fragmentMain",
                 {
-                    VertexType::GetLayout(),
+                    Vertex::GetLayout(),
                 },
                 {
                     WorldMatrixUniform::GetLayout(device),
@@ -183,7 +183,7 @@ Pipeline_AlphaTransition::Pipeline_AlphaTransition(const wgpu::Device& device,
     : RenderPipelineBase(device) {
   BuildPipeline(kAlphaTransitionRenderWGSL, "vertexMain", "fragmentMain",
                 {
-                    VertexType::GetLayout(),
+                    Vertex::GetLayout(),
                 },
                 {
                     AlphaTransitionUniform::GetLayout(device),
@@ -196,7 +196,7 @@ Pipeline_MappedTransition::Pipeline_MappedTransition(const wgpu::Device& device,
     : RenderPipelineBase(device) {
   BuildPipeline(kMappedTransitionRenderWGSL, "vertexMain", "fragmentMain",
                 {
-                    VertexType::GetLayout(),
+                    Vertex::GetLayout(),
                 },
                 {
                     VagueTransitionUniform::GetLayout(device),

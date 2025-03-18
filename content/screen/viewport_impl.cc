@@ -26,9 +26,8 @@ void GPUCreateViewportAgent(renderer::RenderDevice* device,
   agent->effect.uniform_buffer =
       renderer::CreateUniformBuffer<renderer::ViewportFragmentUniform>(
           **device, "viewport.uniform", wgpu::BufferUsage::CopyDst);
-  agent->effect.vertex_buffer =
-      renderer::CreateVertexBuffer<renderer::FullVertexLayout>(
-          **device, "viewport.effect", wgpu::BufferUsage::CopyDst, 4);
+  agent->effect.vertex_buffer = renderer::CreateQuadBuffer(
+      **device, "viewport.effect", wgpu::BufferUsage::CopyDst);
   agent->effect.uniform_binding =
       renderer::ViewportFragmentUniform::CreateGroup(
           **device, agent->effect.uniform_buffer);
@@ -91,7 +90,6 @@ void GPUResetViewportRegion(wgpu::RenderPassEncoder* agent,
 
 void GPUApplyViewportEffect(renderer::RenderDevice* device,
                             wgpu::CommandEncoder* command_encoder,
-                            renderer::QuadrangleIndexCache* index_cache,
                             wgpu::Texture* screen_buffer,
                             wgpu::BindGroup* root_world,
                             ViewportAgent* agent,
@@ -114,14 +112,13 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
       effect_region.height, screen_buffer->GetHeight() - effect_region.y);
   command_encoder->CopyTextureToTexture(&src_texture, &dst_texture, &extent);
 
-  renderer::FullVertexLayout transient_vertices[4];
-  renderer::FullVertexLayout::SetPositionRect(transient_vertices,
-                                              effect_region);
-  renderer::FullVertexLayout::SetTexCoordRect(transient_vertices,
-                                              base::Rect(effect_region.Size()));
+  renderer::Quad transient_quad;
+  renderer::Quad::SetPositionRect(&transient_quad, effect_region);
+  renderer::Quad::SetTexCoordRect(&transient_quad,
+                                  base::Rect(effect_region.Size()));
   command_encoder->WriteBuffer(agent->effect.vertex_buffer, 0,
-                               reinterpret_cast<uint8_t*>(transient_vertices),
-                               sizeof(transient_vertices));
+                               reinterpret_cast<uint8_t*>(&transient_quad),
+                               sizeof(transient_quad));
 
   renderer::ViewportFragmentUniform transient_uniform;
   transient_uniform.color = color;
@@ -145,7 +142,8 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
   wgpu::RenderPassEncoder pass = command_encoder->BeginRenderPass(&renderpass);
   pass.SetPipeline(*pipeline);
   pass.SetVertexBuffer(0, agent->effect.vertex_buffer);
-  pass.SetIndexBuffer(**index_cache, index_cache->format());
+  pass.SetIndexBuffer(**device->GetQuadIndex(),
+                      device->GetQuadIndex()->format());
   pass.SetBindGroup(0, *root_world);
   pass.SetBindGroup(1, agent->effect.layer_binding);
   pass.SetBindGroup(2, agent->effect.uniform_binding);
@@ -155,7 +153,6 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
 
 void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
                                    wgpu::CommandEncoder* command_encoder,
-                                   renderer::QuadrangleIndexCache* index_cache,
                                    wgpu::RenderPassEncoder* last_renderpass,
                                    wgpu::BindGroup* root_world,
                                    const base::Rect& last_viewport,
@@ -170,8 +167,8 @@ void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
   if (is_effect_valid) {
     last_renderpass->End();
 
-    GPUApplyViewportEffect(device, command_encoder, index_cache, screen_buffer,
-                           root_world, agent, effect_region, color, tone);
+    GPUApplyViewportEffect(device, command_encoder, screen_buffer, root_world,
+                           agent, effect_region, color, tone);
 
     wgpu::RenderPassColorAttachment attachment;
     attachment.view = screen_buffer->CreateView();
@@ -226,7 +223,6 @@ void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
 
 void GPUFrameEndRenderPassInternal(renderer::RenderDevice* device,
                                    renderer::DeviceContext* context,
-                                   renderer::QuadrangleIndexCache* index_cache,
                                    ViewportAgent* agent,
                                    wgpu::Texture* render_target,
                                    wgpu::BindGroup* root_world,
@@ -237,9 +233,8 @@ void GPUFrameEndRenderPassInternal(renderer::RenderDevice* device,
   agent->render_pass.End();
 
   // Apply viewport effect
-  GPUApplyViewportEffect(device, context->GetImmediateEncoder(), index_cache,
-                         render_target, root_world, agent, effect_region, color,
-                         tone);
+  GPUApplyViewportEffect(device, context->GetImmediateEncoder(), render_target,
+                         root_world, agent, effect_region, color, tone);
 }
 
 }  // namespace
@@ -352,7 +347,6 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
   controller_params.device = screen()->GetDevice();
-  controller_params.index_cache = screen()->GetQuadIndexCache();
   controller_params.command_encoder =
       screen()->GetContext()->GetImmediateEncoder();
   controller_params.screen_buffer = &bitmap_agent->data;
@@ -386,11 +380,10 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
     target_color =
         (flash_color.w > composite_color.w ? flash_color : composite_color);
 
-  screen()->PostTask(
-      base::BindOnce(&GPUFrameEndRenderPassInternal, screen()->GetDevice(),
-                     screen()->GetContext(), screen()->GetQuadIndexCache(),
-                     agent_, &bitmap_agent->data, &bitmap_agent->world,
-                     viewport_rect, target_color, tone_->AsNormColor()));
+  screen()->PostTask(base::BindOnce(
+      &GPUFrameEndRenderPassInternal, screen()->GetDevice(),
+      screen()->GetContext(), agent_, &bitmap_agent->data, &bitmap_agent->world,
+      viewport_rect, target_color, tone_->AsNormColor()));
 
   screen()->WaitWorkerSynchronize();
 }
@@ -533,9 +526,9 @@ void ViewportImpl::DrawableNodeHandlerInternal(
 
     screen()->PostTask(base::BindOnce(
         &GPUViewportProcessAfterRender, params->device, params->command_encoder,
-        params->index_cache, params->renderpass_encoder, params->root_world,
-        params->viewport, params->screen_buffer, agent_, viewport_rect,
-        target_color, tone_->AsNormColor()));
+        params->renderpass_encoder, params->root_world, params->viewport,
+        params->screen_buffer, agent_, viewport_rect, target_color,
+        tone_->AsNormColor()));
   }
 }
 

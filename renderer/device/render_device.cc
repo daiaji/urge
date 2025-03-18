@@ -230,10 +230,15 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   std::unique_ptr<PipelineSet> pipelines_set =
       std::make_unique<PipelineSet>(device, wgpu::TextureFormat::RGBA8Unorm);
 
-  // 8) Success: create and return our RenderDevice instance
-  return std::unique_ptr<RenderDevice>(
-      new RenderDevice(window_target, adapter, device, device.GetQueue(),
-                       surface, config.format, std::move(pipelines_set)));
+  // 8) Create quad index buffer cache
+  std::unique_ptr<QuadIndexCache> quad_index_cache =
+      QuadIndexCache::Make(device);
+  quad_index_cache->Allocate(1 << 10);
+
+  // 9) Success: create and return our RenderDevice instance
+  return std::unique_ptr<RenderDevice>(new RenderDevice(
+      window_target, adapter, device, device.GetQueue(), surface, config.format,
+      std::move(pipelines_set), std::move(quad_index_cache)));
 }
 
 wgpu::Instance* RenderDevice::GetGPUInstance() {
@@ -246,14 +251,16 @@ RenderDevice::RenderDevice(base::WeakPtr<ui::Widget> window,
                            const wgpu::Queue& queue,
                            const wgpu::Surface& surface,
                            wgpu::TextureFormat surface_format,
-                           std::unique_ptr<PipelineSet> pipelines)
+                           std::unique_ptr<PipelineSet> pipelines,
+                           std::unique_ptr<QuadIndexCache> quad_index)
     : window_(std::move(window)),
       adapter_(adapter),
       device_(device),
       queue_(queue),
       surface_(surface),
       surface_format_(surface_format),
-      pipelines_(std::move(pipelines)) {}
+      pipelines_(std::move(pipelines)),
+      quad_index_(std::move(quad_index)) {}
 
 RenderDevice::~RenderDevice() {
   g_wgpu_instance = nullptr;

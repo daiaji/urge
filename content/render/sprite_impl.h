@@ -23,8 +23,8 @@ struct SpriteAgent {
   wgpu::BindGroup uniform_binding;
   wgpu::Buffer uniform_buffer;
 
-  wgpu::Buffer wave_buffer;
-  std::vector<renderer::FullVertexLayout> wave_cache;
+  std::unique_ptr<renderer::QuadBatch> wave_batch;
+  std::vector<renderer::Quad> wave_cache;
   int32_t wave_index_count = 0;
 };
 

@@ -24,8 +24,8 @@ set(ENGINE_CONTENT_SRC
   components/disposable.h
   components/font_context.cc
   components/font_context.h
-  components/tilequad.cc
-  components/tilequad.h
+  composite/tilequad.cc
+  composite/tilequad.h
   common/value_observer.h
   context/exception_state.cc
   context/exception_state.h
@@ -57,6 +57,8 @@ set(ENGINE_CONTENT_SRC
   render/plane_impl.h
   render/sprite_impl.cc
   render/sprite_impl.h
+  render/window_impl.cc
+  render/window_impl.h
   screen/renderscreen_impl.cc
   screen/renderscreen_impl.h
   screen/viewport_impl.cc

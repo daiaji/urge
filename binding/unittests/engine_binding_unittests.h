@@ -14,7 +14,8 @@ class EngineBindingUnittests : public content::EngineBindingBase {
   EngineBindingUnittests();
   ~EngineBindingUnittests() override;
 
-  void PreEarlyInitialization(content::ContentProfile* profile) override;
+  void PreEarlyInitialization(content::ContentProfile* profile,
+                              filesystem::IOService* io_service) override;
   void OnMainMessageLoopRun(content::ExecutionContext* execution,
                             ScopedModuleContext* module_context) override;
   void PostMainLoopRunning() override;

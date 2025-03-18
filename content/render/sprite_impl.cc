@@ -20,12 +20,9 @@ inline float DegreesToRadians(float degrees) {
 
 void GPUCreateSpriteInternal(renderer::RenderDevice* device,
                              SpriteAgent* agent) {
-  wgpu::BufferDescriptor buffer_desc;
-  buffer_desc.label = "sprite.vertex.buffer";
-  buffer_desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
-  buffer_desc.size = sizeof(renderer::FullVertexLayout) * 4;
-  buffer_desc.mappedAtCreation = false;
-  agent->vertex_buffer = (*device)->CreateBuffer(&buffer_desc);
+  agent->vertex_buffer = renderer::CreateQuadBuffer(
+      **device, "sprite.vertex",
+      wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex);
 
   agent->uniform_buffer =
       renderer::CreateUniformBuffer<renderer::SpriteUniform>(
@@ -35,7 +32,6 @@ void GPUCreateSpriteInternal(renderer::RenderDevice* device,
 }
 
 void GPUDestroySpriteInternal(SpriteAgent* agent) {
-  agent->vertex_buffer = nullptr;
   delete agent;
 }
 
@@ -55,8 +51,8 @@ void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
   float wave_phase = DegreesToRadians(wave.phase);
 
   agent->wave_index_count = block_count * 6;
-  agent->wave_cache.resize(4 * block_count);
-  renderer::FullVertexLayout* vert = agent->wave_cache.data();
+  agent->wave_cache.resize(block_count);
+  renderer::Quad* quad = agent->wave_cache.data();
 
   auto emit_wave_block = [&](int block_y, int block_size) {
     float wave_offset =
@@ -72,9 +68,9 @@ void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
       tex.width = -tex.width;
     }
 
-    renderer::FullVertexLayout::SetPositionRect(vert, pos);
-    renderer::FullVertexLayout::SetTexCoordRect(vert, tex);
-    vert += 4;
+    renderer::Quad::SetPositionRect(quad, pos);
+    renderer::Quad::SetTexCoordRect(quad, tex);
+    ++quad;
   };
 
   for (int i = 0; i < loop_block; ++i)
@@ -83,20 +79,11 @@ void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
   if (last_block_aligned_size)
     emit_wave_block(loop_block * kWaveBlockAlign, last_block_aligned_size);
 
-  int32_t vertex_buffer_size =
-      agent->wave_cache.size() * sizeof(renderer::FullVertexLayout);
-  if (!vertex_buffer_size)
-    return;
-
-  if (!agent->wave_buffer || agent->wave_buffer.GetSize() < vertex_buffer_size)
-    agent->wave_buffer =
-        renderer::CreateVertexBuffer<renderer::FullVertexLayout>(
-            **device, "sprite.wave", wgpu::BufferUsage::CopyDst,
-            vertex_buffer_size);
-
-  encoder->WriteBuffer(agent->wave_buffer, 0,
-                       reinterpret_cast<uint8_t*>(agent->wave_cache.data()),
-                       vertex_buffer_size);
+  if (!agent->wave_batch)
+    agent->wave_batch =
+        renderer::QuadBatch::Make(**device, agent->wave_cache.size());
+  agent->wave_batch->QueueWrite(*encoder, agent->wave_cache.data(),
+                                agent->wave_cache.size());
 }
 
 void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
@@ -120,24 +107,23 @@ void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
     rect.width = std::clamp(rect.width, 0, bitmap_size.x - rect.x);
     rect.height = std::clamp(rect.height, 0, bitmap_size.y - rect.y);
 
-    renderer::FullVertexLayout vertices[4];
-    renderer::FullVertexLayout::SetColor(vertices,
-                                         base::Vec4(opacity / 255.0f));
-    renderer::FullVertexLayout::SetPositionRect(
-        vertices, base::Vec2(static_cast<float>(rect.width),
-                             static_cast<float>(rect.height)));
+    renderer::Quad transient_quad;
+    renderer::Quad::SetColor(&transient_quad, base::Vec4(opacity / 255.0f));
+    renderer::Quad::SetPositionRect(
+        &transient_quad, base::Vec2(static_cast<float>(rect.width),
+                                    static_cast<float>(rect.height)));
 
     if (mirror) {
-      renderer::FullVertexLayout::SetTexCoordRect(
-          vertices,
+      renderer::Quad::SetTexCoordRect(
+          &transient_quad,
           base::Rect(rect.x + rect.width, rect.y, -rect.width, rect.height));
     } else {
-      renderer::FullVertexLayout::SetTexCoordRect(vertices, rect);
+      renderer::Quad::SetTexCoordRect(&transient_quad, rect);
     }
 
     encoder->WriteBuffer(agent->vertex_buffer, 0,
-                         reinterpret_cast<uint8_t*>(vertices),
-                         sizeof(vertices));
+                         reinterpret_cast<uint8_t*>(&transient_quad),
+                         sizeof(transient_quad));
   }
 
   encoder->WriteBuffer(agent->uniform_buffer, 0,
@@ -146,7 +132,6 @@ void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
 }
 
 void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
-                                  renderer::QuadrangleIndexCache* index_cache,
                                   wgpu::RenderPassEncoder* renderpass_encoder,
                                   wgpu::BindGroup* world_binding,
                                   SpriteAgent* agent,
@@ -158,12 +143,13 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
       pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
   renderpass_encoder->SetPipeline(*pipeline);
-  renderpass_encoder->SetIndexBuffer(**index_cache, index_cache->format());
+  renderpass_encoder->SetIndexBuffer(**device->GetQuadIndex(),
+                                     device->GetQuadIndex()->format());
   renderpass_encoder->SetBindGroup(0, *world_binding);
   renderpass_encoder->SetBindGroup(1, texture->binding);
   renderpass_encoder->SetBindGroup(2, agent->uniform_binding);
-  if (wave_active && agent->wave_buffer) {
-    renderpass_encoder->SetVertexBuffer(0, agent->wave_buffer);
+  if (wave_active && agent->wave_batch) {
+    renderpass_encoder->SetVertexBuffer(0, **agent->wave_batch);
     renderpass_encoder->DrawIndexed(agent->wave_index_count);
   } else {
     renderpass_encoder->SetVertexBuffer(0, agent->vertex_buffer);
@@ -609,6 +595,8 @@ void SpriteImpl::Put_Tone(const scoped_refptr<Tone>& value,
 }
 
 void SpriteImpl::OnObjectDisposed() {
+  node_.DisposeNode();
+
   screen()->PostTask(base::BindOnce(&GPUDestroySpriteInternal, agent_));
   agent_ = nullptr;
 }
@@ -643,10 +631,10 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     wave_.dirty = false;
     src_rect_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(base::BindOnce(
-        &GPUOnSpriteRenderingInternal, params->device, params->index_cache,
-        params->renderpass_encoder, params->world_binding, agent_,
-        bitmap_->GetAgent(), blend_type_, !!wave_.amp));
+    screen()->PostTask(
+        base::BindOnce(&GPUOnSpriteRenderingInternal, params->device,
+                       params->renderpass_encoder, params->world_binding,
+                       agent_, bitmap_->GetAgent(), blend_type_, !!wave_.amp));
   }
 }
 

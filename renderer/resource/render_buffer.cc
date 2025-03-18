@@ -21,16 +21,15 @@ static std::array<uint16_t, 6> kQuadrangleDrawIndices = {
     0, 1, 2, 2, 3, 0,
 };
 
-QuadrangleIndexCache::QuadrangleIndexCache(const wgpu::Device& device)
+QuadIndexCache::QuadIndexCache(const wgpu::Device& device)
     : device_(device), format_(wgpu::IndexFormat::Uint16), count_(0) {}
 
-std::unique_ptr<QuadrangleIndexCache> renderer::QuadrangleIndexCache::Make(
-    RenderDevice* device) {
-  return std::unique_ptr<QuadrangleIndexCache>(
-      new QuadrangleIndexCache(**device));
+std::unique_ptr<QuadIndexCache> renderer::QuadIndexCache::Make(
+    const wgpu::Device& device) {
+  return std::unique_ptr<QuadIndexCache>(new QuadIndexCache(device));
 }
 
-wgpu::Buffer* QuadrangleIndexCache::Allocate(uint32_t quadrangle_size) {
+wgpu::Buffer* QuadIndexCache::Allocate(uint32_t quadrangle_size) {
   uint32_t required_indices_size =
       quadrangle_size * kQuadrangleDrawIndices.size();
 
@@ -61,12 +60,44 @@ wgpu::Buffer* QuadrangleIndexCache::Allocate(uint32_t quadrangle_size) {
 
     // Re-Write indices data to buffer
     void* dest_memory = index_buffer_.GetMappedRange();
-    DCHECK(dest_memory);
     std::memcpy(dest_memory, cached_indices_.data(), buffer_desc.size);
     index_buffer_.Unmap();
   }
 
   return &index_buffer_;
+}
+
+QuadBatch::QuadBatch(const wgpu::Device& device,
+                     const wgpu::Buffer& vertex_buffer)
+    : device_(device), buffer_(vertex_buffer) {}
+
+std::unique_ptr<QuadBatch> QuadBatch::Make(const wgpu::Device& device,
+                                           uint64_t initial_count) {
+  wgpu::Buffer result_buffer;
+  if (initial_count) {
+    wgpu::BufferDescriptor buffer_desc;
+    buffer_desc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
+    buffer_desc.size = initial_count * sizeof(Quad);
+    result_buffer = device.CreateBuffer(&buffer_desc);
+  }
+
+  return std::unique_ptr<QuadBatch>(new QuadBatch(device, result_buffer));
+}
+
+void QuadBatch::QueueWrite(const wgpu::CommandEncoder& encoder,
+                           const Quad* data,
+                           uint32_t count,
+                           uint32_t offset) {
+  if (!buffer_ || buffer_.GetSize() < sizeof(Quad) * (offset + count)) {
+    wgpu::BufferDescriptor buffer_desc;
+    buffer_desc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
+    buffer_desc.size = (offset + count) * sizeof(Quad);
+    buffer_ = device_.CreateBuffer(&buffer_desc);
+  }
+
+  encoder.WriteBuffer(buffer_, offset * sizeof(Quad),
+                      reinterpret_cast<const uint8_t*>(data),
+                      count * sizeof(Quad));
 }
 
 }  // namespace renderer

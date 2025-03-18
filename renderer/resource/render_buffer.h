@@ -5,21 +5,20 @@
 #ifndef RENDERER_RESOURCE_RENDER_BUFFER_H_
 #define RENDERER_RESOURCE_RENDER_BUFFER_H_
 
-#include "renderer/device/render_device.h"
 #include "renderer/renderer_config.h"
 #include "renderer/vertex/vertex_layout.h"
 
 namespace renderer {
 
-class QuadrangleIndexCache {
+class QuadIndexCache {
  public:
-  ~QuadrangleIndexCache() = default;
+  ~QuadIndexCache() = default;
 
-  QuadrangleIndexCache(const QuadrangleIndexCache&) = delete;
-  QuadrangleIndexCache& operator=(const QuadrangleIndexCache&) = delete;
+  QuadIndexCache(const QuadIndexCache&) = delete;
+  QuadIndexCache& operator=(const QuadIndexCache&) = delete;
 
   // Make quad index(6) buffer cache
-  static std::unique_ptr<QuadrangleIndexCache> Make(RenderDevice* device);
+  static std::unique_ptr<QuadIndexCache> Make(const wgpu::Device& device);
 
   // Allocate a new capacity index buffer for drawcall using,
   // |quadrangle_size| is the count not the byte size.
@@ -29,7 +28,7 @@ class QuadrangleIndexCache {
   wgpu::IndexFormat format() const { return format_; }
 
  private:
-  QuadrangleIndexCache(const wgpu::Device& device);
+  QuadIndexCache(const wgpu::Device& device);
 
   wgpu::Device device_;
   wgpu::IndexFormat format_;
@@ -38,77 +37,28 @@ class QuadrangleIndexCache {
   uint32_t count_;
 };
 
-template <typename VertexType>
-class VertexBufferController {
+class QuadBatch {
  public:
-  ~VertexBufferController() = default;
+  ~QuadBatch() = default;
 
-  VertexBufferController(const VertexBufferController&) = delete;
-  VertexBufferController& operator=(const VertexBufferController&) = delete;
+  QuadBatch(const QuadBatch&) = delete;
+  QuadBatch& operator=(const QuadBatch&) = delete;
 
-  // Make new buffer instance
-  static std::unique_ptr<VertexBufferController> Make(
-      RenderDevice* device,
-      uint64_t initial_size = 0);
+  static std::unique_ptr<QuadBatch> Make(const wgpu::Device& device,
+                                         uint64_t initial_count = 0);
 
-  // Manage current vertex buffer.
+  wgpu::Buffer& operator*() { return buffer_; }
   void QueueWrite(const wgpu::CommandEncoder& encoder,
-                  const VertexType* data,
-                  uint32_t size,
+                  const Quad* data,
+                  uint32_t count = 1,
                   uint32_t offset = 0);
 
-  wgpu::Buffer& operator*() { return vertex_buffer_; }
-
  private:
-  VertexBufferController(const wgpu::Device& device,
-                         const wgpu::Buffer& vertex_buffer);
+  QuadBatch(const wgpu::Device& device, const wgpu::Buffer& vertex_buffer);
 
   wgpu::Device device_;
-  wgpu::Buffer vertex_buffer_;
+  wgpu::Buffer buffer_;
 };
-
-template <typename VertexType>
-inline VertexBufferController<VertexType>::VertexBufferController(
-    const wgpu::Device& device,
-    const wgpu::Buffer& vertex_buffer)
-    : device_(device), vertex_buffer_(vertex_buffer) {}
-
-template <typename VertexType>
-inline std::unique_ptr<VertexBufferController<VertexType>>
-VertexBufferController<VertexType>::Make(RenderDevice* device,
-                                         uint64_t initial_size) {
-  wgpu::Buffer result_buffer;
-  if (initial_size) {
-    wgpu::BufferDescriptor buffer_desc;
-    buffer_desc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-    buffer_desc.size = initial_size * sizeof(VertexType);
-    result_buffer = (*device)->CreateBuffer(&buffer_desc);
-  }
-
-  return std::unique_ptr<VertexBufferController<VertexType>>(
-      new VertexBufferController<VertexType>(**device, result_buffer));
-}
-
-template <typename VertexType>
-inline void VertexBufferController<VertexType>::QueueWrite(
-    const wgpu::CommandEncoder& encoder,
-    const VertexType* data,
-    uint32_t size,
-    uint32_t offset) {
-  if (!vertex_buffer_ ||
-      vertex_buffer_.GetSize() < sizeof(VertexType) * (offset + size)) {
-    wgpu::BufferDescriptor buffer_desc;
-    buffer_desc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-    buffer_desc.size = size * sizeof(VertexType);
-    vertex_buffer_ = device_.CreateBuffer(&buffer_desc);
-  }
-
-  encoder.WriteBuffer(vertex_buffer_, offset * sizeof(VertexType),
-                      reinterpret_cast<const uint8_t*>(data),
-                      size * sizeof(VertexType));
-}
-
-using FullQuadController = VertexBufferController<FullVertexLayout>;
 
 }  // namespace renderer
 

@@ -283,7 +283,9 @@ return ary;
         source_body += "#include \"binding/mri/autogen_{}_binding.h\"\n".format(dep.lower())
 
     source_body += "\n"
-    for dep in self.class_data["dependency"]:
+    idl_ref = self.class_data["dependency"]
+    idl_ref.add(self.class_data["class_name"])
+    for dep in idl_ref:
       source_body += "#include \"content/public/engine_{}.h\"\n".format(dep.lower())
 
     source_body += "\nnamespace binding {\n"

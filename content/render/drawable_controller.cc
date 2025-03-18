@@ -19,21 +19,12 @@ SortKey::SortKey(int64_t key1, int64_t key2, int64_t key3)
     : weight{key1, key2, key3} {}
 
 DrawableNode::DrawableNode(DrawNodeController* controller,
-                           const SortKey& default_key)
-    : DrawableNode(controller, default_key, true) {}
-
-DrawableNode::DrawableNode(DrawNodeController* controller,
                            const SortKey& default_key,
                            bool visible)
-    : associated_node_(this),
-      orderly_node_(this),
-      controller_(controller),
-      key_(default_key),
-      visible_(visible) {
+    : controller_(controller), key_(default_key), visible_(visible) {
   if (controller_) {
     // Bind this node to initial parent.
-    controller_->associated_list_.Append(&associated_node_);
-    controller_->orderly_list_.Append(&orderly_node_);
+    controller_->children_list_.Append(this);
   }
 }
 
@@ -53,19 +44,14 @@ void DrawableNode::RebindController(DrawNodeController* controller) {
   // Setup new parent controller
   controller_ = controller;
 
-  // Rebind associated node link
-  associated_node_.RemoveFromList();
-  controller_->associated_list_.Append(&associated_node_);
-
   // Rebind orderly node link
-  orderly_node_.RemoveFromList();
+  base::LinkNode<DrawableNode>::RemoveFromList();
   controller_->InsertChildNodeInternal(this);
 }
 
 void DrawableNode::DisposeNode() {
   DCHECK(controller_);
-  associated_node_.RemoveFromList();
-  orderly_node_.RemoveFromList();
+  base::LinkNode<DrawableNode>::RemoveFromList();
   controller_ = nullptr;
 }
 
@@ -83,7 +69,7 @@ void DrawableNode::SetNodeSortWeight(int weight1) {
 
   key_.weight[0] = weight1;
 
-  orderly_node_.RemoveFromList();
+  base::LinkNode<DrawableNode>::RemoveFromList();
   controller_->InsertChildNodeInternal(this);
 }
 
@@ -94,7 +80,7 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2) {
   key_.weight[0] = weight1;
   key_.weight[1] = weight2;
 
-  orderly_node_.RemoveFromList();
+  base::LinkNode<DrawableNode>::RemoveFromList();
   controller_->InsertChildNodeInternal(this);
 }
 
@@ -106,14 +92,24 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2, int weight3) {
   key_.weight[1] = weight2;
   key_.weight[2] = weight3;
 
-  orderly_node_.RemoveFromList();
+  base::LinkNode<DrawableNode>::RemoveFromList();
   controller_->InsertChildNodeInternal(this);
+}
+
+DrawableNode* DrawableNode::GetPreviousNode() {
+  auto* node = previous();
+  return node ? node->value() : nullptr;
+}
+
+DrawableNode* DrawableNode::GetNextNode() {
+  auto* node = next();
+  return node ? node->value() : nullptr;
 }
 
 DrawNodeController::DrawNodeController() = default;
 
 DrawNodeController::~DrawNodeController() {
-  for (auto* it = orderly_list_.head(); it != orderly_list_.end();
+  for (auto* it = children_list_.head(); it != children_list_.end();
        it = it->next()) {
     // Reset child controller association.
     it->value()->controller_ = nullptr;
@@ -123,11 +119,8 @@ DrawNodeController::~DrawNodeController() {
 void DrawNodeController::BroadCastNotification(
     DrawableNode::RenderStage nid,
     DrawableNode::RenderControllerParams* params) {
-  base::LinkedList<DrawableNode>* list =
-      nid == DrawableNode::RenderStage::ON_RENDERING ? &orderly_list_
-                                                     : &associated_list_;
-
-  for (auto* it = list->head(); it != list->end(); it = it->next()) {
+  for (auto* it = children_list_.head(); it != children_list_.end();
+       it = it->next()) {
     // Broadcast render job notification
     if (it->value()->visible_)
       it->value()->handler_.Run(nid, params);
@@ -136,16 +129,16 @@ void DrawNodeController::BroadCastNotification(
 
 void DrawNodeController::InsertChildNodeInternal(DrawableNode* node) {
   // From min to max.
-  for (auto it = orderly_list_.head(); it != orderly_list_.end();
+  for (auto* it = children_list_.head(); it != children_list_.end();
        it = it->next()) {
     // Insert before the first node with a greater key.
     // This will keep the list sorted in ascending order.
     if (node->key_ < it->value()->key_)
-      return node->orderly_node_.InsertBefore(it);
+      return node->InsertBefore(it);
   }
 
   // Max key, append to the end.
-  orderly_list_.Append(&node->orderly_node_);
+  children_list_.Append(node);
 }
 
 void DrawableFlashController::Setup(

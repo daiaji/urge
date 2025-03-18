@@ -7,12 +7,12 @@
 namespace content {
 
 Disposable::Disposable(DisposableCollection* parent)
-    : node_(this), parent_(parent), disposed_(0) {
-  parent_->AddDisposable(&node_);
+    : parent_(parent), disposed_(0) {
+  parent_->AddDisposable(this);
 }
 
 Disposable::~Disposable() {
-  node_.RemoveFromList();
+  base::LinkNode<Disposable>::RemoveFromList();
 }
 
 void Disposable::Dispose(ExceptionState& exception_state) {

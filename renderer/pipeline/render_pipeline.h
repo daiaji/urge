@@ -50,45 +50,38 @@ class RenderPipelineBase {
 
 class Pipeline_Base : public RenderPipelineBase {
  public:
-  using VertexType = FullVertexLayout;
   Pipeline_Base(const wgpu::Device& device, wgpu::TextureFormat target);
 };
 
 class Pipeline_Color : public RenderPipelineBase {
  public:
-  using VertexType = FullVertexLayout;
   Pipeline_Color(const wgpu::Device& device, wgpu::TextureFormat target);
 };
 
 class Pipeline_Viewport : public RenderPipelineBase {
  public:
-  using VertexType = FullVertexLayout;
   Pipeline_Viewport(const wgpu::Device& device, wgpu::TextureFormat target);
 };
 
 class Pipeline_Sprite : public RenderPipelineBase {
  public:
-  using VertexType = FullVertexLayout;
   Pipeline_Sprite(const wgpu::Device& device, wgpu::TextureFormat target);
 };
 
 class Pipeline_SpriteInstance : public RenderPipelineBase {
  public:
-  using VertexType = FullVertexLayout;
   Pipeline_SpriteInstance(const wgpu::Device& device,
                           wgpu::TextureFormat target);
 };
 
 class Pipeline_AlphaTransition : public RenderPipelineBase {
  public:
-  using VertexType = FullVertexLayout;
   Pipeline_AlphaTransition(const wgpu::Device& device,
                            wgpu::TextureFormat target);
 };
 
 class Pipeline_MappedTransition : public RenderPipelineBase {
  public:
-  using VertexType = FullVertexLayout;
   Pipeline_MappedTransition(const wgpu::Device& device,
                             wgpu::TextureFormat target);
 };
