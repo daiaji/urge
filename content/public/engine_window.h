@@ -22,11 +22,7 @@ class URGE_RUNTIME_API Window : public base::RefCounted<Window> {
  public:
   virtual ~Window() = default;
 
-  /*--urge(name:initialize)--*/
-  static scoped_refptr<Window> New(ExecutionContext* execution_context,
-                                   ExceptionState& exception_state);
-
-  /*--urge(name:initialize)--*/
+  /*--urge(name:initialize,optional:viewport=nullptr)--*/
   static scoped_refptr<Window> New(ExecutionContext* execution_context,
                                    scoped_refptr<Viewport> viewport,
                                    ExceptionState& exception_state);

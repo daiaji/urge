@@ -42,14 +42,16 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
     if (stretch) {
       count += 1;
     } else {
-      int horizon_count = CalculateQuadTileCount(64 * scale, bound.width);
-      int vertical_count = CalculateQuadTileCount(64 * scale, bound.width);
+      int horizon_count =
+          CalculateQuadTileCount(64 * scale, bound.width - 2 * scale);
+      int vertical_count =
+          CalculateQuadTileCount(64 * scale, bound.height - 2 * scale);
       count += horizon_count * vertical_count;
     }
 
     // Frame tiles
-    int horizon_frame_size = bound.width - scale * 16;
-    int vertical_frame_size = bound.height - scale * 16;
+    const int horizon_frame_size = bound.width - scale * 16;
+    const int vertical_frame_size = bound.height - scale * 16;
     count += CalculateQuadTileCount(16 * scale, horizon_frame_size) * 2;
     count += CalculateQuadTileCount(16 * scale, vertical_frame_size) * 2;
 
@@ -85,34 +87,7 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
         opacity_norm * (static_cast<float>(back_opacity) / 255.0f);
     for (int i = 0; i < background_quad_count; ++i)
       renderer::Quad::SetColor(&quad_ptr[i], base::Vec4(opacity_norm));
-
     quad_ptr += background_quad_count;
-
-    // Frame tiles
-    base::Rect frame_up(72 * scale, 0, 16 * scale, 8 * scale);
-    base::Rect frame_down(72 * scale, 24 * scale, 16 * scale, 8 * scale);
-    base::Rect frame_left(64 * scale, 8 * scale, 8 * scale, 16 * scale);
-    base::Rect frame_right(88 * scale, 8 * scale, 8 * scale, 16 * scale);
-
-    int frame_quads_count = 0;
-    frame_quads_count += BuildTilesAlongAxis<TileAxis::HORIZONTAL>(
-        frame_up, base::Vec4(opacity_norm), bound.width - 4 * scale,
-        display_offset.y, display_offset.x + 2 * scale, quad_ptr);
-    quad_ptr += frame_quads_count;
-    frame_quads_count += BuildTilesAlongAxis<TileAxis::HORIZONTAL>(
-        frame_down, base::Vec4(opacity_norm), bound.width - 4 * scale,
-        display_offset.y + bound.height - 2 * scale,
-        display_offset.x + 2 * scale, quad_ptr);
-    quad_ptr += frame_quads_count;
-    frame_quads_count += BuildTilesAlongAxis<TileAxis::VERTICAL>(
-        frame_left, base::Vec4(opacity_norm), bound.height - 4 * scale,
-        display_offset.x + 2 * scale, display_offset.y, quad_ptr);
-    quad_ptr += frame_quads_count;
-    frame_quads_count += BuildTilesAlongAxis<TileAxis::VERTICAL>(
-        frame_right, base::Vec4(opacity_norm), bound.height - 4 * scale,
-        display_offset.x + 2 * scale,
-        display_offset.y + bound.width - 2 * scale, quad_ptr);
-    quad_ptr += frame_quads_count;
 
     // Frame Corners
     base::Rect corner_left_top(64 * scale, 0, 8 * scale, 8 * scale);
@@ -123,30 +98,56 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
 
     renderer::Quad::SetPositionRect(
         quad_ptr,
-        base::Rect(display_offset.x, display_offset.y, 2 * scale, 2 * scale));
+        base::Rect(display_offset.x, display_offset.y, 8 * scale, 8 * scale));
     renderer::Quad::SetTexCoordRect(quad_ptr, corner_left_top);
     renderer::Quad::SetColor(quad_ptr, base::Vec4(opacity_norm));
     ++quad_ptr;
     renderer::Quad::SetPositionRect(
-        quad_ptr, base::Rect(display_offset.x + bound.width - 2 * scale,
-                             display_offset.y, 2 * scale, 2 * scale));
+        quad_ptr, base::Rect(display_offset.x + bound.width - 8 * scale,
+                             display_offset.y, 8 * scale, 8 * scale));
     renderer::Quad::SetTexCoordRect(quad_ptr, corner_right_top);
     renderer::Quad::SetColor(quad_ptr, base::Vec4(opacity_norm));
     ++quad_ptr;
     renderer::Quad::SetPositionRect(
-        quad_ptr, base::Rect(display_offset.x + bound.width - 2 * scale,
-                             display_offset.y + bound.height - 2 * scale,
-                             2 * scale, 2 * scale));
+        quad_ptr, base::Rect(display_offset.x + bound.width - 8 * scale,
+                             display_offset.y + bound.height - 8 * scale,
+                             8 * scale, 8 * scale));
     renderer::Quad::SetTexCoordRect(quad_ptr, corner_right_bottom);
     renderer::Quad::SetColor(quad_ptr, base::Vec4(opacity_norm));
     ++quad_ptr;
     renderer::Quad::SetPositionRect(
         quad_ptr, base::Rect(display_offset.x,
-                             display_offset.y + bound.height - 2 * scale,
-                             2 * scale, 2 * scale));
+                             display_offset.y + bound.height - 8 * scale,
+                             8 * scale, 8 * scale));
     renderer::Quad::SetTexCoordRect(quad_ptr, corner_left_bottom);
     renderer::Quad::SetColor(quad_ptr, base::Vec4(opacity_norm));
     ++quad_ptr;
+
+    // Frame tiles
+    base::Rect frame_up(72 * scale, 0, 16 * scale, 8 * scale);
+    base::Rect frame_down(72 * scale, 24 * scale, 16 * scale, 8 * scale);
+    base::Rect frame_left(64 * scale, 8 * scale, 8 * scale, 16 * scale);
+    base::Rect frame_right(88 * scale, 8 * scale, 8 * scale, 16 * scale);
+
+    base::Vec2i frame_up_pos(display_offset.x + 8 * scale, display_offset.y);
+    base::Vec2i frame_down_pos(display_offset.x + 8 * scale,
+                               display_offset.y + bound.height - 8 * scale);
+    base::Vec2i frame_left_pos(display_offset.x, display_offset.y + 8 * scale);
+    base::Vec2i frame_right_pos(display_offset.x + bound.width - 8 * scale,
+                                display_offset.y + 8 * scale);
+
+    quad_ptr += BuildTilesAlongAxis(TileAxis::HORIZONTAL, frame_up,
+                                    frame_up_pos, base::Vec4(opacity_norm),
+                                    bound.width - 16 * scale, quad_ptr);
+    quad_ptr += BuildTilesAlongAxis(TileAxis::HORIZONTAL, frame_down,
+                                    frame_down_pos, base::Vec4(opacity_norm),
+                                    bound.width - 16 * scale, quad_ptr);
+    quad_ptr += BuildTilesAlongAxis(TileAxis::VERTICAL, frame_left,
+                                    frame_left_pos, base::Vec4(opacity_norm),
+                                    bound.height - 16 * scale, quad_ptr);
+    quad_ptr += BuildTilesAlongAxis(TileAxis::VERTICAL, frame_right,
+                                    frame_right_pos, base::Vec4(opacity_norm),
+                                    bound.height - 16 * scale, quad_ptr);
   }
 
   agent->background_batch->QueueWrite(*encoder, quad_buffer.data(),
@@ -156,16 +157,18 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
 void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
                                       wgpu::CommandEncoder* encoder,
                                       WindowAgent* agent,
+                                      TextureAgent* windowskin,
                                       int32_t scale,
                                       const base::Rect& bound,
                                       const base::Rect& cursor_rect,
                                       const base::Vec2i& origin,
                                       TextureAgent* contents,
                                       bool pause,
-                                      int32_t pause_index) {
+                                      int32_t pause_index,
+                                      int32_t cursor_opacity) {
   // Cursor render
-  auto build_cursor_internal = [scale](const base::Rect& rect,
-                                       base::RectF quad_rects[9]) {
+  auto build_cursor_internal = [&](const base::Rect& rect,
+                                   base::Rect quad_rects[9]) {
     int w = rect.width;
     int h = rect.height;
     int x1 = rect.x;
@@ -190,7 +193,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
 
   auto build_cursor_quads = [&](const base::Rect& src, const base::Rect& dst,
                                 renderer::Quad vert[9]) {
-    base::RectF quad_rects[9];
+    base::Rect quad_rects[9];
 
     build_cursor_internal(src, quad_rects);
     for (int i = 0; i < 9; ++i)
@@ -200,82 +203,209 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
     for (int i = 0; i < 9; ++i)
       renderer::Quad::SetPositionRect(&vert[i], quad_rects[i]);
 
+    const base::Vec4 cursor_opacity_norm(static_cast<float>(cursor_opacity) /
+                                         255.0f);
+    for (int i = 0; i < 9; ++i)
+      renderer::Quad::SetColor(&vert[i], cursor_opacity_norm);
+
     return 9;
   };
 
   auto& quad_buffer = agent->control_cache;
-  quad_buffer.resize(9 + 4 + 1);
-  auto* quad_ptr = quad_buffer.data();
+  quad_buffer.reserve(9 + 4 + 1 + 1);
+  quad_buffer.clear();
   base::Vec2i display_offset = bound.Position();
 
-  base::Rect cursor_dest_rect(display_offset.x + cursor_rect.x + 8 * scale,
-                              display_offset.y + cursor_rect.y + 8 * scale,
-                              cursor_rect.width, cursor_rect.height);
-  if (cursor_dest_rect.width > 0 && cursor_dest_rect.height > 0) {
-    base::Rect cursor_src(64 * scale, 32 * scale, 16 * scale, 16 * scale);
-    quad_ptr += build_cursor_quads(cursor_src, cursor_dest_rect, quad_ptr);
+  if (windowskin) {
+    // Cursor render (9 Quads)
+    base::Rect cursor_dest_rect(display_offset.x + cursor_rect.x + 8 * scale,
+                                display_offset.y + cursor_rect.y + 8 * scale,
+                                cursor_rect.width, cursor_rect.height);
+    if (cursor_dest_rect.width > 0 && cursor_dest_rect.height > 0) {
+      base::Rect cursor_src(64 * scale, 32 * scale, 16 * scale, 16 * scale);
+
+      renderer::Quad cursors_quads[9];
+      build_cursor_quads(cursor_src, cursor_dest_rect, cursors_quads);
+      quad_buffer.insert(quad_buffer.end(), std::begin(cursors_quads),
+                         std::end(cursors_quads));
+    }
+
+    // Arrows render (0-4 Quads)
+    const base::Vec2i scroll =
+        display_offset +
+        (bound.Size() - base::Vec2i(8 * scale)) / base::Vec2i(2);
+    base::Rect scroll_arrow_up_pos =
+        base::Rect(scroll.x, bound.y + 2 * scale, 8 * scale, 4 * scale);
+    base::Rect scroll_arrow_down_pos = base::Rect(
+        scroll.x, bound.y + bound.height - 6 * scale, 8 * scale, 4 * scale);
+    base::Rect scroll_arrow_left_pos =
+        base::Rect(bound.x + 2 * scale, scroll.y, 4 * scale, 8 * scale);
+    base::Rect scroll_arrow_right_pos = base::Rect(
+        bound.x + bound.width - 6 * scale, scroll.y, 4 * scale, 8 * scale);
+
+    if (contents) {
+      base::Rect scroll_arrow_up_src = {76 * scale, 8 * scale, 8 * scale,
+                                        4 * scale};
+      base::Rect scroll_arrow_down_src = {76 * scale, 20 * scale, 8 * scale,
+                                          4 * scale};
+      base::Rect scroll_arrow_left_src = {72 * scale, 12 * scale, 4 * scale,
+                                          8 * scale};
+      base::Rect scroll_arrow_right_src = {84 * scale, 12 * scale, 4 * scale,
+                                           8 * scale};
+
+      if (origin.x > 0) {
+        renderer::Quad quad;
+        renderer::Quad::SetPositionRect(&quad, scroll_arrow_left_pos);
+        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_left_src);
+        quad_buffer.push_back(quad);
+      }
+
+      if (origin.y > 0) {
+        renderer::Quad quad;
+        renderer::Quad::SetPositionRect(&quad, scroll_arrow_up_pos);
+        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_up_src);
+        quad_buffer.push_back(quad);
+      }
+
+      if ((bound.width - 16 * scale) < (contents->size.x - origin.x)) {
+        renderer::Quad quad;
+        renderer::Quad::SetPositionRect(&quad, scroll_arrow_right_pos);
+        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_right_src);
+        quad_buffer.push_back(quad);
+      }
+
+      if ((bound.height - 16 * scale) < (contents->size.y - origin.y)) {
+        renderer::Quad quad;
+        renderer::Quad::SetPositionRect(&quad, scroll_arrow_down_pos);
+        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_down_src);
+        quad_buffer.push_back(quad);
+      }
+    }
+
+    // Pause render (0-1 Quads)
+    base::Rect pause_animation[] = {
+        {80 * scale, 32 * scale, 8 * scale, 8 * scale},
+        {88 * scale, 32 * scale, 8 * scale, 8 * scale},
+        {80 * scale, 40 * scale, 8 * scale, 8 * scale},
+        {88 * scale, 40 * scale, 8 * scale, 8 * scale},
+    };
+
+    if (pause) {
+      renderer::Quad quad;
+      renderer::Quad::SetPositionRect(
+          &quad, base::Rect(display_offset.x + (bound.width - 8 * scale) / 2,
+                            display_offset.y + bound.height - 8 * scale,
+                            8 * scale, 8 * scale));
+      renderer::Quad::SetTexCoordRect(&quad, pause_animation[pause_index / 8]);
+      quad_buffer.push_back(quad);
+    }
   }
 
-  // Arrows render
-  const base::Vec2i scroll =
-      (bound.Size() - base::Vec2i(8 * scale)) / base::Vec2i(2);
-  base::Rect scroll_arrow_up_pos =
-      base::Rect(scroll.x, 2 * scale, 8 * scale, 4 * scale);
-  base::Rect scroll_arrow_down_pos =
-      base::Rect(scroll.x, bound.height - 6 * scale, 8 * scale, 4 * scale);
-  base::Rect scroll_arrow_left_pos =
-      base::Rect(2 * scale, scroll.y, 4 * scale, 8 * scale);
-  base::Rect scroll_arrow_right_pos =
-      base::Rect(bound.width - 6 * scale, scroll.y, 4 * scale, 8 * scale);
+  // Setup control draw count
+  agent->control_draw_count = quad_buffer.size();
 
+  // Render contents (0-1 Quads)
   if (contents) {
-    base::Rect scroll_arrow_up_src = {152, 16, 16, 8};
-    base::Rect scroll_arrow_down_src = {152, 40, 16, 8};
-    base::Rect scroll_arrow_left_src = {144, 24, 8, 16};
-    base::Rect scroll_arrow_right_src = {168, 24, 8, 16};
+    base::Vec2i content_position = display_offset;
+    content_position.x += 8 * scale - origin.x;
+    content_position.y += 8 * scale - origin.y;
 
-    if (origin.x > 0) {
-      renderer::Quad::SetPositionRect(quad_ptr, scroll_arrow_left_pos);
-      renderer::Quad::SetTexCoordRect(quad_ptr, scroll_arrow_left_src);
-      ++quad_ptr;
-    }
+    renderer::Quad quad;
+    renderer::Quad::SetPositionRect(
+        &quad, base::Rect(content_position, contents->size));
+    renderer::Quad::SetTexCoordRect(&quad, base::Rect(contents->size));
+    quad_buffer.push_back(quad);
 
-    if (origin.y > 0) {
-      renderer::Quad::SetPositionRect(quad_ptr, scroll_arrow_up_pos);
-      renderer::Quad::SetTexCoordRect(quad_ptr, scroll_arrow_up_src);
-      ++quad_ptr;
-    }
-
-    if ((bound.width - 16 * scale) < (contents->data.GetWidth() - origin.x)) {
-      renderer::Quad::SetPositionRect(quad_ptr, scroll_arrow_right_pos);
-      renderer::Quad::SetTexCoordRect(quad_ptr, scroll_arrow_right_src);
-      ++quad_ptr;
-    }
-
-    if ((bound.height - 16 * scale) < (contents->data.GetHeight() - origin.y)) {
-      renderer::Quad::SetPositionRect(quad_ptr, scroll_arrow_down_pos);
-      renderer::Quad::SetTexCoordRect(quad_ptr, scroll_arrow_down_src);
-      ++quad_ptr;
-    }
+    agent->contents_draw_count = 1;
+  } else {
+    // Disable contents render pass
+    agent->contents_draw_count = 0;
   }
 
-  // Pause render
-  base::Rect pause_animation[] = {
-      {80 * scale, 32 * scale, 8 * scale, 8 * scale},
-      {88 * scale, 32 * scale, 8 * scale, 8 * scale},
-      {80 * scale, 40 * scale, 8 * scale, 8 * scale},
-      {88 * scale, 40 * scale, 8 * scale, 8 * scale},
-  };
+  agent->control_batch->QueueWrite(*encoder, quad_buffer.data(),
+                                   quad_buffer.size());
+}
 
-  if (pause) {
-    renderer::Quad::SetPositionRect(
-        quad_ptr, base::RectF((bound.width - 8 * scale) / 2,
-                              bound.height - 8 * scale, 8 * scale, 8 * scale));
-    renderer::Quad::SetTexCoordRect(quad_ptr, pause_animation[pause_index / 8]);
+void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
+                                      wgpu::RenderPassEncoder* encoder,
+                                      wgpu::BindGroup* world_binding,
+                                      const base::Rect& last_viewport,
+                                      const base::Rect& bound,
+                                      WindowAgent* agent,
+                                      TextureAgent* windowskin) {
+  if (agent->background_cache.size()) {
+    auto& pipeline_set = device->GetPipelines()->base;
+    auto* pipeline = pipeline_set.GetPipeline(renderer::NORMAL);
+
+    auto interact_region = base::MakeIntersect(last_viewport, bound);
+    encoder->SetScissorRect(interact_region.x, interact_region.y,
+                            interact_region.width, interact_region.height);
+
+    encoder->SetPipeline(*pipeline);
+    encoder->SetVertexBuffer(0, **agent->background_batch);
+    encoder->SetIndexBuffer(**device->GetQuadIndex(),
+                            device->GetQuadIndex()->format());
+    encoder->SetBindGroup(0, *world_binding);
+    encoder->SetBindGroup(1, windowskin->binding);
+    encoder->DrawIndexed(agent->background_cache.size() * 6);
+
+    encoder->SetScissorRect(last_viewport.x, last_viewport.y,
+                            last_viewport.width, last_viewport.height);
+  }
+}
+
+void GPURenderControlLayerInternal(renderer::RenderDevice* device,
+                                   wgpu::RenderPassEncoder* encoder,
+                                   wgpu::BindGroup* world_binding,
+                                   const base::Rect& last_viewport,
+                                   const base::Rect& bound,
+                                   WindowAgent* agent,
+                                   TextureAgent* windowskin,
+                                   TextureAgent* contents,
+                                   int32_t scale) {
+  if (agent->control_draw_count || agent->contents_draw_count) {
+    auto& pipeline_set = device->GetPipelines()->base;
+    auto* pipeline = pipeline_set.GetPipeline(renderer::NORMAL);
+
+    base::Rect inbox_region = bound;
+    inbox_region.x += 8 * scale;
+    inbox_region.y += 8 * scale;
+    inbox_region.width -= 16 * scale;
+    inbox_region.height -= 16 * scale;
+
+    encoder->SetPipeline(*pipeline);
+    encoder->SetVertexBuffer(0, **agent->control_batch);
+    encoder->SetIndexBuffer(**device->GetQuadIndex(),
+                            device->GetQuadIndex()->format());
+    encoder->SetBindGroup(0, *world_binding);
+    if (windowskin && agent->control_draw_count) {
+      encoder->SetBindGroup(1, windowskin->binding);
+      encoder->DrawIndexed(agent->control_draw_count * 6);
+    }
+
+    auto interact_region = base::MakeIntersect(last_viewport, inbox_region);
+    encoder->SetScissorRect(interact_region.x, interact_region.y,
+                            interact_region.width, interact_region.height);
+
+    if (contents && agent->contents_draw_count) {
+      encoder->SetBindGroup(1, contents->binding);
+      encoder->DrawIndexed(agent->contents_draw_count * 6, 1,
+                           agent->control_draw_count * 6);
+    }
+
+    encoder->SetScissorRect(last_viewport.x, last_viewport.y,
+                            last_viewport.width, last_viewport.height);
   }
 }
 
 }  // namespace
+
+scoped_refptr<Window> Window::New(ExecutionContext* execution_context,
+                                  scoped_refptr<Viewport> viewport,
+                                  ExceptionState& exception_state) {
+  return new WindowImpl(execution_context->graphics,
+                        ViewportImpl::From(viewport));
+}
 
 WindowImpl::WindowImpl(RenderScreenImpl* screen,
                        scoped_refptr<ViewportImpl> parent)
@@ -604,13 +734,40 @@ void WindowImpl::OnObjectDisposed() {
 void WindowImpl::BackgroundNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
-  if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
-  } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+  if (windowskin_ && windowskin_->GetAgent()) {
+    if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
+      screen()->PostTask(base::BindOnce(&GPUCompositeBackgroundLayerInternal,
+                                        params->device, params->command_encoder,
+                                        agent_, scale_, bound_, stretch_,
+                                        opacity_, back_opacity_));
+    } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+      screen()->PostTask(base::BindOnce(
+          &GPURenderBackgroundLayerInternal, params->device,
+          params->renderpass_encoder, params->world_binding, params->viewport,
+          bound_, agent_, windowskin_->GetAgent()));
+    }
   }
 }
 
 void WindowImpl::ControlNodeHandlerInternal(
     DrawableNode::RenderStage stage,
-    DrawableNode::RenderControllerParams* params) {}
+    DrawableNode::RenderControllerParams* params) {
+  TextureAgent* windowskin_agent =
+      windowskin_ ? windowskin_->GetAgent() : nullptr;
+  TextureAgent* contents_agent = contents_ ? contents_->GetAgent() : nullptr;
+
+  if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
+    screen()->PostTask(
+        base::BindOnce(&GPUCompositeControlLayerInternal, params->device,
+                       params->command_encoder, agent_, windowskin_agent,
+                       scale_, bound_, cursor_rect_->AsBaseRect(), origin_,
+                       contents_agent, pause_, pause_index_, cursor_opacity_));
+  } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+    screen()->PostTask(base::BindOnce(
+        &GPURenderControlLayerInternal, params->device,
+        params->renderpass_encoder, params->world_binding, params->viewport,
+        bound_, agent_, windowskin_agent, contents_agent, scale_));
+  }
+}
 
 }  // namespace content

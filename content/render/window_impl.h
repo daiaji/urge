@@ -22,6 +22,9 @@ struct WindowAgent {
   std::unique_ptr<renderer::QuadBatch> background_batch;
   std::vector<renderer::Quad> control_cache;
   std::unique_ptr<renderer::QuadBatch> control_batch;
+
+  int32_t control_draw_count;
+  int32_t contents_draw_count;
 };
 
 class WindowImpl : public Window, public GraphicsChild, public Disposable {
@@ -67,6 +70,9 @@ class WindowImpl : public Window, public GraphicsChild, public Disposable {
   DrawableNode background_node_;
   DrawableNode control_node_;
   WindowAgent* agent_;
+  int32_t scale_ = 2;
+  int32_t pause_index_ = 0;
+  int32_t cursor_opacity_ = 255;
 
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> windowskin_;

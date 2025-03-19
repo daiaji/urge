@@ -76,8 +76,10 @@ std::unique_ptr<QuadBatch> QuadBatch::Make(const wgpu::Device& device,
   wgpu::Buffer result_buffer;
   if (initial_count) {
     wgpu::BufferDescriptor buffer_desc;
+    buffer_desc.label = "quadbatch.vertex";
     buffer_desc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
     buffer_desc.size = initial_count * sizeof(Quad);
+    buffer_desc.mappedAtCreation = false;
     result_buffer = device.CreateBuffer(&buffer_desc);
   }
 
@@ -90,9 +92,15 @@ void QuadBatch::QueueWrite(const wgpu::CommandEncoder& encoder,
                            uint32_t offset) {
   if (!buffer_ || buffer_.GetSize() < sizeof(Quad) * (offset + count)) {
     wgpu::BufferDescriptor buffer_desc;
+    buffer_desc.label = "quadbatch.vertex";
     buffer_desc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
     buffer_desc.size = (offset + count) * sizeof(Quad);
+    buffer_desc.mappedAtCreation = true;
     buffer_ = device_.CreateBuffer(&buffer_desc);
+    std::memcpy(
+        buffer_.GetMappedRange(offset * sizeof(Quad), count * sizeof(Quad)),
+        data, count * sizeof(Quad));
+    return buffer_.Unmap();
   }
 
   encoder.WriteBuffer(buffer_, offset * sizeof(Quad),

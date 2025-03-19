@@ -25,6 +25,7 @@
 #include "binding/mri/autogen_table_binding.h"
 #include "binding/mri/autogen_tone_binding.h"
 #include "binding/mri/autogen_viewport_binding.h"
+#include "binding/mri/autogen_window_binding.h"
 
 extern "C" {
 void rb_call_builtin_inits();
@@ -187,6 +188,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitTableBinding();
   InitToneBinding();
   InitViewportBinding();
+  InitWindowBinding();
 
   if (profile->api_version < content::ContentProfile::APIVersion::RGSS3) {
     if (sizeof(void*) == 4) {
