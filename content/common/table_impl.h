@@ -18,6 +18,8 @@ class TableImpl : public Table {
   TableImpl(const TableImpl& other);
   ~TableImpl() override = default;
 
+  static scoped_refptr<TableImpl> From(scoped_refptr<Table> host);
+
   void Resize(uint32_t xsize, ExceptionState& exception_state) override;
   void Resize(uint32_t xsize,
               uint32_t ysize,

@@ -91,6 +91,10 @@ TableImpl::TableImpl(const TableImpl& other)
       z_size_(other.z_size_),
       data_(other.data_) {}
 
+scoped_refptr<TableImpl> TableImpl::From(scoped_refptr<Table> host) {
+  return static_cast<TableImpl*>(host.get());
+}
+
 void TableImpl::Resize(uint32_t xsize, ExceptionState& exception_state) {
   Resize(xsize, y_size_, z_size_, exception_state);
 }

@@ -18,10 +18,9 @@ ThreadWorker::ThreadWorker()
     : quit_flag_(0), task_queue_(std::make_unique<QueueInternal>()) {}
 
 ThreadWorker::~ThreadWorker() {
-  if (thread_.joinable()) {
-    quit_flag_.store(1);
+  quit_flag_.store(1);
+  if (thread_.joinable())
     thread_.join();
-  }
 }
 
 std::unique_ptr<ThreadWorker> ThreadWorker::Create() {
@@ -76,10 +75,13 @@ bool ThreadWorker::DeleteOrReleaseSoonInternal(void (*deleter)(const void*),
 void ThreadWorker::ThreadMainFunctionInternal() {
   while (!quit_flag_) {
     OnceClosure queued_task;
-    if ((*task_queue_)->try_dequeue(queued_task))
+
+    if ((*task_queue_)->try_dequeue(queued_task)) {
       std::move(queued_task).Run();
-    else
-      std::this_thread::yield();
+      continue;
+    }
+
+    std::this_thread::yield();
   }
 }
 

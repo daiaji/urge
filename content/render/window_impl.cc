@@ -402,13 +402,15 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
 
 scoped_refptr<Window> Window::New(ExecutionContext* execution_context,
                                   scoped_refptr<Viewport> viewport,
+                                  int32_t scale,
                                   ExceptionState& exception_state) {
   return new WindowImpl(execution_context->graphics,
-                        ViewportImpl::From(viewport));
+                        ViewportImpl::From(viewport), std::min(1, scale));
 }
 
 WindowImpl::WindowImpl(RenderScreenImpl* screen,
-                       scoped_refptr<ViewportImpl> parent)
+                       scoped_refptr<ViewportImpl> parent,
+                       int32_t scale)
     : GraphicsChild(screen),
       Disposable(screen),
       background_node_(parent ? parent->GetDrawableController()
@@ -417,6 +419,7 @@ WindowImpl::WindowImpl(RenderScreenImpl* screen,
       control_node_(parent ? parent->GetDrawableController()
                            : screen->GetDrawableController(),
                     SortKey(0, 2)),
+      scale_(scale),
       viewport_(parent),
       cursor_rect_(new RectImpl(base::Rect())) {
   background_node_.RegisterEventHandler(base::BindRepeating(
@@ -445,6 +448,19 @@ bool WindowImpl::IsDisposed(ExceptionState& exception_state) {
 void WindowImpl::Update(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
+
+  ++pause_index_;
+  if (pause_index_ >= 32)
+    pause_index_ = 0;
+
+  cursor_opacity_ += cursor_fade_ ? -8 : 8;
+  if (cursor_opacity_ > 255) {
+    cursor_opacity_ = 255;
+    cursor_fade_ = true;
+  } else if (cursor_opacity_ < 128) {
+    cursor_opacity_ = 128;
+    cursor_fade_ = false;
+  }
 }
 
 scoped_refptr<Viewport> WindowImpl::Get_Viewport(
@@ -550,7 +566,7 @@ bool WindowImpl::Get_Visible(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return false;
 
-  return visible_;
+  return background_node_.GetVisibility();
 }
 
 void WindowImpl::Put_Visible(const bool& value,
@@ -558,9 +574,8 @@ void WindowImpl::Put_Visible(const bool& value,
   if (CheckDisposed(exception_state))
     return;
 
-  visible_ = value;
-  background_node_.SetNodeVisibility(visible_);
-  control_node_.SetNodeVisibility(visible_);
+  background_node_.SetNodeVisibility(value);
+  control_node_.SetNodeVisibility(value);
 }
 
 bool WindowImpl::Get_Pause(ExceptionState& exception_state) {

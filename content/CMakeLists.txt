@@ -57,6 +57,8 @@ set(ENGINE_CONTENT_SRC
   render/plane_impl.h
   render/sprite_impl.cc
   render/sprite_impl.h
+  render/tilemap_impl.cc
+  render/tilemap_impl.h
   render/window_impl.cc
   render/window_impl.h
   screen/renderscreen_impl.cc

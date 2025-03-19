@@ -29,7 +29,9 @@ struct WindowAgent {
 
 class WindowImpl : public Window, public GraphicsChild, public Disposable {
  public:
-  WindowImpl(RenderScreenImpl* screen, scoped_refptr<ViewportImpl> parent);
+  WindowImpl(RenderScreenImpl* screen,
+             scoped_refptr<ViewportImpl> parent,
+             int32_t scale);
   ~WindowImpl() override;
 
   WindowImpl(const WindowImpl&) = delete;
@@ -73,6 +75,7 @@ class WindowImpl : public Window, public GraphicsChild, public Disposable {
   int32_t scale_ = 2;
   int32_t pause_index_ = 0;
   int32_t cursor_opacity_ = 255;
+  bool cursor_fade_ = false;
 
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> windowskin_;
@@ -81,7 +84,6 @@ class WindowImpl : public Window, public GraphicsChild, public Disposable {
 
   bool stretch_ = true;
   bool active_ = true;
-  bool visible_ = true;
   bool pause_ = false;
 
   base::Rect bound_;

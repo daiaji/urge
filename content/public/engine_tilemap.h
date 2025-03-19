@@ -24,13 +24,10 @@ class URGE_RUNTIME_API Tilemap : public base::RefCounted<Tilemap> {
  public:
   virtual ~Tilemap() = default;
 
-  /*--urge(name:initialize)--*/
-  static scoped_refptr<Tilemap> New(ExecutionContext* execution_context,
-                                    ExceptionState& exception_state);
-
-  /*--urge(name:initialize)--*/
+  /*--urge(name:initialize,optional:viewport=nullptr,optional:tilesize=32)--*/
   static scoped_refptr<Tilemap> New(ExecutionContext* execution_context,
                                     scoped_refptr<Viewport> viewport,
+                                    int32_t tilesize,
                                     ExceptionState& exception_state);
 
   /*--urge(name:dispose)--*/
