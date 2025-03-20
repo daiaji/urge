@@ -81,7 +81,7 @@ int SDL_main(int argc, char* argv[]) {
     std::unique_ptr<content::ContentRunner> runner =
         content::ContentRunner::Create(std::move(content_params));
     for (;;) {
-      if (!runner->RunMainLoop())
+      if (runner->RunMainLoop())
         break;
     }
   }

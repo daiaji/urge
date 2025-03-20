@@ -76,9 +76,6 @@ void ContentRunner::InitializeContentInternal() {
                                        profile_->wgpu_backend);
   tick_observer_ = graphics_impl_->AddTickObserver(base::BindRepeating(
       &ContentRunner::TickHandlerInternal, base::Unretained(this)));
-
-  // Reset exit code
-  exit_code_.store(1);
 }
 
 void ContentRunner::TickHandlerInternal() {
@@ -107,10 +104,10 @@ void ContentRunner::GUICompositeHandlerInternal() {
 
     // Engine Info
     DrawEngineInfoGUI(i18n_profile_.get());
-
-    // End window create
-    ImGui::End();
   }
+
+  // End window create
+  ImGui::End();
 }
 
 ContentRunner::~ContentRunner() = default;
@@ -163,10 +160,11 @@ void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
 
   // End of running
   self->binding_->PostMainLoopRunning();
-  self->exit_code_.store(0);
+  self->exit_code_.store(1);
 
-  // To primary fiber
-  fiber_switch(self->cc_->primary_fiber);
+  // Loop switch context to primary fiber
+  for (;;)
+    fiber_switch(self->cc_->primary_fiber);
 }
 
 }  // namespace content
