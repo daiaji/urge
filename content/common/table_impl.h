@@ -50,6 +50,11 @@ class TableImpl : public Table {
            int16_t value,
            ExceptionState& exception_state) override;
 
+  uint32_t x_size();
+  uint32_t y_size();
+  uint32_t z_size();
+  int16_t value(uint32_t x, uint32_t y = 0, uint32_t z = 0);
+
   bool FetchDirtyStatus();
 
  private:

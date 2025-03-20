@@ -480,6 +480,7 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   viewport_rect.x += params->viewport.x;
   viewport_rect.y += params->viewport.y;
   transient_params.viewport = viewport_rect;
+  transient_params.origin = origin_;
 
   if (stage == DrawableNode::BEFORE_RENDER) {
     // Calculate viewport offset

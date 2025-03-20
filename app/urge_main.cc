@@ -12,6 +12,14 @@
 #include "content/worker/content_runner.h"
 #include "ui/widget/widget.h"
 
+#if defined(OS_WIN)
+#include <windows.h>
+extern "C" {
+__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+#endif  //! OS_WIN
+
 namespace {
 
 void ReplaceStringWidth(std::string& str, char before, char after) {

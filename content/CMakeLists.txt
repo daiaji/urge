@@ -24,6 +24,8 @@ set(ENGINE_CONTENT_SRC
   components/disposable.h
   components/font_context.cc
   components/font_context.h
+  components/sprite_batch.cc
+  components/sprite_batch.h
   composite/tilequad.cc
   composite/tilequad.h
   common/value_observer.h

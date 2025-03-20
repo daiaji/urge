@@ -182,6 +182,22 @@ void TableImpl::Put(uint32_t x,
   dirty_ = true;
 }
 
+uint32_t TableImpl::x_size() {
+  return x_size_;
+}
+
+uint32_t TableImpl::y_size() {
+  return y_size_;
+}
+
+uint32_t TableImpl::z_size() {
+  return z_size_;
+}
+
+int16_t TableImpl::value(uint32_t x, uint32_t y, uint32_t z) {
+  return data_.at(x + x_size_ * (y * y_size_ * z));
+}
+
 bool TableImpl::FetchDirtyStatus() {
   if (dirty_) {
     dirty_ = false;

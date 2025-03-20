@@ -6,6 +6,8 @@
 #define CONTENT_RENDER_TILEMAP_IMPL_H_
 
 #include <array>
+#include <list>
+#include <vector>
 
 #include "base/memory/weak_ptr.h"
 #include "content/canvas/canvas_impl.h"
@@ -35,10 +37,15 @@ namespace content {
 */
 
 struct TilemapAgent {
-  std::vector<renderer::Quad> tilequads;
+  std::vector<renderer::Quad> ground_cache;
+  std::vector<std::vector<renderer::Quad>> aboves_cache;
   std::unique_ptr<renderer::QuadBatch> batch;
-  int32_t ground_draw_count;
-  std::vector<int32_t> above_draw_counts;
+};
+
+struct AtlasCompositeCommand {
+  TextureAgent* texture;
+  base::Rect src_rect;
+  base::Rect dst_rect;
 };
 
 class TilemapImpl;
@@ -63,6 +70,12 @@ class TilemapAutotileImpl : TilemapAutotile {
 
 class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
  public:
+  enum class AutotileType {
+    Animated = 0,
+    Static,
+    SingleAnimated,
+  };
+
   TilemapImpl(RenderScreenImpl* screen,
               scoped_refptr<ViewportImpl> parent,
               int32_t tilesize);
@@ -95,18 +108,33 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
   void AboveNodeHandlerInternal(DrawableNode::RenderStage stage,
                                 DrawableNode::RenderControllerParams* params);
 
+  base::Vec2i MakeAtlasInternal(std::list<AtlasCompositeCommand>& commands);
+  void UpdateViewportInternal(const base::Rect& viewport,
+                              const base::Vec2i& viewport_origin);
+  void ParseMapDataInternal(
+      std::vector<renderer::Quad>& ground_cache,
+      std::vector<std::vector<renderer::Quad>>& aboves_cache);
+
+  struct AutotileInfo {
+    scoped_refptr<CanvasImpl> bitmap;
+    AutotileType type;
+  };
+
   DrawableNode ground_node_;
   std::vector<DrawableNode> above_nodes_;
   TilemapAgent* agent_;
   int32_t tilesize_ = 32;
+  base::Rect render_rect_;
+  base::Vec2i render_offset_;
   bool atlas_dirty_ = false;
+  bool map_buffer_dirty_ = false;
 
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> tileset_;
   scoped_refptr<TableImpl> map_data_;
   scoped_refptr<TableImpl> flash_data_;
   scoped_refptr<TableImpl> priorities_;
-  std::array<scoped_refptr<CanvasImpl>, 7> autotiles_;
+  std::array<AutotileInfo, 7> autotiles_;
   base::Vec2i origin_;
 
   base::WeakPtrFactory<TilemapImpl> weak_ptr_factory_{this};

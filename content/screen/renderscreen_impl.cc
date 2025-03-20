@@ -268,6 +268,7 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   controller_params.screen_buffer = render_target;
   controller_params.screen_size = target_size;
   controller_params.viewport = target_size;
+  controller_params.origin = base::Vec2i();
 
   // 1) Execute pre-composite handler
   controller->BroadCastNotification(DrawableNode::BEFORE_RENDER,

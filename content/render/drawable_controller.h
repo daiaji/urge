@@ -5,6 +5,8 @@
 #ifndef CONTENT_RENDER_DRAWABLE_CONTROLLER_H_
 #define CONTENT_RENDER_DRAWABLE_CONTROLLER_H_
 
+#include <typeindex>
+
 #include "base/bind/callback.h"
 #include "base/containers/linked_list.h"
 #include "base/math/rectangle.h"
@@ -87,8 +89,9 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
     base::Vec2i screen_size;
 
     // [Stage: all]
-    // Current viewport region.
+    // Current viewport region, origin offset.
     base::Rect viewport;
+    base::Vec2i origin;
 
     // [Stage: on rendering]
     // Main render pass encoder.
@@ -136,6 +139,20 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
   // Get current controller
   DrawNodeController* GetController() const { return controller_; }
 
+  // Batch info setup
+  template <typename Ty>
+  void SetupBatchable(Ty* self) {
+    batch_info_ = typeid(Ty);
+    batch_node_ = self;
+  }
+
+  template <typename Ty>
+  Ty* CastToNode() {
+    if (batch_info_ == typeid(Ty))
+      return static_cast<Ty*>(batch_self_);
+    return nullptr;
+  }
+
   // Get linked node (previous / next)
   DrawableNode* GetPreviousNode();
   DrawableNode* GetNextNode();
@@ -148,6 +165,9 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
 
   SortKey key_;
   bool visible_;
+
+  std::type_index batch_info_;
+  void* batch_self_;
 };
 
 // Controller node implement with sorted-map contrainer.

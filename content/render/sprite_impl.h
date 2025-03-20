@@ -84,6 +84,7 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
       DrawableNode::RenderStage stage,
       DrawableNode::RenderControllerParams* params);
   void SrcRectChangedInternal();
+  bool IsOtherRenderBatchableInternal(SpriteImpl* other);
 
   DrawableNode node_;
   DrawableFlashController flash_emitter_;

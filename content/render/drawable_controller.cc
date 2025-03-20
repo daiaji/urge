@@ -21,7 +21,11 @@ SortKey::SortKey(int64_t key1, int64_t key2, int64_t key3)
 DrawableNode::DrawableNode(DrawNodeController* controller,
                            const SortKey& default_key,
                            bool visible)
-    : controller_(controller), key_(default_key), visible_(visible) {
+    : controller_(controller),
+      key_(default_key),
+      visible_(visible),
+      batch_info_(typeid(DrawableNode)),
+      batch_self_(nullptr) {
   if (controller_) {
     // Bind this node to initial parent.
     controller_->children_list_.Append(this);
