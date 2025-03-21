@@ -704,6 +704,7 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
     config.format = agent_->device->SurfaceFormat();
     config.width = window_size_.x;
     config.height = window_size_.y;
+    config.presentMode = wgpu::PresentMode::Fifo;
 
     // Resize screen surface
     auto* hardware_surface = agent_->device->GetSurface();

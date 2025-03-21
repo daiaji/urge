@@ -27,8 +27,16 @@ set(ENGINE_RENDERER_SRC
 )
 
 add_library(engine_renderer STATIC ${ENGINE_RENDERER_SRC})
+target_compile_definitions(engine_renderer PRIVATE WGPU_DAWN_NATIVE)
 target_link_libraries(engine_renderer PUBLIC
   engine_base
   engine_ui
-  dawn::webgpu_dawn
+  
+  webgpu_cpp
+  dawn::dawn_common
+  dawn::dawn_system_utils
+  dawn::dawn_wgpu_utils
+  dawn::dawn_proc
+  dawn::dawn_glfw
+  dawn::dawn_native
 )

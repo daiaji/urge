@@ -608,15 +608,14 @@ base::Vec2i TilemapImpl::MakeAtlasInternal(
   }
 
   // Tileset part
-  if (!tileset_ || !tileset_->GetAgent())
-    return;
+  if (tileset_ && tileset_->GetAgent()) {
+    auto tileset_size = tileset_->AsBaseSize();
+    base::Rect dst_rect = tileset_size;
+    dst_rect.x = 12 * tilesize_;
+    dst_rect.y = 0;
 
-  auto tileset_size = tileset_->AsBaseSize();
-  base::Rect dst_rect = tileset_size;
-  dst_rect.x = 12 * tilesize_;
-  dst_rect.y = 0;
-
-  commands.push_back({tileset_->GetAgent(), tileset_size, dst_rect});
+    commands.push_back({tileset_->GetAgent(), tileset_size, dst_rect});
+  }
 
   return base::Vec2i(tilesize_ * 20, atlas_height);
 }

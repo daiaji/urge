@@ -4,10 +4,15 @@
 
 #include "renderer/device/render_device.h"
 
+#include "SDL3/SDL_video.h"
+#if defined(WGPU_DAWN_NATIVE)
+#include "dawn/dawn_proc.h"
+#include "dawn/native/DawnNative.h"
+#include "dawn/webgpu_cpp_print.h"
+#endif
+
 #include "base/debug/logging.h"
 #include "ui/widget/widget.h"
-
-#include "SDL3/SDL_video.h"
 
 namespace renderer {
 
@@ -110,15 +115,23 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   if (!g_wgpu_instance) {
     wgpu::InstanceDescriptor instance_desc;
     instance_desc.capabilities.timedWaitAnyEnable = true;
+
+#if defined(WGPU_DAWN_NATIVE)
+    dawnProcSetProcs(&dawn::native::GetProcs());
+
+    auto instance = std::make_unique<dawn::native::Instance>(&instance_desc);
+    g_wgpu_instance = wgpu::Instance(instance->Get());
+#else
     g_wgpu_instance = wgpu::CreateInstance(&instance_desc);
+#endif
+
     if (!g_wgpu_instance) {
       LOG(ERROR) << "[Renderer] Failed to create WGPU instance.";
       return nullptr;
     }
   }
 
-  // 2) Request an adapter that is "compatibilityMode" = true (for broad
-  // compatibility)
+  // 2) Request an adapter
   wgpu::RequestAdapterOptions adapter_options;
   adapter_options.powerPreference = wgpu::PowerPreference::HighPerformance;
   adapter_options.backendType = required_backend;
@@ -222,6 +235,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   config.format = caps.formats[0];
   config.width = window_target->GetSize().x;
   config.height = window_target->GetSize().y;
+  config.presentMode = wgpu::PresentMode::Fifo;
 
   // Additional config fields can be set here (e.g., usage, presentMode, etc.)
   surface.Configure(&config);
