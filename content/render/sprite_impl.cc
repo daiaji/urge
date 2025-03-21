@@ -179,6 +179,7 @@ SpriteImpl::SpriteImpl(RenderScreenImpl* screen,
       tone_(new ToneImpl(base::Vec4())) {
   node_.RegisterEventHandler(base::BindRepeating(
       &SpriteImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
+  node_.SetupBatchable(this);
 
   src_rect_observer_ = src_rect_->AddObserver(base::BindRepeating(
       &SpriteImpl::SrcRectChangedInternal, base::Unretained(this)));
@@ -608,9 +609,6 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     return;
 
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
-    // Batch
-
-    // Singleton
     base::Vec4 composite_color = color_->AsNormColor();
     base::Vec4 flash_color = flash_emitter_.GetColor();
     base::Vec4 target_color = composite_color;
@@ -634,9 +632,6 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     wave_.dirty = false;
     src_rect_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    // Batch
-
-    // Singleton
     screen()->PostTask(
         base::BindOnce(&GPUOnSpriteRenderingInternal, params->device,
                        params->renderpass_encoder, params->world_binding,

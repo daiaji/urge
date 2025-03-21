@@ -3,7 +3,8 @@
 // found in the LICENSE file.
 
 #include "content/render/tilemap_impl.h"
-#include "tilemap_impl.h"
+
+#include "renderer/utils/texture_utils.h"
 
 namespace content {
 
@@ -311,6 +312,57 @@ void GPUDestroyTilemapInternal(TilemapAgent* agent) {
   delete agent;
 }
 
+void GPUMakeAtlasInternal(renderer::RenderDevice* device,
+                          wgpu::CommandEncoder* encoder,
+                          TilemapAgent* agent,
+                          const base::Vec2i& atlas_size,
+                          std::list<AtlasCompositeCommand> make_commands) {
+  agent->atlas_texture = renderer::CreateTexture2D(
+      **device, "tilemap.atlas",
+      wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
+      atlas_size);
+
+  renderer::TextureBindingUniform atlas_uniform;
+  wgpu::Buffer atlas_uniform_buffer = renderer::CreateUniformBuffer(
+      **device, "tilemap.atlas", wgpu::BufferUsage::None, &atlas_uniform);
+  agent->atlas_binding = renderer::TextureBindingUniform::CreateGroup(
+      **device, agent->atlas_texture.CreateView(), (*device)->CreateSampler(),
+      atlas_uniform_buffer);
+
+  for (auto& it : make_commands) {
+    wgpu::TexelCopyTextureInfo copy_src, copy_dst;
+    wgpu::Extent3D copy_size;
+
+    copy_src.texture = it.texture->data;
+    copy_src.origin.x = it.src_rect.x;
+    copy_src.origin.y = it.src_rect.y;
+
+    copy_dst.texture = agent->atlas_texture;
+    copy_dst.origin.x = it.dst_pos.x;
+    copy_dst.origin.y = it.dst_pos.y;
+
+    copy_size.width = it.src_rect.width;
+    copy_size.height = it.src_rect.height;
+
+    encoder->CopyTextureToTexture(&copy_src, &copy_dst, &copy_size);
+  }
+}
+
+void GPUUploadTilesBatchInternal(
+    renderer::RenderDevice* device,
+    wgpu::CommandEncoder* encoder,
+    TilemapAgent* agent,
+    std::vector<renderer::Quad> ground_cache,
+    std::vector<std::vector<renderer::Quad>> aboves_cache) {
+  agent->batch->QueueWrite(*encoder, ground_cache.data(), ground_cache.size());
+
+  int32_t offset = ground_cache.size();
+  for (auto it : aboves_cache) {
+    agent->batch->QueueWrite(*encoder, it.data(), it.size(), offset);
+    offset += it.size();
+  }
+}
+
 }  // namespace
 
 TilemapAutotileImpl::TilemapAutotileImpl(base::WeakPtr<TilemapImpl> tilemap)
@@ -535,10 +587,25 @@ void TilemapImpl::GroundNodeHandlerInternal(
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     UpdateViewportInternal(params->viewport, params->origin);
 
+    if (atlas_dirty_) {
+      std::list<AtlasCompositeCommand> commands;
+      base::Vec2i size = MakeAtlasInternal(commands);
+
+      screen()->PostTask(base::BindOnce(&GPUMakeAtlasInternal, params->device,
+                                        params->command_encoder, agent_, size,
+                                        std::move(commands)));
+      atlas_dirty_ = false;
+    }
+
     if (map_buffer_dirty_) {
       std::vector<renderer::Quad> ground_cache;
       std::vector<std::vector<renderer::Quad>> aboves_cache;
       ParseMapDataInternal(ground_cache, aboves_cache);
+
+      screen()->PostTask(base::BindOnce(
+          &GPUUploadTilesBatchInternal, params->device, params->command_encoder,
+          agent_, std::move(ground_cache), std::move(aboves_cache)));
+      map_buffer_dirty_ = false;
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
   }
@@ -547,8 +614,7 @@ void TilemapImpl::GroundNodeHandlerInternal(
 void TilemapImpl::AboveNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
-  if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
-  } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+  if (stage == DrawableNode::RenderStage::ON_RENDERING) {
   }
 }
 
@@ -570,9 +636,7 @@ base::Vec2i TilemapImpl::MakeAtlasInternal(
     }
 
     auto autotile_size = it.bitmap->AsBaseSize();
-    base::Rect dst_pos(autotile_size);
-    dst_pos.x = 0;
-    dst_pos.y = offset * tilesize_ * 4;
+    base::Vec2i dst_pos(0, offset * tilesize_ * 4);
 
     if (autotile_size.x > 3 * tilesize_ && autotile_size.y > tilesize_) {
       // Animated autotile
@@ -590,8 +654,7 @@ base::Vec2i TilemapImpl::MakeAtlasInternal(
       for (int i = 0; i < 4; ++i) {
         base::Rect single_src(base::Vec2i(tilesize_ * i, 0),
                               base::Vec2i(tilesize_));
-        base::Rect single_dst(base::Vec2i(tilesize_ * i * 3, 0),
-                              base::Vec2i(tilesize_));
+        base::Vec2i single_dst(base::Vec2i(tilesize_ * i * 3, 0));
 
         commands.push_back({it.bitmap->GetAgent(), single_src, single_dst});
       }
@@ -610,11 +673,9 @@ base::Vec2i TilemapImpl::MakeAtlasInternal(
   // Tileset part
   if (tileset_ && tileset_->GetAgent()) {
     auto tileset_size = tileset_->AsBaseSize();
-    base::Rect dst_rect = tileset_size;
-    dst_rect.x = 12 * tilesize_;
-    dst_rect.y = 0;
+    base::Vec2i dst_pos(12 * tilesize_, 0);
 
-    commands.push_back({tileset_->GetAgent(), tileset_size, dst_rect});
+    commands.push_back({tileset_->GetAgent(), tileset_size, dst_pos});
   }
 
   return base::Vec2i(tilesize_ * 20, atlas_height);

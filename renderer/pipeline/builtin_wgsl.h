@@ -117,6 +117,25 @@ extern const std::string kAlphaTransitionRenderWGSL;
 ///
 extern const std::string kMappedTransitionRenderWGSL;
 
+///
+// type:
+//   tilemap shader
+///
+// entry:
+//   vertexMain fragmentMain
+///
+// vertex:
+//   @<0>: vec4<f32>
+//   @<1>: vec2<f32>
+//   @<2>: vec4<f32>
+///
+// bind:
+//   @<0>: mat4x4, mat4x4
+//   @<1>: texture2d<f32>, sampler, vec2
+//   @<2>: f32, f32
+///
+extern const std::string kTilemapRenderWGSL;
+
 }  // namespace renderer
 
 #endif  //! RENDERER_PIPELINE_BUILTIN_WGSL_H_

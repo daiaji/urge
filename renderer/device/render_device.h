@@ -24,6 +24,7 @@ class RenderDevice {
     Pipeline_SpriteInstance spriteinstance;
     Pipeline_AlphaTransition alphatrans;
     Pipeline_MappedTransition mappedtrans;
+    Pipeline_Tilemap tilemap;
 
     PipelineSet(const wgpu::Device& device, wgpu::TextureFormat target)
         : base(device, target),
@@ -32,12 +33,15 @@ class RenderDevice {
           sprite(device, target),
           spriteinstance(device, target),
           alphatrans(device, target),
-          mappedtrans(device, target) {}
+          mappedtrans(device, target),
+          tilemap(device, target) {}
   };
 
   static std::unique_ptr<RenderDevice> Create(
       base::WeakPtr<ui::Widget> window_target,
-      wgpu::BackendType required_backend = wgpu::BackendType::Undefined);
+      wgpu::BackendType required_backend = wgpu::BackendType::Undefined,
+      const std::vector<std::string>& enable_toggles = {},
+      const std::vector<std::string>& disable_toggles = {});
 
   static wgpu::Instance* GetGPUInstance();
 

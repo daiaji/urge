@@ -110,7 +110,9 @@ void OnUncapturedError(const wgpu::Device& /*device*/,
  */
 std::unique_ptr<RenderDevice> RenderDevice::Create(
     base::WeakPtr<ui::Widget> window_target,
-    wgpu::BackendType required_backend /* = wgpu::BackendType::Undefined */) {
+    wgpu::BackendType required_backend,
+    const std::vector<std::string>& enable_toggles,
+    const std::vector<std::string>& disable_toggles) {
   // 1) Create a WGPU instance if needed
   if (!g_wgpu_instance) {
     wgpu::InstanceDescriptor instance_desc;
@@ -131,8 +133,27 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
     }
   }
 
+  wgpu::ChainedStruct* toggles_chain = nullptr;
+#ifndef __EMSCRIPTEN__
+  std::vector<const char*> enable_toggle_names;
+  std::vector<const char*> disabled_toggle_names;
+  for (const auto& toggle : enable_toggles)
+    enable_toggle_names.push_back(toggle.c_str());
+  for (const auto& toggle : disable_toggles)
+    disabled_toggle_names.push_back(toggle.c_str());
+
+  wgpu::DawnTogglesDescriptor toggles;
+  toggles.enabledToggles = enable_toggle_names.data();
+  toggles.enabledToggleCount = enable_toggle_names.size();
+  toggles.disabledToggles = disabled_toggle_names.data();
+  toggles.disabledToggleCount = disabled_toggle_names.size();
+
+  toggles_chain = &toggles;
+#endif  // __EMSCRIPTEN__
+
   // 2) Request an adapter
   wgpu::RequestAdapterOptions adapter_options;
+  adapter_options.nextInChain = toggles_chain;
   adapter_options.powerPreference = wgpu::PowerPreference::HighPerformance;
   adapter_options.backendType = required_backend;
 

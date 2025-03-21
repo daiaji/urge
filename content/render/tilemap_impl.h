@@ -37,15 +37,16 @@ namespace content {
 */
 
 struct TilemapAgent {
-  std::vector<renderer::Quad> ground_cache;
-  std::vector<std::vector<renderer::Quad>> aboves_cache;
   std::unique_ptr<renderer::QuadBatch> batch;
+
+  wgpu::Texture atlas_texture;
+  wgpu::BindGroup atlas_binding;
 };
 
 struct AtlasCompositeCommand {
   TextureAgent* texture;
   base::Rect src_rect;
-  base::Rect dst_rect;
+  base::Vec2i dst_pos;
 };
 
 class TilemapImpl;

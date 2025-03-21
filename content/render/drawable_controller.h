@@ -143,7 +143,7 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
   template <typename Ty>
   void SetupBatchable(Ty* self) {
     batch_info_ = typeid(Ty);
-    batch_node_ = self;
+    batch_self_ = self;
   }
 
   template <typename Ty>

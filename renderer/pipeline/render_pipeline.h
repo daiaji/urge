@@ -86,6 +86,11 @@ class Pipeline_MappedTransition : public RenderPipelineBase {
                             wgpu::TextureFormat target);
 };
 
+class Pipeline_Tilemap : public RenderPipelineBase {
+ public:
+  Pipeline_Tilemap(const wgpu::Device& device, wgpu::TextureFormat target);
+};
+
 }  // namespace renderer
 
 #endif  //! RENDERER_PIPELINE_RENDER_PIPELINE_H_

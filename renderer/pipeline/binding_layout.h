@@ -76,6 +76,15 @@ struct VagueTransitionUniform {
                                      const wgpu::Sampler& sampler);
 };
 
+struct TilemapUniform {
+  WGPU_ALIGN_TYPE(float) tile_size;
+  WGPU_ALIGN_TYPE(float) anim_index;
+
+  static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
+  static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
+                                     const wgpu::Buffer& buffer);
+};
+
 }  // namespace renderer
 
 #endif  //! RENDERER_PIPELINE_BINDING_LAYOUT_H_

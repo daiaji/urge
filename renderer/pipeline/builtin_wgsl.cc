@@ -382,4 +382,58 @@ fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
 
 )";
 
+const std::string kTilemapRenderWGSL = R"(
+
+struct WorldMatrix {
+  projMat: mat4x4<f32>,
+  transMat: mat4x4<f32>,
+};
+
+struct VertexOutput {
+  @builtin(position) pos: vec4<f32>,
+  @location(0) uv: vec2<f32>,
+  @location(1) color: vec4<f32>,
+};
+
+struct EffectParams {
+  tileSize: f32,
+  animateIndex: f32,
+};
+
+@group(0) @binding(0) var<uniform> u_transform: WorldMatrix;
+@group(1) @binding(0) var u_texture: texture_2d<f32>;
+@group(1) @binding(1) var u_sampler: sampler;
+@group(1) @binding(2) var<uniform> u_texSize: vec2<f32>;
+@group(2) @binding(0) var<uniform> u_effect: EffectParams;
+
+const kAutotileArea: vec2<f32> = vec2<f32>(3.0, 28.0);
+
+@vertex
+fn vertexMain(
+    @location(0) pos: vec4<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) color: vec4<f32>) -> VertexOutput {
+  var tex = uv;
+
+  // Animated area
+	let addition = select(0.0, 1.0, tex.x <= kAutotileArea.x * u_effect.tileSize && tex.y <= kAutotileArea.y * u_effect.tileSize);
+	tex.x += 3.0 * u_effect.tileSize * u_effect.animateIndex * addition;
+
+  var result: VertexOutput;
+  result.pos = u_transform.projMat * pos;
+  result.pos = u_transform.transMat * result.pos;
+  result.uv = u_texSize * tex;
+  result.color = color;
+  return result;
+}
+
+@fragment
+fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
+  var tex = textureSample(u_texture, u_sampler, vertex.uv);
+  tex.a *= vertex.color.a;
+  return tex;
+}
+
+)";
+
 }  // namespace renderer
