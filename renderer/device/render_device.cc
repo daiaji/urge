@@ -115,17 +115,13 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
     const std::vector<std::string>& disable_toggles) {
   // 1) Create a WGPU instance if needed
   if (!g_wgpu_instance) {
-    wgpu::InstanceDescriptor instance_desc;
-    instance_desc.capabilities.timedWaitAnyEnable = true;
-
 #if defined(WGPU_DAWN_NATIVE)
     dawnProcSetProcs(&dawn::native::GetProcs());
-
-    auto instance = std::make_unique<dawn::native::Instance>(&instance_desc);
-    g_wgpu_instance = wgpu::Instance(instance->Get());
-#else
-    g_wgpu_instance = wgpu::CreateInstance(&instance_desc);
 #endif
+
+    wgpu::InstanceDescriptor instance_desc;
+    instance_desc.capabilities.timedWaitAnyEnable = true;
+    g_wgpu_instance = wgpu::CreateInstance(&instance_desc);
 
     if (!g_wgpu_instance) {
       LOG(ERROR) << "[Renderer] Failed to create WGPU instance.";

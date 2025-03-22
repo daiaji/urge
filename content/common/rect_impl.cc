@@ -26,14 +26,16 @@ scoped_refptr<Rect> Rect::Copy(ExecutionContext* execution_context,
   return new RectImpl(*static_cast<RectImpl*>(other.get()));
 }
 
-scoped_refptr<Rect> Rect::Deserialize(const std::string& data,
+scoped_refptr<Rect> Rect::Deserialize(ExecutionContext* execution_context,
+                                      const std::string& data,
                                       ExceptionState& exception_state) {
   const int32_t* ptr = reinterpret_cast<const int32_t*>(data.data());
   RectImpl* impl = new RectImpl(base::Rect(*ptr++, *ptr++, *ptr++, *ptr++));
   return impl;
 }
 
-std::string Rect::Serialize(scoped_refptr<Rect> value,
+std::string Rect::Serialize(ExecutionContext* execution_context,
+                            scoped_refptr<Rect> value,
                             ExceptionState& exception_state) {
   RectImpl* impl = static_cast<RectImpl*>(value.get());
   std::string serial_data(sizeof(base::Rect), 0);

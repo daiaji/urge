@@ -355,11 +355,82 @@ void GPUUploadTilesBatchInternal(
     std::vector<renderer::Quad> ground_cache,
     std::vector<std::vector<renderer::Quad>> aboves_cache) {
   agent->batch->QueueWrite(*encoder, ground_cache.data(), ground_cache.size());
+  agent->ground_draw_count = ground_cache.size();
 
   int32_t offset = ground_cache.size();
+  agent->above_draw_count.clear();
+  agent->above_draw_count.reserve(aboves_cache.size());
   for (auto it : aboves_cache) {
     agent->batch->QueueWrite(*encoder, it.data(), it.size(), offset);
+    agent->above_draw_count.push_back(it.size());
     offset += it.size();
+  }
+
+  // Allocate quad index
+  device->GetQuadIndex()->Allocate(offset);
+}
+
+void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
+                                     wgpu::CommandEncoder* encoder,
+                                     TilemapAgent* agent,
+                                     int32_t tilesize,
+                                     int32_t anim_index) {
+  if (!agent->uniform_buffer)
+    agent->uniform_buffer =
+        renderer::CreateUniformBuffer<renderer::TilemapUniform>(
+            **device, "tilemap.uniform", wgpu::BufferUsage::CopyDst);
+
+  if (!agent->uniform_binding)
+    agent->uniform_binding =
+        renderer::TilemapUniform::CreateGroup(**device, agent->uniform_buffer);
+
+  renderer::TilemapUniform uniform;
+  uniform.tile_size = tilesize;
+  uniform.anim_index = anim_index / 16;
+  encoder->WriteBuffer(agent->uniform_buffer, 0,
+                       reinterpret_cast<uint8_t*>(&uniform), sizeof(uniform));
+}
+
+void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
+                                  wgpu::RenderPassEncoder* encoder,
+                                  wgpu::BindGroup* world_binding,
+                                  TilemapAgent* agent) {
+  if (agent->ground_draw_count) {
+    auto& pipeline_set = device->GetPipelines()->tilemap;
+    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
+
+    encoder->SetPipeline(*pipeline);
+    encoder->SetVertexBuffer(0, **agent->batch);
+    encoder->SetIndexBuffer(**device->GetQuadIndex(),
+                            device->GetQuadIndex()->format());
+    encoder->SetBindGroup(0, *world_binding);
+    encoder->SetBindGroup(1, agent->atlas_binding);
+    encoder->SetBindGroup(2, agent->uniform_binding);
+    encoder->DrawIndexed(agent->ground_draw_count * 6);
+  }
+}
+
+void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
+                                 wgpu::RenderPassEncoder* encoder,
+                                 wgpu::BindGroup* world_binding,
+                                 TilemapAgent* agent,
+                                 int32_t index) {
+  if (int32_t draw_count = agent->above_draw_count[index]) {
+    int32_t draw_offset = 0;
+    for (int32_t i = 0; i < index; ++i)
+      draw_offset += agent->above_draw_count[i];
+
+    auto& pipeline_set = device->GetPipelines()->tilemap;
+    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
+
+    encoder->SetPipeline(*pipeline);
+    encoder->SetVertexBuffer(0, **agent->batch);
+    encoder->SetIndexBuffer(**device->GetQuadIndex(),
+                            device->GetQuadIndex()->format());
+    encoder->SetBindGroup(0, *world_binding);
+    encoder->SetBindGroup(1, agent->atlas_binding);
+    encoder->SetBindGroup(2, agent->uniform_binding);
+    encoder->DrawIndexed(draw_count * 6, 1, draw_offset * 6);
   }
 }
 
@@ -400,7 +471,7 @@ scoped_refptr<Tilemap> Tilemap::New(ExecutionContext* execution_context,
                                     int32_t tilesize,
                                     ExceptionState& exception_state) {
   return new TilemapImpl(execution_context->graphics,
-                         ViewportImpl::From(viewport), std::min(16, tilesize));
+                         ViewportImpl::From(viewport), std::max(16, tilesize));
 }
 
 TilemapImpl::TilemapImpl(RenderScreenImpl* screen,
@@ -434,11 +505,20 @@ bool TilemapImpl::IsDisposed(ExceptionState& exception_state) {
   return Disposable::IsDisposed(exception_state);
 }
 
-void TilemapImpl::Update(ExceptionState& exception_state) {}
+void TilemapImpl::Update(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
 
-scoped_refptr<TilemapAutotile> TilemapImpl::Autotile(
+  anim_index_++;
+  if (anim_index_ >= 64)
+    anim_index_ = 0;
+}
+
+scoped_refptr<TilemapAutotile> TilemapImpl::Autotiles(
     ExceptionState& exception_state) {
-  return scoped_refptr<TilemapAutotile>();
+  if (CheckDisposed(exception_state))
+    return nullptr;
+  return new TilemapAutotileImpl(weak_ptr_factory_.GetWeakPtr());
 }
 
 scoped_refptr<Viewport> TilemapImpl::Get_Viewport(
@@ -574,6 +654,8 @@ void TilemapImpl::Put_Oy(const int32_t& value,
 }
 
 void TilemapImpl::OnObjectDisposed() {
+  weak_ptr_factory_.InvalidateWeakPtrs();
+
   ground_node_.DisposeNode();
   above_nodes_.clear();
 
@@ -586,6 +668,13 @@ void TilemapImpl::GroundNodeHandlerInternal(
     DrawableNode::RenderControllerParams* params) {
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     UpdateViewportInternal(params->viewport, params->origin);
+
+    if (!(last_viewport_ == params->viewport)) {
+      SetupTilemapLayersInternal(params->viewport);
+      last_viewport_ = params->viewport;
+    }
+
+    ResetAboveLayersOrderInternal();
 
     if (atlas_dirty_) {
       std::list<AtlasCompositeCommand> commands;
@@ -607,14 +696,26 @@ void TilemapImpl::GroundNodeHandlerInternal(
           agent_, std::move(ground_cache), std::move(aboves_cache)));
       map_buffer_dirty_ = false;
     }
+
+    screen()->PostTask(base::BindOnce(&GPUUpdateTilemapUniformInternal,
+                                      params->device, params->command_encoder,
+                                      agent_, tilesize_, anim_index_));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+    screen()->PostTask(base::BindOnce(
+        &GPURenderGroundLayerInternal, params->device,
+        params->renderpass_encoder, params->world_binding, agent_));
   }
 }
 
 void TilemapImpl::AboveNodeHandlerInternal(
+    int32_t layer_index,
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
   if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+    screen()->PostTask(
+        base::BindOnce(&GPURenderAboveLayerInternal, params->device,
+                       params->renderpass_encoder, params->world_binding,
+                       agent_, layer_index));
   }
 }
 
@@ -856,6 +957,27 @@ void TilemapImpl::ParseMapDataInternal(
 
   // Begin to parse buffer data
   process_buffer();
+}
+
+void TilemapImpl::SetupTilemapLayersInternal(const base::Rect& viewport) {
+  ground_node_.SetNodeSortWeight(0);
+
+  above_nodes_.clear();
+  int32_t above_layers_count =
+      (viewport.height / tilesize_) + !!(viewport.height % tilesize_) + 7;
+  for (int32_t i = 0; i < above_layers_count; ++i) {
+    DrawableNode above_node(ground_node_.GetController(), SortKey());
+    above_node.RegisterEventHandler(base::BindRepeating(
+        &TilemapImpl::AboveNodeHandlerInternal, base::Unretained(this), i));
+    above_nodes_.push_back(std::move(above_node));
+  }
+}
+
+void TilemapImpl::ResetAboveLayersOrderInternal() {
+  for (int32_t i = 0; i < above_nodes_.size(); ++i) {
+    int32_t layer_order = 32 * (i + render_rect_.y + 1) - origin_.y;
+    above_nodes_[i].SetNodeSortWeight(layer_order);
+  }
 }
 
 }  // namespace content

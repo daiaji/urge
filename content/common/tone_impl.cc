@@ -36,14 +36,16 @@ scoped_refptr<Tone> Tone::Copy(ExecutionContext* execution_context,
   return new ToneImpl(*static_cast<ToneImpl*>(other.get()));
 }
 
-scoped_refptr<Tone> Tone::Deserialize(const std::string& data,
+scoped_refptr<Tone> Tone::Deserialize(ExecutionContext* execution_context,
+                                      const std::string& data,
                                       ExceptionState& exception_state) {
   const float* ptr = reinterpret_cast<const float*>(data.data());
   ToneImpl* impl = new ToneImpl(base::Vec4(*ptr++, *ptr++, *ptr++, *ptr++));
   return impl;
 }
 
-std::string Tone::Serialize(scoped_refptr<Tone> value,
+std::string Tone::Serialize(ExecutionContext* execution_context,
+                            scoped_refptr<Tone> value,
                             ExceptionState& exception_state) {
   ToneImpl* impl = static_cast<ToneImpl*>(value.get());
   std::string serial_data(sizeof(float) * 4, 0);

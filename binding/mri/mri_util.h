@@ -400,6 +400,45 @@ inline void MriCollectStrings(VALUE obj, std::vector<std::string>& out) {
     return ary;                                                              \
   }
 
+///
+/// Serializable template
+///
+
+template <typename Ty>
+MRI_METHOD(serializable_marshal_load) {
+  std::string data;
+  MriParseArgsTo(argc, argv, "s", &data);
+
+  content::ExceptionState exception_state;
+  scoped_refptr ptr =
+      Ty::Deserialize(MriGetCurrentContext(), data, exception_state);
+  MriProcessException(exception_state);
+
+  ptr->AddRef();
+  VALUE obj = rb_obj_alloc(self);
+  MriSetStructData(obj, ptr.get());
+
+  return obj;
+}
+
+template <typename Ty>
+MRI_METHOD(serializable_marshal_dump) {
+  scoped_refptr obj = MriGetStructData<Ty>(self);
+
+  content::ExceptionState exception_state;
+  std::string data =
+      Ty::Serialize(MriGetCurrentContext(), obj, exception_state);
+  MriProcessException(exception_state);
+
+  return rb_str_new(data.data(), (long)data.size());
+}
+
+template <typename Ty>
+void MriInitSerializableBinding(VALUE klass) {
+  MriDefineClassMethod(klass, "_load", serializable_marshal_load<Ty>);
+  MriDefineMethod(klass, "_dump", serializable_marshal_dump<Ty>);
+}
+
 }  // namespace binding
 
 #endif  // !BINDING_MRI_MRI_UTIL_H_

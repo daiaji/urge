@@ -487,8 +487,8 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
     base::WeakPtr<ui::Widget> window,
     const std::string& wgpu_backend) {
   // Create device on window
-  agent_->device =
-      renderer::RenderDevice::Create(window, GetWGPUBackend(wgpu_backend));
+  agent_->device = renderer::RenderDevice::Create(
+      window, GetWGPUBackend(wgpu_backend), {"skip_validation"});
 
   // Create immediate command encoder
   agent_->context =

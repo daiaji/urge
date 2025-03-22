@@ -32,6 +32,14 @@ DrawableNode::DrawableNode(DrawNodeController* controller,
   }
 }
 
+DrawableNode::DrawableNode(DrawableNode&& other)
+    : controller_(other.controller_),
+      handler_(std::move(other.handler_)),
+      key_(std::move(other.key_)),
+      visible_(other.visible_),
+      batch_info_(std::move(other.batch_info_)),
+      batch_self_(other.batch_self_) {}
+
 DrawableNode::~DrawableNode() {
   DisposeNode();
 }
@@ -71,6 +79,8 @@ void DrawableNode::SetNodeSortWeight(int weight1) {
   if (!controller_)
     return;
 
+  if (key_.weight[0] == weight1)
+    return;
   key_.weight[0] = weight1;
 
   base::LinkNode<DrawableNode>::RemoveFromList();
@@ -81,6 +91,8 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2) {
   if (!controller_)
     return;
 
+  if (key_.weight[0] == weight1 && key_.weight[1] == weight2)
+    return;
   key_.weight[0] = weight1;
   key_.weight[1] = weight2;
 
@@ -92,6 +104,9 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2, int weight3) {
   if (!controller_)
     return;
 
+  if (key_.weight[0] == weight1 && key_.weight[1] == weight2 &&
+      key_.weight[2] == weight3)
+    return;
   key_.weight[0] = weight1;
   key_.weight[1] = weight2;
   key_.weight[2] = weight3;

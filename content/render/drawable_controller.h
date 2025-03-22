@@ -110,6 +110,7 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
   DrawableNode(DrawNodeController* controller,
                const SortKey& default_key,
                bool visible = true);
+  DrawableNode(DrawableNode&& other);
   ~DrawableNode();
 
   // Register the main executer for current drawable node's host

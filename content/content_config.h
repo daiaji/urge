@@ -18,8 +18,10 @@
   static type Get_##name(ExecutionContext*, ExceptionState&); \
   static void Put_##name(ExecutionContext*, const type&, ExceptionState&)
 #define URGE_EXPORT_SERIALIZABLE(type)                                         \
-  static scoped_refptr<type> Deserialize(const std::string&, ExceptionState&); \
-  static std::string Serialize(scoped_refptr<type>, ExceptionState&)
+  static scoped_refptr<type> Deserialize(ExecutionContext*,                    \
+                                         const std::string&, ExceptionState&); \
+  static std::string Serialize(ExecutionContext*, scoped_refptr<type>,         \
+                               ExceptionState&)
 
 #define URGE_DECLARE_OVERRIDE_ATTRIBUTE(name, type) \
   type Get_##name(ExceptionState&) override;        \

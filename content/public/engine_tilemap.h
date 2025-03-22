@@ -39,8 +39,8 @@ class URGE_RUNTIME_API Tilemap : public base::RefCounted<Tilemap> {
   /*--urge(name:update)--*/
   virtual void Update(ExceptionState& exception_state) = 0;
 
-  /*--urge(name:autotile)--*/
-  virtual scoped_refptr<TilemapAutotile> Autotile(
+  /*--urge(name:autotiles)--*/
+  virtual scoped_refptr<TilemapAutotile> Autotiles(
       ExceptionState& exception_state) = 0;
 
   /*--urge(name:viewport)--*/

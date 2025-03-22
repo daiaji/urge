@@ -33,6 +33,10 @@ class MriBindGen:
 
     func_body += "\n"
 
+    if template["is_serializable"]:
+      func_body += "MriInitSerializableBinding<content::{}>(klass);\n".format(kname)
+      func_body += "\n"
+
     attrs = template["attributes"]
     for attr in attrs:
       aname = attr["name"]

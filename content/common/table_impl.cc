@@ -33,7 +33,8 @@ scoped_refptr<Table> Table::Copy(ExecutionContext* execution_context,
   return new TableImpl(*static_cast<TableImpl*>(other.get()));
 }
 
-scoped_refptr<Table> Table::Deserialize(const std::string& data,
+scoped_refptr<Table> Table::Deserialize(ExecutionContext* execution_context,
+                                        const std::string& data,
                                         ExceptionState& exception_state) {
   const uint32_t* ptr = reinterpret_cast<const uint32_t*>(data.data());
   TableImpl* impl = new TableImpl(*++ptr, *++ptr, *++ptr);
@@ -51,7 +52,8 @@ scoped_refptr<Table> Table::Deserialize(const std::string& data,
   return impl;
 }
 
-std::string Table::Serialize(scoped_refptr<Table> value,
+std::string Table::Serialize(ExecutionContext* execution_context,
+                             scoped_refptr<Table> value,
                              ExceptionState& exception_state) {
   TableImpl* impl = static_cast<TableImpl*>(value.get());
 
@@ -155,7 +157,7 @@ int16_t TableImpl::Get(uint32_t x,
                        ExceptionState& exception_state) {
   if (x < 0 || x >= x_size_ || y < 0 || y >= y_size_ || z < 0 || z >= z_size_)
     return 0;
-  return data_.at(x + x_size_ * (y * y_size_ * z));
+  return data_.at(x + x_size_ * (y + y_size_ * z));
 }
 
 void TableImpl::Put(uint32_t x,
@@ -178,7 +180,7 @@ void TableImpl::Put(uint32_t x,
                     ExceptionState& exception_state) {
   if (x < 0 || x >= x_size_ || y < 0 || y >= y_size_ || z < 0 || z >= z_size_)
     return;
-  data_[x + x_size_ * (y * y_size_ * z)] = value;
+  data_[x + x_size_ * (y + y_size_ * z)] = value;
   dirty_ = true;
 }
 
@@ -195,7 +197,7 @@ uint32_t TableImpl::z_size() {
 }
 
 int16_t TableImpl::value(uint32_t x, uint32_t y, uint32_t z) {
-  return data_.at(x + x_size_ * (y * y_size_ * z));
+  return data_.at(x + x_size_ * (y + y_size_ * z));
 }
 
 bool TableImpl::FetchDirtyStatus() {

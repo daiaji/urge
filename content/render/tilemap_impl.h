@@ -39,8 +39,14 @@ namespace content {
 struct TilemapAgent {
   std::unique_ptr<renderer::QuadBatch> batch;
 
+  int32_t ground_draw_count;
+  std::vector<int32_t> above_draw_count;
+
   wgpu::Texture atlas_texture;
   wgpu::BindGroup atlas_binding;
+
+  wgpu::Buffer uniform_buffer;
+  wgpu::BindGroup uniform_binding;
 };
 
 struct AtlasCompositeCommand {
@@ -51,7 +57,7 @@ struct AtlasCompositeCommand {
 
 class TilemapImpl;
 
-class TilemapAutotileImpl : TilemapAutotile {
+class TilemapAutotileImpl : public TilemapAutotile {
  public:
   TilemapAutotileImpl(base::WeakPtr<TilemapImpl> tilemap);
   ~TilemapAutotileImpl() override;
@@ -88,7 +94,7 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
   void Dispose(ExceptionState& exception_state) override;
   bool IsDisposed(ExceptionState& exception_state) override;
   void Update(ExceptionState& exception_state) override;
-  scoped_refptr<TilemapAutotile> Autotile(
+  scoped_refptr<TilemapAutotile> Autotiles(
       ExceptionState& exception_state) override;
 
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
@@ -106,7 +112,8 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
   std::string DisposedObjectName() override { return "Tilemap"; }
   void GroundNodeHandlerInternal(DrawableNode::RenderStage stage,
                                  DrawableNode::RenderControllerParams* params);
-  void AboveNodeHandlerInternal(DrawableNode::RenderStage stage,
+  void AboveNodeHandlerInternal(int32_t layer_index,
+                                DrawableNode::RenderStage stage,
                                 DrawableNode::RenderControllerParams* params);
 
   base::Vec2i MakeAtlasInternal(std::list<AtlasCompositeCommand>& commands);
@@ -115,6 +122,9 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
   void ParseMapDataInternal(
       std::vector<renderer::Quad>& ground_cache,
       std::vector<std::vector<renderer::Quad>>& aboves_cache);
+
+  void SetupTilemapLayersInternal(const base::Rect& viewport);
+  void ResetAboveLayersOrderInternal();
 
   struct AutotileInfo {
     scoped_refptr<CanvasImpl> bitmap;
@@ -129,6 +139,8 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
   base::Vec2i render_offset_;
   bool atlas_dirty_ = false;
   bool map_buffer_dirty_ = false;
+  base::Rect last_viewport_;
+  int32_t anim_index_ = 0;
 
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> tileset_;

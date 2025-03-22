@@ -75,6 +75,13 @@ wgpu::BindGroup MakeTextCacheInternal(renderer::RenderDevice* device_base,
 void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
                                       SDL_Surface* initial_data,
                                       TextureAgent* agent) {
+  if (initial_data->format != SDL_PIXELFORMAT_ABGR8888) {
+    SDL_Surface* conv =
+        SDL_ConvertSurface(initial_data, SDL_PIXELFORMAT_ABGR8888);
+    SDL_DestroySurface(initial_data);
+    initial_data = conv;
+  }
+
   wgpu::TextureUsage texture_usage =
       wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc |
       wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
@@ -94,6 +101,7 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
 
   wgpu::TexelCopyBufferLayout texture_data_layout;
   texture_data_layout.bytesPerRow = initial_data->pitch;
+  texture_data_layout.rowsPerImage = initial_data->h;
 
   wgpu::Extent3D write_size;
   write_size.width = initial_data->w;
@@ -102,6 +110,8 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
   device_base->GetQueue()->WriteTexture(&copy_texture, initial_data->pixels,
                                         initial_data->pitch * initial_data->h,
                                         &texture_data_layout, &write_size);
+
+  SDL_DestroySurface(initial_data);
 }
 
 void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
@@ -491,12 +501,14 @@ scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,
   return duplicate_bitmap;
 }
 
-scoped_refptr<Bitmap> Bitmap::Deserialize(const std::string&,
+scoped_refptr<Bitmap> Bitmap::Deserialize(ExecutionContext* execution_context,
+                                          const std::string&,
                                           ExceptionState& exception_state) {
   return nullptr;
 }
 
-std::string Bitmap::Serialize(scoped_refptr<Bitmap>,
+std::string Bitmap::Serialize(ExecutionContext* execution_context,
+                              scoped_refptr<Bitmap>,
                               ExceptionState& exception_state) {
   return std::string();
 }

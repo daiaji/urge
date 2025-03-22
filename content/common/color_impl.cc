@@ -36,14 +36,16 @@ scoped_refptr<Color> Color::Copy(ExecutionContext* execution_context,
   return new ColorImpl(*static_cast<ColorImpl*>(other.get()));
 }
 
-scoped_refptr<Color> Color::Deserialize(const std::string& data,
+scoped_refptr<Color> Color::Deserialize(ExecutionContext* execution_context,
+                                        const std::string& data,
                                         ExceptionState& exception_state) {
   const float* ptr = reinterpret_cast<const float*>(data.data());
   ColorImpl* impl = new ColorImpl(base::Vec4(*ptr++, *ptr++, *ptr++, *ptr++));
   return impl;
 }
 
-std::string Color::Serialize(scoped_refptr<Color> value,
+std::string Color::Serialize(ExecutionContext* execution_context,
+                             scoped_refptr<Color> value,
                              ExceptionState& exception_state) {
   ColorImpl* impl = static_cast<ColorImpl*>(value.get());
   std::string serial_data(sizeof(float) * 4, 0);
