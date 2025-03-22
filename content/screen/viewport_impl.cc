@@ -390,75 +390,123 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
 
 scoped_refptr<Viewport> ViewportImpl::Get_Viewport(
     ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return viewport_;
 }
 
 void ViewportImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
                                 ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   viewport_ = ViewportImpl::From(value);
   node_.RebindController(viewport_->GetDrawableController());
 }
 
 scoped_refptr<Rect> ViewportImpl::Get_Rect(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return rect_;
 }
 
 void ViewportImpl::Put_Rect(const scoped_refptr<Rect>& value,
                             ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   *rect_ = *RectImpl::From(value);
 }
 
 bool ViewportImpl::Get_Visible(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return false;
+
   return node_.GetVisibility();
 }
 
 void ViewportImpl::Put_Visible(const bool& value,
                                ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   node_.SetNodeVisibility(value);
 }
 
 int32_t ViewportImpl::Get_Z(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return static_cast<int32_t>(node_.GetSortKeys()->weight[0]);
 }
 
 void ViewportImpl::Put_Z(const int32_t& value,
                          ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   node_.SetNodeSortWeight(value);
 }
 
 int32_t ViewportImpl::Get_Ox(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return origin_.x;
 }
 
 void ViewportImpl::Put_Ox(const int32_t& value,
                           ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   origin_.x = value;
 }
 
 int32_t ViewportImpl::Get_Oy(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return 0;
+
   return origin_.y;
 }
 
 void ViewportImpl::Put_Oy(const int32_t& value,
                           ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   origin_.y = value;
 }
 
 scoped_refptr<Color> ViewportImpl::Get_Color(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return color_;
 }
 
 void ViewportImpl::Put_Color(const scoped_refptr<Color>& value,
                              ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   *color_ = *ColorImpl::From(value);
 }
 
 scoped_refptr<Tone> ViewportImpl::Get_Tone(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
   return tone_;
 }
 
 void ViewportImpl::Put_Tone(const scoped_refptr<Tone>& value,
                             ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
   *tone_ = *ToneImpl::From(value);
 }
 

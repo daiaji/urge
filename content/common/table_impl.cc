@@ -36,10 +36,14 @@ scoped_refptr<Table> Table::Copy(ExecutionContext* execution_context,
 scoped_refptr<Table> Table::Deserialize(ExecutionContext* execution_context,
                                         const std::string& data,
                                         ExceptionState& exception_state) {
-  const uint32_t* ptr = reinterpret_cast<const uint32_t*>(data.data());
-  TableImpl* impl = new TableImpl(*++ptr, *++ptr, *++ptr);
-  uint32_t data_size = *++ptr;
+  const uint32_t* raw_ptr = reinterpret_cast<const uint32_t*>(data.data());
 
+  uint32_t xsize = *(raw_ptr + 1);
+  uint32_t ysize = *(raw_ptr + 2);
+  uint32_t zsize = *(raw_ptr + 3);
+  uint32_t data_size = *(raw_ptr + 4);
+
+  scoped_refptr<TableImpl> impl = new TableImpl(xsize, ysize, zsize);
   if (data_size != impl->x_size_ * impl->y_size_ * impl->z_size_) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                       "incorrect table serialize data");
@@ -47,7 +51,7 @@ scoped_refptr<Table> Table::Deserialize(ExecutionContext* execution_context,
   }
 
   if (data_size)
-    std::memcpy(impl->data_.data(), ++ptr, data_size);
+    std::memcpy(impl->data_.data(), raw_ptr + 5, data_size * sizeof(int16_t));
 
   return impl;
 }
@@ -55,7 +59,7 @@ scoped_refptr<Table> Table::Deserialize(ExecutionContext* execution_context,
 std::string Table::Serialize(ExecutionContext* execution_context,
                              scoped_refptr<Table> value,
                              ExceptionState& exception_state) {
-  TableImpl* impl = static_cast<TableImpl*>(value.get());
+  scoped_refptr<TableImpl> impl = static_cast<TableImpl*>(value.get());
 
   uint32_t dim = 0;
   if (impl->x_size_ >= 1)
@@ -69,12 +73,12 @@ std::string Table::Serialize(ExecutionContext* execution_context,
   std::string serial_data(sizeof(int32_t) * 5 + data_size * sizeof(int16_t), 0);
 
   uint32_t* ptr = reinterpret_cast<uint32_t*>(serial_data.data());
-  *ptr++ = dim;
-  *ptr++ = impl->x_size_;
-  *ptr++ = impl->y_size_;
-  *ptr++ = impl->z_size_;
-  *ptr++ = data_size;
-  std::memcpy(ptr, impl->data_.data(), sizeof(int16_t) * data_size);
+  *(ptr + 0) = dim;
+  *(ptr + 1) = impl->x_size_;
+  *(ptr + 2) = impl->y_size_;
+  *(ptr + 3) = impl->z_size_;
+  *(ptr + 4) = data_size;
+  std::memcpy(ptr + 5, impl->data_.data(), data_size * sizeof(int16_t));
 
   return serial_data;
 }

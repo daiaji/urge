@@ -360,7 +360,6 @@ void GPUUploadTilesBatchInternal(
 
   int32_t offset = ground_cache.size();
   agent->above_draw_count.clear();
-  agent->above_draw_count.reserve(aboves_cache.size());
   for (auto it : aboves_cache) {
     agent->batch->QueueWrite(*encoder, it.data(), it.size(), offset);
     agent->above_draw_count.push_back(it.size());
