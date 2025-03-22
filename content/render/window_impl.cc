@@ -405,7 +405,7 @@ scoped_refptr<Window> Window::New(ExecutionContext* execution_context,
                                   int32_t scale,
                                   ExceptionState& exception_state) {
   return new WindowImpl(execution_context->graphics,
-                        ViewportImpl::From(viewport), std::min(1, scale));
+                        ViewportImpl::From(viewport), std::max(1, scale));
 }
 
 WindowImpl::WindowImpl(RenderScreenImpl* screen,
