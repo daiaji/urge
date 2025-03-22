@@ -323,6 +323,7 @@ void GPUMakeAtlasInternal(renderer::RenderDevice* device,
       atlas_size);
 
   renderer::TextureBindingUniform atlas_uniform;
+  atlas_uniform.texture_size = base::MakeInvert(atlas_size);
   wgpu::Buffer atlas_uniform_buffer = renderer::CreateUniformBuffer(
       **device, "tilemap.atlas", wgpu::BufferUsage::None, &atlas_uniform);
   agent->atlas_binding = renderer::TextureBindingUniform::CreateGroup(
@@ -373,6 +374,7 @@ void GPUUploadTilesBatchInternal(
 void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
                                      wgpu::CommandEncoder* encoder,
                                      TilemapAgent* agent,
+                                     const base::Vec2& offset,
                                      int32_t tilesize,
                                      int32_t anim_index) {
   if (!agent->uniform_buffer)
@@ -385,6 +387,7 @@ void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
         renderer::TilemapUniform::CreateGroup(**device, agent->uniform_buffer);
 
   renderer::TilemapUniform uniform;
+  uniform.offset = offset;
   uniform.tile_size = tilesize;
   uniform.anim_index = anim_index / 16;
   encoder->WriteBuffer(agent->uniform_buffer, 0,
@@ -395,6 +398,9 @@ void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
                                   wgpu::RenderPassEncoder* encoder,
                                   wgpu::BindGroup* world_binding,
                                   TilemapAgent* agent) {
+  if (!agent->atlas_texture)
+    return;
+
   if (agent->ground_draw_count) {
     auto& pipeline_set = device->GetPipelines()->tilemap;
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
@@ -415,6 +421,9 @@ void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
                                  wgpu::BindGroup* world_binding,
                                  TilemapAgent* agent,
                                  int32_t index) {
+  if (!agent->atlas_texture)
+    return;
+
   if (int32_t draw_count = agent->above_draw_count[index]) {
     int32_t draw_offset = 0;
     for (int32_t i = 0; i < index; ++i)
@@ -699,7 +708,8 @@ void TilemapImpl::GroundNodeHandlerInternal(
 
     screen()->PostTask(base::BindOnce(&GPUUpdateTilemapUniformInternal,
                                       params->device, params->command_encoder,
-                                      agent_, tilesize_, anim_index_));
+                                      agent_, render_offset_, tilesize_,
+                                      anim_index_));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(base::BindOnce(
         &GPURenderGroundLayerInternal, params->device,

@@ -335,7 +335,7 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
                                       TextureAgent* windowskin) {
   if (agent->background_cache.size()) {
     auto& pipeline_set = device->GetPipelines()->base;
-    auto* pipeline = pipeline_set.GetPipeline(renderer::NORMAL);
+    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
     auto interact_region = base::MakeIntersect(last_viewport, bound);
     encoder->SetScissorRect(interact_region.x, interact_region.y,
@@ -365,7 +365,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
                                    int32_t scale) {
   if (agent->control_draw_count || agent->contents_draw_count) {
     auto& pipeline_set = device->GetPipelines()->base;
-    auto* pipeline = pipeline_set.GetPipeline(renderer::NORMAL);
+    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
     base::Rect inbox_region = bound;
     inbox_region.x += 8 * scale;

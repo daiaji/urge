@@ -77,6 +77,7 @@ struct VagueTransitionUniform {
 };
 
 struct TilemapUniform {
+  WGPU_ALIGN_TYPE(base::Vec2) offset;
   WGPU_ALIGN_TYPE(float) tile_size;
   WGPU_ALIGN_TYPE(float) anim_index;
 

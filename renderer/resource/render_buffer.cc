@@ -22,7 +22,7 @@ static std::array<uint16_t, 6> kQuadrangleDrawIndices = {
 };
 
 QuadIndexCache::QuadIndexCache(const wgpu::Device& device)
-    : device_(device), format_(wgpu::IndexFormat::Uint16), count_(0) {}
+    : device_(device), format_(wgpu::IndexFormat::Uint16) {}
 
 std::unique_ptr<QuadIndexCache> renderer::QuadIndexCache::Make(
     const wgpu::Device& device) {
@@ -34,16 +34,14 @@ wgpu::Buffer* QuadIndexCache::Allocate(uint32_t quadrangle_size) {
       quadrangle_size * kQuadrangleDrawIndices.size();
 
   // Generate
-  if (cached_indices_.size() < required_indices_size) {
-    if (cached_indices_.capacity() <
-        cached_indices_.size() + required_indices_size)
-      cached_indices_.reserve(required_indices_size);
-    for (uint32_t i = 0; i < quadrangle_size; ++i)
+  if (cache_.size() < required_indices_size) {
+    cache_.clear();
+    cache_.reserve(required_indices_size);
+    for (int32_t i = 0; i < quadrangle_size; ++i)
       for (const auto& it : kQuadrangleDrawIndices)
-        cached_indices_.push_back((count_ + i) * 4 + it);
+        cache_.push_back(i * 4 + it);
 
-    // Reset current count and buffer
-    count_ = quadrangle_size;
+    // Reset old buffer
     index_buffer_ = nullptr;
   }
 
@@ -60,7 +58,7 @@ wgpu::Buffer* QuadIndexCache::Allocate(uint32_t quadrangle_size) {
 
     // Re-Write indices data to buffer
     void* dest_memory = index_buffer_.GetMappedRange();
-    std::memcpy(dest_memory, cached_indices_.data(), buffer_desc.size);
+    std::memcpy(dest_memory, cache_.data(), buffer_desc.size);
     index_buffer_.Unmap();
   }
 

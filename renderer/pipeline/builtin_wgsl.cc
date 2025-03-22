@@ -396,6 +396,7 @@ struct VertexOutput {
 };
 
 struct EffectParams {
+  offset: vec2<f32>,
   tileSize: f32,
   animateIndex: f32,
 };
@@ -413,14 +414,19 @@ fn vertexMain(
     @location(0) pos: vec4<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) color: vec4<f32>) -> VertexOutput {
+  var trans_pos = pos;
   var tex = uv;
+
+  // Apply tilemap offset
+  trans_pos.x += u_effect.offset.x;
+  trans_pos.y += u_effect.offset.y;
 
   // Animated area
 	let addition = select(0.0, 1.0, tex.x <= kAutotileArea.x * u_effect.tileSize && tex.y <= kAutotileArea.y * u_effect.tileSize);
 	tex.x += 3.0 * u_effect.tileSize * u_effect.animateIndex * addition;
 
   var result: VertexOutput;
-  result.pos = u_transform.projMat * pos;
+  result.pos = u_transform.projMat * trans_pos;
   result.pos = u_transform.transMat * result.pos;
   result.uv = u_texSize * tex;
   result.color = color;

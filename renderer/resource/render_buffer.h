@@ -32,9 +32,8 @@ class QuadIndexCache {
 
   wgpu::Device device_;
   wgpu::IndexFormat format_;
-  std::vector<uint16_t> cached_indices_;
   wgpu::Buffer index_buffer_;
-  uint32_t count_;
+  std::vector<uint16_t> cache_;
 };
 
 class QuadBatch {
