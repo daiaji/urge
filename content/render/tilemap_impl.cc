@@ -953,7 +953,10 @@ void TilemapImpl::ParseMapDataInternal(
   };
 
   auto get_wrap_data = [&](scoped_refptr<TableImpl> t, int32_t x, int32_t y,
-                           int32_t z) {
+                           int32_t z) -> int16_t {
+    if (!t)
+      return 0;
+
     return t->value(value_wrap(x, t->x_size()), value_wrap(y, t->y_size()), z);
   };
 

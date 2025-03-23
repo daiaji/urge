@@ -383,7 +383,7 @@ void RenderScreenImpl::Transition(uint32_t duration,
   if (!filename.empty())
     transition_mapping = CanvasImpl::Create(
         GetCanvasScheduler(), this, scoped_font_, filename, exception_state);
-  if (!transition_mapping || exception_state.HadException())
+  if (exception_state.HadException())
     return;
 
   TransitionWithBitmap(duration, transition_mapping, vague, exception_state);

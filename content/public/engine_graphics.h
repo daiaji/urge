@@ -83,13 +83,22 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
                          ExceptionState& exception_state) = 0;
 
   /*--urge(name:frame_rate)--*/
-  URGE_EXPORT_ATTRIBUTE(FrameRate, uint32_t);
+  virtual uint32_t Get_FrameRate(ExceptionState& exception_state) = 0;
+  /*--urge(name:frame_rate=)--*/
+  virtual void Put_FrameRate(const uint32_t& value,
+                             ExceptionState& exception_state) = 0;
 
   /*--urge(name:frame_count)--*/
-  URGE_EXPORT_ATTRIBUTE(FrameCount, uint32_t);
+  virtual uint32_t Get_FrameCount(ExceptionState& exception_state) = 0;
+  /*--urge(name:frame_count=)--*/
+  virtual void Put_FrameCount(const uint32_t& value,
+                              ExceptionState& exception_state) = 0;
 
   /*--urge(name:brightness)--*/
-  URGE_EXPORT_ATTRIBUTE(Brightness, uint32_t);
+  virtual uint32_t Get_Brightness(ExceptionState& exception_state) = 0;
+  /*--urge(name:brightness=)--*/
+  virtual void Put_Brightness(const uint32_t& value,
+                              ExceptionState& exception_state) = 0;
 };
 
 }  // namespace content
