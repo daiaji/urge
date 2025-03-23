@@ -49,8 +49,7 @@ class QuadBatch {
   wgpu::Buffer& operator*() { return buffer_; }
   void QueueWrite(const wgpu::CommandEncoder& encoder,
                   const Quad* data,
-                  uint32_t count = 1,
-                  uint32_t offset = 0);
+                  uint32_t count = 1);
 
  private:
   QuadBatch(const wgpu::Device& device, const wgpu::Buffer& vertex_buffer);

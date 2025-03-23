@@ -355,16 +355,29 @@ void GPUUploadTilesBatchInternal(
     TilemapAgent* agent,
     std::vector<renderer::Quad> ground_cache,
     std::vector<std::vector<renderer::Quad>> aboves_cache) {
-  agent->batch->QueueWrite(*encoder, ground_cache.data(), ground_cache.size());
+  std::vector<renderer::Quad> total_quads;
   agent->ground_draw_count = ground_cache.size();
 
   int32_t offset = ground_cache.size();
   agent->above_draw_count.clear();
-  for (auto it : aboves_cache) {
-    agent->batch->QueueWrite(*encoder, it.data(), it.size(), offset);
+  for (const auto& it : aboves_cache) {
     agent->above_draw_count.push_back(it.size());
     offset += it.size();
   }
+
+  // Make total buffer
+  total_quads.resize(offset);
+  std::memcpy(total_quads.data(), ground_cache.data(),
+              ground_cache.size() * sizeof(renderer::Quad));
+  int32_t buffer_offset = ground_cache.size();
+  for (const auto& it : aboves_cache) {
+    std::memcpy(total_quads.data() + buffer_offset, it.data(),
+                it.size() * sizeof(renderer::Quad));
+    buffer_offset += it.size();
+  }
+
+  // Upload data
+  agent->batch->QueueWrite(*encoder, total_quads.data(), total_quads.size());
 
   // Allocate quad index
   device->GetQuadIndex()->Allocate(offset);
@@ -423,22 +436,24 @@ void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
   if (!agent->atlas_texture)
     return;
 
-  if (int32_t draw_count = agent->above_draw_count[index]) {
-    int32_t draw_offset = agent->ground_draw_count;
-    for (int32_t i = 0; i < index; ++i)
-      draw_offset += agent->above_draw_count[i];
+  if (!agent->above_draw_count.empty()) {
+    if (int32_t draw_count = agent->above_draw_count[index]) {
+      int32_t draw_offset = agent->ground_draw_count;
+      for (int32_t i = 0; i < index; ++i)
+        draw_offset += agent->above_draw_count[i];
 
-    auto& pipeline_set = device->GetPipelines()->tilemap;
-    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
+      auto& pipeline_set = device->GetPipelines()->tilemap;
+      auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
-    encoder->SetPipeline(*pipeline);
-    encoder->SetVertexBuffer(0, **agent->batch);
-    encoder->SetIndexBuffer(**device->GetQuadIndex(),
-                            device->GetQuadIndex()->format());
-    encoder->SetBindGroup(0, *world_binding);
-    encoder->SetBindGroup(1, agent->atlas_binding);
-    encoder->SetBindGroup(2, agent->uniform_binding);
-    encoder->DrawIndexed(draw_count * 6, 1, draw_offset * 6);
+      encoder->SetPipeline(*pipeline);
+      encoder->SetVertexBuffer(0, **agent->batch);
+      encoder->SetIndexBuffer(**device->GetQuadIndex(),
+                              device->GetQuadIndex()->format());
+      encoder->SetBindGroup(0, *world_binding);
+      encoder->SetBindGroup(1, agent->atlas_binding);
+      encoder->SetBindGroup(2, agent->uniform_binding);
+      encoder->DrawIndexed(draw_count * 6, 1, draw_offset * 6);
+    }
   }
 }
 
