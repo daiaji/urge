@@ -503,6 +503,7 @@ void SpriteImpl::Put_Mirror(const bool& value,
     return;
 
   mirror_ = value;
+  src_rect_dirty_ = true;
 }
 
 int32_t SpriteImpl::Get_BushDepth(ExceptionState& exception_state) {
@@ -548,6 +549,7 @@ void SpriteImpl::Put_Opacity(const int32_t& value,
     return;
 
   opacity_ = value;
+  src_rect_dirty_ = true;
 }
 
 int32_t SpriteImpl::Get_BlendType(ExceptionState& exception_state) {
