@@ -61,4 +61,13 @@ void Quad::SetColor(Quad* data, const base::Vec4& color) {
   data->vertices[i++].color = color;
 }
 
+std::ostream& operator<<(std::ostream& os, const Quad& value) {
+  os << "Quad<";
+  for (int32_t i = 0; i < _countof(value.vertices); ++i)
+    os << "{ " << value.vertices[i].position << ", "
+       << value.vertices[i].texcoord << " }, ";
+  os << ">";
+  return os;
+}
+
 }  // namespace renderer

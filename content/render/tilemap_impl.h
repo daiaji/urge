@@ -126,21 +126,25 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
   void SetupTilemapLayersInternal(const base::Rect& viewport);
   void ResetAboveLayersOrderInternal();
 
+  void AtlasModifyHandlerInternal();
+
   struct AutotileInfo {
     scoped_refptr<CanvasImpl> bitmap;
-    AutotileType type;
+    AutotileType type = AutotileType::Animated;
+    base::CallbackListSubscription observer;
   };
 
   DrawableNode ground_node_;
   std::vector<DrawableNode> above_nodes_;
   TilemapAgent* agent_;
   int32_t tilesize_ = 32;
-  base::Rect render_rect_;
+  base::Rect render_viewport_;
   base::Vec2i render_offset_;
   bool atlas_dirty_ = false;
   bool map_buffer_dirty_ = false;
   base::Rect last_viewport_;
   int32_t anim_index_ = 0;
+  base::CallbackListSubscription tileset_observer_;
 
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> tileset_;

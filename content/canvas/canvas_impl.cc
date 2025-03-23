@@ -623,6 +623,9 @@ SDL_Surface* CanvasImpl::RequireMemorySurface() {
 }
 
 void CanvasImpl::InvalidateSurfaceCache() {
+  // Notify children observers
+  observers_.Notify();
+
   if (canvas_cache_) {
     // Set cache ptr to null
     SDL_DestroySurface(canvas_cache_);

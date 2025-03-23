@@ -424,7 +424,7 @@ void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
     return;
 
   if (int32_t draw_count = agent->above_draw_count[index]) {
-    int32_t draw_offset = 0;
+    int32_t draw_offset = agent->ground_draw_count;
     for (int32_t i = 0; i < index; ++i)
       draw_offset += agent->above_draw_count[i];
 
@@ -471,6 +471,8 @@ void TilemapAutotileImpl::Put(int32_t index,
                                              "Out range of autotiles.");
 
   autotiles[index].bitmap = CanvasImpl::FromBitmap(texture);
+  autotiles[index].observer = autotiles[index].bitmap->AddCanvasObserver(
+      base::BindRepeating(&TilemapImpl::AtlasModifyHandlerInternal, tilemap_));
   tilemap_->atlas_dirty_ = true;
 }
 
@@ -564,7 +566,13 @@ void TilemapImpl::Put_Tileset(const scoped_refptr<Bitmap>& value,
   if (CheckDisposed(exception_state))
     return;
 
+  if (tileset_ == value)
+    return;
+
   tileset_ = CanvasImpl::FromBitmap(value);
+  tileset_observer_ = tileset_->AddCanvasObserver(base::BindRepeating(
+      &TilemapImpl::AtlasModifyHandlerInternal, base::Unretained(this)));
+  atlas_dirty_ = true;
 }
 
 scoped_refptr<Table> TilemapImpl::Get_MapData(ExceptionState& exception_state) {
@@ -580,6 +588,7 @@ void TilemapImpl::Put_MapData(const scoped_refptr<Table>& value,
     return;
 
   map_data_ = TableImpl::From(value);
+  map_buffer_dirty_ = true;
 }
 
 scoped_refptr<Table> TilemapImpl::Get_FlashData(
@@ -612,6 +621,7 @@ void TilemapImpl::Put_Priorities(const scoped_refptr<Table>& value,
     return;
 
   priorities_ = TableImpl::From(value);
+  map_buffer_dirty_ = true;
 }
 
 bool TilemapImpl::Get_Visible(ExceptionState& exception_state) {
@@ -644,6 +654,7 @@ void TilemapImpl::Put_Ox(const int32_t& value,
     return;
 
   origin_.x = value;
+  map_buffer_dirty_ = true;
 }
 
 int32_t TilemapImpl::Get_Oy(ExceptionState& exception_state) {
@@ -659,6 +670,7 @@ void TilemapImpl::Put_Oy(const int32_t& value,
     return;
 
   origin_.y = value;
+  map_buffer_dirty_ = true;
 }
 
 void TilemapImpl::OnObjectDisposed() {
@@ -675,15 +687,17 @@ void TilemapImpl::GroundNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
-    UpdateViewportInternal(params->viewport, params->origin);
-
+    // Setup above layers if need.
     if (!(last_viewport_ == params->viewport)) {
       SetupTilemapLayersInternal(params->viewport);
       last_viewport_ = params->viewport;
     }
 
+    // Reset above layers sorting order.
+    UpdateViewportInternal(params->viewport, params->origin);
     ResetAboveLayersOrderInternal();
 
+    // Generate global atlas texture if need.
     if (atlas_dirty_) {
       std::list<AtlasCompositeCommand> commands;
       base::Vec2i size = MakeAtlasInternal(commands);
@@ -694,6 +708,13 @@ void TilemapImpl::GroundNodeHandlerInternal(
       atlas_dirty_ = false;
     }
 
+    // Refresh map buffer if need.
+    if (map_data_)
+      map_buffer_dirty_ |= map_data_->FetchDirtyStatus();
+    if (priorities_)
+      map_buffer_dirty_ |= priorities_->FetchDirtyStatus();
+
+    // Parse and generate map buffer if need.
     if (map_buffer_dirty_) {
       std::vector<renderer::Quad> ground_cache;
       std::vector<std::vector<renderer::Quad>> aboves_cache;
@@ -705,6 +726,7 @@ void TilemapImpl::GroundNodeHandlerInternal(
       map_buffer_dirty_ = false;
     }
 
+    // Update tilemap uniform per frame.
     screen()->PostTask(base::BindOnce(&GPUUpdateTilemapUniformInternal,
                                       params->device, params->command_encoder,
                                       agent_, render_offset_, tilesize_,
@@ -804,14 +826,14 @@ void TilemapImpl::UpdateViewportInternal(const base::Rect& viewport,
   new_viewport.height =
       (viewport_size.y / tilesize_) + !!(viewport_size.y % tilesize_) + 2;
 
-  if (!(new_viewport == render_rect_)) {
-    render_rect_ = new_viewport;
-    map_buffer_dirty_ = true;
-  }
-
   const base::Vec2i display_offset = tilemap_origin % base::Vec2i(tilesize_);
   render_offset_ =
       viewport.Position() - display_offset - base::Vec2i(0, tilesize_);
+
+  if (!(new_viewport == render_viewport_)) {
+    render_viewport_ = new_viewport;
+    map_buffer_dirty_ = true;
+  }
 }
 
 void TilemapImpl::ParseMapDataInternal(
@@ -863,7 +885,7 @@ void TilemapImpl::ParseMapDataInternal(
     switch (info.type) {
       case AutotileType::Animated:
       case AutotileType::Static: {
-        const base::RectF* autotile_src = kAutotileSrcRects[pattern_id * 4];
+        const base::RectF* autotile_src = kAutotileSrcRects[pattern_id];
         for (int i = 0; i < 4; ++i) {
           base::RectF tex_src = autotile_src[i];
           tex_src.x = tex_src.x * tilesize_ + 0.5f;
@@ -915,7 +937,7 @@ void TilemapImpl::ParseMapDataInternal(
 
   auto process_tile = [&](const base::Vec2i& pos, int32_t z) {
     int tile_id =
-        get_map_data(pos.x + render_rect_.x, pos.y + render_rect_.y, z);
+        get_map_data(pos.x + render_viewport_.x, pos.y + render_viewport_.y, z);
 
     if (tile_id < 48)
       return;
@@ -954,14 +976,14 @@ void TilemapImpl::ParseMapDataInternal(
   };
 
   auto process_buffer = [&]() {
-    for (int32_t x = 0; x < render_rect_.width; ++x)
-      for (int32_t y = 0; y < render_rect_.height; ++y)
+    for (int32_t x = 0; x < render_viewport_.width; ++x)
+      for (int32_t y = 0; y < render_viewport_.height; ++y)
         for (int32_t z = 0; z < map_data_->z_size(); ++z)
           process_tile(base::Vec2i(x, y), z);
   };
 
   // Process map buffer
-  int above_layers_count = render_rect_.height + 5;
+  int above_layers_count = render_viewport_.height + 5;
   aboves_cache.resize(above_layers_count);
 
   // Begin to parse buffer data
@@ -984,9 +1006,13 @@ void TilemapImpl::SetupTilemapLayersInternal(const base::Rect& viewport) {
 
 void TilemapImpl::ResetAboveLayersOrderInternal() {
   for (int32_t i = 0; i < above_nodes_.size(); ++i) {
-    int32_t layer_order = 32 * (i + render_rect_.y + 1) - origin_.y;
+    int32_t layer_order = 32 * (i + render_viewport_.y + 1) - origin_.y;
     above_nodes_[i].SetNodeSortWeight(layer_order);
   }
+}
+
+void TilemapImpl::AtlasModifyHandlerInternal() {
+  atlas_dirty_ = true;
 }
 
 }  // namespace content

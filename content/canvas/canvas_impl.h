@@ -85,6 +85,11 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
   // Require render texture (maybe null after disposed)
   TextureAgent* GetAgent() const { return texture_; }
 
+  inline base::CallbackListSubscription AddCanvasObserver(
+      const base::RepeatingClosure& observer) {
+    return observers_.Add(observer);
+  }
+
  protected:
   void Dispose(ExceptionState& exception_state) override;
   bool IsDisposed(ExceptionState& exception_state) override;
@@ -299,6 +304,7 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
   std::vector<CommandBlock> blocks_;
   uint32_t current_block_ = 0;
 
+  base::RepeatingClosureList observers_;
   scoped_refptr<FontImpl> font_;
 };
 
