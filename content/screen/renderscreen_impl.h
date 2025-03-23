@@ -24,7 +24,7 @@ struct RenderGraphicsAgent {
   std::unique_ptr<renderer::DeviceContext> context;
   std::unique_ptr<CanvasScheduler> canvas_scheduler;
 
-  wgpu::Texture* present_target;
+  wgpu::Texture* present_target = nullptr;
   wgpu::Texture screen_buffer;
   wgpu::Texture frozen_buffer;
   wgpu::Texture transition_buffer;
