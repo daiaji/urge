@@ -26,10 +26,8 @@ DrawableNode::DrawableNode(DrawNodeController* controller,
       visible_(visible),
       batch_info_(typeid(DrawableNode)),
       batch_self_(nullptr) {
-  if (controller_) {
-    // Bind this node to initial parent.
-    controller_->children_list_.Append(this);
-  }
+  if (controller_)
+    controller_->InsertChildNodeInternal(this);
 }
 
 DrawableNode::DrawableNode(DrawableNode&& other)
@@ -62,7 +60,6 @@ void DrawableNode::RebindController(DrawNodeController* controller) {
 }
 
 void DrawableNode::DisposeNode() {
-  DCHECK(controller_);
   base::LinkNode<DrawableNode>::RemoveFromList();
   controller_ = nullptr;
 }
