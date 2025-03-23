@@ -376,11 +376,13 @@ void GPUUploadTilesBatchInternal(
     buffer_offset += it.size();
   }
 
-  // Upload data
-  agent->batch->QueueWrite(*encoder, total_quads.data(), total_quads.size());
+  if (!total_quads.empty()) {
+    // Upload data
+    agent->batch->QueueWrite(*encoder, total_quads.data(), total_quads.size());
 
-  // Allocate quad index
-  device->GetQuadIndex()->Allocate(offset);
+    // Allocate quad index
+    device->GetQuadIndex()->Allocate(offset);
+  }
 }
 
 void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
