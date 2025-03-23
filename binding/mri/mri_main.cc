@@ -144,11 +144,6 @@ MRI_METHOD(MRI_RGSSSTOP) {
   return Qnil;
 }
 
-template <int id>
-MRI_METHOD(MRI_Return) {
-  return rb_fix_new(id);
-}
-
 BindingEngineMri::BindingEngineMri() = default;
 
 BindingEngineMri::~BindingEngineMri() = default;
@@ -196,11 +191,11 @@ void BindingEngineMri::PreEarlyInitialization(
 
   if (profile->api_version < content::ContentProfile::APIVersion::RGSS3) {
     if (sizeof(void*) == 4) {
-      MriDefineMethod(rb_cNilClass, "id", MRI_Return<4>);
-      MriDefineMethod(rb_cTrueClass, "id", MRI_Return<2>);
+      MriDefineMethod(rb_cNilClass, "id", MriReturnInt<4>);
+      MriDefineMethod(rb_cTrueClass, "id", MriReturnInt<2>);
     } else if (sizeof(void*) == 8) {
-      MriDefineMethod(rb_cNilClass, "id", MRI_Return<8>);
-      MriDefineMethod(rb_cTrueClass, "id", MRI_Return<20>);
+      MriDefineMethod(rb_cNilClass, "id", MriReturnInt<8>);
+      MriDefineMethod(rb_cTrueClass, "id", MriReturnInt<20>);
     } else {
       NOTREACHED();
     }

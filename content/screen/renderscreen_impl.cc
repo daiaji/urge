@@ -864,7 +864,7 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(float progress,
   // Update transition uniform
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad,
-                                  base::RectF(-1.0f, -1.0f, 2.0f, 2.0f));
+                                  base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
   renderer::Quad::SetTexCoordRect(&transient_quad,
                                   base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
   renderer::Quad::SetColor(&transient_quad, base::Vec4(vague, 0, 0, progress));

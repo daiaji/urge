@@ -146,6 +146,17 @@ inline void MriCollectStrings(VALUE obj, std::vector<std::string>& out) {
   }
 }
 
+inline VALUE MriGetEngineID(int argc, VALUE* argv, VALUE self) {
+  auto engine_id =
+      std::to_string(reinterpret_cast<uint64_t>(RTYPEDDATA_DATA(self)));
+  return rb_str_new(engine_id.data(), engine_id.size());
+}
+
+template <int32_t id>
+MRI_METHOD(MriReturnInt) {
+  return rb_fix_new(id);
+}
+
 ///
 /// Method Define Template
 ///
