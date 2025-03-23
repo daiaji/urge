@@ -39,17 +39,27 @@ scoped_refptr<Color> Color::Copy(ExecutionContext* execution_context,
 scoped_refptr<Color> Color::Deserialize(ExecutionContext* execution_context,
                                         const std::string& data,
                                         ExceptionState& exception_state) {
-  const float* ptr = reinterpret_cast<const float*>(data.data());
-  ColorImpl* impl = new ColorImpl(base::Vec4(*ptr++, *ptr++, *ptr++, *ptr++));
-  return impl;
+  const double* ptr = reinterpret_cast<const double*>(data.data());
+  const float red = static_cast<float>(*(ptr + 0));
+  const float green = static_cast<float>(*(ptr + 1));
+  const float blue = static_cast<float>(*(ptr + 2));
+  const float alpha = static_cast<float>(*(ptr + 3));
+
+  return new ColorImpl(base::Vec4(red, green, blue, alpha));
 }
 
 std::string Color::Serialize(ExecutionContext* execution_context,
                              scoped_refptr<Color> value,
                              ExceptionState& exception_state) {
-  ColorImpl* impl = static_cast<ColorImpl*>(value.get());
-  std::string serial_data(sizeof(float) * 4, 0);
-  std::memcpy(serial_data.data(), &impl->value_, sizeof(base::Vec4));
+  scoped_refptr<ColorImpl> impl = ColorImpl::From(value);
+  std::string serial_data(sizeof(double) * 4, 0);
+
+  double* target_ptr = reinterpret_cast<double*>(serial_data.data());
+  *(target_ptr + 0) = impl->value_.x;
+  *(target_ptr + 1) = impl->value_.y;
+  *(target_ptr + 2) = impl->value_.z;
+  *(target_ptr + 3) = impl->value_.w;
+
   return serial_data;
 }
 
