@@ -127,6 +127,7 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
   void ResetAboveLayersOrderInternal();
 
   void AtlasModifyHandlerInternal();
+  void MapDataModifyHandlerInternal();
 
   struct AutotileInfo {
     scoped_refptr<CanvasImpl> bitmap;
@@ -144,7 +145,14 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
   bool map_buffer_dirty_ = false;
   base::Rect last_viewport_;
   int32_t anim_index_ = 0;
+  int32_t flash_count_ = 0;
+  int32_t flash_timer_ = 0;
+  int32_t flash_opacity_ = 0;
+
   base::CallbackListSubscription tileset_observer_;
+  base::CallbackListSubscription map_data_observer_;
+  base::CallbackListSubscription flash_data_observer_;
+  base::CallbackListSubscription priorities_observer_;
 
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> tileset_;

@@ -8,11 +8,12 @@
 #include <stdint.h>
 #include <vector>
 
+#include "content/common/value_observer.h"
 #include "content/public/engine_table.h"
 
 namespace content {
 
-class TableImpl : public Table {
+class TableImpl : public Table, public ValueNotification {
  public:
   TableImpl(uint32_t xsize, uint32_t ysize = 1, uint32_t zsize = 1);
   TableImpl(const TableImpl& other);
@@ -55,12 +56,9 @@ class TableImpl : public Table {
   uint32_t z_size();
   int16_t value(uint32_t x, uint32_t y = 0, uint32_t z = 0);
 
-  bool FetchDirtyStatus();
-
  private:
   friend class Table;
 
-  bool dirty_;
   uint32_t x_size_, y_size_, z_size_;
   std::vector<int16_t> data_;
 };

@@ -288,16 +288,16 @@ fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
   let effect = u_effects[vertex.instanceIdx];
   var frag = textureSample(u_texture, u_sampler, vertex.uv);
   
-  // 色调处理
+  // Tone
   let luma = dot(frag.rgb, lumaF);
   frag = vec4(mix(frag.rgb, vec3(luma), effect.tone.w), frag.a);
   frag = vec4(frag.rgb + effect.tone.rgb, frag.a);
   
-  // 颜色混合
+  // Color
   frag.a *= vertex.color.a;
   frag = vec4(mix(frag.rgb, effect.color.rgb, effect.color.a), frag.a);
 
-  // 灌木效果
+  // Bush
   let currentPos = vertex.uv.y / u_texSize.y;
   let underBush = select(1.0, 0.0, currentPos > effect.bushDepth);
   frag.a *= clamp(effect.bushOpacity + underBush, 0.0, 1.0);
@@ -436,7 +436,7 @@ fn vertexMain(
 @fragment
 fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
   var tex = textureSample(u_texture, u_sampler, vertex.uv);
-  tex.a *= vertex.color.a;
+  tex = vec4(mix(tex.rgb, vertex.color.rgb, vertex.color.a), tex.a);
   return tex;
 }
 

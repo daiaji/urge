@@ -84,15 +84,13 @@ std::string Table::Serialize(ExecutionContext* execution_context,
 }
 
 TableImpl::TableImpl(uint32_t xsize, uint32_t ysize, uint32_t zsize)
-    : dirty_(true),
-      x_size_(xsize),
+    : x_size_(xsize),
       y_size_(ysize),
       z_size_(zsize),
       data_(xsize * ysize * zsize) {}
 
 TableImpl::TableImpl(const TableImpl& other)
-    : dirty_(true),
-      x_size_(other.x_size_),
+    : x_size_(other.x_size_),
       y_size_(other.y_size_),
       z_size_(other.z_size_),
       data_(other.data_) {}
@@ -130,7 +128,9 @@ void TableImpl::Resize(uint32_t xsize,
   x_size_ = xsize;
   y_size_ = ysize;
   z_size_ = zsize;
-  dirty_ = true;
+
+  // Notify data modify
+  ValueNotification::NotifyObservers();
 }
 
 uint32_t TableImpl::Xsize(ExceptionState& exception_state) {
@@ -184,8 +184,11 @@ void TableImpl::Put(uint32_t x,
                     ExceptionState& exception_state) {
   if (x < 0 || x >= x_size_ || y < 0 || y >= y_size_ || z < 0 || z >= z_size_)
     return;
+
   data_[x + x_size_ * (y + y_size_ * z)] = value;
-  dirty_ = true;
+
+  // Notify data modify
+  ValueNotification::NotifyObservers();
 }
 
 uint32_t TableImpl::x_size() {
@@ -202,14 +205,6 @@ uint32_t TableImpl::z_size() {
 
 int16_t TableImpl::value(uint32_t x, uint32_t y, uint32_t z) {
   return data_.at(x + x_size_ * (y + y_size_ * z));
-}
-
-bool TableImpl::FetchDirtyStatus() {
-  if (dirty_) {
-    dirty_ = false;
-    return true;
-  }
-  return false;
 }
 
 }  // namespace content

@@ -534,9 +534,12 @@ void TilemapImpl::Update(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  anim_index_++;
-  if (anim_index_ >= 64)
-    anim_index_ = 0;
+  anim_index_ = ++anim_index_ % 64;
+
+  flash_timer_ = ++flash_timer_ % 32;
+  flash_opacity_ = std::abs(16 - flash_timer_) * 8 + 32;
+  if (flash_count_)
+    map_buffer_dirty_ = true;
 }
 
 scoped_refptr<TilemapAutotile> TilemapImpl::Autotiles(
@@ -603,6 +606,8 @@ void TilemapImpl::Put_MapData(const scoped_refptr<Table>& value,
     return;
 
   map_data_ = TableImpl::From(value);
+  map_data_observer_ = map_data_->AddObserver(base::BindRepeating(
+      &TilemapImpl::MapDataModifyHandlerInternal, base::Unretained(this)));
   map_buffer_dirty_ = true;
 }
 
@@ -620,6 +625,9 @@ void TilemapImpl::Put_FlashData(const scoped_refptr<Table>& value,
     return;
 
   flash_data_ = TableImpl::From(value);
+  flash_data_observer_ = map_data_->AddObserver(base::BindRepeating(
+      &TilemapImpl::MapDataModifyHandlerInternal, base::Unretained(this)));
+  map_buffer_dirty_ = true;
 }
 
 scoped_refptr<Table> TilemapImpl::Get_Priorities(
@@ -636,6 +644,8 @@ void TilemapImpl::Put_Priorities(const scoped_refptr<Table>& value,
     return;
 
   priorities_ = TableImpl::From(value);
+  priorities_observer_ = priorities_->AddObserver(base::BindRepeating(
+      &TilemapImpl::MapDataModifyHandlerInternal, base::Unretained(this)));
   map_buffer_dirty_ = true;
 }
 
@@ -723,12 +733,6 @@ void TilemapImpl::GroundNodeHandlerInternal(
       atlas_dirty_ = false;
     }
 
-    // Refresh map buffer if need.
-    if (map_data_)
-      map_buffer_dirty_ |= map_data_->FetchDirtyStatus();
-    if (priorities_)
-      map_buffer_dirty_ |= priorities_->FetchDirtyStatus();
-
     // Parse and generate map buffer if need.
     if (map_buffer_dirty_) {
       std::vector<renderer::Quad> ground_cache;
@@ -767,7 +771,7 @@ void TilemapImpl::AboveNodeHandlerInternal(
 
 base::Vec2i TilemapImpl::MakeAtlasInternal(
     std::list<AtlasCompositeCommand>& commands) {
-  int atlas_height = 28 * tilesize_;
+  int32_t atlas_height = 28 * tilesize_;
   if (tileset_ || tileset_->GetAgent())
     atlas_height = std::max(atlas_height, tileset_->AsBaseSize().y);
 
@@ -775,7 +779,7 @@ base::Vec2i TilemapImpl::MakeAtlasInternal(
   commands.clear();
 
   // Autotile part
-  int offset = 0;
+  int32_t offset = 0;
   for (auto& it : autotiles_) {
     if (!it.bitmap || !it.bitmap->GetAgent()) {
       ++offset;
@@ -798,7 +802,7 @@ base::Vec2i TilemapImpl::MakeAtlasInternal(
       // Single animated tile
       it.type = AutotileType::SingleAnimated;
 
-      for (int i = 0; i < 4; ++i) {
+      for (int32_t i = 0; i < 4; ++i) {
         base::Rect single_src(base::Vec2i(tilesize_ * i, 0),
                               base::Vec2i(tilesize_));
         base::Vec2i single_dst(base::Vec2i(tilesize_ * i * 3, 0));
@@ -873,7 +877,7 @@ void TilemapImpl::ParseMapDataInternal(
     }
   };
 
-  auto get_priority = [&](int16_t tile_id) -> int {
+  auto get_priority = [&](int16_t tile_id) -> int32_t {
     if (!priorities_ || tile_id >= priorities_->x_size())
       return 0;
 
@@ -885,6 +889,7 @@ void TilemapImpl::ParseMapDataInternal(
   };
 
   auto process_autotile = [&](const base::Vec2i& pos, int16_t tile_id,
+                              const base::Vec4& color,
                               std::vector<renderer::Quad>* target) {
     // Autotile (0-7)
     int32_t autotile_id = tile_id / 48 - 1;
@@ -901,7 +906,7 @@ void TilemapImpl::ParseMapDataInternal(
       case AutotileType::Animated:
       case AutotileType::Static: {
         const base::RectF* autotile_src = kAutotileSrcRects[pattern_id];
-        for (int i = 0; i < 4; ++i) {
+        for (int32_t i = 0; i < 4; ++i) {
           base::RectF tex_src = autotile_src[i];
           tex_src.x = tex_src.x * tilesize_ + 0.5f;
           tex_src.y = tex_src.y * tilesize_ + 0.5f;
@@ -919,6 +924,7 @@ void TilemapImpl::ParseMapDataInternal(
           renderer::Quad quad;
           renderer::Quad::SetPositionRect(&quad, chunk_pos);
           renderer::Quad::SetTexCoordRect(&quad, tex_src);
+          renderer::Quad::SetColor(&quad, color);
           target->push_back(quad);
         }
       } break;
@@ -932,6 +938,7 @@ void TilemapImpl::ParseMapDataInternal(
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, single_pos);
         renderer::Quad::SetTexCoordRect(&quad, single_tex);
+        renderer::Quad::SetColor(&quad, color);
         target->push_back(quad);
       } break;
       default:
@@ -940,24 +947,26 @@ void TilemapImpl::ParseMapDataInternal(
     }
   };
 
-  auto get_map_data = [&](int32_t x, int32_t y, int32_t z) {
-    auto value_wrap = [&](int32_t value, int32_t range) {
-      int32_t res = value % range;
-      return res < 0 ? res + range : res;
-    };
+  auto value_wrap = [&](int32_t value, int32_t range) {
+    int32_t res = value % range;
+    return res < 0 ? res + range : res;
+  };
 
-    return map_data_->value(value_wrap(x, map_data_->x_size()),
-                            value_wrap(y, map_data_->y_size()), z);
+  auto get_wrap_data = [&](scoped_refptr<TableImpl> t, int32_t x, int32_t y,
+                           int32_t z) {
+    return t->value(value_wrap(x, t->x_size()), value_wrap(y, t->y_size()), z);
   };
 
   auto process_tile = [&](const base::Vec2i& pos, int32_t z) {
-    int tile_id =
-        get_map_data(pos.x + render_viewport_.x, pos.y + render_viewport_.y, z);
+    int32_t tile_id = get_wrap_data(map_data_, pos.x + render_viewport_.x,
+                                    pos.y + render_viewport_.y, z);
+    int32_t flash_color = get_wrap_data(flash_data_, pos.x + render_viewport_.x,
+                                        pos.y + render_viewport_.y, 0);
 
     if (tile_id < 48)
       return;
 
-    int priority = get_priority(tile_id);
+    int32_t priority = get_priority(tile_id);
     if (priority == -1)
       return;
 
@@ -970,12 +979,24 @@ void TilemapImpl::ParseMapDataInternal(
       target = &aboves_cache[pos.y + priority];
     }
 
-    if (tile_id < 48 * 8)
-      return process_autotile(pos, tile_id, target);
+    // Composite flash color
+    base::Vec4 blend_color;
+    if (flash_color) {
+      const float max = 0xF;
+      const float blue = ((flash_color & 0x000F) >> 0) / 0xF;
+      const float green = ((flash_color & 0x00F0) >> 4) / 0xF;
+      const float red = ((flash_color & 0x0F00) >> 8) / 0xF;
+      blend_color = base::Vec4(red, green, blue, flash_opacity_ / 255.0f);
 
-    int tileset_id = tile_id - 48 * 8;
-    int tile_x = tileset_id % 8;
-    int tile_y = tileset_id / 8;
+      ++flash_count_;
+    }
+
+    if (tile_id < 48 * 8)
+      return process_autotile(pos, tile_id, blend_color, target);
+
+    int32_t tileset_id = tile_id - 48 * 8;
+    int32_t tile_x = tileset_id % 8;
+    int32_t tile_y = tileset_id / 8;
 
     base::Vec2 atlas_offset(12 + tile_x, tile_y);
     base::RectF quad_tex(atlas_offset.x * tilesize_ + 0.5f,
@@ -987,6 +1008,7 @@ void TilemapImpl::ParseMapDataInternal(
     renderer::Quad quad;
     renderer::Quad::SetPositionRect(&quad, quad_pos);
     renderer::Quad::SetTexCoordRect(&quad, quad_tex);
+    renderer::Quad::SetColor(&quad, blend_color);
     target->push_back(quad);
   };
 
@@ -998,8 +1020,11 @@ void TilemapImpl::ParseMapDataInternal(
   };
 
   // Process map buffer
-  int above_layers_count = render_viewport_.height + 5;
+  int32_t above_layers_count = render_viewport_.height + 5;
   aboves_cache.resize(above_layers_count);
+
+  // Reset flash quads
+  flash_count_ = 0;
 
   // Begin to parse buffer data
   process_buffer();
@@ -1028,6 +1053,10 @@ void TilemapImpl::ResetAboveLayersOrderInternal() {
 
 void TilemapImpl::AtlasModifyHandlerInternal() {
   atlas_dirty_ = true;
+}
+
+void TilemapImpl::MapDataModifyHandlerInternal() {
+  map_buffer_dirty_ = true;
 }
 
 }  // namespace content
