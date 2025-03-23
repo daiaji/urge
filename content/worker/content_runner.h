@@ -73,6 +73,7 @@ class ContentRunner {
   std::unique_ptr<I18NProfile> i18n_profile_;
 
   bool disable_gui_input_;
+  bool show_settings_menu_;
 };
 
 }  // namespace content

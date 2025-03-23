@@ -70,8 +70,9 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void InitWithRenderWorker(base::ThreadWorker* render_worker,
                             base::WeakPtr<ui::Widget> window,
                             const std::string& wgpu_backend);
-  bool ExecuteEventMainLoop(const base::RepeatingClosure& gui_handler,
-                            bool disable_imgui_input);
+
+  inline void SetRenderGUI(bool enable) { enable_render_gui_ = enable; }
+  void PresentScreen();
   void CreateButtonGUISettings();
 
   renderer::RenderDevice* GetDevice() const;
@@ -176,6 +177,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   uint64_t desired_delta_time_;
   bool frame_skip_required_;
 
+  bool enable_render_gui_;
   bool keep_ratio_;
   bool smooth_scale_;
   bool allow_skip_frame_;

@@ -5,6 +5,8 @@
 #include "content/worker/content_runner.h"
 
 #include "third_party/imgui/imgui.h"
+#include "third_party/imgui/imgui_impl_sdl3.h"
+#include "third_party/imgui/imgui_impl_wgpu.h"
 
 #include "content/context/execution_context.h"
 #include "content/profile/command_ids.h"
@@ -42,7 +44,8 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
       binding_quit_flag_(0),
       binding_(std::move(binding)),
       io_service_(std::move(io_service)),
-      disable_gui_input_(false) {}
+      disable_gui_input_(false),
+      show_settings_menu_(false) {}
 
 void ContentRunner::InitializeContentInternal() {
   // Initialize CC
@@ -87,11 +90,11 @@ void ContentRunner::GUICompositeHandlerInternal() {
   ImGui::SetNextWindowPos(ImVec2(), ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_FirstUseEver);
 
+  bool enable_input_module = true;
   if (ImGui::Begin(i18n_profile_->GetI18NString(IDS_MENU_SETTINGS, "Settings")
                        .c_str())) {
     // GUI focus manage
-    bool focus_on_gui = ImGui::IsWindowFocused();
-    input_impl_->SetUpdateEnable(!focus_on_gui);
+    enable_input_module = !ImGui::IsWindowFocused();
 
     // Button settings
     disable_gui_input_ = input_impl_->CreateButtonGUISettings();
@@ -108,16 +111,50 @@ void ContentRunner::GUICompositeHandlerInternal() {
 
   // End window create
   ImGui::End();
+
+  // Disable input if need
+  input_impl_->SetUpdateEnable(enable_input_module);
 }
 
 ContentRunner::~ContentRunner() = default;
 
 bool ContentRunner::RunMainLoop() {
-  if (!graphics_impl_->ExecuteEventMainLoop(
-          base::BindRepeating(&ContentRunner::GUICompositeHandlerInternal,
-                              base::Unretained(this)),
-          disable_gui_input_))
-    binding_quit_flag_.store(1);
+  // Poll event queue
+  SDL_Event queued_event;
+  while (SDL_PollEvent(&queued_event)) {
+    // Quit event
+    if (queued_event.type == SDL_EVENT_QUIT)
+      binding_quit_flag_.store(1);
+
+    // Shortcut
+    if (queued_event.type == SDL_EVENT_KEY_UP &&
+        queued_event.key.windowID == window_->GetWindowID()) {
+      if (queued_event.key.scancode == SDL_SCANCODE_F1) {
+        show_settings_menu_ = !show_settings_menu_;
+      }
+    }
+
+    // IMGUI Event
+    if (show_settings_menu_ && !disable_gui_input_)
+      ImGui_ImplSDL3_ProcessEvent(&queued_event);
+  }
+
+  if (show_settings_menu_) {
+    // Start IMGUI frame
+    ImGui_ImplSDL3_NewFrame();
+
+    // Layout new frame
+    ImGui::NewFrame();
+    GUICompositeHandlerInternal();
+    ImGui::EndFrame();
+  } else {
+    // Reset input state
+    input_impl_->SetUpdateEnable(true);
+  }
+
+  // Present screen
+  graphics_impl_->SetRenderGUI(show_settings_menu_);
+  graphics_impl_->PresentScreen();
 
   return exit_code_.load();
 }

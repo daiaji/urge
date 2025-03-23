@@ -64,6 +64,7 @@ RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
       last_count_time_(SDL_GetPerformanceCounter()),
       desired_delta_time_(SDL_GetPerformanceFrequency() / frame_rate_),
       frame_skip_required_(false),
+      enable_render_gui_(false),
       keep_ratio_(true),
       smooth_scale_(false),
       allow_skip_frame_(true),
@@ -124,29 +125,7 @@ void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
   base::ThreadWorker::WaitWorkerSynchronize(render_worker);
 }
 
-bool RenderScreenImpl::ExecuteEventMainLoop(
-    const base::RepeatingClosure& gui_handler,
-    bool disable_imgui_input) {
-  // Poll event queue
-  SDL_Event queued_event;
-  while (SDL_PollEvent(&queued_event)) {
-    // Quit event
-    if (queued_event.type == SDL_EVENT_QUIT)
-      return false;
-
-    // IMGUI Event
-    if (!disable_imgui_input)
-      ImGui_ImplSDL3_ProcessEvent(&queued_event);
-  }
-
-  // Start IMGUI frame
-  ImGui_ImplSDL3_NewFrame();
-
-  // Layout new frame
-  ImGui::NewFrame();
-  gui_handler.Run();
-  ImGui::EndFrame();
-
+void RenderScreenImpl::PresentScreen() {
   // Determine update repeat time
   const uint64_t now_time = SDL_GetPerformanceCounter();
   const uint64_t delta_time = now_time - last_count_time_;
@@ -168,8 +147,6 @@ bool RenderScreenImpl::ExecuteEventMainLoop(
       base::BindOnce(&RenderScreenImpl::PresentScreenBufferInternal,
                      base::Unretained(this), agent_->present_target));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
-
-  return true;
 }
 
 void RenderScreenImpl::CreateButtonGUISettings() {
@@ -660,7 +637,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
   }
 
   // Start imgui layer render
-  {
+  if (enable_render_gui_) {
     // New frame
     ImGui_ImplWGPU_NewFrame();
 
@@ -668,9 +645,9 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     ImGui::Render();
 
     attachment.loadOp = wgpu::LoadOp::Load;
-    auto pass = commander->BeginRenderPass(&renderpass);
-    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), pass.Get());
-    pass.End();
+    auto render_pass = commander->BeginRenderPass(&renderpass);
+    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), render_pass.Get());
+    render_pass.End();
   }
 
   // Flush command buffer and present WGPU surface
