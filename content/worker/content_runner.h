@@ -63,6 +63,7 @@ class ContentRunner {
   std::atomic<int32_t> exit_code_;
   base::CallbackListSubscription tick_observer_;
   std::atomic<int32_t> binding_quit_flag_;
+  std::atomic<int32_t> binding_reset_flag_;
 
   std::unique_ptr<EngineBindingBase> binding_;
   std::unique_ptr<ExecutionContext> execution_context_;

@@ -42,6 +42,7 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
       window_(window),
       exit_code_(0),
       binding_quit_flag_(0),
+      binding_reset_flag_(0),
       binding_(std::move(binding)),
       io_service_(std::move(io_service)),
       disable_gui_input_(false),
@@ -82,8 +83,13 @@ void ContentRunner::InitializeContentInternal() {
 }
 
 void ContentRunner::TickHandlerInternal() {
-  if (binding_quit_flag_.load())
+  if (binding_quit_flag_.load()) {
+    binding_quit_flag_.store(0);
     binding_->ExitSignalRequired();
+  } else if (binding_reset_flag_.load()) {
+    binding_reset_flag_.store(0);
+    binding_->ResetSignalRequired();
+  }
 }
 
 void ContentRunner::GUICompositeHandlerInternal() {
@@ -131,6 +137,8 @@ bool ContentRunner::RunMainLoop() {
         queued_event.key.windowID == window_->GetWindowID()) {
       if (queued_event.key.scancode == SDL_SCANCODE_F1) {
         show_settings_menu_ = !show_settings_menu_;
+      } else if (queued_event.key.scancode == SDL_SCANCODE_F12) {
+        binding_reset_flag_.store(1);
       }
     }
 

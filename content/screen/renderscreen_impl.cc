@@ -454,6 +454,23 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
+void RenderScreenImpl::Reset(ExceptionState& exception_state) {
+  /* Reset freeze */
+  frozen_ = false;
+
+  /* Disposed all elements */
+  for (auto it = disposable_elements_.tail(); it != disposable_elements_.end();
+       it = it->previous()) {
+    it->value()->Dispose(exception_state);
+  }
+
+  /* Reset attribute */
+  frame_rate_ =
+      profile_->api_version == ContentProfile::APIVersion::RGSS1 ? 40 : 60;
+  brightness_ = 255;
+  FrameReset(exception_state);
+}
+
 void RenderScreenImpl::PlayMovie(const std::string& filename,
                                  ExceptionState& exception_state) {
   exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,

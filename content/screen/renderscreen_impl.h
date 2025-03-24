@@ -119,6 +119,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void ResizeScreen(uint32_t width,
                     uint32_t height,
                     ExceptionState& exception_state) override;
+  void Reset(ExceptionState& exception_state) override;
   void PlayMovie(const std::string& filename,
                  ExceptionState& exception_state) override;
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(FrameRate, uint32_t);

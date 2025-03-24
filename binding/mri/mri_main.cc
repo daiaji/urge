@@ -7,6 +7,8 @@
 
 #include "binding/mri/mri_main.h"
 
+#include <iostream>
+
 #include "SDL3/SDL_messagebox.h"
 #include "zlib/zlib.h"
 
@@ -101,7 +103,8 @@ VALUE RgssMainRescue(VALUE arg, VALUE exc) {
 }
 
 void MriProcessReset() {
-  // TODO:
+  content::ExceptionState exception_state;
+  MriGetGlobalModules()->Graphics->Reset(exception_state);
 }
 
 }  // namespace
@@ -234,13 +237,20 @@ void BindingEngineMri::OnMainMessageLoopRun(
 }
 
 void BindingEngineMri::PostMainLoopRunning() {
+  bool pause_required = false;
+
   VALUE exc = rb_errinfo();
-  if (!NIL_P(exc) && !rb_obj_is_kind_of(exc, rb_eSystemExit))
+  if (!NIL_P(exc) && !rb_obj_is_kind_of(exc, rb_eSystemExit)) {
     ParseExeceptionInfo(exc, backtrace_);
+    pause_required = true;
+  }
 
   ruby_cleanup(0);
   g_current_execution_context = nullptr;
   *MriGetGlobalModules() = GlobalModules();
+
+  if (pause_required)
+    std::cin.get();
 
   LOG(INFO) << "[Binding] Quit mri binding engine.";
 }

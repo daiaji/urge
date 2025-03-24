@@ -78,6 +78,9 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
                             uint32_t height,
                             ExceptionState& exception_state) = 0;
 
+  /*--urge(name:reset)--*/
+  virtual void Reset(ExceptionState& exception_state) = 0;
+
   /*--urge(name:play_movie)--*/
   virtual void PlayMovie(const std::string& filename,
                          ExceptionState& exception_state) = 0;
