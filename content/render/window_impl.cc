@@ -71,22 +71,18 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
     const base::Rect background_src(0, 0, 64 * scale, 64 * scale);
 
     int background_quad_count = 0;
+    base::Vec4 background_opacity_norm(opacity_norm * back_opacity_norm);
     if (stretch) {
       renderer::Quad::SetPositionRect(quad_ptr, dest_rect);
       renderer::Quad::SetTexCoordRect(quad_ptr, background_src);
+      renderer::Quad::SetColor(quad_ptr, background_opacity_norm);
       background_quad_count += 1;
     } else {
       // Build tiled background quads
-      background_quad_count +=
-          BuildTiles(background_src, dest_rect,
-                     base::Vec4(opacity_norm * back_opacity_norm), quad_ptr);
+      background_quad_count += BuildTiles(background_src, dest_rect,
+                                          background_opacity_norm, quad_ptr);
     }
 
-    // Apply background color
-    float background_opacity_norm =
-        opacity_norm * (static_cast<float>(back_opacity) / 255.0f);
-    for (int i = 0; i < background_quad_count; ++i)
-      renderer::Quad::SetColor(&quad_ptr[i], base::Vec4(opacity_norm));
     quad_ptr += background_quad_count;
 
     // Frame Corners

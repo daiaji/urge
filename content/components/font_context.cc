@@ -60,7 +60,7 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
   }
 
   // Load internal font if default missing
-  auto default_font_it = data_cache.find(default_font_name);
+  auto default_font_it = data_cache.find(default_font);
   if (default_font_it == data_cache.end()) {
     LOG(INFO) << "[Font] Default font missing, use internal font for instead.";
 
@@ -69,7 +69,7 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
 
     std::pair<int64_t, void*> cache_pair =
         std::make_pair(embed_ttf_len, internal_duplicate_data);
-    data_cache.emplace(default_font_name, std::move(cache_pair));
+    data_cache.emplace(default_font, std::move(cache_pair));
   }
 }
 
