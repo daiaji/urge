@@ -338,9 +338,17 @@ void GPUMakeAtlasInternal(renderer::RenderDevice* device,
     copy_src.origin.x = it.src_rect.x;
     copy_src.origin.y = it.src_rect.y;
 
+    if (it.src_rect.x + it.src_rect.width > it.texture->size.x ||
+        it.src_rect.y + it.src_rect.height > it.texture->size.y)
+      continue;
+
     copy_dst.texture = agent->atlas_texture;
     copy_dst.origin.x = it.dst_pos.x;
     copy_dst.origin.y = it.dst_pos.y;
+
+    if (it.dst_pos.x + it.src_rect.width > atlas_size.x ||
+        it.dst_pos.y + it.src_rect.height > atlas_size.y)
+      continue;
 
     copy_size.width = it.src_rect.width;
     copy_size.height = it.src_rect.height;

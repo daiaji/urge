@@ -705,7 +705,7 @@ void WindowImpl::Put_Opacity(const int32_t& value,
   if (CheckDisposed(exception_state))
     return;
 
-  opacity_ = value;
+  opacity_ = std::clamp(value, 0, 255);
 }
 
 int32_t WindowImpl::Get_BackOpacity(ExceptionState& exception_state) {
@@ -720,7 +720,7 @@ void WindowImpl::Put_BackOpacity(const int32_t& value,
   if (CheckDisposed(exception_state))
     return;
 
-  back_opacity_ = value;
+  back_opacity_ = std::clamp(value, 0, 255);
 }
 
 int32_t WindowImpl::Get_ContentsOpacity(ExceptionState& exception_state) {
@@ -735,7 +735,7 @@ void WindowImpl::Put_ContentsOpacity(const int32_t& value,
   if (CheckDisposed(exception_state))
     return;
 
-  contents_opacity_ = value;
+  contents_opacity_ = std::clamp(value, 0, 255);
 }
 
 void WindowImpl::OnObjectDisposed() {

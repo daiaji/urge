@@ -533,7 +533,7 @@ void SpriteImpl::Put_BushOpacity(const int32_t& value,
   if (CheckDisposed(exception_state))
     return;
 
-  bush_.opacity = value;
+  bush_.opacity = std::clamp(value, 0, 255);
 }
 
 int32_t SpriteImpl::Get_Opacity(ExceptionState& exception_state) {
@@ -548,7 +548,7 @@ void SpriteImpl::Put_Opacity(const int32_t& value,
   if (CheckDisposed(exception_state))
     return;
 
-  opacity_ = value;
+  opacity_ = std::clamp(value, 0, 255);
   src_rect_dirty_ = true;
 }
 

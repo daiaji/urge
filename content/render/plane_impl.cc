@@ -278,29 +278,29 @@ void PlaneImpl::Put_ZoomY(const float& value, ExceptionState& exception_state) {
   quad_array_dirty_ = true;
 }
 
-uint32_t PlaneImpl::Get_Opacity(ExceptionState& exception_state) {
+int32_t PlaneImpl::Get_Opacity(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
   return opacity_;
 }
 
-void PlaneImpl::Put_Opacity(const uint32_t& value,
+void PlaneImpl::Put_Opacity(const int32_t& value,
                             ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  opacity_ = value;
+  opacity_ = std::clamp(value, 0, 255);
 }
 
-uint32_t PlaneImpl::Get_BlendType(ExceptionState& exception_state) {
+int32_t PlaneImpl::Get_BlendType(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
   return blend_type_;
 }
 
-void PlaneImpl::Put_BlendType(const uint32_t& value,
+void PlaneImpl::Put_BlendType(const int32_t& value,
                               ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;

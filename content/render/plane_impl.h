@@ -41,8 +41,8 @@ class PlaneImpl : public Plane, public GraphicsChild, public Disposable {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Oy, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(ZoomX, float);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(ZoomY, float);
-  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Opacity, uint32_t);
-  URGE_DECLARE_OVERRIDE_ATTRIBUTE(BlendType, uint32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Opacity, int32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(BlendType, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Color, scoped_refptr<Color>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Tone, scoped_refptr<Tone>);
 

@@ -914,7 +914,7 @@ uint32_t RenderScreenImpl::Get_Brightness(ExceptionState&) {
 }
 
 void RenderScreenImpl::Put_Brightness(const uint32_t& value, ExceptionState&) {
-  brightness_ = value;
+  brightness_ = std::clamp<uint32_t>(value, 0, 255);
 }
 
 }  // namespace content

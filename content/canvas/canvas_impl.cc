@@ -43,8 +43,7 @@ wgpu::BindGroup MakeTextureBindingGroupInternal(
 
   auto uniform_buffer =
       renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
-          **device_base, "bitmap.texture", wgpu::BufferUsage::None,
-          &texture_size);
+          **device_base, "bitmap.size", wgpu::BufferUsage::None, &texture_size);
 
   return renderer::TextureBindingUniform::CreateGroup(**device_base, view,
                                                       sampler, uniform_buffer);
@@ -74,6 +73,7 @@ wgpu::BindGroup MakeTextCacheInternal(renderer::RenderDevice* device_base,
 
 void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
                                       SDL_Surface* initial_data,
+                                      const std::string& name,
                                       TextureAgent* agent) {
   if (initial_data->format != SDL_PIXELFORMAT_ABGR8888) {
     SDL_Surface* conv =
@@ -87,7 +87,8 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
       wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
 
   agent->size = base::Vec2i(initial_data->w, initial_data->h);
-  agent->data = renderer::CreateTexture2D(**device_base, "bitmap.texture",
+  agent->data = renderer::CreateTexture2D(**device_base,
+                                          "bitmap.texture<\"" + name + "\">",
                                           texture_usage, agent->size);
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
@@ -122,7 +123,7 @@ void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
       wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
 
   agent->size = initial_size;
-  agent->data = renderer::CreateTexture2D(**device_base, "bitmap.texture",
+  agent->data = renderer::CreateTexture2D(**device_base, "bitmap.texture.size",
                                           texture_usage, agent->size);
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
@@ -575,7 +576,7 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
   base::ThreadWorker::PostTask(
       scheduler->render_worker(),
       base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
-                     memory_texture, canvas_texture_agent));
+                     memory_texture, filename, canvas_texture_agent));
 
   return new CanvasImpl(screen, scheduler, canvas_texture_agent,
                         new FontImpl(font_data));

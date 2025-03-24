@@ -58,10 +58,10 @@ class URGE_RUNTIME_API Plane : public base::RefCounted<Plane> {
   URGE_EXPORT_ATTRIBUTE(ZoomY, float);
 
   /*--urge(name:opacity)--*/
-  URGE_EXPORT_ATTRIBUTE(Opacity, uint32_t);
+  URGE_EXPORT_ATTRIBUTE(Opacity, int32_t);
 
   /*--urge(name:blend_type)--*/
-  URGE_EXPORT_ATTRIBUTE(BlendType, uint32_t);
+  URGE_EXPORT_ATTRIBUTE(BlendType, int32_t);
 
   /*--urge(name:color)--*/
   URGE_EXPORT_ATTRIBUTE(Color, scoped_refptr<Color>);
