@@ -1013,8 +1013,8 @@ void TilemapImpl::ParseMapDataInternal(
 
     base::Vec2 atlas_offset(12 + tile_x, tile_y);
     base::RectF quad_tex(atlas_offset.x * tilesize_ + 0.5f,
-                         atlas_offset.y * tilesize_ + 0.5f, tilesize_,
-                         tilesize_);
+                         atlas_offset.y * tilesize_ + 0.5f, tilesize_ - 1.0f,
+                         tilesize_ - 1.0f);
     base::RectF quad_pos(pos.x * tilesize_, pos.y * tilesize_, tilesize_,
                          tilesize_);
 

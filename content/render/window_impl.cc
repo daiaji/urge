@@ -367,11 +367,11 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
     auto& pipeline_set = device->GetPipelines()->base;
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
-    base::Rect inbox_region = bound;
-    inbox_region.x += 8 * scale;
-    inbox_region.y += 8 * scale;
-    inbox_region.width -= 16 * scale;
-    inbox_region.height -= 16 * scale;
+    {
+      auto interact_region = base::MakeIntersect(last_viewport, bound);
+      encoder->SetScissorRect(interact_region.x, interact_region.y,
+                              interact_region.width, interact_region.height);
+    }
 
     encoder->SetPipeline(*pipeline);
     encoder->SetVertexBuffer(0, **agent->control_batch);
@@ -383,9 +383,17 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       encoder->DrawIndexed(agent->control_draw_count * 6);
     }
 
-    auto interact_region = base::MakeIntersect(last_viewport, inbox_region);
-    encoder->SetScissorRect(interact_region.x, interact_region.y,
-                            interact_region.width, interact_region.height);
+    {
+      base::Rect inbox_region = bound;
+      inbox_region.x += 8 * scale;
+      inbox_region.y += 8 * scale;
+      inbox_region.width -= 16 * scale;
+      inbox_region.height -= 16 * scale;
+
+      auto interact_region = base::MakeIntersect(last_viewport, inbox_region);
+      encoder->SetScissorRect(interact_region.x, interact_region.y,
+                              interact_region.width, interact_region.height);
+    }
 
     if (contents && agent->contents_draw_count) {
       encoder->SetBindGroup(1, contents->binding);
