@@ -68,8 +68,12 @@ set(ENGINE_CONTENT_SRC
   render/sprite_impl.h
   render/tilemap_impl.cc
   render/tilemap_impl.h
+  render/tilemap2_impl.cc
+  render/tilemap2_impl.h
   render/window_impl.cc
   render/window_impl.h
+  render/window2_impl.cc
+  render/window2_impl.h
   screen/renderscreen_impl.cc
   screen/renderscreen_impl.h
   screen/viewport_impl.cc

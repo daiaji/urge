@@ -610,6 +610,9 @@ void SpriteImpl::DrawableNodeHandlerInternal(
   if (!bitmap_)
     return;
 
+  if (flash_emitter_.IsFlashing() && flash_emitter_.IsInvalid())
+    return;
+
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     base::Vec4 composite_color = color_->AsNormColor();
     base::Vec4 flash_color = flash_emitter_.GetColor();
