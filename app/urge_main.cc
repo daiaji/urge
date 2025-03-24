@@ -15,7 +15,7 @@
 #if defined(OS_WIN)
 #include <windows.h>
 extern "C" {
-__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+__declspec(dllexport) DWORD NvOptimusEnablement = 1;
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif  //! OS_WIN
@@ -78,6 +78,8 @@ int SDL_main(int argc, char* argv[]) {
     ui::Widget::InitParams widget_params;
     widget_params.size = base::Vec2i(640, 480);
     widget_params.resizable = true;
+    widget_params.hpixeldensity = true;
+    widget_params.title = profile->window_title;
     widget->Init(std::move(widget_params));
 
     content::ContentRunner::InitParams content_params;

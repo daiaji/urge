@@ -276,7 +276,9 @@ SDL_IOStream* IOService::OpenReadRaw(const std::string& filename,
   if (!file) {
     if (io_state) {
       io_state->error_count++;
-      io_state->error_message = "Failed to load file: " + filename;
+      io_state->error_message =
+          std::string(PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode())) + ": " +
+          filename;
     }
 
     return nullptr;

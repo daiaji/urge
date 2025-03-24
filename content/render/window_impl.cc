@@ -334,6 +334,9 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
     auto interact_region = base::MakeIntersect(last_viewport, bound);
+    if (!interact_region.width || !interact_region.height)
+      return;
+
     encoder->SetScissorRect(interact_region.x, interact_region.y,
                             interact_region.width, interact_region.height);
 
@@ -365,6 +368,9 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
 
     {
       auto interact_region = base::MakeIntersect(last_viewport, bound);
+      if (!interact_region.width || !interact_region.height)
+        return;
+
       encoder->SetScissorRect(interact_region.x, interact_region.y,
                               interact_region.width, interact_region.height);
     }
@@ -387,6 +393,9 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       inbox_region.height -= 16 * scale;
 
       auto interact_region = base::MakeIntersect(last_viewport, inbox_region);
+      if (!interact_region.width || !interact_region.height)
+        return;
+
       encoder->SetScissorRect(interact_region.x, interact_region.y,
                               interact_region.width, interact_region.height);
     }

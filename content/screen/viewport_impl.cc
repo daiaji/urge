@@ -530,6 +530,11 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   transient_params.viewport = viewport_rect;
   transient_params.origin = origin_;
 
+  // Check render visible
+  viewport_rect = base::MakeIntersect(params->screen_size, viewport_rect);
+  if (!viewport_rect.width || !viewport_rect.height)
+    return;
+
   if (stage == DrawableNode::BEFORE_RENDER) {
     // Calculate viewport offset
     base::Vec2i offset = viewport_rect.Position() - origin_;

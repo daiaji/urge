@@ -53,9 +53,13 @@ set(ENGINE_CONTENT_SRC
   public/engine_sprite.h
   public/engine_table.h
   public/engine_tilemap.h
+  public/engine_tilemapautotile.h
+  public/engine_tilemapbitmap.h
+  public/engine_tilemap2.h
   public/engine_tone.h
   public/engine_viewport.h
   public/engine_window.h
+  public/engine_window2.h
   render/drawable_controller.cc
   render/drawable_controller.h
   render/plane_impl.cc
