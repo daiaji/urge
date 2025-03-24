@@ -477,6 +477,9 @@ TilemapAutotileImpl::~TilemapAutotileImpl() = default;
 scoped_refptr<Bitmap> TilemapAutotileImpl::Get(
     int32_t index,
     ExceptionState& exception_state) {
+  if (!tilemap_)
+    return nullptr;
+
   auto& autotiles = tilemap_->autotiles_;
   if (index < 0 || index >= autotiles.size()) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
@@ -490,6 +493,9 @@ scoped_refptr<Bitmap> TilemapAutotileImpl::Get(
 void TilemapAutotileImpl::Put(int32_t index,
                               scoped_refptr<Bitmap> texture,
                               ExceptionState& exception_state) {
+  if (!tilemap_)
+    return;
+
   auto& autotiles = tilemap_->autotiles_;
   if (index < 0 || index >= autotiles.size())
     return exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
@@ -561,9 +567,6 @@ scoped_refptr<TilemapAutotile> TilemapImpl::Autotiles(
 
 scoped_refptr<Viewport> TilemapImpl::Get_Viewport(
     ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return nullptr;
-
   return viewport_;
 }
 
@@ -583,9 +586,6 @@ void TilemapImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
 
 scoped_refptr<Bitmap> TilemapImpl::Get_Tileset(
     ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return nullptr;
-
   return tileset_;
 }
 
@@ -716,12 +716,6 @@ void TilemapImpl::OnObjectDisposed() {
 
   screen()->PostTask(base::BindOnce(&GPUDestroyTilemapInternal, agent_));
   agent_ = nullptr;
-
-  viewport_.reset();
-  tileset_.reset();
-
-  std::array<AutotileInfo, 7> empty;
-  autotiles_.swap(empty);
 }
 
 void TilemapImpl::GroundNodeHandlerInternal(

@@ -241,9 +241,6 @@ uint32_t SpriteImpl::Height(ExceptionState& exception_state) {
 }
 
 scoped_refptr<Bitmap> SpriteImpl::Get_Bitmap(ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return nullptr;
-
   return bitmap_;
 }
 
@@ -274,9 +271,6 @@ void SpriteImpl::Put_SrcRect(const scoped_refptr<Rect>& value,
 
 scoped_refptr<Viewport> SpriteImpl::Get_Viewport(
     ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return nullptr;
-
   return viewport_;
 }
 
@@ -602,9 +596,6 @@ void SpriteImpl::OnObjectDisposed() {
 
   screen()->PostTask(base::BindOnce(&GPUDestroySpriteInternal, agent_));
   agent_ = nullptr;
-
-  viewport_.reset();
-  bitmap_.reset();
 }
 
 void SpriteImpl::DrawableNodeHandlerInternal(

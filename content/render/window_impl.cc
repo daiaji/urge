@@ -478,9 +478,6 @@ void WindowImpl::Update(ExceptionState& exception_state) {
 
 scoped_refptr<Viewport> WindowImpl::Get_Viewport(
     ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return nullptr;
-
   return viewport_;
 }
 
@@ -499,9 +496,6 @@ void WindowImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
 
 scoped_refptr<Bitmap> WindowImpl::Get_Windowskin(
     ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return nullptr;
-
   return windowskin_;
 }
 
@@ -515,9 +509,6 @@ void WindowImpl::Put_Windowskin(const scoped_refptr<Bitmap>& value,
 
 scoped_refptr<Bitmap> WindowImpl::Get_Contents(
     ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return nullptr;
-
   return contents_;
 }
 
@@ -757,10 +748,6 @@ void WindowImpl::OnObjectDisposed() {
 
   screen()->PostTask(base::BindOnce(&GPUDestroyWindowInternal, agent_));
   agent_ = nullptr;
-
-  viewport_.reset();
-  windowskin_.reset();
-  contents_.reset();
 }
 
 void WindowImpl::BackgroundNodeHandlerInternal(

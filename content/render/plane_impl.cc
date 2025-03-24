@@ -153,9 +153,6 @@ bool PlaneImpl::IsDisposed(ExceptionState& exception_state) {
 }
 
 scoped_refptr<Bitmap> PlaneImpl::Get_Bitmap(ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return nullptr;
-
   return bitmap_;
 }
 
@@ -170,9 +167,6 @@ void PlaneImpl::Put_Bitmap(const scoped_refptr<Bitmap>& value,
 
 scoped_refptr<Viewport> PlaneImpl::Get_Viewport(
     ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return nullptr;
-
   return viewport_;
 }
 
@@ -343,9 +337,6 @@ void PlaneImpl::OnObjectDisposed() {
 
   screen()->PostTask(base::BindOnce(&GPUDestroyPlaneInternal, agent_));
   agent_ = nullptr;
-
-  viewport_.reset();
-  bitmap_.reset();
 }
 
 void PlaneImpl::DrawableNodeHandlerInternal(
