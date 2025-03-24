@@ -520,6 +520,8 @@ void ViewportImpl::OnObjectDisposed() {
 
   screen()->PostTask(base::BindOnce(&GPUDestroyViewportAgent, agent_));
   agent_ = nullptr;
+
+  viewport_.reset();
 }
 
 void ViewportImpl::DrawableNodeHandlerInternal(

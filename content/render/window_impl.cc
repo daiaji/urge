@@ -757,6 +757,10 @@ void WindowImpl::OnObjectDisposed() {
 
   screen()->PostTask(base::BindOnce(&GPUDestroyWindowInternal, agent_));
   agent_ = nullptr;
+
+  viewport_.reset();
+  windowskin_.reset();
+  contents_.reset();
 }
 
 void WindowImpl::BackgroundNodeHandlerInternal(

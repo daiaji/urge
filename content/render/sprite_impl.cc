@@ -602,6 +602,9 @@ void SpriteImpl::OnObjectDisposed() {
 
   screen()->PostTask(base::BindOnce(&GPUDestroySpriteInternal, agent_));
   agent_ = nullptr;
+
+  viewport_.reset();
+  bitmap_.reset();
 }
 
 void SpriteImpl::DrawableNodeHandlerInternal(

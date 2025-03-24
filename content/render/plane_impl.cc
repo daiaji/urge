@@ -343,6 +343,9 @@ void PlaneImpl::OnObjectDisposed() {
 
   screen()->PostTask(base::BindOnce(&GPUDestroyPlaneInternal, agent_));
   agent_ = nullptr;
+
+  viewport_.reset();
+  bitmap_.reset();
 }
 
 void PlaneImpl::DrawableNodeHandlerInternal(

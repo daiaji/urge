@@ -716,6 +716,12 @@ void TilemapImpl::OnObjectDisposed() {
 
   screen()->PostTask(base::BindOnce(&GPUDestroyTilemapInternal, agent_));
   agent_ = nullptr;
+
+  viewport_.reset();
+  tileset_.reset();
+
+  std::array<AutotileInfo, 7> empty;
+  autotiles_.swap(empty);
 }
 
 void TilemapImpl::GroundNodeHandlerInternal(
