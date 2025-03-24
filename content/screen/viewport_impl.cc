@@ -344,6 +344,10 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   // Submit pending canvas commands
   screen()->GetCanvasScheduler()->SubmitPendingPaintCommands();
 
+  // Check flash status
+  if (flash_emitter_.IsFlashing() && flash_emitter_.IsInvalid())
+    return;
+
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
   controller_params.device = screen()->GetDevice();
@@ -352,6 +356,7 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   controller_params.screen_buffer = &bitmap_agent->data;
   controller_params.screen_size = bitmap_agent->size;
   controller_params.viewport = bitmap_agent->size;
+  controller_params.origin = base::Vec2i();
 
   // 1) Execute pre-composite handler
   controller_.BroadCastNotification(DrawableNode::BEFORE_RENDER,
@@ -520,6 +525,10 @@ void ViewportImpl::OnObjectDisposed() {
 void ViewportImpl::DrawableNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
+  // Check flash status
+  if (flash_emitter_.IsFlashing() && flash_emitter_.IsInvalid())
+    return;
+
   // Stack storage last render state
   DrawableNode::RenderControllerParams transient_params = *params;
 
