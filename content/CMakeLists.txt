@@ -35,11 +35,14 @@ set(ENGINE_CONTENT_SRC
   context/execution_context.h
   input/keyboard_controller.cc
   input/keyboard_controller.h
+  media/audio_impl.cc
+  media/audio_impl.h
   profile/command_ids.h
   profile/content_profile.cc
   profile/content_profile.h
   profile/i18n_profile.cc
   profile/i18n_profile.h
+  public/engine_audio.h
   public/engine_bitmap.h
   public/engine_color.h
   public/engine_font.h

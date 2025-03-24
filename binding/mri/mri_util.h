@@ -15,6 +15,7 @@
 #include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
 
+#include "content/public/engine_audio.h"
 #include "content/public/engine_graphics.h"
 #include "content/public/engine_input.h"
 
@@ -23,6 +24,7 @@ namespace binding {
 struct GlobalModules {
   scoped_refptr<content::Graphics> Graphics;
   scoped_refptr<content::Input> Input;
+  scoped_refptr<content::Audio> Audio;
 };
 
 GlobalModules* MriGetGlobalModules();

@@ -9,6 +9,7 @@
 #include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
 #include "content/profile/content_profile.h"
+#include "content/public/engine_audio.h"
 #include "content/public/engine_graphics.h"
 #include "content/public/engine_input.h"
 
@@ -23,6 +24,7 @@ class EngineBindingBase {
   struct ScopedModuleContext {
     scoped_refptr<Graphics> graphics;
     scoped_refptr<Input> input;
+    scoped_refptr<Audio> audio;
   };
 
   // Raised before engine running, after engine other module initialized,

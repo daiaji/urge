@@ -16,6 +16,7 @@
 #include "binding/mri/mri_file.h"
 #include "binding/mri/urge_binding.h"
 
+#include "binding/mri/autogen_audio_binding.h"
 #include "binding/mri/autogen_bitmap_binding.h"
 #include "binding/mri/autogen_color_binding.h"
 #include "binding/mri/autogen_font_binding.h"
@@ -176,6 +177,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitURGEBinding();
   InitCoreFileBinding();
 
+  InitAudioBinding();
   InitBitmapBinding();
   InitColorBinding();
   InitFontBinding();
@@ -224,6 +226,7 @@ void BindingEngineMri::OnMainMessageLoopRun(
   // Define running modules
   MriGetGlobalModules()->Graphics = module_context->graphics;
   MriGetGlobalModules()->Input = module_context->input;
+  MriGetGlobalModules()->Audio = module_context->audio;
 
   // Run packed scripts
   content::ExceptionState exception_state;

@@ -9,6 +9,7 @@
 #include "components/filesystem/io_service.h"
 #include "content/components/font_context.h"
 #include "content/input/keyboard_controller.h"
+#include "content/media/audio_impl.h"
 #include "content/profile/content_profile.h"
 #include "content/profile/i18n_profile.h"
 #include "content/screen/renderscreen_impl.h"
@@ -67,8 +68,11 @@ class ContentRunner {
 
   std::unique_ptr<EngineBindingBase> binding_;
   std::unique_ptr<ExecutionContext> execution_context_;
+
   std::unique_ptr<RenderScreenImpl> graphics_impl_;
   std::unique_ptr<KeyboardControllerImpl> input_impl_;
+  std::unique_ptr<AudioImpl> audio_impl_;
+
   std::unique_ptr<filesystem::IOService> io_service_;
   std::unique_ptr<ScopedFontData> scoped_font_;
   std::unique_ptr<I18NProfile> i18n_profile_;

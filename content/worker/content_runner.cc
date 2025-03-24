@@ -74,6 +74,8 @@ void ContentRunner::InitializeContentInternal() {
       scoped_font_.get(), resolution, frame_rate));
   input_impl_.reset(new KeyboardControllerImpl(
       window_->AsWeakPtr(), profile_.get(), i18n_profile_.get()));
+  audio_impl_.reset(
+      new AudioImpl(profile_.get(), io_service_.get(), i18n_profile_.get()));
 
   // Init all module workers
   graphics_impl_->InitWithRenderWorker(render_worker_.get(), window_,
@@ -199,6 +201,7 @@ void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
   EngineBindingBase::ScopedModuleContext module_context;
   module_context.graphics = self->graphics_impl_.get();
   module_context.input = self->input_impl_.get();
+  module_context.audio = self->audio_impl_.get();
 
   // Execute main loop
   self->binding_->OnMainMessageLoopRun(&execution_context, &module_context);
