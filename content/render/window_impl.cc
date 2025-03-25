@@ -36,22 +36,22 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
   // Calculate total quads count
   {
     // Corners
-    int count = 4;
+    int32_t count = 4;
 
     // Background
     if (stretch) {
       count += 1;
     } else {
-      int horizon_count =
+      int32_t horizon_count =
           CalculateQuadTileCount(64 * scale, bound.width - 2 * scale);
-      int vertical_count =
+      int32_t vertical_count =
           CalculateQuadTileCount(64 * scale, bound.height - 2 * scale);
       count += horizon_count * vertical_count;
     }
 
     // Frame tiles
-    const int horizon_frame_size = bound.width - scale * 16;
-    const int vertical_frame_size = bound.height - scale * 16;
+    const int32_t horizon_frame_size = bound.width - scale * 16;
+    const int32_t vertical_frame_size = bound.height - scale * 16;
     count += CalculateQuadTileCount(16 * scale, horizon_frame_size) * 2;
     count += CalculateQuadTileCount(16 * scale, vertical_frame_size) * 2;
 
@@ -70,7 +70,7 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
                          bound.width - 2 * scale, bound.height - 2 * scale);
     const base::Rect background_src(0, 0, 64 * scale, 64 * scale);
 
-    int background_quad_count = 0;
+    int32_t background_quad_count = 0;
     base::Vec4 background_opacity_norm(opacity_norm * back_opacity_norm);
     if (stretch) {
       renderer::Quad::SetPositionRect(quad_ptr, dest_rect);
@@ -165,14 +165,14 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
   // Cursor render
   auto build_cursor_internal = [&](const base::Rect& rect,
                                    base::Rect quad_rects[9]) {
-    int w = rect.width;
-    int h = rect.height;
-    int x1 = rect.x;
-    int x2 = x1 + w;
-    int y1 = rect.y;
-    int y2 = y1 + h;
+    int32_t w = rect.width;
+    int32_t h = rect.height;
+    int32_t x1 = rect.x;
+    int32_t x2 = x1 + w;
+    int32_t y1 = rect.y;
+    int32_t y2 = y1 + h;
 
-    int i = 0;
+    int32_t i = 0;
     quad_rects[i++] = base::Rect(x1, y1, scale, scale);
     quad_rects[i++] = base::Rect(x2 - scale, y1, scale, scale);
     quad_rects[i++] = base::Rect(x2 - scale, y2 - scale, scale, scale);
@@ -192,16 +192,16 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
     base::Rect quad_rects[9];
 
     build_cursor_internal(src, quad_rects);
-    for (int i = 0; i < 9; ++i)
+    for (int32_t i = 0; i < 9; ++i)
       renderer::Quad::SetTexCoordRect(&vert[i], quad_rects[i]);
 
     build_cursor_internal(dst, quad_rects);
-    for (int i = 0; i < 9; ++i)
+    for (int32_t i = 0; i < 9; ++i)
       renderer::Quad::SetPositionRect(&vert[i], quad_rects[i]);
 
     const base::Vec4 cursor_opacity_norm(static_cast<float>(cursor_opacity) /
                                          255.0f);
-    for (int i = 0; i < 9; ++i)
+    for (int32_t i = 0; i < 9; ++i)
       renderer::Quad::SetColor(&vert[i], cursor_opacity_norm);
 
     return 9;
@@ -753,6 +753,9 @@ void WindowImpl::OnObjectDisposed() {
 void WindowImpl::BackgroundNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
+  if (bound_.width <= 4 || bound_.height <= 4)
+    return;
+
   if (windowskin_ && windowskin_->GetAgent()) {
     if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
       screen()->PostTask(base::BindOnce(&GPUCompositeBackgroundLayerInternal,
@@ -771,6 +774,9 @@ void WindowImpl::BackgroundNodeHandlerInternal(
 void WindowImpl::ControlNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
+  if (bound_.width <= 4 || bound_.height <= 4)
+    return;
+
   TextureAgent* windowskin_agent =
       windowskin_ ? windowskin_->GetAgent() : nullptr;
   TextureAgent* contents_agent = contents_ ? contents_->GetAgent() : nullptr;

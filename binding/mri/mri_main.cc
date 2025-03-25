@@ -30,6 +30,7 @@
 #include "binding/mri/autogen_tilemapautotile_binding.h"
 #include "binding/mri/autogen_tone_binding.h"
 #include "binding/mri/autogen_viewport_binding.h"
+#include "binding/mri/autogen_window2_binding.h"
 #include "binding/mri/autogen_window_binding.h"
 
 extern "C" {
@@ -193,6 +194,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitToneBinding();
   InitViewportBinding();
   InitWindowBinding();
+  InitWindow2Binding();
 
   if (profile->api_version < content::ContentProfile::APIVersion::RGSS3) {
     if (sizeof(void*) == 4) {
