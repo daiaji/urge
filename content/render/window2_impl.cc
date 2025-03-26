@@ -113,6 +113,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
 
       // Generate quads
       const float back_opacity_norm = back_opacity / 255.0f;
+      int32_t background_draw_count = 0;
 
       // Background part
       {
@@ -124,10 +125,14 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         renderer::Quad::SetPositionRect(quad_ptr, background_dest);
         renderer::Quad::SetTexCoordRect(quad_ptr, background1_src);
         renderer::Quad::SetColor(quad_ptr, base::Vec4(back_opacity_norm));
+        background_draw_count++;
         quad_ptr++;
 
-        quad_ptr += BuildTiles(background2_src, background_dest,
-                               base::Vec4(back_opacity_norm), quad_ptr);
+        int32_t tiles_count =
+            BuildTiles(background2_src, background_dest,
+                       base::Vec4(back_opacity_norm), quad_ptr);
+        background_draw_count += tiles_count;
+        quad_ptr += tiles_count;
 
         // Corners
         const base::Rect corner_left_top_src(32 * scale, 0, 8 * scale,
@@ -196,8 +201,12 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
                            sizeof(uniform));
 
       {
-        auto& pipeline_set = device->GetPipelines()->viewport;
-        auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
+        auto& pipeline_set_tone = device->GetPipelines()->viewport;
+        auto* pipeline_tone =
+            pipeline_set_tone.GetPipeline(renderer::BlendType::NORMAL);
+        auto& pipeline_set_base = device->GetPipelines()->base;
+        auto* pipeline_base =
+            pipeline_set_base.GetPipeline(renderer::BlendType::NORMAL);
 
         wgpu::RenderPassColorAttachment attachment;
         attachment.view = agent->background_texture.CreateView();
@@ -212,14 +221,20 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         device->GetQuadIndex()->Allocate(quads.size() + 20);
 
         auto renderpass = encoder->BeginRenderPass(&renderpass_desc);
-        renderpass.SetPipeline(*pipeline);
         renderpass.SetVertexBuffer(0, **agent->background_batch);
         renderpass.SetIndexBuffer(**device->GetQuadIndex(),
                                   device->GetQuadIndex()->format());
         renderpass.SetBindGroup(0, agent->world_binding);
         renderpass.SetBindGroup(1, windowskin->binding);
         renderpass.SetBindGroup(2, agent->uniform_binding);
-        renderpass.DrawIndexed(quads.size() * 6);
+
+        renderpass.SetPipeline(*pipeline_tone);
+        renderpass.DrawIndexed(background_draw_count * 6);
+
+        renderpass.SetPipeline(*pipeline_base);
+        renderpass.DrawIndexed((quads.size() - background_draw_count) * 6, 1,
+                               background_draw_count * 6);
+
         renderpass.End();
       }
     }

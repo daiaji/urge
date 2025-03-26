@@ -54,7 +54,9 @@ class ContentRunner {
                 base::WeakPtr<ui::Widget> window);
   void InitializeContentInternal();
   void TickHandlerInternal();
-  void GUICompositeHandlerInternal();
+  void CreateSettingsMenuGUIInternal();
+  void CreateFPSMonitorGUIInternal();
+  void UpdateDisplayFPSInternal();
   static void EngineEntryFunctionInternal(fiber_t* fiber);
 
   std::unique_ptr<ContentProfile> profile_;
@@ -79,6 +81,12 @@ class ContentRunner {
 
   bool disable_gui_input_;
   bool show_settings_menu_;
+  bool show_fps_monitor_;
+
+  uint64_t last_tick_;
+  int64_t total_delta_;
+  int32_t frame_count_;
+  std::vector<float> fps_history_;
 };
 
 }  // namespace content

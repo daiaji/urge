@@ -46,7 +46,79 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
       binding_(std::move(binding)),
       io_service_(std::move(io_service)),
       disable_gui_input_(false),
-      show_settings_menu_(false) {}
+      show_settings_menu_(false),
+      show_fps_monitor_(false),
+      last_tick_(SDL_GetPerformanceCounter()),
+      total_delta_(0),
+      frame_count_(0) {}
+
+ContentRunner::~ContentRunner() = default;
+
+bool ContentRunner::RunMainLoop() {
+  // Poll event queue
+  SDL_Event queued_event;
+  while (SDL_PollEvent(&queued_event)) {
+    // Quit event
+    if (queued_event.type == SDL_EVENT_QUIT)
+      binding_quit_flag_.store(1);
+
+    // Shortcut
+    if (queued_event.type == SDL_EVENT_KEY_UP &&
+        queued_event.key.windowID == window_->GetWindowID()) {
+      if (queued_event.key.scancode == SDL_SCANCODE_F1) {
+        show_settings_menu_ = !show_settings_menu_;
+      } else if (queued_event.key.scancode == SDL_SCANCODE_F2) {
+        show_fps_monitor_ = !show_fps_monitor_;
+      } else if (queued_event.key.scancode == SDL_SCANCODE_F12) {
+        binding_reset_flag_.store(1);
+      }
+    }
+
+    // IMGUI Event
+    if (!disable_gui_input_)
+      ImGui_ImplSDL3_ProcessEvent(&queued_event);
+  }
+
+  // Update fps
+  UpdateDisplayFPSInternal();
+
+  // Reset input state
+  input_impl_->SetUpdateEnable(true);
+
+  bool render_gui = show_settings_menu_ || show_fps_monitor_;
+  if (render_gui) {
+    // Start IMGUI frame
+    ImGui_ImplSDL3_NewFrame();
+    // Layout new frame
+    ImGui::NewFrame();
+
+    if (show_settings_menu_)
+      CreateSettingsMenuGUIInternal();
+    if (show_fps_monitor_)
+      CreateFPSMonitorGUIInternal();
+
+    // End of layout
+    ImGui::EndFrame();
+  }
+
+  // Present screen
+  graphics_impl_->SetRenderGUI(render_gui);
+  graphics_impl_->PresentScreen();
+
+  return exit_code_.load();
+}
+
+std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
+  std::unique_ptr<base::ThreadWorker> render_worker =
+      base::ThreadWorker::Create();
+
+  auto* runner = new ContentRunner(
+      std::move(params.profile), std::move(params.io_service),
+      std::move(render_worker), std::move(params.entry), params.window);
+  runner->InitializeContentInternal();
+
+  return std::unique_ptr<ContentRunner>(runner);
+}
 
 void ContentRunner::InitializeContentInternal() {
   // Initialize CC
@@ -85,6 +157,8 @@ void ContentRunner::InitializeContentInternal() {
 }
 
 void ContentRunner::TickHandlerInternal() {
+  frame_count_++;
+
   if (binding_quit_flag_.load()) {
     binding_quit_flag_.store(0);
     binding_->ExitSignalRequired();
@@ -94,15 +168,14 @@ void ContentRunner::TickHandlerInternal() {
   }
 }
 
-void ContentRunner::GUICompositeHandlerInternal() {
+void ContentRunner::CreateSettingsMenuGUIInternal() {
   ImGui::SetNextWindowPos(ImVec2(), ImGuiCond_FirstUseEver);
   ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_FirstUseEver);
 
-  bool enable_input_module = true;
   if (ImGui::Begin(i18n_profile_->GetI18NString(IDS_MENU_SETTINGS, "Settings")
                        .c_str())) {
     // GUI focus manage
-    enable_input_module = !ImGui::IsWindowFocused();
+    input_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
 
     // Button settings
     disable_gui_input_ = input_impl_->CreateButtonGUISettings();
@@ -119,66 +192,37 @@ void ContentRunner::GUICompositeHandlerInternal() {
 
   // End window create
   ImGui::End();
-
-  // Disable input if need
-  input_impl_->SetUpdateEnable(enable_input_module);
 }
 
-ContentRunner::~ContentRunner() = default;
+void ContentRunner::CreateFPSMonitorGUIInternal() {
+  if (ImGui::Begin("FPS"))
+    ImGui::PlotHistogram("", fps_history_.data(),
+                         static_cast<int>(fps_history_.size()), 0, nullptr,
+                         0.0f, FLT_MAX, ImVec2(300, 80));
 
-bool ContentRunner::RunMainLoop() {
-  // Poll event queue
-  SDL_Event queued_event;
-  while (SDL_PollEvent(&queued_event)) {
-    // Quit event
-    if (queued_event.type == SDL_EVENT_QUIT)
-      binding_quit_flag_.store(1);
-
-    // Shortcut
-    if (queued_event.type == SDL_EVENT_KEY_UP &&
-        queued_event.key.windowID == window_->GetWindowID()) {
-      if (queued_event.key.scancode == SDL_SCANCODE_F1) {
-        show_settings_menu_ = !show_settings_menu_;
-      } else if (queued_event.key.scancode == SDL_SCANCODE_F12) {
-        binding_reset_flag_.store(1);
-      }
-    }
-
-    // IMGUI Event
-    if (show_settings_menu_ && !disable_gui_input_)
-      ImGui_ImplSDL3_ProcessEvent(&queued_event);
-  }
-
-  if (show_settings_menu_) {
-    // Start IMGUI frame
-    ImGui_ImplSDL3_NewFrame();
-
-    // Layout new frame
-    ImGui::NewFrame();
-    GUICompositeHandlerInternal();
-    ImGui::EndFrame();
-  } else {
-    // Reset input state
-    input_impl_->SetUpdateEnable(true);
-  }
-
-  // Present screen
-  graphics_impl_->SetRenderGUI(show_settings_menu_);
-  graphics_impl_->PresentScreen();
-
-  return exit_code_.load();
+  // End window create
+  ImGui::End();
 }
 
-std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
-  std::unique_ptr<base::ThreadWorker> render_worker =
-      base::ThreadWorker::Create();
+void ContentRunner::UpdateDisplayFPSInternal() {
+  const uint64_t current_tick = SDL_GetPerformanceCounter();
+  const int64_t delta_tick = current_tick - last_tick_;
+  last_tick_ = current_tick;
 
-  auto* runner = new ContentRunner(
-      std::move(params.profile), std::move(params.io_service),
-      std::move(render_worker), std::move(params.entry), params.window);
-  runner->InitializeContentInternal();
+  total_delta_ += delta_tick;
+  const uint64_t timer_freq = SDL_GetPerformanceFrequency();
+  if (total_delta_ >= timer_freq) {
+    const float fps_scale = static_cast<float>(
+        SDL_GetPerformanceFrequency() / static_cast<float>(total_delta_));
+    const float current_fps = static_cast<float>(frame_count_) * fps_scale;
 
-  return std::unique_ptr<ContentRunner>(runner);
+    total_delta_ = 0;
+    frame_count_ = 0;
+
+    fps_history_.push_back(current_fps);
+    if (fps_history_.size() > 20)
+      fps_history_.erase(fps_history_.begin());
+  }
 }
 
 void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
