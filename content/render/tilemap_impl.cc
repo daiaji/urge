@@ -12,7 +12,7 @@ namespace {
 
 // Referrence: RPGXP Editor - Autotile double click
 // Format: Left Top -> Right Top -> Left Bottom -> Right Bottom
-const base::Vec2 kAutotileSrcs[][4] = {
+const base::Vec2 kAutotileSrcRegular[][4] = {
     {
         {1.0f, 2.0f},
         {1.5f, 2.0f},
@@ -911,7 +911,7 @@ void TilemapImpl::ParseMapDataInternal(
     switch (info.type) {
       case AutotileType::Animated:
       case AutotileType::Static: {
-        const base::Vec2* autotile_src_pos = kAutotileSrcs[pattern_id];
+        const base::Vec2* autotile_src_pos = kAutotileSrcRegular[pattern_id];
         for (int32_t i = 0; i < 4; ++i) {
           base::RectF tex_src(autotile_src_pos[i], base::Vec2(0.5f));
           tex_src.x = tex_src.x * tilesize_ + 0.5f;
