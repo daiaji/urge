@@ -87,6 +87,7 @@ class Window2Impl : public Window2, public GraphicsChild, public Disposable {
       DrawableNode::RenderControllerParams* params);
   void ToneValueObserverInternal();
 
+  bool rgss3_style_ = false;
   DrawableNode node_;
   Window2Agent* agent_;
   int32_t scale_ = 2;
@@ -94,7 +95,6 @@ class Window2Impl : public Window2, public GraphicsChild, public Disposable {
   int32_t cursor_opacity_ = 255;
   bool cursor_fade_ = false;
   bool background_dirty_ = false;
-  bool rgss3_style_ = false;
 
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<CanvasImpl> windowskin_;

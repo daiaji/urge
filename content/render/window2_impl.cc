@@ -537,20 +537,16 @@ Window2Impl::Window2Impl(RenderScreenImpl* screen,
                          int32_t scale)
     : GraphicsChild(screen),
       Disposable(screen),
-      node_(parent ? parent->GetDrawableController()
-                   : screen->GetDrawableController(),
-            SortKey(screen->GetAPIVersion() == ContentProfile::APIVersion::RGSS3
-                        ? 100
-                        : 0)),
-      scale_(scale),
       rgss3_style_(screen->GetAPIVersion() ==
                    ContentProfile::APIVersion::RGSS3),
+      node_(parent ? parent->GetDrawableController()
+                   : screen->GetDrawableController(),
+            SortKey(rgss3_style_ ? 100 : 0)),
+      scale_(scale),
       viewport_(parent),
       cursor_rect_(new RectImpl(base::Rect())),
       bound_(bound),
-      back_opacity_(screen->GetAPIVersion() == ContentProfile::APIVersion::RGSS3
-                        ? 192
-                        : 255),
+      back_opacity_(rgss3_style_ ? 192 : 255),
       tone_(new ToneImpl(base::Vec4())) {
   node_.RegisterEventHandler(base::BindRepeating(
       &Window2Impl::DrawableNodeHandlerInternal, base::Unretained(this)));
