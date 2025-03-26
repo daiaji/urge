@@ -312,11 +312,12 @@ void GPUDestroyTilemapInternal(TilemapAgent* agent) {
   delete agent;
 }
 
-void GPUMakeAtlasInternal(renderer::RenderDevice* device,
-                          wgpu::CommandEncoder* encoder,
-                          TilemapAgent* agent,
-                          const base::Vec2i& atlas_size,
-                          std::list<AtlasCompositeCommand> make_commands) {
+void GPUMakeAtlasInternal(
+    renderer::RenderDevice* device,
+    wgpu::CommandEncoder* encoder,
+    TilemapAgent* agent,
+    const base::Vec2i& atlas_size,
+    std::list<TilemapImpl::AtlasCompositeCommand> make_commands) {
   agent->atlas_texture = renderer::CreateTexture2D(
       **device, "tilemap.atlas",
       wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
@@ -797,16 +798,16 @@ base::Vec2i TilemapImpl::MakeAtlasInternal(
 
     if (autotile_size.x > 3 * tilesize_ && autotile_size.y > tilesize_) {
       // Animated autotile
-      it.type = AutotileType::Animated;
+      it.type = AutotileType::ANIMATED;
     } else if (autotile_size.x <= 3 * tilesize_ &&
                autotile_size.y > tilesize_) {
       // Static autotile
       dst_pos.x += tilesize_ * 3;
-      it.type = AutotileType::Static;
+      it.type = AutotileType::STATIC;
     } else if (autotile_size.x <= 4 * tilesize_ &&
                autotile_size.y <= tilesize_) {
       // Single animated tile
-      it.type = AutotileType::SingleAnimated;
+      it.type = AutotileType::SINGLE_ANIMATED;
 
       for (int32_t i = 0; i < 4; ++i) {
         base::Rect single_src(base::Vec2i(tilesize_ * i, 0),
@@ -909,8 +910,8 @@ void TilemapImpl::ParseMapDataInternal(
 
     // Generate from autotile type
     switch (info.type) {
-      case AutotileType::Animated:
-      case AutotileType::Static: {
+      case AutotileType::ANIMATED:
+      case AutotileType::STATIC: {
         const base::Vec2* autotile_src_pos = kAutotileSrcRegular[pattern_id];
         for (int32_t i = 0; i < 4; ++i) {
           base::RectF tex_src(autotile_src_pos[i], base::Vec2(0.5f));
@@ -919,7 +920,7 @@ void TilemapImpl::ParseMapDataInternal(
           tex_src.width = tex_src.width * tilesize_ - 1.0f;
           tex_src.height = tex_src.height * tilesize_ - 1.0f;
 
-          if (info.type == AutotileType::Static)
+          if (info.type == AutotileType::STATIC)
             tex_src.x += 3 * tilesize_;
           tex_src.y += autotile_id * 4 * tilesize_;
 
@@ -934,7 +935,7 @@ void TilemapImpl::ParseMapDataInternal(
           target->push_back(quad);
         }
       } break;
-      case AutotileType::SingleAnimated: {
+      case AutotileType::SINGLE_ANIMATED: {
         const base::RectF single_tex(0.5f,
                                      0.5f + autotile_id * tilesize_ * 4.0f,
                                      tilesize_ - 1.0f, tilesize_ - 1.0f);

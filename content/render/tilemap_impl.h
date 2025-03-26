@@ -49,12 +49,6 @@ struct TilemapAgent {
   wgpu::BindGroup uniform_binding;
 };
 
-struct AtlasCompositeCommand {
-  TextureAgent* texture;
-  base::Rect src_rect;
-  base::Vec2i dst_pos;
-};
-
 class TilemapImpl;
 
 class TilemapAutotileImpl : public TilemapAutotile {
@@ -77,10 +71,16 @@ class TilemapAutotileImpl : public TilemapAutotile {
 
 class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
  public:
+  struct AtlasCompositeCommand {
+    TextureAgent* texture;
+    base::Rect src_rect;
+    base::Vec2i dst_pos;
+  };
+
   enum class AutotileType {
-    Animated = 0,
-    Static,
-    SingleAnimated,
+    ANIMATED = 0,
+    STATIC,
+    SINGLE_ANIMATED,
   };
 
   TilemapImpl(RenderScreenImpl* screen,
@@ -131,7 +131,7 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
 
   struct AutotileInfo {
     scoped_refptr<CanvasImpl> bitmap;
-    AutotileType type = AutotileType::Animated;
+    AutotileType type = AutotileType::ANIMATED;
     base::CallbackListSubscription observer;
   };
 

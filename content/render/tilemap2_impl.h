@@ -50,6 +50,31 @@ class TilemapBitmapImpl : public TilemapBitmap {
 
 class Tilemap2Impl : public Tilemap2, public GraphicsChild, public Disposable {
  public:
+  enum BitmapID {
+    TILE_A1 = 0,
+    TILE_A2,
+    TILE_A3,
+    TILE_A4,
+    TILE_A5,
+
+    TILE_B,
+    TILE_C,
+    TILE_D,
+    TILE_E,
+  };
+
+  struct AtlasBlock {
+    BitmapID tile_id;
+    base::Rect src_rect;
+    base::Vec2i dest_pos;
+  };
+
+  struct AtlasCompositeCommand {
+    TextureAgent* texture;
+    base::Rect src_rect;
+    base::Vec2i dst_pos;
+  };
+
   Tilemap2Impl(RenderScreenImpl* screen,
                scoped_refptr<ViewportImpl> parent,
                int32_t tilesize);
@@ -82,6 +107,10 @@ class Tilemap2Impl : public Tilemap2, public GraphicsChild, public Disposable {
   void AboveNodeHandlerInternal(DrawableNode::RenderStage stage,
                                 DrawableNode::RenderControllerParams* params);
 
+  base::Vec2i MakeAtlasInternal(std::list<AtlasCompositeCommand>& commands);
+  void ParseMapDataInternal(std::vector<renderer::Quad>& ground_cache,
+                            std::vector<renderer::Quad>& above_cache);
+
   void AtlasModifyHandlerInternal();
   void MapDataModifyHandlerInternal();
 
@@ -94,6 +123,8 @@ class Tilemap2Impl : public Tilemap2, public GraphicsChild, public Disposable {
   DrawableNode above_node_;
   Tilemap2Agent* agent_;
   int32_t tilesize_ = 32;
+  base::Rect render_viewport_;
+  base::Vec2i render_offset_;
   bool atlas_dirty_ = false;
   bool map_buffer_dirty_ = false;
 

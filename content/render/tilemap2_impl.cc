@@ -296,6 +296,71 @@ const base::RectF kAutotileSrcWaterfall[] = {
     {0.0f, 0.0f, 0.5f, 1.0f}, {1.5f, 0.0f, 0.5f, 1.0f},
 };
 
+const Tilemap2Impl::AtlasBlock kTilemapAtlas[] = {
+    /* A1 tilemap */
+    {Tilemap2Impl::BitmapID::TILE_A1, {0, 0, 6, 6}, {0, 0}},
+    {Tilemap2Impl::BitmapID::TILE_A1, {8, 0, 6, 6}, {6, 0}},
+    {Tilemap2Impl::BitmapID::TILE_A1, {0, 6, 6, 6}, {0, 6}},
+    {Tilemap2Impl::BitmapID::TILE_A1, {8, 6, 6, 6}, {6, 6}},
+    {Tilemap2Impl::BitmapID::TILE_A1, {6, 0, 2, 12}, {12, 0}},
+    {Tilemap2Impl::BitmapID::TILE_A1, {14, 0, 2, 12}, {14, 0}},
+
+    /* A2 tilemap */
+    {Tilemap2Impl::BitmapID::TILE_A2, {0, 0, 16, 12}, {16, 0}},
+
+    /* A3 tilemap */
+    {Tilemap2Impl::BitmapID::TILE_A3, {0, 0, 16, 8}, {0, 12}},
+
+    /* A4 tilemap */
+    {Tilemap2Impl::BitmapID::TILE_A4, {0, 0, 16, 15}, {16, 12}},
+
+    /* A5 tilemap */
+    {Tilemap2Impl::BitmapID::TILE_A5, {0, 0, 8, 8}, {0, 20}},
+    {Tilemap2Impl::BitmapID::TILE_A5, {0, 8, 8, 8}, {8, 20}},
+
+    /* B tilemap */
+    {Tilemap2Impl::BitmapID::TILE_B, {0, 0, 16, 16}, {32, 0}},
+
+    /* C tilemap */
+    {Tilemap2Impl::BitmapID::TILE_C, {0, 0, 16, 16}, {48, 0}},
+
+    /* D tilemap */
+    {Tilemap2Impl::BitmapID::TILE_D, {0, 0, 16, 16}, {32, 16}},
+
+    /* E tilemap */
+    {Tilemap2Impl::BitmapID::TILE_E, {0, 0, 16, 16}, {48, 16}},
+};
+
+const base::RectF kShadowAtlasArea = {16.0f, 27.0f, 16.0f, 1.0f};
+
+const base::RectF kFreeAtlasArea = {0.0f, 28.0f, 16.0f, 4.0f};
+
+SDL_Surface* CreateShadowSet(int32_t tilesize) {
+  std::vector<SDL_Rect> rects;
+  SDL_Surface* surf = SDL_CreateSurface(kShadowAtlasArea.width * tilesize,
+                                        kShadowAtlasArea.height * tilesize,
+                                        SDL_PIXELFORMAT_ABGR8888);
+
+  for (int32_t i = 0; i < 16; ++i) {
+    int32_t offset = i * tilesize;
+    if (i & 0x1)  // Left Top
+      rects.push_back({offset, 0, tilesize / 2, tilesize / 2});
+    else if (i & 0x2)  // Right Top
+      rects.push_back({offset + tilesize / 2, 0, tilesize / 2, tilesize / 2});
+    else if (i & 0x4)  // Left Bottom
+      rects.push_back({offset, tilesize / 2, tilesize / 2, tilesize / 2});
+    else if (i & 0x8)  // Right Bottom
+      rects.push_back(
+          {offset + tilesize / 2, tilesize / 2, tilesize / 2, tilesize / 2});
+  }
+
+  const auto* pixel_detail = SDL_GetPixelFormatDetails(surf->format);
+  const uint32_t color = SDL_MapRGBA(pixel_detail, nullptr, 0, 0, 0, 128);
+  SDL_FillSurfaceRects(surf, rects.data(), rects.size(), color);
+
+  return surf;
+}
+
 void GPUCreateTilemapInternal(renderer::RenderDevice* device,
                               Tilemap2Agent* agent) {
   agent->batch = renderer::QuadBatch::Make(**device);
@@ -526,6 +591,406 @@ void Tilemap2Impl::GroundNodeHandlerInternal(
 void Tilemap2Impl::AboveNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {}
+
+base::Vec2i Tilemap2Impl::MakeAtlasInternal(
+    std::list<AtlasCompositeCommand>& commands) {
+  for (size_t i = 0; i < _countof(kTilemapAtlas); ++i) {
+    auto& atlas_info = kTilemapAtlas[i];
+    scoped_refptr atlas_bitmap = bitmaps_[atlas_info.tile_id].bitmap;
+
+    if (!atlas_bitmap || !atlas_bitmap->GetAgent())
+      continue;
+
+    base::Rect src_rect(atlas_info.src_rect.x * tilesize_,
+                        atlas_info.src_rect.y * tilesize_,
+                        atlas_info.src_rect.width * tilesize_,
+                        atlas_info.src_rect.height * tilesize_);
+    base::Vec2i dst_pos(atlas_info.dest_pos.x * tilesize_,
+                        atlas_info.dest_pos.y * tilesize_);
+
+    AtlasCompositeCommand command;
+    command.src_rect = src_rect;
+    command.dst_pos = dst_pos;
+    command.texture = atlas_bitmap->GetAgent();
+    commands.push_back(std::move(command));
+  }
+
+  return base::Vec2i(tilesize_ * 64, tilesize_ * 32);
+}
+
+// Reference:
+//  https://web.archive.org/web/20230925131126/https://www.tktkgame.com/tkool/memo/vx/tile_id.html
+//  - RPGMV Tilemap
+void Tilemap2Impl::ParseMapDataInternal(
+    std::vector<renderer::Quad>& ground_cache,
+    std::vector<renderer::Quad>& above_cache) {
+  auto value_wrap = [&](int32_t value, int32_t range) {
+    int32_t res = value % range;
+    return res < 0 ? res + range : res;
+  };
+
+  auto get_wrap_data = [&](scoped_refptr<TableImpl> t, int32_t x, int32_t y,
+                           int32_t z) -> int16_t {
+    if (!t)
+      return 0;
+
+    return t->value(value_wrap(x, t->x_size()), value_wrap(y, t->y_size()), z);
+  };
+
+  auto get_map_flag = [&](scoped_refptr<TableImpl> t, int32_t x) -> int16_t {
+    if (!t)
+      return 0;
+
+    if (x < 0 || x >= t->x_size())
+      return 0;
+
+    return t->value(x, 0, 0);
+  };
+
+  auto process_quads = [&](renderer::Quad* quads, int32_t size, bool above) {
+    std::vector<renderer::Quad>* target = above ? &above_cache : &ground_cache;
+    for (int32_t i = 0; i < size; ++i)
+      target->insert(target->end(), quads, quads + size);
+  };
+
+  auto autotile_set_pos = [&](base::RectF& pos, int32_t i) {
+    switch (i) {
+      case 0:  // Left Top
+        break;
+      case 1:  // Right Top
+        pos.x += tilesize_ / 2.0f;
+        break;
+      case 2:  // Left Bottom
+        pos.y += tilesize_ / 2.0f;
+        break;
+      case 3:  // Right bottom
+        pos.x += tilesize_ / 2.0f;
+        pos.y += tilesize_ / 2.0f;
+        break;
+      case 4:  // Table's Left Bottom
+        pos.y += tilesize_ * 0.75f;
+        break;
+      case 5:  // Table's Right Bottom
+        pos.x += tilesize_ / 2.0f;
+        pos.y += tilesize_ * 0.75f;
+        break;
+      default:
+        break;
+    }
+  };
+
+  auto read_autotile_common =
+      [&](int32_t pattern_id, const base::Vec2i& offset, int32_t x, int32_t y,
+          const base::RectF rect_src[], int32_t rect_src_size, bool above) {
+        renderer::Quad quads[4];
+
+        for (int32_t i = 0; i < 4; ++i) {
+          base::RectF tex_rect =
+              rect_src[pattern_id * 4 + i] * base::RectF(tilesize_);
+          tex_rect.x += offset.x * tilesize_ + 0.5f;
+          tex_rect.y += offset.y * tilesize_ + 0.5f;
+          tex_rect.width -= 1;
+          tex_rect.height -= 1;
+
+          base::RectF pos_rect(x * tilesize_, y * tilesize_, tilesize_ / 2.0f,
+                               tilesize_ / 2.0f);
+          autotile_set_pos(pos_rect, i);
+
+          renderer::Quad::SetTexCoordRect(&quads[i], tex_rect);
+          renderer::Quad::SetPositionRect(&quads[i], pos_rect);
+        }
+
+        process_quads(quads, _countof(quads), above);
+      };
+
+  auto read_autotile_table = [&](int32_t pattern_id, const base::Vec2i& offset,
+                                 int32_t x, int32_t y, bool occlusion,
+                                 bool above) {
+    renderer::Quad quads[6];
+
+    for (int32_t i = 0; i < 6; ++i) {
+      base::RectF tex_rect =
+          kAutotileSrcTable[pattern_id * 6 + i] * base::RectF(tilesize_);
+      tex_rect.x += offset.x * tilesize_ + 0.5f;
+      tex_rect.y += offset.y * tilesize_ + 0.5f;
+      tex_rect.width = std::max(0.0f, tex_rect.width - 1);
+      tex_rect.height = std::max(0.0f, tex_rect.height - 1);
+
+      auto tex_size =
+          kAutotileSrcTable[pattern_id * 6 + i].Size() * base::Vec2(tilesize_);
+
+      base::RectF pos_rect(x * tilesize_, y * tilesize_, tex_size.x,
+                           tex_size.y);
+      autotile_set_pos(pos_rect, i);
+
+      if (occlusion && i >= 4) {
+        float table_leg = tilesize_ * 0.25f;
+        tex_rect.height -= table_leg;
+        pos_rect.height -= table_leg;
+      }
+
+      renderer::Quad::SetTexCoordRect(&quads[i], tex_rect);
+      renderer::Quad::SetPositionRect(&quads[i], pos_rect);
+    }
+
+    process_quads(quads, _countof(quads), above);
+  };
+
+  auto read_autotile_waterfall = [&](int32_t pattern_id,
+                                     const base::Vec2i& offset, int32_t x,
+                                     int32_t y, bool above) {
+    if (pattern_id > 0x3)
+      return;
+
+    renderer::Quad quads[2];
+
+    for (size_t i = 0; i < 2; ++i) {
+      base::RectF tex_rect =
+          kAutotileSrcWaterfall[pattern_id * 2 + i] *
+          base::RectF(tilesize_, tilesize_, tilesize_, tilesize_);
+      tex_rect.x += offset.x * tilesize_ + 0.5f;
+      tex_rect.y += offset.y * tilesize_ + 0.5f;
+      tex_rect.width -= 1;
+      tex_rect.height -= 1;
+
+      base::RectF pos_rect(x * tilesize_ + i * (tilesize_ / 2.0f),
+                           y * tilesize_, tilesize_ / 2.0f, tilesize_);
+
+      renderer::Quad::SetTexCoordRect(&quads[i], tex_rect);
+      renderer::Quad::SetPositionRect(&quads[i], pos_rect);
+    }
+
+    process_quads(quads, _countof(quads), above);
+  };
+
+  auto process_tile_A1 = [&](int16_t tile_id, int32_t x, int32_t y,
+                             bool above) {
+    tile_id -= 0x0800;
+
+    const int32_t autotile_id = tile_id / 0x30;
+    const int32_t pattern_id = tile_id % 0x30;
+
+    // clang-format off
+    const base::Vec2i waterfall(-1, -1);
+    const base::Vec2i src_offset[] = {
+        {0,  0},  {0,  3},
+        {12, 0},  {12, 3},
+        {6,  0},  waterfall,
+        {6,  3},  waterfall,
+
+        {0,  6},  waterfall,
+        {0,  9},  waterfall,
+        {6,  6},  waterfall,
+        {6,  9},  waterfall};
+    const base::Vec2i waterfall_offset[] = {
+        {14, 0}, {14, 3},
+        {12, 6}, {12, 9},
+        {14, 6}, {14, 9},
+    };
+    // clang-format on
+
+    // Transform pattern source to waterfall style
+    const base::Vec2i src_pos = src_offset[autotile_id];
+    if (src_pos.x == -1)
+      return read_autotile_waterfall(
+          pattern_id, waterfall_offset[(autotile_id - 5) / 2], x, y, above);
+
+    read_autotile_common(pattern_id, src_pos, x, y, kAutotileSrcRegular,
+                         _countof(kAutotileSrcRegular), above);
+  };
+
+  auto process_tile_A2 = [&](int16_t tile_id, int32_t x, int32_t y, bool above,
+                             bool is_table, bool occlusion) {
+    tile_id -= 0x0B00;
+
+    const int32_t autotile_id = tile_id / 0x30;
+    const int32_t pattern_id = tile_id % 0x30;
+
+    // Process table foot occlusion
+    base::Vec2i offset(16 + (autotile_id % 8) * 2, (autotile_id / 8) * 3);
+    if (is_table)
+      return read_autotile_table(pattern_id, offset, x, y, occlusion, above);
+    read_autotile_common(pattern_id, offset, x, y, kAutotileSrcRegular,
+                         _countof(kAutotileSrcRegular), above);
+  };
+
+  auto process_tile_A3 = [&](int16_t tile_id, int32_t x, int32_t y,
+                             bool above) {
+    tile_id -= 0x1100;
+
+    const int32_t autotile_id = tile_id / 0x30;
+    const int32_t pattern_id = tile_id % 0x30;
+    if (pattern_id >= 0x10)
+      return;
+
+    const base::Vec2i offset((autotile_id % 8) * 2, (autotile_id / 8) * 2);
+    read_autotile_common(pattern_id, offset, x, y, kAutotileSrcWall,
+                         _countof(kAutotileSrcWall), above);
+  };
+
+  auto process_tile_A4 = [&](int16_t tile_id, int32_t x, int32_t y,
+                             bool above) {
+    tile_id -= 0x1700;
+
+    const int32_t autotile_id = tile_id / 0x30;
+    const int32_t pattern_id = tile_id % 0x30;
+
+    const int32_t vertical_offset[] = {0, 3, 5, 8, 10, 13};
+    const int32_t offset_index = autotile_id / 8;
+    const base::Vec2i offset(16 + (autotile_id % 8) * 2,
+                             12 + vertical_offset[offset_index]);
+
+    if (!(offset_index % 2)) {
+      read_autotile_common(pattern_id, offset, x, y, kAutotileSrcRegular,
+                           _countof(kAutotileSrcRegular), above);
+    } else {
+      if (pattern_id >= 0x10)
+        return;
+
+      read_autotile_common(pattern_id, offset, x, y, kAutotileSrcWall,
+                           _countof(kAutotileSrcWall), above);
+    }
+  };
+
+  auto process_tile_A5 = [&](int16_t tile_id, int32_t x, int32_t y,
+                             bool above) {
+    tile_id -= 0x0600;
+
+    int32_t ox = tile_id % 0x8;
+    int32_t oy = tile_id / 0x8;
+    if (oy >= 8) {
+      oy -= 8;
+      ox += 8;
+    }
+
+    const base::Vec2i src_origin(0, 20);
+    base::RectF tex((src_origin.x + ox) * tilesize_ + 0.5f,
+                    (src_origin.y + oy) * tilesize_ + 0.5f, tilesize_ - 1.0f,
+                    tilesize_ - 1.0f);
+    base::RectF pos(x * tilesize_, y * tilesize_, tilesize_, tilesize_);
+
+    renderer::Quad quad;
+    renderer::Quad::SetTexCoordRect(&quad, tex);
+    renderer::Quad::SetTexCoordRect(&quad, pos);
+
+    process_quads(&quad, 1, above);
+  };
+
+  auto process_tile_bcde = [&](int16_t tile_id, int32_t x, int32_t y,
+                               bool above) {
+    int32_t ox = tile_id % 0x8;
+    int32_t oy = (tile_id / 0x8) % 0x10;
+    int32_t ob = tile_id / (0x8 * 0x10);
+
+    ox += (ob % 2) * 0x8;
+    oy += (ob / 2) * 0x10;
+
+    if (oy >= 48) {
+      /* E atlas */
+      oy -= 32;
+      ox += 16;
+    } else if (oy >= 32) {
+      /* D atlas */
+      oy -= 16;
+    } else if (oy >= 16) {
+      /* C atlas */
+      oy -= 16;
+      ox += 16;
+    }
+
+    base::RectF tex((32 + ox) * tilesize_ + 0.5f, (0 + oy) * tilesize_ + 0.5f,
+                    tilesize_ - 1.0f, tilesize_ - 1.0f);
+    base::RectF pos(x * tilesize_, y * tilesize_, tilesize_, tilesize_);
+
+    renderer::Quad quad;
+    renderer::Quad::SetTexCoordRect(&quad, tex);
+    renderer::Quad::SetTexCoordRect(&quad, pos);
+
+    process_quads(&quad, 1, above);
+  };
+
+  auto process_shadow_tile = [&](int8_t shadow_id, int32_t x, int32_t y) {
+    int32_t ox = shadow_id;
+
+    base::RectF tex((kShadowAtlasArea.x + ox) * tilesize_ + 0.5f,
+                    (kShadowAtlasArea.y) * tilesize_ + 0.5f, tilesize_ - 1.0f,
+                    tilesize_ - 1.0f);
+    base::RectF pos(x * tilesize_, y * tilesize_, tilesize_, tilesize_);
+
+    renderer::Quad quad;
+    renderer::Quad::SetTexCoordRect(&quad, tex);
+    renderer::Quad::SetTexCoordRect(&quad, pos);
+
+    process_quads(&quad, 1, false);
+  };
+
+  auto process_common_tile = [&](int16_t tile_id, int32_t x, int32_t y,
+                                 int32_t z, int16_t under_tile_id) {
+    int16_t flag = get_map_flag(flags_, tile_id);
+    bool over_player = (flag & 0x10) && (z >= 2);
+    bool is_table =
+        screen()->GetAPIVersion() >= ContentProfile::APIVersion::RGSS3
+            ? flag & 0x80
+            : (tile_id - 0x0B00) % (8 * 0x30) >= (7 * 0x30);
+
+    if (tile_id >= 0x0800 && tile_id < 0x0B00)  // A1
+      return process_tile_A1(tile_id, x, y, over_player);
+    else if (tile_id >= 0x0B00 && tile_id < 0x1100)  // A2
+      return process_tile_A2(tile_id, x, y, over_player, is_table,
+                             under_tile_id >= 0x1700 && under_tile_id < 0x2000);
+    else if (tile_id < 0x1700)  // A3
+      return process_tile_A3(tile_id, x, y, over_player);
+    else if (tile_id < 0x2000)  // A4
+      return process_tile_A4(tile_id, x, y, over_player);
+    else if (tile_id >= 0x0600 && tile_id < 0x0680)  // A5
+      return process_tile_A5(tile_id, x, y, over_player);
+    else if (tile_id < 0x0400)  // BCDE
+      return process_tile_bcde(tile_id, x, y, over_player);
+  };
+
+  auto process_shadow_layer = [&](int32_t ox, int32_t oy, int32_t w,
+                                  int32_t h) {
+    for (int32_t y = 0; y < h; ++y)
+      for (int32_t x = 0; x < w; ++x)
+        process_shadow_tile(get_wrap_data(map_data_, x + ox, y + oy, 3) & 0xF,
+                            x, y);
+  };
+
+  auto process_common_layer = [&](int32_t ox, int32_t oy, int32_t w, int32_t h,
+                                  int32_t z) {
+    for (int32_t y = h - 1; y >= 0; --y) {
+      for (int32_t x = 0; x < w; ++x) {
+        const int16_t tile_id = get_wrap_data(map_data_, x + ox, y + oy, z);
+        if (!tile_id)
+          continue;
+
+        // For table foot occlusion
+        const int16_t under_tile_id =
+            get_wrap_data(map_data_, x + ox, y + oy + 1, 0);
+        process_common_tile(tile_id, x, y, z, under_tile_id);
+      }
+    }
+  };
+
+  auto read_tilemap = [&](const base::Rect& viewport) {
+    int32_t ox = viewport.x, oy = viewport.y;
+    int32_t w = viewport.width, h = viewport.height;
+
+    // A aera (0 - 1)
+    process_common_layer(ox, oy, w, h, 0);
+    process_common_layer(ox, oy, w, h, 1);
+
+    // Shadow area (3)
+    if (screen()->GetAPIVersion() == ContentProfile::APIVersion::RGSS3)
+      process_shadow_layer(ox, oy, w, h);
+
+    // BCDE area (2)
+    process_common_layer(ox, oy, w, h, 2);
+  };
+
+  /* Process tilemap data */
+  read_tilemap(render_viewport_);
+}
 
 void Tilemap2Impl::AtlasModifyHandlerInternal() {
   atlas_dirty_ = true;
