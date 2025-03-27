@@ -357,6 +357,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
                                    wgpu::RenderPassEncoder* encoder,
                                    wgpu::BindGroup* world_binding,
                                    const base::Rect& last_viewport,
+                                   const base::Vec2i& last_origin,
                                    const base::Rect& bound,
                                    WindowAgent* agent,
                                    TextureAgent* windowskin,
@@ -367,7 +368,11 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
     {
-      auto interact_region = base::MakeIntersect(last_viewport, bound);
+      const base::Rect window_bound(last_viewport.x + bound.x - last_origin.x,
+                                    last_viewport.y + bound.y - last_origin.y,
+                                    bound.width, bound.height);
+      const auto interact_region =
+          base::MakeIntersect(last_viewport, window_bound);
       if (!interact_region.width || !interact_region.height)
         return;
 
@@ -788,10 +793,11 @@ void WindowImpl::ControlNodeHandlerInternal(
                        scale_, bound_, cursor_rect_->AsBaseRect(), origin_,
                        contents_agent, pause_, pause_index_, cursor_opacity_));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(base::BindOnce(
-        &GPURenderControlLayerInternal, params->device,
-        params->renderpass_encoder, params->world_binding, params->viewport,
-        bound_, agent_, windowskin_agent, contents_agent, scale_));
+    screen()->PostTask(
+        base::BindOnce(&GPURenderControlLayerInternal, params->device,
+                       params->renderpass_encoder, params->world_binding,
+                       params->viewport, params->origin, bound_, agent_,
+                       windowskin_agent, contents_agent, scale_));
   }
 }
 

@@ -440,7 +440,8 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
                                   TextureAgent* contents,
                                   const base::Rect& bound,
                                   const base::Rect& padding_rect,
-                                  const base::Rect& last_viewport) {
+                                  const base::Rect& last_viewport,
+                                  const base::Vec2i& last_origin) {
   auto& pipeline_set = device->GetPipelines()->base;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
@@ -463,9 +464,10 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
     count += agent->controls_draw_count;
   }
 
-  const base::Rect contents_region(bound.x + padding_rect.x,
-                                   bound.y + padding_rect.y, padding_rect.width,
-                                   padding_rect.height);
+  const base::Rect contents_region(
+      last_viewport.x + bound.x + padding_rect.x - last_origin.x,
+      last_viewport.y + bound.y + padding_rect.y - last_origin.y,
+      padding_rect.width, padding_rect.height);
   auto scissor_region = base::MakeIntersect(last_viewport, contents_region);
   if (!scissor_region.width || !scissor_region.height)
     return;
@@ -984,7 +986,7 @@ void Window2Impl::DrawableNodeHandlerInternal(
         base::BindOnce(&GPURenderWindowQuadsInternal, params->device,
                        params->renderpass_encoder, params->world_binding,
                        agent_, windowskin_agent, contents_agent, bound_,
-                       padding_rect, params->viewport));
+                       padding_rect, params->viewport, params->origin));
   }
 }
 
