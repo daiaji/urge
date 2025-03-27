@@ -970,7 +970,8 @@ void Tilemap2Impl::ParseMapDataInternal(
 
     for (int32_t i = 0; i < 4; ++i) {
       base::RectF tex_rect =
-          rect_src[pattern_id * 4 + i] * base::RectF(tilesize_);
+          rect_src[pattern_id * 4 + i] *
+          base::RectF(tilesize_, tilesize_, tilesize_, tilesize_);
       tex_rect.x += offset.x * tilesize_ + 0.5f;
       tex_rect.y += offset.y * tilesize_ + 0.5f;
       tex_rect.width -= 1.0f;
@@ -985,7 +986,7 @@ void Tilemap2Impl::ParseMapDataInternal(
       renderer::Quad::SetColor(&quads[i], color);
     }
 
-    process_quads(quads, _countof(quads), above);
+    process_quads(quads, 4, above);
   };
 
   auto read_autotile_table = [&](int32_t pattern_id, const base::Vec2i& offset,
@@ -995,7 +996,8 @@ void Tilemap2Impl::ParseMapDataInternal(
 
     for (int32_t i = 0; i < 6; ++i) {
       const base::RectF tile_src = kAutotileSrcTable[pattern_id * 6 + i];
-      base::RectF tex_rect = tile_src * base::RectF(tilesize_);
+      base::RectF tex_rect =
+          tile_src * base::RectF(tilesize_, tilesize_, tilesize_, tilesize_);
       tex_rect.x += offset.x * tilesize_ + 0.5f;
       tex_rect.y += offset.y * tilesize_ + 0.5f;
       tex_rect.width = std::max(0.0f, tex_rect.width - 1.0f);
@@ -1017,7 +1019,7 @@ void Tilemap2Impl::ParseMapDataInternal(
       renderer::Quad::SetColor(&quads[i], color);
     }
 
-    process_quads(quads, _countof(quads), above);
+    process_quads(quads, 6, above);
   };
 
   auto read_autotile_waterfall =
@@ -1045,7 +1047,7 @@ void Tilemap2Impl::ParseMapDataInternal(
           renderer::Quad::SetColor(&quads[i], color);
         }
 
-        process_quads(quads, _countof(quads), above);
+        process_quads(quads, 2, above);
       };
 
   auto process_tile_A1 = [&](int16_t tile_id, const base::Vec4& color,
@@ -1187,7 +1189,7 @@ void Tilemap2Impl::ParseMapDataInternal(
       ox += 16;
     }
 
-    base::RectF tex((32 + ox) * tilesize_ + 0.5f, (0 + oy) * tilesize_ + 0.5f,
+    base::RectF tex((32 + ox) * tilesize_ + 0.5f, oy * tilesize_ + 0.5f,
                     tilesize_ - 1.0f, tilesize_ - 1.0f);
     base::RectF pos(x * tilesize_, y * tilesize_, tilesize_, tilesize_);
 
@@ -1263,7 +1265,7 @@ void Tilemap2Impl::ParseMapDataInternal(
 
         // Flash data
         const int16_t flash_color =
-            get_wrap_data(flash_data_, x + ox, y + oy, z);
+            get_wrap_data(flash_data_, x + ox, y + oy, 0);
 
         base::Vec4 blend_color;
         if (flash_color) {
@@ -1276,6 +1278,7 @@ void Tilemap2Impl::ParseMapDataInternal(
           ++flash_count_;
         }
 
+        // Process tile (non-shadow tile)
         process_common_tile(tile_id, blend_color, x, y, z, under_tile_id);
       }
     }

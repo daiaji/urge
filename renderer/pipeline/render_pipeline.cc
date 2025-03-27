@@ -222,7 +222,7 @@ Pipeline_Tilemap::Pipeline_Tilemap(const wgpu::Device& device,
 Pipeline_Tilemap2::Pipeline_Tilemap2(const wgpu::Device& device,
                                      wgpu::TextureFormat target)
     : RenderPipelineBase(device) {
-  BuildPipeline(kTilemapRenderWGSL, "vertexMain", "fragmentMain",
+  BuildPipeline(kTilemap2RenderWGSL, "vertexMain", "fragmentMain",
                 {
                     Vertex::GetLayout(),
                 },
