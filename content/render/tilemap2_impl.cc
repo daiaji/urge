@@ -961,8 +961,7 @@ void Tilemap2Impl::ParseMapDataInternal(
 
   auto read_autotile_common = [&](int32_t pattern_id, const base::Vec2i& offset,
                                   const base::Vec4& color, int32_t x, int32_t y,
-                                  const base::RectF rect_src[],
-                                  int32_t rect_src_size, bool above) {
+                                  const base::RectF* rect_src, bool above) {
     renderer::Quad quads[4];
 
     for (int32_t i = 0; i < 4; ++i) {
@@ -1000,9 +999,9 @@ void Tilemap2Impl::ParseMapDataInternal(
       tex_rect.width = std::max(0.0f, tex_rect.width - 1.0f);
       tex_rect.height = std::max(0.0f, tex_rect.height - 1.0f);
 
-      base::RectF tex_size = tile_src.Size() * base::Vec2(tilesize_);
-      base::RectF pos_rect(x * tilesize_, y * tilesize_, tex_size.x,
-                           tex_size.y);
+      base::RectF pos_rect(x * tilesize_, y * tilesize_,
+                           tile_src.width * tilesize_,
+                           tile_src.height * tilesize_);
       autotile_set_pos(pos_rect, i);
 
       if (occlusion && i >= 4) {
@@ -1081,7 +1080,7 @@ void Tilemap2Impl::ParseMapDataInternal(
                                      color, x, y, above);
 
     read_autotile_common(pattern_id, src_pos, color, x, y, kAutotileSrcRegular,
-                         _countof(kAutotileSrcRegular), above);
+                         above);
   };
 
   auto process_tile_A2 = [&](int16_t tile_id, const base::Vec4& color,
@@ -1098,7 +1097,7 @@ void Tilemap2Impl::ParseMapDataInternal(
       return read_autotile_table(pattern_id, offset, color, x, y, occlusion,
                                  above);
     read_autotile_common(pattern_id, offset, color, x, y, kAutotileSrcRegular,
-                         _countof(kAutotileSrcRegular), above);
+                         above);
   };
 
   auto process_tile_A3 = [&](int16_t tile_id, const base::Vec4& color,
@@ -1112,7 +1111,7 @@ void Tilemap2Impl::ParseMapDataInternal(
 
     const base::Vec2i offset((autotile_id % 8) * 2, (autotile_id / 8) * 2 + 12);
     read_autotile_common(pattern_id, offset, color, x, y, kAutotileSrcWall,
-                         _countof(kAutotileSrcWall), above);
+                         above);
   };
 
   auto process_tile_A4 = [&](int16_t tile_id, const base::Vec4& color,
@@ -1129,13 +1128,13 @@ void Tilemap2Impl::ParseMapDataInternal(
 
     if (!(offset_index % 2)) {
       read_autotile_common(pattern_id, offset, color, x, y, kAutotileSrcRegular,
-                           _countof(kAutotileSrcRegular), above);
+                           above);
     } else {
       if (pattern_id >= 0x10)
         return;
 
       read_autotile_common(pattern_id, offset, color, x, y, kAutotileSrcWall,
-                           _countof(kAutotileSrcWall), above);
+                           above);
     }
   };
 

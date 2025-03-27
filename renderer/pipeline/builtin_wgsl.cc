@@ -468,8 +468,8 @@ struct EffectParams {
 @group(2) @binding(0) var<uniform> u_effect: EffectParams;
 
 const kRegularArea: vec2<f32> = vec2<f32>(12.0, 12.0);
-const kWaterfallArea: vec4<f32> = vec4<f32>(12.0, 16.0, 4.0, 12.0);
-const kWaterfallAutotileArea: vec4<f32> = vec4<f32>(12.0, 16.0, 2.0, 6.0);
+const kWaterfallArea: vec4<f32> = vec4<f32>(12.0, 0.0, 4.0, 12.0);
+const kWaterfallAutotileArea: vec4<f32> = vec4<f32>(12.0, 0.0, 2.0, 6.0);
 
 fn posInArea(pos: vec2<f32>, area: vec4<f32>) -> f32 {
 	return select(0.0, 1.0, pos.x >= area.x && pos.y >= area.y && pos.x <= (area.x + area.z) && pos.y <= (area.y + area.w));
@@ -492,7 +492,7 @@ fn vertexMain(
 	tex.x += u_effect.animationOffset.x * addition1;
 
 	// Waterfall area
-	let addition2 = posInArea(tex, kWaterfallArea) - posInArea(tex, kWaterfallAutotileArea);
+	let addition2 = posInArea(tex, kWaterfallArea * u_effect.tileSize) - posInArea(tex, kWaterfallAutotileArea * u_effect.tileSize);
 	tex.y += u_effect.animationOffset.y * addition2;
 
   var result: VertexOutput;
