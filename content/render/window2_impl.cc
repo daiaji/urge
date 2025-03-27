@@ -553,7 +553,7 @@ Window2Impl::Window2Impl(RenderScreenImpl* screen,
       &Window2Impl::DrawableNodeHandlerInternal, base::Unretained(this)));
 
   tone_->AddObserver(base::BindRepeating(
-      &Window2Impl::ToneValueObserverInternal, base::Unretained(this)));
+      &Window2Impl::BackgroundTextureObserverInternal, base::Unretained(this)));
 
   ExceptionState exception_state;
   contents_ = CanvasImpl::Create(screen->GetCanvasScheduler(), screen,
@@ -643,6 +643,9 @@ void Window2Impl::Put_Windowskin(const scoped_refptr<Bitmap>& value,
     return;
 
   windowskin_ = CanvasImpl::FromBitmap(value);
+  windowskin_->AddCanvasObserver(base::BindRepeating(
+      &Window2Impl::BackgroundTextureObserverInternal, base::Unretained(this)));
+  background_dirty_ = true;
 }
 
 scoped_refptr<Bitmap> Window2Impl::Get_Contents(
@@ -775,6 +778,7 @@ void Window2Impl::Put_Width(const int32_t& value,
     return;
 
   bound_.width = value;
+  background_dirty_ = true;
 }
 
 int32_t Window2Impl::Get_Height(ExceptionState& exception_state) {
@@ -790,6 +794,7 @@ void Window2Impl::Put_Height(const int32_t& value,
     return;
 
   bound_.height = value;
+  background_dirty_ = true;
 }
 
 int32_t Window2Impl::Get_Z(ExceptionState& exception_state) {
@@ -974,8 +979,6 @@ void Window2Impl::DrawableNodeHandlerInternal(
         rgss3_style_, background_dirty_));
     background_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    LOG(INFO) << params->viewport;
-
     screen()->PostTask(
         base::BindOnce(&GPURenderWindowQuadsInternal, params->device,
                        params->renderpass_encoder, params->world_binding,
@@ -984,7 +987,7 @@ void Window2Impl::DrawableNodeHandlerInternal(
   }
 }
 
-void Window2Impl::ToneValueObserverInternal() {
+void Window2Impl::BackgroundTextureObserverInternal() {
   background_dirty_ = true;
 }
 

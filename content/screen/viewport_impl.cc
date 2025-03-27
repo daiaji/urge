@@ -560,28 +560,20 @@ void ViewportImpl::DrawableNodeHandlerInternal(
     }
   }
 
-  if (transient_params.renderpass_encoder) {
-    // Interact with last scissor region
-    base::Rect scissor_region =
-        base::MakeIntersect(params->viewport, viewport_rect);
-
-    // Reset viewport's world settings
+  if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+    // Setup viewport's world settings
     transient_params.world_binding = &agent_->world_binding;
-
-    // Adjust visibility
-    if (scissor_region.width <= 0 || scissor_region.height <= 0)
-      return;
 
     // Set new viewport
     screen()->PostTask(base::BindOnce(
-        &GPUResetViewportRegion, params->renderpass_encoder, scissor_region));
+        &GPUResetViewportRegion, params->renderpass_encoder, viewport_rect));
   }
 
   // Notify children drawable node
   controller_.BroadCastNotification(stage, &transient_params);
 
   // Restore last viewport settings and apply effect
-  if (params->renderpass_encoder) {
+  if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     base::Vec4 composite_color = color_->AsNormColor();
     base::Vec4 flash_color = flash_emitter_.GetColor();
     base::Vec4 target_color = composite_color;

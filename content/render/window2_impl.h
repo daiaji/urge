@@ -85,7 +85,7 @@ class Window2Impl : public Window2, public GraphicsChild, public Disposable {
   void DrawableNodeHandlerInternal(
       DrawableNode::RenderStage stage,
       DrawableNode::RenderControllerParams* params);
-  void ToneValueObserverInternal();
+  void BackgroundTextureObserverInternal();
 
   bool rgss3_style_ = false;
   DrawableNode node_;
