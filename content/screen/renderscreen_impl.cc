@@ -219,6 +219,10 @@ CanvasScheduler* RenderScreenImpl::GetCanvasScheduler() const {
   return agent_->canvas_scheduler.get();
 }
 
+ScopedFontData* RenderScreenImpl::GetScopedFontContext() const {
+  return scoped_font_;
+}
+
 void RenderScreenImpl::PostTask(base::OnceClosure task) {
   base::ThreadWorker::PostTask(render_worker_, std::move(task));
 }
@@ -780,7 +784,7 @@ void RenderScreenImpl::FrameBeginRenderPassInternal(
     renderer::Quad effect_quad;
     renderer::Quad::SetPositionRect(&effect_quad, base::Rect(target_size));
     renderer::Quad::SetColor(&effect_quad,
-                             base::Vec4((255 - brightness_) / 255.0f));
+                             base::Vec4(0, 0, 0, (255 - brightness_) / 255.0f));
     encoder->WriteBuffer(agent_->effect_vertex, 0,
                          reinterpret_cast<uint8_t*>(&effect_quad),
                          sizeof(effect_quad));

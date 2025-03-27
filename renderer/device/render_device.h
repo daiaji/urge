@@ -25,6 +25,7 @@ class RenderDevice {
     Pipeline_AlphaTransition alphatrans;
     Pipeline_MappedTransition mappedtrans;
     Pipeline_Tilemap tilemap;
+    Pipeline_Tilemap2 tilemap2;
 
     PipelineSet(const wgpu::Device& device, wgpu::TextureFormat target)
         : base(device, target),
@@ -34,7 +35,8 @@ class RenderDevice {
           spriteinstance(device, target),
           alphatrans(device, target),
           mappedtrans(device, target),
-          tilemap(device, target) {}
+          tilemap(device, target),
+          tilemap2(device, target) {}
   };
 
   static std::unique_ptr<RenderDevice> Create(

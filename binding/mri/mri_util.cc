@@ -59,11 +59,10 @@ int MriParseArgsTo(int argc, VALUE* argv, const char* fmt, ...) {
         ++count;
         break;
       case 's': {
-        if (!RB_TYPE_P(arg_element, RUBY_T_STRING))
-          rb_raise(rb_eTypeError, "Argument %d: Expected string", count);
+        VALUE str = rb_obj_as_string(arg_element);
 
         std::string* ptr = va_arg(args_iter, std::string*);
-        *ptr = std::string(RSTRING_PTR(arg_element), RSTRING_LEN(arg_element));
+        *ptr = std::string(RSTRING_PTR(str), RSTRING_LEN(str));
       }
         ++count;
         break;

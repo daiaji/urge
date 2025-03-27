@@ -27,10 +27,10 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
   /*--urge(name:wait)--*/
   virtual void Wait(uint32_t duration, ExceptionState& exception_state) = 0;
 
-  /*--urge(name:fade_out)--*/
+  /*--urge(name:fadeout)--*/
   virtual void FadeOut(uint32_t duration, ExceptionState& exception_state) = 0;
 
-  /*--urge(name:fade_in)--*/
+  /*--urge(name:fadein)--*/
   virtual void FadeIn(uint32_t duration, ExceptionState& exception_state) = 0;
 
   /*--urge(name:freeze)--*/

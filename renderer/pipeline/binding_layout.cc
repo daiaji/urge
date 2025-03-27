@@ -322,4 +322,37 @@ wgpu::BindGroup TilemapUniform::CreateGroup(const wgpu::Device& device,
   return device.CreateBindGroup(&binding_desc);
 }
 
+/// <summary>
+/// Tilemap2 Uniform
+/// </summary>
+
+wgpu::BindGroupLayout Tilemap2Uniform::GetLayout(const wgpu::Device& device) {
+  wgpu::BindGroupLayoutEntry entries[1];
+  entries[0].binding = 0;
+  entries[0].visibility =
+      wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
+  entries[0].buffer.type = wgpu::BufferBindingType::Uniform;
+
+  wgpu::BindGroupLayoutDescriptor binding_desc;
+  binding_desc.label = "tilemap.fragment.binding";
+  binding_desc.entryCount = _countof(entries);
+  binding_desc.entries = entries;
+
+  return device.CreateBindGroupLayout(&binding_desc);
+}
+
+wgpu::BindGroup Tilemap2Uniform::CreateGroup(const wgpu::Device& device,
+                                             const wgpu::Buffer& buffer) {
+  wgpu::BindGroupEntry entries;
+  entries.binding = 0;
+  entries.buffer = buffer;
+
+  wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.entryCount = 1;
+  binding_desc.entries = &entries;
+  binding_desc.layout = GetLayout(device);
+
+  return device.CreateBindGroup(&binding_desc);
+}
+
 }  // namespace renderer

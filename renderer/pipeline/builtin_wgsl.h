@@ -132,9 +132,28 @@ extern const std::string kMappedTransitionRenderWGSL;
 // bind:
 //   @<0>: mat4x4, mat4x4
 //   @<1>: texture2d<f32>, sampler, vec2
-//   @<2>: f32, f32
+//   @<2>: vec2<f32>, f32, f32
 ///
 extern const std::string kTilemapRenderWGSL;
+
+///
+// type:
+//   tilemap2 shader
+///
+// entry:
+//   vertexMain fragmentMain
+///
+// vertex:
+//   @<0>: vec4<f32>
+//   @<1>: vec2<f32>
+//   @<2>: vec4<f32>
+///
+// bind:
+//   @<0>: mat4x4, mat4x4
+//   @<1>: texture2d<f32>, sampler, vec2
+//   @<2>: vec2<f32>, vec2<f32>, f32
+///
+extern const std::string kTilemap2RenderWGSL;
 
 }  // namespace renderer
 

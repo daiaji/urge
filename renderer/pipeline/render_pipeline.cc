@@ -219,4 +219,19 @@ Pipeline_Tilemap::Pipeline_Tilemap(const wgpu::Device& device,
                 target);
 }
 
+Pipeline_Tilemap2::Pipeline_Tilemap2(const wgpu::Device& device,
+                                     wgpu::TextureFormat target)
+    : RenderPipelineBase(device) {
+  BuildPipeline(kTilemapRenderWGSL, "vertexMain", "fragmentMain",
+                {
+                    Vertex::GetLayout(),
+                },
+                {
+                    WorldMatrixUniform::GetLayout(device),
+                    TextureBindingUniform::GetLayout(device),
+                    Tilemap2Uniform::GetLayout(device),
+                },
+                target);
+}
+
 }  // namespace renderer

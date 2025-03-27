@@ -78,11 +78,29 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   ReplaceStringWidth(script_path, '\\', '/');
 
   // Engine part
+  api_version = static_cast<ContentProfile::APIVersion>(reader->GetInteger(
+      "Engine", "APIVersion", static_cast<int32_t>(api_version)));
+  if (api_version == ContentProfile::APIVersion::UNKNOWN) {
+    if (!script_path.empty()) {
+      api_version = ContentProfile::APIVersion::RGSS1;
+
+      const char* p = &script_path[script_path.size()];
+      const char* head = &script_path[0];
+
+      while (--p != head)
+        if (*p == '.')
+          break;
+
+      if (!strcmp(p, ".rvdata"))
+        api_version = ContentProfile::APIVersion::RGSS2;
+      else if (!strcmp(p, ".rvdata2"))
+        api_version = ContentProfile::APIVersion::RGSS3;
+    }
+  }
+
   default_font_path =
       reader->Get("Engine", "DefaultFontPath", default_font_path);
   ReplaceStringWidth(default_font_path, '\\', '/');
-  api_version = static_cast<ContentProfile::APIVersion>(reader->GetInteger(
-      "Engine", "APIVersion", static_cast<int32_t>(api_version)));
   wgpu_backend = reader->Get("Engine", "WGPUBackend", wgpu_backend);
   i18n_xml_path = reader->Get("Engine", "I18nXMLPath", app + ".xml");
 

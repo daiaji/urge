@@ -317,7 +317,7 @@ void GPUMakeAtlasInternal(
     wgpu::CommandEncoder* encoder,
     TilemapAgent* agent,
     const base::Vec2i& atlas_size,
-    std::list<TilemapImpl::AtlasCompositeCommand> make_commands) {
+    std::vector<TilemapImpl::AtlasCompositeCommand> make_commands) {
   agent->atlas_texture = renderer::CreateTexture2D(
       **device, "tilemap.atlas",
       wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
@@ -731,7 +731,7 @@ void TilemapImpl::GroundNodeHandlerInternal(
 
     // Generate global atlas texture if need.
     if (atlas_dirty_) {
-      std::list<AtlasCompositeCommand> commands;
+      std::vector<AtlasCompositeCommand> commands;
       base::Vec2i size = MakeAtlasInternal(commands);
 
       screen()->PostTask(base::BindOnce(&GPUMakeAtlasInternal, params->device,
@@ -777,7 +777,7 @@ void TilemapImpl::AboveNodeHandlerInternal(
 }
 
 base::Vec2i TilemapImpl::MakeAtlasInternal(
-    std::list<AtlasCompositeCommand>& commands) {
+    std::vector<AtlasCompositeCommand>& commands) {
   int32_t atlas_height = 28 * tilesize_;
   if (tileset_ || tileset_->GetAgent())
     atlas_height = std::max(atlas_height, tileset_->AsBaseSize().y);

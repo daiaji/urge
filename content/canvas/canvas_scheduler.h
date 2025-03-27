@@ -41,6 +41,7 @@ class CanvasScheduler {
 
   base::ThreadWorker* render_worker() { return render_worker_; }
   renderer::QuadBatch* quad_batch() { return common_quad_batch_.get(); }
+  std::vector<uint8_t>* text_render_buffer() { return &text_render_buffer_; }
 
  private:
   friend class CanvasImpl;
@@ -54,6 +55,7 @@ class CanvasScheduler {
   renderer::DeviceContext* immediate_context_;
   base::ThreadWorker* render_worker_;
   filesystem::IOService* io_service_;
+  std::vector<uint8_t> text_render_buffer_;
 
   std::unique_ptr<renderer::QuadBatch> common_quad_batch_;
 };

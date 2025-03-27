@@ -542,7 +542,7 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   transient_params.origin = origin_;
 
   // Check render visible
-  viewport_rect = base::MakeIntersect(params->screen_size, viewport_rect);
+  viewport_rect = base::MakeIntersect(params->viewport, viewport_rect);
   if (!viewport_rect.width || !viewport_rect.height)
     return;
 

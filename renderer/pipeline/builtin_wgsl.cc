@@ -442,4 +442,74 @@ fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
 
 )";
 
+const std::string kTilemap2RenderWGSL = R"(
+
+struct WorldMatrix {
+  projMat: mat4x4<f32>,
+  transMat: mat4x4<f32>,
+};
+
+struct VertexOutput {
+  @builtin(position) pos: vec4<f32>,
+  @location(0) uv: vec2<f32>,
+  @location(1) color: vec4<f32>,
+};
+
+struct EffectParams {
+  offset: vec2<f32>,
+  animationOffset: vec2<f32>,
+  tileSize: f32,
+};
+
+@group(0) @binding(0) var<uniform> u_transform: WorldMatrix;
+@group(1) @binding(0) var u_texture: texture_2d<f32>;
+@group(1) @binding(1) var u_sampler: sampler;
+@group(1) @binding(2) var<uniform> u_texSize: vec2<f32>;
+@group(2) @binding(0) var<uniform> u_effect: EffectParams;
+
+const kRegularArea: vec2<f32> = vec2<f32>(12.0, 12.0);
+const kWaterfallArea: vec4<f32> = vec4<f32>(12.0, 16.0, 4.0, 12.0);
+const kWaterfallAutotileArea: vec4<f32> = vec4<f32>(12.0, 16.0, 2.0, 6.0);
+
+fn posInArea(pos: vec2<f32>, area: vec4<f32>) -> f32 {
+	return select(0.0, 1.0, pos.x >= area.x && pos.y >= area.y && pos.x <= (area.x + area.z) && pos.y <= (area.y + area.w));
+}
+
+@vertex
+fn vertexMain(
+    @location(0) pos: vec4<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) color: vec4<f32>) -> VertexOutput {
+  var trans_pos = pos;
+  var tex = uv;
+
+  // Apply tilemap offset
+  trans_pos.x += u_effect.offset.x;
+  trans_pos.y += u_effect.offset.y;
+
+  // Regular area
+	let addition1 = select(0.0, 1.0, tex.x <= kRegularArea.x * u_effect.tileSize && tex.y <= kRegularArea.y * u_effect.tileSize);
+	tex.x += u_effect.animationOffset.x * addition1;
+
+	// Waterfall area
+	let addition2 = posInArea(tex, kWaterfallArea) - posInArea(tex, kWaterfallAutotileArea);
+	tex.y += u_effect.animationOffset.y * addition2;
+
+  var result: VertexOutput;
+  result.pos = u_transform.projMat * trans_pos;
+  result.pos = u_transform.transMat * result.pos;
+  result.uv = u_texSize * tex;
+  result.color = color;
+  return result;
+}
+
+@fragment
+fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
+  var tex = textureSample(u_texture, u_sampler, vertex.uv);
+  tex = vec4(mix(tex.rgb, vertex.color.rgb, vertex.color.a), tex.a);
+  return tex;
+}
+
+)";
+
 }  // namespace renderer

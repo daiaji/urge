@@ -541,7 +541,8 @@ Window2Impl::Window2Impl(RenderScreenImpl* screen,
                    ContentProfile::APIVersion::RGSS3),
       node_(parent ? parent->GetDrawableController()
                    : screen->GetDrawableController(),
-            SortKey(rgss3_style_ ? 100 : 0)),
+            SortKey(rgss3_style_ ? 100 : 0,
+                    rgss3_style_ ? std::numeric_limits<int64_t>::max() : 0)),
       scale_(scale),
       viewport_(parent),
       cursor_rect_(new RectImpl(base::Rect())),
@@ -553,6 +554,11 @@ Window2Impl::Window2Impl(RenderScreenImpl* screen,
 
   tone_->AddObserver(base::BindRepeating(
       &Window2Impl::ToneValueObserverInternal, base::Unretained(this)));
+
+  ExceptionState exception_state;
+  contents_ = CanvasImpl::Create(screen->GetCanvasScheduler(), screen,
+                                 screen->GetScopedFontContext(), base::Vec2i(1),
+                                 exception_state);
 
   agent_ = new Window2Agent;
   screen->PostTask(
@@ -958,7 +964,6 @@ void Window2Impl::DrawableNodeHandlerInternal(
       base::Rect(padding_, padding_, std::max(0, bound_.width - padding_ * 2),
                  std::max(0, bound_.height - (padding_ + padding_bottom_)));
 
-  background_dirty_ = false;
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     screen()->PostTask(base::BindOnce(
         &GPUCompositeWindowQuadsInternal, params->device,
@@ -967,7 +972,10 @@ void Window2Impl::DrawableNodeHandlerInternal(
         pause_index_, cursor_opacity_, contents_agent, windowskin_agent,
         origin_, cursor_rect_->AsBaseRect(), padding_rect, tone_->AsNormColor(),
         rgss3_style_, background_dirty_));
+    background_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+    LOG(INFO) << params->viewport;
+
     screen()->PostTask(
         base::BindOnce(&GPURenderWindowQuadsInternal, params->device,
                        params->renderpass_encoder, params->world_binding,

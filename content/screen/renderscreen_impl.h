@@ -78,6 +78,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   renderer::RenderDevice* GetDevice() const;
   renderer::DeviceContext* GetContext() const;
   CanvasScheduler* GetCanvasScheduler() const;
+  ScopedFontData* GetScopedFontContext() const;
 
   DrawNodeController* GetDrawableController() { return &controller_; }
   base::ThreadWorker* GetRenderRunner() const { return render_worker_; }

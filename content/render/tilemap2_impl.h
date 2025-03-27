@@ -28,6 +28,15 @@ class Tilemap2Impl;
 
 struct Tilemap2Agent {
   std::unique_ptr<renderer::QuadBatch> batch;
+
+  int32_t ground_draw_count = 0;
+  int32_t above_draw_count = 0;
+
+  wgpu::Texture atlas_texture;
+  wgpu::BindGroup atlas_binding;
+
+  wgpu::Buffer uniform_buffer;
+  wgpu::BindGroup uniform_binding;
 };
 
 class TilemapBitmapImpl : public TilemapBitmap {
@@ -107,7 +116,10 @@ class Tilemap2Impl : public Tilemap2, public GraphicsChild, public Disposable {
   void AboveNodeHandlerInternal(DrawableNode::RenderStage stage,
                                 DrawableNode::RenderControllerParams* params);
 
-  base::Vec2i MakeAtlasInternal(std::list<AtlasCompositeCommand>& commands);
+  void UpdateViewportInternal(const base::Rect& viewport,
+                              const base::Vec2i& viewport_origin);
+
+  base::Vec2i MakeAtlasInternal(std::vector<AtlasCompositeCommand>& commands);
   void ParseMapDataInternal(std::vector<renderer::Quad>& ground_cache,
                             std::vector<renderer::Quad>& above_cache);
 
@@ -125,6 +137,11 @@ class Tilemap2Impl : public Tilemap2, public GraphicsChild, public Disposable {
   int32_t tilesize_ = 32;
   base::Rect render_viewport_;
   base::Vec2i render_offset_;
+  base::Vec2 animation_offset_;
+  int32_t flash_count_ = 0;
+  int32_t flash_timer_ = 0;
+  int32_t flash_opacity_ = 0;
+  int32_t frame_index_ = 0;
   bool atlas_dirty_ = false;
   bool map_buffer_dirty_ = false;
 

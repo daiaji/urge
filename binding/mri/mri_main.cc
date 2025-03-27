@@ -26,8 +26,10 @@
 #include "binding/mri/autogen_rect_binding.h"
 #include "binding/mri/autogen_sprite_binding.h"
 #include "binding/mri/autogen_table_binding.h"
+#include "binding/mri/autogen_tilemap2_binding.h"
 #include "binding/mri/autogen_tilemap_binding.h"
 #include "binding/mri/autogen_tilemapautotile_binding.h"
+#include "binding/mri/autogen_tilemapbitmap_binding.h"
 #include "binding/mri/autogen_tone_binding.h"
 #include "binding/mri/autogen_viewport_binding.h"
 #include "binding/mri/autogen_window2_binding.h"
@@ -191,6 +193,8 @@ void BindingEngineMri::PreEarlyInitialization(
   InitTableBinding();
   InitTilemapBinding();
   InitTilemapAutotileBinding();
+  InitTilemapBitmapBinding();
+  InitTilemap2Binding();
   InitToneBinding();
   InitViewportBinding();
   InitWindowBinding();

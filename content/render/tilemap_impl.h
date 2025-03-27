@@ -6,7 +6,6 @@
 #define CONTENT_RENDER_TILEMAP_IMPL_H_
 
 #include <array>
-#include <list>
 #include <vector>
 
 #include "base/memory/weak_ptr.h"
@@ -116,7 +115,7 @@ class TilemapImpl : public Tilemap, public GraphicsChild, public Disposable {
                                 DrawableNode::RenderStage stage,
                                 DrawableNode::RenderControllerParams* params);
 
-  base::Vec2i MakeAtlasInternal(std::list<AtlasCompositeCommand>& commands);
+  base::Vec2i MakeAtlasInternal(std::vector<AtlasCompositeCommand>& commands);
   void UpdateViewportInternal(const base::Rect& viewport,
                               const base::Vec2i& viewport_origin);
   void ParseMapDataInternal(

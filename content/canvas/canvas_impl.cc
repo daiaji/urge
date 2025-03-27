@@ -412,10 +412,21 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
         (*scheduler->GetDevice())->CreateBuffer(&buffer_desc);
   }
 
-  for (size_t i = 0; i < text->h; ++i)
-    command_encoder->WriteBuffer(
-        agent->text_write_cache, aligned_bytes_per_row * i,
-        static_cast<uint8_t*>(text->pixels) + text->pitch * i, text->pitch);
+  const uint32_t write_buffer_size = aligned_bytes_per_row * text->h;
+  if (write_buffer_size) {
+    if (write_buffer_size > scheduler->text_render_buffer()->size())
+      scheduler->text_render_buffer()->resize(write_buffer_size);
+
+    uint8_t* temp_memory_buffer = scheduler->text_render_buffer()->data();
+    std::memset(temp_memory_buffer, 0, write_buffer_size);
+    for (size_t i = 0; i < text->h; ++i)
+      std::memcpy(temp_memory_buffer + aligned_bytes_per_row * i,
+                  static_cast<uint8_t*>(text->pixels) + text->pitch * i,
+                  text->pitch);
+
+    command_encoder->WriteBuffer(agent->text_write_cache, 0, temp_memory_buffer,
+                                 write_buffer_size);
+  }
 
   // Copy pixels data to texture
   wgpu::TexelCopyTextureInfo copy_texture;

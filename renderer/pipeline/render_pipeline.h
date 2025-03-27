@@ -91,6 +91,11 @@ class Pipeline_Tilemap : public RenderPipelineBase {
   Pipeline_Tilemap(const wgpu::Device& device, wgpu::TextureFormat target);
 };
 
+class Pipeline_Tilemap2 : public RenderPipelineBase {
+ public:
+  Pipeline_Tilemap2(const wgpu::Device& device, wgpu::TextureFormat target);
+};
+
 }  // namespace renderer
 
 #endif  //! RENDERER_PIPELINE_RENDER_PIPELINE_H_
