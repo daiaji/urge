@@ -48,7 +48,7 @@ void DrawableNode::RegisterEventHandler(const NotificationHandler& handler) {
 }
 
 void DrawableNode::RebindController(DrawNodeController* controller) {
-  if (controller_ == controller_)
+  if (controller == controller_)
     return;
 
   // Setup new parent controller

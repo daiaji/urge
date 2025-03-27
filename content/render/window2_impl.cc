@@ -605,6 +605,7 @@ void Window2Impl::Move(int32_t x,
     return;
 
   bound_ = base::Rect(x, y, width, height);
+  background_dirty_ = true;
 }
 
 bool Window2Impl::IsOpened(ExceptionState& exception_state) {
