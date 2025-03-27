@@ -333,9 +333,7 @@ const Tilemap2Impl::AtlasBlock kTilemapAtlas[] = {
     {Tilemap2Impl::BitmapID::TILE_E, {0, 0, 16, 16}, {48, 16}},
 };
 
-const base::RectF kShadowAtlasArea = {16.0f, 27.0f, 16.0f, 1.0f};
-
-const base::RectF kFreeAtlasArea = {0.0f, 28.0f, 16.0f, 4.0f};
+const base::Rect kShadowAtlasArea = {16, 27, 16, 1};
 
 SDL_Surface* CreateShadowSet(int32_t tilesize) {
   std::vector<SDL_Rect> rects;
@@ -347,11 +345,11 @@ SDL_Surface* CreateShadowSet(int32_t tilesize) {
     int32_t offset = i * tilesize;
     if (i & 0x1)  // Left Top
       rects.push_back({offset, 0, tilesize / 2, tilesize / 2});
-    else if (i & 0x2)  // Right Top
+    if (i & 0x2)  // Right Top
       rects.push_back({offset + tilesize / 2, 0, tilesize / 2, tilesize / 2});
-    else if (i & 0x4)  // Left Bottom
+    if (i & 0x4)  // Left Bottom
       rects.push_back({offset, tilesize / 2, tilesize / 2, tilesize / 2});
-    else if (i & 0x8)  // Right Bottom
+    if (i & 0x8)  // Right Bottom
       rects.push_back(
           {offset + tilesize / 2, tilesize / 2, tilesize / 2, tilesize / 2});
   }
@@ -932,8 +930,7 @@ void Tilemap2Impl::ParseMapDataInternal(
 
   auto process_quads = [&](renderer::Quad* quads, int32_t size, bool above) {
     std::vector<renderer::Quad>* target = above ? &above_cache : &ground_cache;
-    for (int32_t i = 0; i < size; ++i)
-      target->insert(target->end(), quads, quads + size);
+    target->insert(target->end(), quads, quads + size);
   };
 
   auto autotile_set_pos = [&](base::RectF& pos, int32_t i) {
@@ -1113,7 +1110,7 @@ void Tilemap2Impl::ParseMapDataInternal(
     if (pattern_id >= 0x10)
       return;
 
-    const base::Vec2i offset((autotile_id % 8) * 2, (autotile_id / 8) * 2);
+    const base::Vec2i offset((autotile_id % 8) * 2, (autotile_id / 8) * 2 + 12);
     read_autotile_common(pattern_id, offset, color, x, y, kAutotileSrcWall,
                          _countof(kAutotileSrcWall), above);
   };
@@ -1148,20 +1145,19 @@ void Tilemap2Impl::ParseMapDataInternal(
 
     int32_t ox = tile_id % 0x8;
     int32_t oy = tile_id / 0x8;
+
     if (oy >= 8) {
       oy -= 8;
       ox += 8;
     }
 
-    const base::Vec2i src_origin(0, 20);
-    base::RectF tex((src_origin.x + ox) * tilesize_ + 0.5f,
-                    (src_origin.y + oy) * tilesize_ + 0.5f, tilesize_ - 1.0f,
-                    tilesize_ - 1.0f);
+    base::RectF tex(ox * tilesize_ + 0.5f, (20 + oy) * tilesize_ + 0.5f,
+                    tilesize_ - 1.0f, tilesize_ - 1.0f);
     base::RectF pos(x * tilesize_, y * tilesize_, tilesize_, tilesize_);
 
     renderer::Quad quad;
     renderer::Quad::SetTexCoordRect(&quad, tex);
-    renderer::Quad::SetTexCoordRect(&quad, pos);
+    renderer::Quad::SetPositionRect(&quad, pos);
     renderer::Quad::SetColor(&quad, color);
 
     process_quads(&quad, 1, above);
@@ -1195,7 +1191,7 @@ void Tilemap2Impl::ParseMapDataInternal(
 
     renderer::Quad quad;
     renderer::Quad::SetTexCoordRect(&quad, tex);
-    renderer::Quad::SetTexCoordRect(&quad, pos);
+    renderer::Quad::SetPositionRect(&quad, pos);
     renderer::Quad::SetColor(&quad, color);
 
     process_quads(&quad, 1, above);
@@ -1211,8 +1207,8 @@ void Tilemap2Impl::ParseMapDataInternal(
 
     renderer::Quad quad;
     renderer::Quad::SetTexCoordRect(&quad, tex);
-    renderer::Quad::SetTexCoordRect(&quad, pos);
-    renderer::Quad::SetColor(&quad, base::Vec4());
+    renderer::Quad::SetPositionRect(&quad, pos);
+    renderer::Quad::SetColor(&quad, base::Vec4(0));
 
     process_quads(&quad, 1, false);
   };
@@ -1229,16 +1225,16 @@ void Tilemap2Impl::ParseMapDataInternal(
 
     if (tile_id >= 0x0800 && tile_id < 0x0B00)  // A1
       return process_tile_A1(tile_id, color, x, y, over_player);
-    else if (tile_id >= 0x0B00 && tile_id < 0x1100)  // A2
+    if (tile_id >= 0x0B00 && tile_id < 0x1100)  // A2
       return process_tile_A2(tile_id, color, x, y, over_player, is_table,
                              under_tile_id >= 0x1700 && under_tile_id < 0x2000);
-    else if (tile_id < 0x1700)  // A3
+    if (tile_id >= 0x1100 && tile_id < 0x1700)  // A3
       return process_tile_A3(tile_id, color, x, y, over_player);
-    else if (tile_id < 0x2000)  // A4
+    if (tile_id >= 0x1700 && tile_id < 0x2000)  // A4
       return process_tile_A4(tile_id, color, x, y, over_player);
-    else if (tile_id >= 0x0600 && tile_id < 0x0680)  // A5
+    if (tile_id >= 0x0600 && tile_id < 0x0680)  // A5
       return process_tile_A5(tile_id, color, x, y, over_player);
-    else if (tile_id < 0x0400)  // BCDE
+    if (tile_id < 0x0400)  // B ~ E
       return process_tile_bcde(tile_id, color, x, y, over_player);
   };
 
@@ -1246,8 +1242,7 @@ void Tilemap2Impl::ParseMapDataInternal(
                                   int32_t h) {
     for (int32_t y = 0; y < h; ++y)
       for (int32_t x = 0; x < w; ++x)
-        process_shadow_tile(get_wrap_data(map_data_, x + ox, y + oy, 3) & 0xF,
-                            x, y);
+        process_shadow_tile(get_wrap_data(map_data_, x + ox, y + oy, 3), x, y);
   };
 
   auto process_common_layer = [&](int32_t ox, int32_t oy, int32_t w, int32_t h,
@@ -1267,6 +1262,7 @@ void Tilemap2Impl::ParseMapDataInternal(
         const int16_t flash_color =
             get_wrap_data(flash_data_, x + ox, y + oy, 0);
 
+        // Process tile flash
         base::Vec4 blend_color;
         if (flash_color) {
           const float max = 0xF;
