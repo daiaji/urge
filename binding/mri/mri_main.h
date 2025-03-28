@@ -35,7 +35,6 @@ class BindingEngineMri : public content::EngineBindingBase {
                          content::ExceptionState& exception_state);
 
   content::ContentProfile* profile_;
-  BacktraceData backtrace_;
 };
 
 }  // namespace binding

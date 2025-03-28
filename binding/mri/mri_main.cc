@@ -7,8 +7,6 @@
 
 #include "binding/mri/mri_main.h"
 
-#include <iostream>
-
 #include "SDL3/SDL_messagebox.h"
 #include "zlib/zlib.h"
 
@@ -48,20 +46,20 @@ extern filesystem::IOService* g_io_service;
 
 namespace {
 
-using EvalParamater = struct {
-  VALUE string;
-  VALUE filename;
-};
+VALUE EvalString(VALUE string, VALUE filename, int32_t* state) {
+  using EvaluteContext = struct {
+    VALUE string;
+    VALUE filename;
+  };
 
-// eval script, nil, title
-VALUE EvalInternal(EvalParamater* arg) {
-  VALUE argv[] = {arg->string, Qnil, arg->filename};
-  return rb_funcall2(Qnil, rb_intern("eval"), 3, argv);
-}
+  auto evaluate = [](VALUE parameter) -> VALUE {
+    EvaluteContext* context = reinterpret_cast<EvaluteContext*>(parameter);
+    VALUE argv[] = {context->string, Qnil, context->filename};
+    return rb_funcall2(Qnil, rb_intern("eval"), _countof(argv), argv);
+  };
 
-VALUE EvalString(VALUE string, VALUE filename, int* state) {
-  EvalParamater arg = {string, filename};
-  return rb_protect((VALUE(*)(VALUE))EvalInternal, (VALUE)&arg, state);
+  EvaluteContext context = {string, filename};
+  return rb_protect(evaluate, reinterpret_cast<VALUE>(&context), state);
 }
 
 std::string InsertNewLines(const std::string& input, size_t interval) {
@@ -77,73 +75,66 @@ std::string InsertNewLines(const std::string& input, size_t interval) {
   return result;
 }
 
-void ParseExeceptionInfo(VALUE exc,
-                         const BindingEngineMri::BacktraceData& btData) {
-  VALUE exeception_name = rb_class_path(rb_obj_class(exc));
-  VALUE backtrace = rb_funcall2(exc, rb_intern("backtrace"), 0, NULL);
+void ParseExeceptionInfo(VALUE exception) {
+  VALUE exeception_name = rb_class_path(rb_obj_class(exception));
+  VALUE backtrace = rb_funcall2(exception, rb_intern("backtrace"), 0, NULL);
   VALUE backtrace_front = rb_ary_entry(backtrace, 0);
 
-  VALUE ds = rb_sprintf("%" PRIsVALUE ": %" PRIsVALUE " (%" PRIsVALUE ")",
-                        backtrace_front, exc, exeception_name);
+  VALUE format_errors =
+      rb_sprintf("%" PRIsVALUE ": %" PRIsVALUE " (%" PRIsVALUE ")",
+                 backtrace_front, exception, exeception_name);
 
-  std::string error_info(StringValueCStr(ds));
-  LOG(INFO) << "[Binding] " << error_info;
-
+  std::string error_info = StringValueCStr(format_errors);
   error_info = InsertNewLines(error_info, 128);
   SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Engine Error",
                            error_info.c_str(), nullptr);
-}
-
-VALUE RgssMainCb(VALUE block) {
-  rb_funcall2(block, rb_intern("call"), 0, 0);
-  return Qnil;
-}
-
-VALUE RgssMainRescue(VALUE arg, VALUE exc) {
-  VALUE* excRet = (VALUE*)arg;
-
-  *excRet = exc;
-
-  return Qnil;
 }
 
 void MriProcessReset() {
   content::ExceptionState exception_state;
   MriGetGlobalModules()->Graphics->Reset(exception_state);
   MriGetGlobalModules()->Audio->Reset(exception_state);
+  MriProcessException(exception_state);
 }
-
-}  // namespace
 
 MRI_METHOD(MRI_RGSSMain) {
   bool gc_required = false;
 
+  auto call_block = [](VALUE block) -> VALUE {
+    return rb_funcall2(block, rb_intern("call"), 0, nullptr);
+  };
+
+  auto rescue_exception = [](VALUE param, VALUE exception) -> VALUE {
+    return *reinterpret_cast<VALUE*>(param) = exception;
+  };
+
   while (true) {
-    VALUE exc = Qnil;
+    VALUE exception = Qnil;
     if (gc_required) {
       rb_gc_start();
       gc_required = false;
     }
 
-    rb_rescue2((VALUE(*)(ANYARGS))RgssMainCb, rb_block_proc(),
-               (VALUE(*)(ANYARGS))RgssMainRescue, (VALUE)&exc, rb_eException,
-               (VALUE)0);
+    rb_rescue2(call_block, rb_block_proc(), rescue_exception, (VALUE)&exception,
+               rb_eException, nullptr);
 
-    if (NIL_P(exc))
+    if (NIL_P(exception))
       break;
 
-    if (rb_obj_class(exc) ==
+    if (rb_obj_class(exception) ==
         MriGetException(content::ExceptionCode::CODE_NUMS)) {
       gc_required = true;
       MriProcessReset();
-    } else
-      rb_exc_raise(exc);
+    } else {
+      gc_required = false;
+      rb_exc_raise(exception);
+    }
   }
 
   return Qnil;
 }
 
-MRI_METHOD(MRI_RGSSSTOP) {
+MRI_METHOD(MRI_RGSSStop) {
   scoped_refptr<content::Graphics> screen = MriGetGlobalModules()->Graphics;
 
   content::ExceptionState exception_state;
@@ -152,6 +143,8 @@ MRI_METHOD(MRI_RGSSSTOP) {
 
   return Qnil;
 }
+
+}  // namespace
 
 BindingEngineMri::BindingEngineMri() = default;
 
@@ -163,7 +156,7 @@ void BindingEngineMri::PreEarlyInitialization(
   profile_ = profile;
   g_io_service = io_service;
 
-  int argc = 0;
+  int32_t argc = 0;
   char** argv = 0;
   ruby_sysinit(&argc, &argv);
 
@@ -221,7 +214,7 @@ void BindingEngineMri::PreEarlyInitialization(
   }
 
   MriDefineModuleFunction(rb_mKernel, "rgss_main", MRI_RGSSMain);
-  MriDefineModuleFunction(rb_mKernel, "rgss_stop", MRI_RGSSSTOP);
+  MriDefineModuleFunction(rb_mKernel, "rgss_stop", MRI_RGSSStop);
 
   LOG(INFO) << "[Binding] CRuby Interpreter Version: " << RUBY_API_VERSION_CODE;
   LOG(INFO) << "[Binding] CRuby Interpreter Platform: " << RUBY_PLATFORM;
@@ -251,20 +244,13 @@ void BindingEngineMri::OnMainMessageLoopRun(
 }
 
 void BindingEngineMri::PostMainLoopRunning() {
-  bool pause_required = false;
-
-  VALUE exc = rb_errinfo();
-  if (!NIL_P(exc) && !rb_obj_is_kind_of(exc, rb_eSystemExit)) {
-    ParseExeceptionInfo(exc, backtrace_);
-    pause_required = true;
-  }
+  VALUE exception = rb_errinfo();
+  if (!NIL_P(exception) && !rb_obj_is_kind_of(exception, rb_eSystemExit))
+    ParseExeceptionInfo(exception);
 
   ruby_cleanup(0);
   g_current_execution_context = nullptr;
   *MriGetGlobalModules() = GlobalModules();
-
-  if (pause_required)
-    std::cin.get();
 
   LOG(INFO) << "[Binding] Quit mri binding engine.";
 }
@@ -292,18 +278,19 @@ void BindingEngineMri::LoadPackedScripts(
 
   rb_gv_set("$RGSS_SCRIPTS", packed_scripts);
 
-  long scripts_count = RARRAY_LEN(packed_scripts);
+  int32_t scripts_count = RARRAY_LEN(packed_scripts);
   std::string zlib_decode_buffer(0x1000, 0);
 
-  for (long i = 0; i < scripts_count; ++i) {
+  for (int32_t i = 0; i < scripts_count; ++i) {
     VALUE script = rb_ary_entry(packed_scripts, i);
 
     // 0 -> ScriptID for Editor
     VALUE script_name = rb_ary_entry(script, 1);
     VALUE script_src = rb_ary_entry(script, 2);
+
     unsigned long buffer_size;
 
-    int zlib_result = Z_OK;
+    int32_t zlib_result = Z_OK;
 
     while (true) {
       uint8_t* buffer_ptr =
@@ -326,48 +313,39 @@ void BindingEngineMri::LoadPackedScripts(
     }
 
     if (zlib_result != Z_OK) {
-      static char buffer[256];
-      snprintf(buffer, sizeof(buffer), "Error decoding script %ld: '%s'", i,
-               RSTRING_PTR(script_name));
-
-      LOG(INFO) << buffer;
+      LOG(INFO) << "Error when decoding: " << StringValueCStr(script_name);
       break;
     }
 
     rb_ary_store(script, 3, rb_str_new_cstr(zlib_decode_buffer.c_str()));
   }
 
-  VALUE exc = rb_gv_get("$!");
-  if (exc != Qnil)
-    return;
-
-  while (true) {
-    for (long i = 0; i < scripts_count; ++i) {
+  for (;;) {
+    for (int32_t i = 0; i < scripts_count; ++i) {
       VALUE script = rb_ary_entry(packed_scripts, i);
-      const char* script_name = RSTRING_PTR(rb_ary_entry(script, 1));
-      VALUE script_src = rb_ary_entry(script, 3);
+      VALUE script_name = rb_ary_entry(script, 1);
+      VALUE script_source = rb_ary_entry(script, 3);
 
-      VALUE utf8_string =
-          MriStringUTF8(RSTRING_PTR(script_src), RSTRING_LEN(script_src));
+      std::stringstream format_filename;
+      format_filename << std::to_string(i + 1) << " - "
+                      << StringValueCStr(script_name);
 
-      char filename_buffer[512] = {0};
-      int len = snprintf(filename_buffer, sizeof(filename_buffer), "%03ld: %s",
-                         i, script_name);
-
-      VALUE filename = MriStringUTF8(filename_buffer, len);
-      backtrace_.emplace(filename_buffer, script_name);
-
-      int state;
-      EvalString(utf8_string, filename, &state);
+      int32_t state = 0;
+      std::string filename = format_filename.str();
+      EvalString(
+          MriStringUTF8(RSTRING_PTR(script_source), RSTRING_LEN(script_source)),
+          MriStringUTF8(filename.data(), filename.size()), &state);
       if (state)
         break;
     }
 
-    VALUE exc = rb_gv_get("$!");
-    if (rb_obj_class(exc) != MriGetException(content::ExceptionCode::CODE_NUMS))
+    VALUE exception = rb_errinfo();
+    if (rb_obj_class(exception) !=
+        MriGetException(content::ExceptionCode::CODE_NUMS))
       break;
 
     MriProcessReset();
+    rb_gc_start();
   }
 }
 
