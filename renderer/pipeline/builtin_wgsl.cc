@@ -149,6 +149,7 @@ struct EffectParams {
 
   color: vec4<f32>,
   tone: vec4<f32>,
+  opacity: f32,
   bushDepth: f32,
   bushOpacity: f32,
 };
@@ -201,7 +202,7 @@ fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
   frag = vec4<f32>(mix(frag.rgb, vec3<f32>(luma), u_effect.tone.w), frag.a);
   frag = vec4<f32>(frag.rgb + u_effect.tone.rgb, frag.a);
   
-  frag.a *= vertex.color.a;
+  frag.a *= u_effect.opacity;
   frag = vec4<f32>(mix(frag.rgb, u_effect.color.rgb, u_effect.color.a), frag.a);
 
   let currentPos = vertex.uv.y / u_texSize.y;
@@ -228,6 +229,7 @@ struct EffectParams {
 
   color: vec4<f32>,
   tone: vec4<f32>,
+  opacity: f32,
   bushDepth: f32,
   bushOpacity: f32,
 };
@@ -294,7 +296,7 @@ fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
   frag = vec4(frag.rgb + effect.tone.rgb, frag.a);
   
   // Color
-  frag.a *= vertex.color.a;
+  frag.a *= effect.opacity;
   frag = vec4(mix(frag.rgb, effect.color.rgb, effect.color.a), frag.a);
 
   // Bush

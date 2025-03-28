@@ -48,6 +48,7 @@ struct SpriteUniform {
 
   WGPU_ALIGN_TYPE(base::Vec4) color;
   WGPU_ALIGN_TYPE(base::Vec4) tone;
+  WGPU_ALIGN_TYPE(float) opacity;
   WGPU_ALIGN_TYPE(float) bush_depth;
   WGPU_ALIGN_TYPE(float) bush_opacity;
 

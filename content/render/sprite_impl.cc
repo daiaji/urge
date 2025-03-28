@@ -57,7 +57,7 @@ void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
   auto emit_wave_block = [&](int block_y, int block_size) {
     float wave_offset =
         wave_phase + (static_cast<float>(block_y) / wave.length) * kPi;
-    float block_x = std::sin(wave_offset) * wave.amp;
+    float block_x = std::sin(wave_offset) * (wave.amp + 1.0f);
 
     base::Rect tex(src_rect.x, src_rect.y + block_y, src_rect.width,
                    block_size);
@@ -92,7 +92,6 @@ void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
                                      TextureAgent* texture,
                                      const renderer::SpriteUniform& uniform,
                                      const base::Rect& src_rect,
-                                     int32_t opacity,
                                      int32_t mirror,
                                      const SpriteImpl::WaveParams& wave,
                                      const base::Vec2& position,
@@ -108,7 +107,6 @@ void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
     rect.height = std::clamp(rect.height, 0, bitmap_size.y - rect.y);
 
     renderer::Quad transient_quad;
-    renderer::Quad::SetColor(&transient_quad, base::Vec4(opacity / 255.0f));
     renderer::Quad::SetPositionRect(
         &transient_quad, base::Vec2(static_cast<float>(rect.width),
                                     static_cast<float>(rect.height)));
@@ -222,8 +220,11 @@ void SpriteImpl::Update(ExceptionState& exception_state) {
     return;
 
   flash_emitter_.Update();
-  wave_.phase += wave_.speed / 180.0f;
-  wave_.dirty = true;
+
+  if (wave_.amp) {
+    wave_.phase += wave_.speed / 180.0f;
+    wave_.dirty = true;
+  }
 }
 
 uint32_t SpriteImpl::Width(ExceptionState& exception_state) {
@@ -618,15 +619,15 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     base::Rect src_rect = src_rect_->AsBaseRect();
     uniform_params_.color = target_color;
     uniform_params_.tone = tone_->AsNormColor();
+    uniform_params_.opacity = static_cast<float>(opacity_) / 255.0f;
     uniform_params_.bush_depth =
         static_cast<float>(src_rect.y + src_rect.height - bush_.depth);
     uniform_params_.bush_opacity = static_cast<float>(bush_.opacity) / 255.0f;
 
-    screen()->PostTask(
-        base::BindOnce(&GPUUpdateSpriteVerticesInternal, params->device,
-                       params->command_encoder, agent_, bitmap_->GetAgent(),
-                       uniform_params_, src_rect, opacity_, mirror_, wave_,
-                       uniform_params_.position, src_rect_dirty_));
+    screen()->PostTask(base::BindOnce(
+        &GPUUpdateSpriteVerticesInternal, params->device,
+        params->command_encoder, agent_, bitmap_->GetAgent(), uniform_params_,
+        src_rect, mirror_, wave_, uniform_params_.position, src_rect_dirty_));
 
     wave_.dirty = false;
     src_rect_dirty_ = false;
