@@ -20,9 +20,7 @@ inline float DegreesToRadians(float degrees) {
 
 void GPUCreateSpriteInternal(renderer::RenderDevice* device,
                              SpriteAgent* agent) {
-  agent->vertex_buffer = renderer::CreateQuadBuffer(
-      **device, "sprite.vertex",
-      wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex);
+  agent->batch = renderer::QuadBatch::Make(**device);
 
   agent->uniform_buffer =
       renderer::CreateUniformBuffer<renderer::SpriteUniform>(
@@ -42,7 +40,7 @@ void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
                                  const base::Rect& src_rect,
                                  const SpriteImpl::WaveParams& wave,
                                  bool mirror) {
-  if (!wave.amp || !wave.dirty)
+  if (!wave.dirty)
     return;
 
   int32_t last_block_aligned_size = src_rect.height % kWaveBlockAlign;
@@ -50,7 +48,7 @@ void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
   int32_t block_count = loop_block + !!last_block_aligned_size;
   float wave_phase = DegreesToRadians(wave.phase);
 
-  agent->wave_index_count = block_count * 6;
+  agent->draw_count = block_count;
   agent->wave_cache.resize(block_count);
   renderer::Quad* quad = agent->wave_cache.data();
 
@@ -79,11 +77,8 @@ void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
   if (last_block_aligned_size)
     emit_wave_block(loop_block * kWaveBlockAlign, last_block_aligned_size);
 
-  if (!agent->wave_batch)
-    agent->wave_batch =
-        renderer::QuadBatch::Make(**device, agent->wave_cache.size());
-  agent->wave_batch->QueueWrite(*encoder, agent->wave_cache.data(),
-                                agent->wave_cache.size());
+  agent->batch->QueueWrite(*encoder, agent->wave_cache.data(),
+                           agent->wave_cache.size());
 }
 
 void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
@@ -96,10 +91,11 @@ void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
                                      const SpriteImpl::WaveParams& wave,
                                      const base::Vec2& position,
                                      bool src_rect_dirty) {
-  GPUUpdateSpriteWaveInternal(device, agent, encoder, position, src_rect, wave,
-                              mirror);
-
-  if (texture && src_rect_dirty) {
+  // Setup vertex buffer batch
+  if (wave.amp) {
+    GPUUpdateSpriteWaveInternal(device, agent, encoder, position, src_rect,
+                                wave, mirror);
+  } else if (src_rect_dirty) {
     auto bitmap_size = texture->size;
     auto rect = src_rect;
 
@@ -119,9 +115,8 @@ void GPUUpdateSpriteVerticesInternal(renderer::RenderDevice* device,
       renderer::Quad::SetTexCoordRect(&transient_quad, rect);
     }
 
-    encoder->WriteBuffer(agent->vertex_buffer, 0,
-                         reinterpret_cast<uint8_t*>(&transient_quad),
-                         sizeof(transient_quad));
+    agent->draw_count = 1;
+    agent->batch->QueueWrite(*encoder, &transient_quad);
   }
 
   encoder->WriteBuffer(agent->uniform_buffer, 0,
@@ -136,22 +131,20 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
                                   TextureAgent* texture,
                                   int32_t blend_type,
                                   bool wave_active) {
-  auto& pipeline_set = device->GetPipelines()->sprite;
-  auto* pipeline =
-      pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
+  if (agent->draw_count) {
+    auto& pipeline_set = device->GetPipelines()->sprite;
+    auto* pipeline =
+        pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
-  renderpass_encoder->SetPipeline(*pipeline);
-  renderpass_encoder->SetIndexBuffer(**device->GetQuadIndex(),
-                                     device->GetQuadIndex()->format());
-  renderpass_encoder->SetBindGroup(0, *world_binding);
-  renderpass_encoder->SetBindGroup(1, texture->binding);
-  renderpass_encoder->SetBindGroup(2, agent->uniform_binding);
-  if (wave_active && agent->wave_batch) {
-    renderpass_encoder->SetVertexBuffer(0, **agent->wave_batch);
-    renderpass_encoder->DrawIndexed(agent->wave_index_count);
-  } else {
-    renderpass_encoder->SetVertexBuffer(0, agent->vertex_buffer);
-    renderpass_encoder->DrawIndexed(6);
+    renderpass_encoder->SetPipeline(*pipeline);
+    renderpass_encoder->SetIndexBuffer(**device->GetQuadIndex(),
+                                       device->GetQuadIndex()->format());
+    renderpass_encoder->SetBindGroup(0, *world_binding);
+    renderpass_encoder->SetBindGroup(1, texture->binding);
+    renderpass_encoder->SetBindGroup(2, agent->uniform_binding);
+
+    renderpass_encoder->SetVertexBuffer(0, **agent->batch);
+    renderpass_encoder->DrawIndexed(agent->draw_count * 6);
   }
 }
 

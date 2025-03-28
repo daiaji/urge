@@ -18,14 +18,13 @@
 namespace content {
 
 struct SpriteAgent {
-  wgpu::Buffer vertex_buffer;
+  std::unique_ptr<renderer::QuadBatch> batch;
+  int32_t draw_count = 0;
 
   wgpu::BindGroup uniform_binding;
   wgpu::Buffer uniform_buffer;
 
-  std::unique_ptr<renderer::QuadBatch> wave_batch;
   std::vector<renderer::Quad> wave_cache;
-  int32_t wave_index_count = 0;
 };
 
 class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {

@@ -12,6 +12,9 @@
 
 namespace content {
 
+using SpriteBatchBuffer =
+    renderer::BatchBuffer<renderer::SpriteUniform, wgpu::BufferUsage::Storage>;
+
 class SpriteBatch {
  public:
   SpriteBatch();
@@ -23,11 +26,12 @@ class SpriteBatch {
  private:
   TextureAgent* current_batch_texture_;
 
+
   std::vector<renderer::Quad> quads_cache_;
   std::vector<renderer::SpriteUniform> uniform_cache_;
 
   std::unique_ptr<renderer::QuadBatch> quads_batch_;
-
+  std::unique_ptr<SpriteBatchBuffer> uniform_batch_;
 };
 
 }  // namespace content
