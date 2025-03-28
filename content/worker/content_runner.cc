@@ -84,6 +84,7 @@ bool ContentRunner::RunMainLoop() {
 
   // Reset input state
   input_impl_->SetUpdateEnable(true);
+  mouse_impl_->SetUpdateEnable(true);
 
   bool render_gui = show_settings_menu_ || show_fps_monitor_;
   if (render_gui) {
@@ -148,6 +149,7 @@ void ContentRunner::InitializeContentInternal() {
       window_->AsWeakPtr(), profile_.get(), i18n_profile_.get()));
   audio_impl_.reset(
       new AudioImpl(profile_.get(), io_service_.get(), i18n_profile_.get()));
+  mouse_impl_.reset(new MouseImpl(window_->AsWeakPtr(), profile_.get()));
 
   // Init all module workers
   graphics_impl_->InitWithRenderWorker(render_worker_.get(), window_,
@@ -176,6 +178,7 @@ void ContentRunner::CreateSettingsMenuGUIInternal() {
                        .c_str())) {
     // GUI focus manage
     input_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
+    mouse_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
 
     // Button settings
     disable_gui_input_ = input_impl_->CreateButtonGUISettings();
@@ -246,6 +249,7 @@ void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
   module_context.graphics = self->graphics_impl_.get();
   module_context.input = self->input_impl_.get();
   module_context.audio = self->audio_impl_.get();
+  module_context.mouse = self->mouse_impl_.get();
 
   // Execute main loop
   self->binding_->OnMainMessageLoopRun(&execution_context, &module_context);

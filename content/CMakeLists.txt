@@ -35,6 +35,8 @@ set(ENGINE_CONTENT_SRC
   context/execution_context.h
   input/keyboard_controller.cc
   input/keyboard_controller.h
+  input/mouse_controller.cc
+  input/mouse_controller.h
   media/audio_impl.cc
   media/audio_impl.h
   profile/command_ids.h

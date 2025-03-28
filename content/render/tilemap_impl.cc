@@ -578,9 +578,12 @@ void TilemapImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
     return;
 
   viewport_ = ViewportImpl::From(value);
-  ground_node_.RebindController(viewport_->GetDrawableController());
+  DrawNodeController* controller = viewport_
+                                       ? viewport_->GetDrawableController()
+                                       : screen()->GetDrawableController();
+  ground_node_.RebindController(controller);
   for (auto& it : above_nodes_)
-    it.RebindController(viewport_->GetDrawableController());
+    it.RebindController(controller);
 }
 
 scoped_refptr<Bitmap> TilemapImpl::Get_Tileset(

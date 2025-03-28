@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD - style license that can be
 // found in the LICENSE file.
 
-#ifndef BINDING_MRI_INPUT_BINDING_PATCH_H_
-#define BINDING_MRI_INPUT_BINDING_PATCH_H_
+#ifndef BINDING_MRI_BINDING_PATCH_H_
+#define BINDING_MRI_BINDING_PATCH_H_
 
 #include "binding/mri/mri_util.h"
 
 namespace binding {
 
-void ApplyInputBindingPatch();
+void MriApplyBindingPatch();
 
 }  // namespace binding
 
-#endif  //! BINDING_MRI_INPUT_BINDING_PATCH_H_
+#endif  //! BINDING_MRI_BINDING_PATCH_H_

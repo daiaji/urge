@@ -179,7 +179,8 @@ void PlaneImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
     return;
 
   viewport_ = ViewportImpl::From(value);
-  node_.RebindController(viewport_->GetDrawableController());
+  node_.RebindController(viewport_ ? viewport_->GetDrawableController()
+                                   : screen()->GetDrawableController());
   quad_array_dirty_ = true;
 }
 

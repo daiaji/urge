@@ -742,8 +742,11 @@ void Tilemap2Impl::Put_Viewport(const scoped_refptr<Viewport>& value,
     return;
 
   viewport_ = ViewportImpl::From(value);
-  ground_node_.RebindController(viewport_->GetDrawableController());
-  above_node_.RebindController(viewport_->GetDrawableController());
+  DrawNodeController* controller = viewport_
+                                       ? viewport_->GetDrawableController()
+                                       : screen()->GetDrawableController();
+  ground_node_.RebindController(controller);
+  above_node_.RebindController(controller);
 }
 
 bool Tilemap2Impl::Get_Visible(ExceptionState& exception_state) {

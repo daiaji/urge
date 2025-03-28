@@ -284,7 +284,8 @@ void SpriteImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
     return;
 
   viewport_ = ViewportImpl::From(value);
-  node_.RebindController(viewport_->GetDrawableController());
+  node_.RebindController(viewport_ ? viewport_->GetDrawableController()
+                                   : screen()->GetDrawableController());
 }
 
 bool SpriteImpl::Get_Visible(ExceptionState& exception_state) {

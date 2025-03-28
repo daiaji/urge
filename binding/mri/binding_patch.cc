@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD - style license that can be
 // found in the LICENSE file.
 
-#include "binding/mri/input_binding_patch.h"
+#include "binding/mri/binding_patch.h"
 
+#include "content/input/mouse_controller.h"
 #include "content/public/engine_input.h"
 
 namespace binding {
@@ -74,7 +75,7 @@ MRI_METHOD(input_is_repeated) {
   return v ? Qtrue : Qfalse;
 }
 
-void ApplyInputBindingPatch() {
+void ApplyInputPatch() {
   VALUE klass = rb_const_get(rb_cObject, rb_intern("Input"));
 
   MriDefineModuleFunction(klass, "press?", input_is_pressed);
@@ -86,6 +87,32 @@ void ApplyInputBindingPatch() {
     ID key = rb_intern(binding_set.name.c_str());
     rb_const_set(klass, key, INT2FIX(binding_set.key_id));
   }
+}
+
+struct MouseButtonSet {
+  std::string name;
+  int button_id;
+};
+
+const MouseButtonSet kMouseButtonSets[] = {
+    {"LEFT", content::MouseImpl::Button::Left},
+    {"MIDDLE", content::MouseImpl::Button::Middle},
+    {"RIGHT", content::MouseImpl::Button::Right},
+    {"X1", content::MouseImpl::Button::X1},
+    {"X2", content::MouseImpl::Button::X2},
+};
+
+void ApplyMousePatch() {
+  VALUE klass = rb_const_get(rb_cObject, rb_intern("Mouse"));
+
+  for (int i = 0; i < _countof(kMouseButtonSets); ++i)
+    rb_const_set(klass, rb_intern(kMouseButtonSets[i].name.c_str()),
+                 INT2FIX(kMouseButtonSets[i].button_id));
+}
+
+void MriApplyBindingPatch() {
+  ApplyInputPatch();
+  ApplyMousePatch();
 }
 
 }  // namespace binding

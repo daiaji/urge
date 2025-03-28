@@ -12,7 +12,7 @@
 #include "SDL3/SDL_messagebox.h"
 #include "zlib/zlib.h"
 
-#include "binding/mri/input_binding_patch.h"
+#include "binding/mri/binding_patch.h"
 #include "binding/mri/mri_file.h"
 #include "binding/mri/urge_binding.h"
 
@@ -22,6 +22,7 @@
 #include "binding/mri/autogen_font_binding.h"
 #include "binding/mri/autogen_graphics_binding.h"
 #include "binding/mri/autogen_input_binding.h"
+#include "binding/mri/autogen_mouse_binding.h"
 #include "binding/mri/autogen_plane_binding.h"
 #include "binding/mri/autogen_rect_binding.h"
 #include "binding/mri/autogen_sprite_binding.h"
@@ -109,6 +110,7 @@ VALUE RgssMainRescue(VALUE arg, VALUE exc) {
 void MriProcessReset() {
   content::ExceptionState exception_state;
   MriGetGlobalModules()->Graphics->Reset(exception_state);
+  MriGetGlobalModules()->Audio->Reset(exception_state);
 }
 
 }  // namespace
@@ -186,7 +188,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitFontBinding();
   InitGraphicsBinding();
   InitInputBinding();
-  ApplyInputBindingPatch();
+  InitMouseBinding();
   InitPlaneBinding();
   InitRectBinding();
   InitSpriteBinding();
@@ -199,6 +201,8 @@ void BindingEngineMri::PreEarlyInitialization(
   InitViewportBinding();
   InitWindowBinding();
   InitWindow2Binding();
+
+  MriApplyBindingPatch();
 
   if (profile->api_version < content::ContentProfile::APIVersion::RGSS3) {
     if (sizeof(void*) == 4) {
@@ -233,6 +237,7 @@ void BindingEngineMri::OnMainMessageLoopRun(
   MriGetGlobalModules()->Graphics = module_context->graphics;
   MriGetGlobalModules()->Input = module_context->input;
   MriGetGlobalModules()->Audio = module_context->audio;
+  MriGetGlobalModules()->Mouse = module_context->mouse;
 
   // Run packed scripts
   content::ExceptionState exception_state;

@@ -495,8 +495,11 @@ void WindowImpl::Put_Viewport(const scoped_refptr<Viewport>& value,
     return;
 
   viewport_ = ViewportImpl::From(value);
-  background_node_.RebindController(viewport_->GetDrawableController());
-  control_node_.RebindController(viewport_->GetDrawableController());
+  DrawNodeController* controller = viewport_
+                                       ? viewport_->GetDrawableController()
+                                       : screen()->GetDrawableController();
+  background_node_.RebindController(controller);
+  control_node_.RebindController(controller);
 }
 
 scoped_refptr<Bitmap> WindowImpl::Get_Windowskin(
