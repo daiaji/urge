@@ -36,27 +36,59 @@ class QuadIndexCache {
   std::vector<uint16_t> cache_;
 };
 
-class QuadBatch {
+template <typename TargetType, wgpu::BufferUsage BatchUsage>
+class BatchBuffer {
  public:
-  ~QuadBatch() = default;
+  ~BatchBuffer() = default;
 
-  QuadBatch(const QuadBatch&) = delete;
-  QuadBatch& operator=(const QuadBatch&) = delete;
+  BatchBuffer(const BatchBuffer&) = delete;
+  BatchBuffer& operator=(const BatchBuffer&) = delete;
 
-  static std::unique_ptr<QuadBatch> Make(const wgpu::Device& device,
-                                         uint64_t initial_count = 0);
+  static std::unique_ptr<BatchBuffer> Make(const wgpu::Device& device,
+                                           uint64_t initial_count = 0) {
+    wgpu::Buffer result_buffer;
+    if (initial_count) {
+      wgpu::BufferDescriptor buffer_desc;
+      buffer_desc.label = "generic.batch.buffer";
+      buffer_desc.usage = BatchUsage | wgpu::BufferUsage::CopyDst;
+      buffer_desc.size = initial_count * sizeof(TargetType);
+      buffer_desc.mappedAtCreation = false;
+      result_buffer = device.CreateBuffer(&buffer_desc);
+    }
+
+    return std::unique_ptr<BatchBuffer>(new BatchBuffer(device, result_buffer));
+  }
 
   wgpu::Buffer& operator*() { return buffer_; }
+
   void QueueWrite(const wgpu::CommandEncoder& encoder,
-                  const Quad* data,
-                  uint32_t count = 1);
+                  const TargetType* data,
+                  uint32_t count = 1) {
+    if (!buffer_ || buffer_.GetSize() < sizeof(TargetType) * count) {
+      wgpu::BufferDescriptor buffer_desc;
+      buffer_desc.label = "generic.batch.buffer";
+      buffer_desc.usage = BatchUsage | wgpu::BufferUsage::CopyDst;
+      buffer_desc.size = count * sizeof(TargetType);
+      buffer_desc.mappedAtCreation = true;
+      buffer_ = device_.CreateBuffer(&buffer_desc);
+      size_t buffer_size = count * sizeof(TargetType);
+      std::memcpy(buffer_.GetMappedRange(0, buffer_size), data, buffer_size);
+      return buffer_.Unmap();
+    }
+
+    encoder.WriteBuffer(buffer_, 0, reinterpret_cast<const uint8_t*>(data),
+                        count * sizeof(TargetType));
+  }
 
  private:
-  QuadBatch(const wgpu::Device& device, const wgpu::Buffer& vertex_buffer);
+  BatchBuffer(const wgpu::Device& device, const wgpu::Buffer& buffer)
+      : device_(device), buffer_(buffer) {}
 
   wgpu::Device device_;
   wgpu::Buffer buffer_;
 };
+
+using QuadBatch = BatchBuffer<Quad, wgpu::BufferUsage::Vertex>;
 
 }  // namespace renderer
 

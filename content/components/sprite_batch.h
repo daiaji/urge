@@ -5,6 +5,31 @@
 #ifndef CONTENT_COMPONENTS_SPRITE_BATCH_H_
 #define CONTENT_COMPONENTS_SPRITE_BATCH_H_
 
-namespace content {}
+#include <vector>
+
+#include "content/canvas/canvas_impl.h"
+#include "renderer/device/render_device.h"
+
+namespace content {
+
+class SpriteBatch {
+ public:
+  SpriteBatch();
+  ~SpriteBatch();
+
+  SpriteBatch(const SpriteBatch&) = delete;
+  SpriteBatch& operator=(const SpriteBatch&) = delete;
+
+ private:
+  TextureAgent* current_batch_texture_;
+
+  std::vector<renderer::Quad> quads_cache_;
+  std::vector<renderer::SpriteUniform> uniform_cache_;
+
+  std::unique_ptr<renderer::QuadBatch> quads_batch_;
+
+};
+
+}  // namespace content
 
 #endif  //! CONTENT_COMPONENTS_SPRITE_BATCH_H_

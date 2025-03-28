@@ -65,42 +65,4 @@ wgpu::Buffer* QuadIndexCache::Allocate(uint32_t quadrangle_size) {
   return &index_buffer_;
 }
 
-QuadBatch::QuadBatch(const wgpu::Device& device,
-                     const wgpu::Buffer& vertex_buffer)
-    : device_(device), buffer_(vertex_buffer) {}
-
-std::unique_ptr<QuadBatch> QuadBatch::Make(const wgpu::Device& device,
-                                           uint64_t initial_count) {
-  wgpu::Buffer result_buffer;
-  if (initial_count) {
-    wgpu::BufferDescriptor buffer_desc;
-    buffer_desc.label = "quadbatch.vertex";
-    buffer_desc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-    buffer_desc.size = initial_count * sizeof(Quad);
-    buffer_desc.mappedAtCreation = false;
-    result_buffer = device.CreateBuffer(&buffer_desc);
-  }
-
-  return std::unique_ptr<QuadBatch>(new QuadBatch(device, result_buffer));
-}
-
-void QuadBatch::QueueWrite(const wgpu::CommandEncoder& encoder,
-                           const Quad* data,
-                           uint32_t count) {
-  if (!buffer_ || buffer_.GetSize() < sizeof(Quad) * count) {
-    wgpu::BufferDescriptor buffer_desc;
-    buffer_desc.label = "quadbatch.vertex";
-    buffer_desc.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-    buffer_desc.size = count * sizeof(Quad);
-    buffer_desc.mappedAtCreation = true;
-    buffer_ = device_.CreateBuffer(&buffer_desc);
-    std::memcpy(buffer_.GetMappedRange(0, count * sizeof(Quad)), data,
-                count * sizeof(Quad));
-    return buffer_.Unmap();
-  }
-
-  encoder.WriteBuffer(buffer_, 0, reinterpret_cast<const uint8_t*>(data),
-                      count * sizeof(Quad));
-}
-
 }  // namespace renderer

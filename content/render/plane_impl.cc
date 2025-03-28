@@ -11,7 +11,7 @@ namespace content {
 namespace {
 
 void GPUCreatePlaneInternal(renderer::RenderDevice* device, PlaneAgent* agent) {
-  agent->batch = renderer::QuadBatch::Make(**device, 0);
+  agent->batch = renderer::QuadBatch::Make(**device);
   agent->uniform_buffer =
       renderer::CreateUniformBuffer<renderer::ViewportFragmentUniform>(
           **device, "plane.uniform", wgpu::BufferUsage::CopyDst);

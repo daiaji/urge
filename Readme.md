@@ -1,4 +1,4 @@
-﻿# ![Logo](app/resources/urge_favicon_64.png) Universal Ruby Game Engine (开发中)
+﻿# ![Logo](app/resources/urge_favicon_64.png) Universal Ruby Game Engine
 
 ## 语言选择 Language selection
 - [English](README_EN.md)
