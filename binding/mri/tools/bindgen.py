@@ -31,6 +31,7 @@ class MriBindGen:
       func_body += "VALUE klass = rb_define_class(\"{}\", rb_cObject);\n".format(kname)
       func_body += "rb_define_alloc_func(klass, MriClassAllocate<&k{}DataType>);\n".format(kname)
       func_body += "MriDefineMethod(klass, \"engine_id\", MriGetEngineID);\n"
+      func_body += "MRI_DECLARE_OBJECT_COMPARE({});\n".format(kname)
 
     func_body += "\n"
 
@@ -86,6 +87,7 @@ class MriBindGen:
     func_body = ""
     if not is_module:
       func_body += "MRI_DEFINE_DATATYPE_REF({}, \"{}\", content::{});\n".format(kname, kname, kname)
+      func_body += "MRI_OBJECT_ID_COMPARE({});".format(kname)
 
     func_body += "\n"
 

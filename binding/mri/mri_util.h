@@ -452,6 +452,24 @@ void MriInitSerializableBinding(VALUE klass) {
   MriDefineMethod(klass, "_dump", serializable_marshal_dump<Ty>);
 }
 
+///
+/// Object compare template
+///
+
+#define MRI_OBJECT_ID_COMPARE(klass)                                     \
+  MRI_METHOD(klass##_equal_to) {                                         \
+    scoped_refptr obj = MriGetStructData<content::klass>(self);          \
+    MriCheckArgc(argc, 1);                                               \
+    scoped_refptr value_obj =                                            \
+        MriCheckStructData<content::klass>(argv[0], k##klass##DataType); \
+    return obj == value_obj ? Qtrue : Qfalse;                            \
+  }
+
+#define MRI_DECLARE_OBJECT_COMPARE(ty)          \
+  MriDefineMethod(klass, "==", ty##_equal_to);  \
+  MriDefineMethod(klass, "===", ty##_equal_to); \
+  MriDefineMethod(klass, "eql?", ty##_equal_to);
+
 }  // namespace binding
 
 #endif  // !BINDING_MRI_MRI_UTIL_H_
