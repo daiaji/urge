@@ -875,8 +875,7 @@ void CanvasImpl::ClearRect(int32_t x,
     return;
 
   auto* command = AllocateCommand<Command_GradientFillRect>();
-  command->region =
-      base::Rect(0, 0, Width(exception_state), Height(exception_state));
+  command->region = base::Rect(x, y, width, height);
   command->color1 = base::Vec4(0);
   command->color2 = command->color1;
   command->vertical = false;
