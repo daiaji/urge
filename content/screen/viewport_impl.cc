@@ -362,6 +362,12 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   controller_.BroadCastNotification(DrawableNode::BEFORE_RENDER,
                                     &controller_params);
 
+  // 1.5) Update sprite batch
+  screen()->PostTask(
+      base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
+                     base::Unretained(screen()->GetSpriteBatch()),
+                     controller_params.command_encoder));
+
   // 2) Setup renderpass
   base::Rect viewport_rect = rect_->AsBaseRect();
   base::Vec2i offset = viewport_rect.Position() - origin_;

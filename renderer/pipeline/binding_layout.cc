@@ -165,7 +165,7 @@ wgpu::BindGroupLayout SpriteUniform::GetInstanceLayout(
   entries[0].buffer.minBindingSize = sizeof(SpriteUniform);
 
   wgpu::BindGroupLayoutDescriptor binding_desc;
-  binding_desc.label = "sprite.fragment.binding";
+  binding_desc.label = "sprite.batch.fragment.binding";
   binding_desc.entryCount = _countof(entries);
   binding_desc.entries = entries;
 

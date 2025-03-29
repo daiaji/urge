@@ -219,6 +219,10 @@ CanvasScheduler* RenderScreenImpl::GetCanvasScheduler() const {
   return agent_->canvas_scheduler.get();
 }
 
+SpriteBatch* RenderScreenImpl::GetSpriteBatch() const {
+  return agent_->sprite_batch.get();
+}
+
 ScopedFontData* RenderScreenImpl::GetScopedFontContext() const {
   return scoped_font_;
 }
@@ -255,6 +259,13 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   controller->BroadCastNotification(DrawableNode::BEFORE_RENDER,
                                     &controller_params);
 
+  // 1.5) Update sprite batch
+  base::ThreadWorker::PostTask(
+      render_worker_,
+      base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
+                     base::Unretained(agent_->sprite_batch.get()),
+                     controller_params.command_encoder));
+
   // 2) Setup renderpass
   base::ThreadWorker::PostTask(
       render_worker_,
@@ -277,8 +288,10 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
 
 void RenderScreenImpl::Update(ExceptionState& exception_state) {
   if (!frozen_) {
-    if (!(allow_skip_frame_ && frame_skip_required_))
+    if (!(allow_skip_frame_ && frame_skip_required_)) {
+      // Render a frame and push into render queue
       RenderFrameInternal(&controller_, &agent_->screen_buffer, resolution_);
+    }
   }
 
   // Process frame delay
@@ -496,6 +509,9 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
   agent_->canvas_scheduler = CanvasScheduler::MakeInstance(
       agent_->device.get(), agent_->context.get(), io_service_);
   agent_->canvas_scheduler->InitWithRenderWorker(render_worker_);
+
+  // Create global sprite batch scheduler
+  agent_->sprite_batch = SpriteBatch::Make(agent_->device.get());
 
   // Create screen world matrix buffer
   agent_->world_buffer =

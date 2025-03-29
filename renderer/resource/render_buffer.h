@@ -61,7 +61,7 @@ class BatchBuffer {
 
   wgpu::Buffer& operator*() { return buffer_; }
 
-  void QueueWrite(const wgpu::CommandEncoder& encoder,
+  bool QueueWrite(const wgpu::CommandEncoder& encoder,
                   const TargetType* data,
                   uint32_t count = 1) {
     if (!buffer_ || buffer_.GetSize() < sizeof(TargetType) * count) {
@@ -73,11 +73,13 @@ class BatchBuffer {
       buffer_ = device_.CreateBuffer(&buffer_desc);
       size_t buffer_size = count * sizeof(TargetType);
       std::memcpy(buffer_.GetMappedRange(0, buffer_size), data, buffer_size);
-      return buffer_.Unmap();
+      buffer_.Unmap();
+      return true;
     }
 
     encoder.WriteBuffer(buffer_, 0, reinterpret_cast<const uint8_t*>(data),
                         count * sizeof(TargetType));
+    return false;
   }
 
  private:

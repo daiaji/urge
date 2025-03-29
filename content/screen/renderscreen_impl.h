@@ -9,6 +9,7 @@
 #include "content/canvas/canvas_scheduler.h"
 #include "content/components/disposable.h"
 #include "content/components/font_context.h"
+#include "content/components/sprite_batch.h"
 #include "content/profile/content_profile.h"
 #include "content/profile/i18n_profile.h"
 #include "content/public/engine_graphics.h"
@@ -23,6 +24,7 @@ struct RenderGraphicsAgent {
   std::unique_ptr<renderer::RenderDevice> device;
   std::unique_ptr<renderer::DeviceContext> context;
   std::unique_ptr<CanvasScheduler> canvas_scheduler;
+  std::unique_ptr<SpriteBatch> sprite_batch;
 
   wgpu::Texture* present_target = nullptr;
   wgpu::Texture screen_buffer;
@@ -78,6 +80,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   renderer::RenderDevice* GetDevice() const;
   renderer::DeviceContext* GetContext() const;
   CanvasScheduler* GetCanvasScheduler() const;
+  SpriteBatch* GetSpriteBatch() const;
   ScopedFontData* GetScopedFontContext() const;
 
   DrawNodeController* GetDrawableController() { return &controller_; }

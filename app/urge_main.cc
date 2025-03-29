@@ -67,6 +67,8 @@ int SDL_main(int argc, char* argv[]) {
       content::ContentProfile::MakeFrom(inifile);
   profile->program_name = app;
 
+  profile->LoadCommandLine(argc, argv);
+
   if (!profile->LoadConfigure(app)) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Engine",
                              "Error when parse configure file.", nullptr);

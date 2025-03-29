@@ -18,13 +18,21 @@
 namespace content {
 
 struct SpriteAgent {
+  renderer::Quad quad;
+  std::vector<renderer::Quad> wave_cache;
+  int32_t wave_draw_count = 0;
+
+  struct {
+    uint32_t index_count = 0;
+    uint32_t instance_count = 0;
+    uint32_t first_index = 0;
+    uint32_t first_instance = 0;
+  } draw_info;
+
   std::unique_ptr<renderer::QuadBatch> batch;
-  int32_t draw_count = 0;
 
   wgpu::BindGroup uniform_binding;
   wgpu::Buffer uniform_buffer;
-
-  std::vector<renderer::Quad> wave_cache;
 };
 
 class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
@@ -83,7 +91,7 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
       DrawableNode::RenderStage stage,
       DrawableNode::RenderControllerParams* params);
   void SrcRectChangedInternal();
-  bool IsOtherRenderBatchableInternal(SpriteImpl* other);
+  TextureAgent* GetOtherRenderBatchableTextureInternal(SpriteImpl* other);
 
   DrawableNode node_;
   DrawableFlashController flash_emitter_;
