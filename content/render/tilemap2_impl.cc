@@ -507,7 +507,7 @@ void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
-                                  wgpu::RenderPassEncoder* encoder,
+                                  renderer::RenderPass* encoder,
                                   wgpu::BindGroup* world_binding,
                                   Tilemap2Agent* agent) {
   if (!agent->atlas_texture)
@@ -529,7 +529,7 @@ void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
-                                 wgpu::RenderPassEncoder* encoder,
+                                 renderer::RenderPass* encoder,
                                  wgpu::BindGroup* world_binding,
                                  Tilemap2Agent* agent) {
   if (!agent->atlas_texture)

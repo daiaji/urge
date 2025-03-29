@@ -83,7 +83,7 @@ void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
   }
 }
 
-void GPUResetViewportRegion(wgpu::RenderPassEncoder* agent,
+void GPUResetViewportRegion(renderer::RenderPass* agent,
                             const base::Rect& region) {
   agent->SetScissorRect(region.x, region.y, region.width, region.height);
 }
@@ -153,7 +153,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
 
 void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
                                    wgpu::CommandEncoder* command_encoder,
-                                   wgpu::RenderPassEncoder* last_renderpass,
+                                   renderer::RenderPass* last_renderpass,
                                    wgpu::BindGroup* root_world,
                                    const base::Rect& last_viewport,
                                    wgpu::Texture* screen_buffer,

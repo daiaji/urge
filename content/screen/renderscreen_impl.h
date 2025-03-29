@@ -31,7 +31,7 @@ struct RenderGraphicsAgent {
   wgpu::Texture frozen_buffer;
   wgpu::Texture transition_buffer;
 
-  wgpu::RenderPassEncoder render_pass;
+  renderer::RenderPass render_pass;
   wgpu::BindGroup world_binding;
   wgpu::Buffer world_buffer;
   wgpu::Buffer effect_vertex;

@@ -433,7 +433,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
-                                  wgpu::RenderPassEncoder* encoder,
+                                  renderer::RenderPass* encoder,
                                   wgpu::BindGroup* world_binding,
                                   Window2Agent* agent,
                                   TextureAgent* windowskin,

@@ -148,7 +148,7 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
 }
 
 void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
-                                  wgpu::RenderPassEncoder* renderpass_encoder,
+                                  renderer::RenderPass* renderpass_encoder,
                                   SpriteBatch* batch_scheduler,
                                   wgpu::BindGroup* world_binding,
                                   SpriteAgent* agent,
@@ -681,6 +681,9 @@ void SpriteImpl::DrawableNodeHandlerInternal(
       src_rect_dirty_ = false;
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+    if (!wave_.amp && !agent_->draw_info.index_count)
+      return;
+
     screen()->PostTask(
         base::BindOnce(&GPUOnSpriteRenderingInternal, params->device,
                        params->renderpass_encoder, screen()->GetSpriteBatch(),

@@ -11,6 +11,7 @@
 #include "base/containers/linked_list.h"
 #include "base/math/rectangle.h"
 #include "renderer/device/render_device.h"
+#include "renderer/render/render_pass.h"
 #include "renderer/resource/render_buffer.h"
 
 namespace content {
@@ -95,7 +96,7 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
 
     // [Stage: on rendering]
     // Main render pass encoder.
-    wgpu::RenderPassEncoder* renderpass_encoder = nullptr;
+    renderer::RenderPass* renderpass_encoder = nullptr;
 
     // [Stage: on rendering]
     // World transform matrix.

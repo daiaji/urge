@@ -28,7 +28,7 @@ struct ViewportAgent {
     wgpu::Buffer vertex_buffer;
   } effect;
 
-  wgpu::RenderPassEncoder render_pass;
+  renderer::RenderPass render_pass;
 };
 
 class ViewportImpl : public Viewport, public GraphicsChild, public Disposable {

@@ -93,7 +93,7 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
 }
 
 void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
-                                    wgpu::RenderPassEncoder* encoder,
+                                    renderer::RenderPass* encoder,
                                     wgpu::BindGroup* world_binding,
                                     PlaneAgent* agent,
                                     TextureAgent* texture,

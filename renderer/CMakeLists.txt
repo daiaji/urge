@@ -16,6 +16,8 @@ set(ENGINE_RENDERER_SRC
   pipeline/builtin_wgsl.h
   pipeline/render_pipeline.cc
   pipeline/render_pipeline.h
+  render/render_pass.cc
+  render/render_pass.h
   resource/render_buffer.cc
   resource/render_buffer.h
   utils/buffer_utils.cc

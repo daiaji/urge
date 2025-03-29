@@ -323,7 +323,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
-                                      wgpu::RenderPassEncoder* encoder,
+                                      renderer::RenderPass* encoder,
                                       wgpu::BindGroup* world_binding,
                                       const base::Rect& last_viewport,
                                       const base::Rect& bound,
@@ -354,7 +354,7 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderControlLayerInternal(renderer::RenderDevice* device,
-                                   wgpu::RenderPassEncoder* encoder,
+                                   renderer::RenderPass* encoder,
                                    wgpu::BindGroup* world_binding,
                                    const base::Rect& last_viewport,
                                    const base::Vec2i& last_origin,
