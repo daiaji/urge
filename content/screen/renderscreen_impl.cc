@@ -8,6 +8,7 @@
 
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_timer.h"
+#include "magic_enum/magic_enum.hpp"
 #include "third_party/imgui/imgui.h"
 #include "third_party/imgui/imgui_impl_sdl3.h"
 #include "third_party/imgui/imgui_impl_wgpu.h"
@@ -17,28 +18,6 @@
 #include "renderer/utils/texture_utils.h"
 
 namespace content {
-
-namespace {
-
-wgpu::BackendType GetWGPUBackend(const std::string& wgpu_backend) {
-  static const std::unordered_map<std::string, wgpu::BackendType> backend_map =
-      {{"Null", wgpu::BackendType::Null},
-       {"WebGPU", wgpu::BackendType::WebGPU},
-       {"D3D11", wgpu::BackendType::D3D11},
-       {"D3D12", wgpu::BackendType::D3D12},
-       {"Metal", wgpu::BackendType::Metal},
-       {"Vulkan", wgpu::BackendType::Vulkan},
-       {"OpenGL", wgpu::BackendType::OpenGL},
-       {"OpenGLES", wgpu::BackendType::OpenGLES}};
-
-  auto it = backend_map.find(wgpu_backend);
-  if (it != backend_map.end())
-    return it->second;
-
-  return wgpu::BackendType::Undefined;
-}
-
-}  // namespace
 
 RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
                                    ContentProfile* profile,
@@ -499,7 +478,10 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
     const std::string& wgpu_backend) {
   // Create device on window
   agent_->device = renderer::RenderDevice::Create(
-      window, GetWGPUBackend(wgpu_backend), {"skip_validation"});
+      window,
+      magic_enum::enum_cast<wgpu::BackendType>(wgpu_backend)
+          .value_or(wgpu::BackendType::Undefined),
+      {"skip_validation"});
 
   // Create immediate command encoder
   agent_->context =

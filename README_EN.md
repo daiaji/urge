@@ -32,6 +32,8 @@
 - concurrentqueue - https://github.com/cameron314/concurrentqueue  
 - fiber - https://github.com/paladin-t/fiber  
 - inih - https://github.com/benhoyt/inih  
+- rapidxml - https://rapidxml.sourceforge.net/  
+- magic_enum - https://github.com/Neargye/magic_enum  
 
 ### External Dependencies
 - dawn - https://dawn.googlesource.com/dawn  

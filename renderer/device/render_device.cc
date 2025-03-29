@@ -5,6 +5,7 @@
 #include "renderer/device/render_device.h"
 
 #include "SDL3/SDL_video.h"
+#include "magic_enum/magic_enum.hpp"
 #if defined(WGPU_DAWN_NATIVE)
 #include "dawn/dawn_proc.h"
 #include "dawn/native/DawnNative.h"
@@ -35,28 +36,8 @@ wgpu::Instance g_wgpu_instance = nullptr;
 void OnDeviceLost(const wgpu::Device& /*device*/,
                   wgpu::DeviceLostReason reason,
                   wgpu::StringView message) {
-  std::string reason_str;
-  switch (reason) {
-    case wgpu::DeviceLostReason::Unknown:
-      reason_str = "Unknown";
-      break;
-    case wgpu::DeviceLostReason::Destroyed:
-      reason_str = "Destroyed";
-      break;
-    case wgpu::DeviceLostReason::InstanceDropped:
-      reason_str = "InstanceDropped";
-      break;
-    case wgpu::DeviceLostReason::FailedCreation:
-      reason_str = "FailedCreation";
-      break;
-    // You may want to handle additional enumerations if WGPU adds more
-    default:
-      reason_str = "Unrecognized Reason";
-      break;
-  }
-
-  LOG(INFO) << "[Renderer] Device lost - " << reason_str << ": "
-            << std::string_view(message);
+  LOG(INFO) << "[Renderer] Device lost - " << magic_enum::enum_name(reason)
+            << ": " << std::string_view(message);
 }
 
 /**
@@ -70,25 +51,7 @@ void OnDeviceLost(const wgpu::Device& /*device*/,
 void OnUncapturedError(const wgpu::Device& /*device*/,
                        wgpu::ErrorType error_type,
                        wgpu::StringView message) {
-  const char* type_str = nullptr;
-  switch (error_type) {
-    case wgpu::ErrorType::Validation:
-      type_str = "Validation";
-      break;
-    case wgpu::ErrorType::OutOfMemory:
-      type_str = "OutOfMemory";
-      break;
-    case wgpu::ErrorType::Internal:
-      type_str = "Internal";
-      break;
-    case wgpu::ErrorType::Unknown:
-      type_str = "Unknown";
-      break;
-    default:
-      return;
-  }
-
-  LOG(INFO) << "[Renderer] " << type_str
+  LOG(INFO) << "[Renderer] " << magic_enum::enum_name(error_type)
             << " error: " << std::string_view(message);
 }
 
@@ -129,27 +92,8 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
     }
   }
 
-  wgpu::ChainedStruct* toggles_chain = nullptr;
-#ifndef __EMSCRIPTEN__
-  std::vector<const char*> enable_toggle_names;
-  std::vector<const char*> disabled_toggle_names;
-  for (const auto& toggle : enable_toggles)
-    enable_toggle_names.push_back(toggle.c_str());
-  for (const auto& toggle : disable_toggles)
-    disabled_toggle_names.push_back(toggle.c_str());
-
-  wgpu::DawnTogglesDescriptor toggles;
-  toggles.enabledToggles = enable_toggle_names.data();
-  toggles.enabledToggleCount = enable_toggle_names.size();
-  toggles.disabledToggles = disabled_toggle_names.data();
-  toggles.disabledToggleCount = disabled_toggle_names.size();
-
-  toggles_chain = &toggles;
-#endif  // __EMSCRIPTEN__
-
   // 2) Request an adapter
   wgpu::RequestAdapterOptions adapter_options;
-  adapter_options.nextInChain = toggles_chain;
   adapter_options.powerPreference = wgpu::PowerPreference::HighPerformance;
   adapter_options.backendType = required_backend;
 
@@ -178,14 +122,36 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   wgpu::AdapterInfo info;
   adapter.GetInfo(&info);
 
-  LOG(INFO) << "[Renderer] Vendor: " << std::string_view(info.vendor);
-  LOG(INFO) << "[Renderer] Architecture: "
+  LOG(INFO) << "[Renderer] GraphicsAPI: "
+            << magic_enum::enum_name(info.backendType);
+  LOG(INFO) << "[Renderer] GPU Vendor: " << std::string_view(info.vendor);
+  LOG(INFO) << "[Renderer] GPU Architecture: "
             << std::string_view(info.architecture);
-  LOG(INFO) << "[Renderer] Device: " << std::string_view(info.device);
-  LOG(INFO) << "[Renderer] Description: " << std::string_view(info.description);
+  LOG(INFO) << "[Renderer] GPU Device: " << std::string_view(info.device);
+  LOG(INFO) << "[Renderer] GPU Description: "
+            << std::string_view(info.description);
 
   // 4) Request the actual WGPU device
-  wgpu::DeviceDescriptor device_desc = {};
+  wgpu::ChainedStruct* toggles_chain = nullptr;
+#ifndef __EMSCRIPTEN__
+  std::vector<const char*> enable_toggle_names;
+  std::vector<const char*> disabled_toggle_names;
+  for (const auto& toggle : enable_toggles)
+    enable_toggle_names.push_back(toggle.c_str());
+  for (const auto& toggle : disable_toggles)
+    disabled_toggle_names.push_back(toggle.c_str());
+
+  wgpu::DawnTogglesDescriptor toggles;
+  toggles.enabledToggles = enable_toggle_names.data();
+  toggles.enabledToggleCount = enable_toggle_names.size();
+  toggles.disabledToggles = disabled_toggle_names.data();
+  toggles.disabledToggleCount = disabled_toggle_names.size();
+
+  toggles_chain = &toggles;
+#endif  // __EMSCRIPTEN__
+
+  wgpu::DeviceDescriptor device_desc;
+  device_desc.nextInChain = toggles_chain;
   device_desc.SetUncapturedErrorCallback(OnUncapturedError);
   device_desc.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous,
                                     OnDeviceLost);

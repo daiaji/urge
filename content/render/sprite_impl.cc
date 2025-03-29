@@ -155,20 +155,7 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
                                   TextureAgent* texture,
                                   int32_t blend_type,
                                   bool wave_active) {
-  if (agent->wave_draw_count) {
-    auto& pipeline_set = device->GetPipelines()->sprite;
-    auto* pipeline =
-        pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
-
-    renderpass_encoder->SetPipeline(*pipeline);
-    renderpass_encoder->SetIndexBuffer(**device->GetQuadIndex(),
-                                       device->GetQuadIndex()->format());
-    renderpass_encoder->SetBindGroup(0, *world_binding);
-    renderpass_encoder->SetBindGroup(1, texture->binding);
-    renderpass_encoder->SetBindGroup(2, agent->uniform_binding);
-    renderpass_encoder->SetVertexBuffer(0, **agent->batch);
-    renderpass_encoder->DrawIndexed(agent->wave_draw_count * 6);
-  } else if (agent->draw_info.index_count) {
+  if (agent->draw_info.index_count) {
     // Batch draw
     auto& pipeline_set = device->GetPipelines()->spriteinstance;
     auto* pipeline =
@@ -185,6 +172,19 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
     renderpass_encoder->DrawIndexed(
         agent->draw_info.index_count, agent->draw_info.instance_count,
         agent->draw_info.first_index, 0, agent->draw_info.first_instance);
+  } else if (agent->wave_draw_count) {
+    auto& pipeline_set = device->GetPipelines()->sprite;
+    auto* pipeline =
+        pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
+
+    renderpass_encoder->SetPipeline(*pipeline);
+    renderpass_encoder->SetIndexBuffer(**device->GetQuadIndex(),
+                                       device->GetQuadIndex()->format());
+    renderpass_encoder->SetBindGroup(0, *world_binding);
+    renderpass_encoder->SetBindGroup(1, texture->binding);
+    renderpass_encoder->SetBindGroup(2, agent->uniform_binding);
+    renderpass_encoder->SetVertexBuffer(0, **agent->batch);
+    renderpass_encoder->DrawIndexed(agent->wave_draw_count * 6);
   }
 }
 
