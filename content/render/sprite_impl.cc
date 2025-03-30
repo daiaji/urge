@@ -33,12 +33,11 @@ void GPUDestroySpriteInternal(SpriteAgent* agent) {
   delete agent;
 }
 
-void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
+void GPUUpdateWaveSpriteInternal(wgpu::CommandEncoder* encoder,
                                  SpriteAgent* agent,
-                                 wgpu::CommandEncoder* encoder,
-                                 const base::Vec2& position,
                                  const base::Rect& src_rect,
                                  const SpriteImpl::WaveParams& wave,
+                                 const renderer::SpriteUniform& uniform,
                                  bool mirror) {
   int32_t last_block_aligned_size = src_rect.height % kWaveBlockAlign;
   int32_t loop_block = src_rect.height / kWaveBlockAlign;
@@ -76,19 +75,6 @@ void GPUUpdateSpriteWaveInternal(renderer::RenderDevice* device,
 
   agent->batch->QueueWrite(*encoder, agent->wave_cache.data(),
                            agent->wave_cache.size());
-}
-
-void GPUUpdateSpriteInternal(renderer::RenderDevice* device,
-                             wgpu::CommandEncoder* encoder,
-                             SpriteBatch* batch_scheduler,
-                             SpriteAgent* agent,
-                             const renderer::SpriteUniform& uniform,
-                             const SpriteImpl::WaveParams& wave,
-                             const base::Rect& src_rect,
-                             int32_t mirror) {
-  if (wave.amp && wave.dirty)
-    GPUUpdateSpriteWaveInternal(device, agent, encoder, uniform.position,
-                                src_rect, wave, mirror);
 
   encoder->WriteBuffer(agent->uniform_buffer, 0,
                        reinterpret_cast<const uint8_t*>(&uniform),
@@ -670,15 +656,15 @@ void SpriteImpl::DrawableNodeHandlerInternal(
           &GPUUpdateBatchSpriteInternal, params->device,
           screen()->GetSpriteBatch(), agent_, current_texture, next_texture,
           uniform_params_, src_rect, mirror_, src_rect_dirty_));
+
+      src_rect_dirty_ = false;
     } else {
       // Post render task
       screen()->PostTask(
-          base::BindOnce(&GPUUpdateSpriteInternal, params->device,
-                         params->command_encoder, screen()->GetSpriteBatch(),
-                         agent_, uniform_params_, wave_, src_rect, mirror_));
+          base::BindOnce(&GPUUpdateWaveSpriteInternal, params->command_encoder,
+                         agent_, src_rect, wave_, uniform_params_, mirror_));
 
       wave_.dirty = false;
-      src_rect_dirty_ = false;
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(
