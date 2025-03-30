@@ -156,4 +156,4 @@ set (TARGET_SOURCES
 
 add_library(soloud STATIC ${TARGET_SOURCES})
 target_include_directories(soloud PUBLIC include)
-target_link_libraries(soloud PUBLIC core_base ogg vorbisfile)
+target_link_libraries(soloud PUBLIC engine_base ogg vorbisfile)

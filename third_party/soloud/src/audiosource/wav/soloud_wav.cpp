@@ -33,7 +33,7 @@ freely, subject to the following restrictions:
 #include "dr_flac.h"
 
 #include "vorbis/vorbisfile.h"
-#include "SDL_iostream.h"
+#include "SDL3/SDL_iostream.h"
 
 namespace SoLoud
 {

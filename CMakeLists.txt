@@ -82,6 +82,14 @@ set(PHYSFS_BUILD_DOCS FALSE)
 add_subdirectory(third_party/physfs)
 include_directories(third_party/physfs/src)
 
+## Vorbis OGG
+add_subdirectory(third_party/ogg)
+add_subdirectory(third_party/vorbis)
+
+## Soloud
+add_subdirectory(third_party/soloud)
+include_directories(third_party/soloud/include)
+
 ## CRuby-Mri
 ## TODO: Enhance ruby build ins
 add_library(mri_ruby UNKNOWN IMPORTED)
