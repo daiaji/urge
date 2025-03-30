@@ -21,13 +21,8 @@ struct SpriteAgent {
   renderer::Quad quad;
   std::vector<renderer::Quad> wave_cache;
   int32_t wave_draw_count = 0;
-
-  struct {
-    uint32_t index_count = 0;
-    uint32_t instance_count = 0;
-    uint32_t first_index = 0;
-    uint32_t first_instance = 0;
-  } draw_info;
+  int64_t instance_offset = -1;
+  uint32_t instance_count = 0;
 
   std::unique_ptr<renderer::QuadBatch> batch;
 

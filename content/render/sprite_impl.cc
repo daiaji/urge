@@ -92,23 +92,18 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
                                   bool src_rect_dirty) {
   // Update sprite quad if need
   if (src_rect_dirty) {
-    auto bitmap_size = texture->size;
-    auto rect = src_rect;
+    base::Rect rect = src_rect;
 
-    rect.width = std::clamp(rect.width, 0, bitmap_size.x - rect.x);
-    rect.height = std::clamp(rect.height, 0, bitmap_size.y - rect.y);
+    rect.width = std::clamp(rect.width, 0, texture->size.x - rect.x);
+    rect.height = std::clamp(rect.height, 0, texture->size.y - rect.y);
 
-    renderer::Quad::SetPositionRect(
-        &agent->quad, base::Vec2(static_cast<float>(rect.width),
-                                 static_cast<float>(rect.height)));
+    base::Rect texcoord = rect;
+    if (mirror)
+      texcoord =
+          base::Rect(rect.x + rect.width, rect.y, -rect.width, rect.height);
 
-    if (mirror) {
-      renderer::Quad::SetTexCoordRect(
-          &agent->quad,
-          base::Rect(rect.x + rect.width, rect.y, -rect.width, rect.height));
-    } else {
-      renderer::Quad::SetTexCoordRect(&agent->quad, rect);
-    }
+    renderer::Quad::SetPositionRect(&agent->quad, base::Vec2(rect.Size()));
+    renderer::Quad::SetTexCoordRect(&agent->quad, texcoord);
   }
 
   // Start a batch if no context
@@ -124,12 +119,10 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
     agent->wave_draw_count = 0;
 
     // Execute batch draw info on this node
-    batch_scheduler->EndBatch(
-        &agent->draw_info.index_count, &agent->draw_info.instance_count,
-        &agent->draw_info.first_index, &agent->draw_info.first_instance);
+    batch_scheduler->EndBatch(&agent->instance_offset, &agent->instance_count);
   } else {
     // Do not draw quads on current node
-    std::memset(&agent->draw_info, 0, sizeof(agent->draw_info));
+    agent->instance_count = 0;
   }
 }
 
@@ -141,7 +134,7 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
                                   TextureAgent* texture,
                                   int32_t blend_type,
                                   bool wave_active) {
-  if (agent->draw_info.index_count) {
+  if (agent->instance_count) {
     // Batch draw
     auto& pipeline_set = device->GetPipelines()->spriteinstance;
     auto* pipeline =
@@ -155,9 +148,9 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
     renderpass_encoder->SetBindGroup(2, *batch_scheduler->GetUniformBinding());
     renderpass_encoder->SetVertexBuffer(
         0, *batch_scheduler->GetBatchVertexBuffer());
-    renderpass_encoder->DrawIndexed(
-        agent->draw_info.index_count, agent->draw_info.instance_count,
-        agent->draw_info.first_index, 0, agent->draw_info.first_instance);
+    renderpass_encoder->MultiDrawIndexedIndirect(
+        *batch_scheduler->GetIndirectBuffer(), agent->instance_offset,
+        agent->instance_count);
   } else if (agent->wave_draw_count) {
     auto& pipeline_set = device->GetPipelines()->sprite;
     auto* pipeline =
