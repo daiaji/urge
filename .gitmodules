@@ -13,3 +13,9 @@
 [submodule "third_party/physfs"]
 	path = third_party/physfs
 	url = https://github.com/icculus/physfs.git
+[submodule "third_party/ogg"]
+	path = third_party/ogg
+	url = https://github.com/xiph/ogg.git
+[submodule "third_party/vorbis"]
+	path = third_party/vorbis
+	url = https://github.com/xiph/vorbis.git
