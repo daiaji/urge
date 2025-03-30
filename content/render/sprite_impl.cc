@@ -578,7 +578,6 @@ void SpriteImpl::Put_Opacity(const int32_t& value,
     return;
 
   opacity_ = std::clamp(value, 0, 255);
-  src_rect_dirty_ = true;
 }
 
 int32_t SpriteImpl::Get_BlendType(ExceptionState& exception_state) {
@@ -667,9 +666,10 @@ void SpriteImpl::DrawableNodeHandlerInternal(
       TextureAgent* next_texture =
           GetOtherRenderBatchableTextureInternal(next_sprite);
 
-      GPUUpdateBatchSpriteInternal(
-          params->device, screen()->GetSpriteBatch(), agent_, current_texture,
-          next_texture, uniform_params_, src_rect, mirror_, src_rect_dirty_);
+      screen()->PostTask(base::BindOnce(
+          &GPUUpdateBatchSpriteInternal, params->device,
+          screen()->GetSpriteBatch(), agent_, current_texture, next_texture,
+          uniform_params_, src_rect, mirror_, src_rect_dirty_));
     } else {
       // Post render task
       screen()->PostTask(
@@ -681,9 +681,6 @@ void SpriteImpl::DrawableNodeHandlerInternal(
       src_rect_dirty_ = false;
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    if (!wave_.amp && !agent_->draw_info.index_count)
-      return;
-
     screen()->PostTask(
         base::BindOnce(&GPUOnSpriteRenderingInternal, params->device,
                        params->renderpass_encoder, screen()->GetSpriteBatch(),
