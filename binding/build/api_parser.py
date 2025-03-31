@@ -72,6 +72,11 @@ class APIParser:
         self.expect_decl = False
         return
 
+      if 'URGE_EXPORT_COMPARABLE' in line:
+        self.current_class['is_comparable'] = True
+        self.expect_decl = False
+        return
+
       if attr := self.parse_attribute(line):
         self.current_class['attributes'].append(attr)
         self.expect_decl = False
@@ -99,6 +104,7 @@ class APIParser:
       "methods": [],
       "attributes": [],
       "is_serializable": False,
+      "is_comparable": False,
       "is_module": self.current_comment.get('is_module', False),
       "dependency": set()  # 新增依赖集合
     }

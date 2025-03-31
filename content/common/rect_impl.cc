@@ -57,6 +57,11 @@ scoped_refptr<RectImpl> RectImpl::From(scoped_refptr<Rect> host) {
   return static_cast<RectImpl*>(host.get());
 }
 
+bool RectImpl::CompareWithOther(scoped_refptr<Rect> other,
+                                ExceptionState& exception_state) {
+  return static_cast<RectImpl*>(other.get())->rect_ == rect_;
+}
+
 void RectImpl::Set(int32_t x,
                    int32_t y,
                    int32_t width,

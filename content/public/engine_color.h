@@ -47,6 +47,9 @@ class URGE_RUNTIME_API Color : public base::RefCounted<Color> {
   /*--urge(serializable)--*/
   URGE_EXPORT_SERIALIZABLE(Color);
 
+  /*--urge(comparable)--*/
+  URGE_EXPORT_COMPARABLE(Color);
+
   /*--urge(name:set)--*/
   virtual void Set(float red,
                    float green,

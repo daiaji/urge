@@ -83,6 +83,11 @@ scoped_refptr<ColorImpl> ColorImpl::From(scoped_refptr<Color> host) {
   return static_cast<ColorImpl*>(host.get());
 }
 
+bool ColorImpl::CompareWithOther(scoped_refptr<Color> other,
+                                 ExceptionState& exception_state) {
+  return static_cast<ColorImpl*>(other.get())->value_ == value_;
+}
+
 void ColorImpl::Set(float red,
                     float green,
                     float blue,

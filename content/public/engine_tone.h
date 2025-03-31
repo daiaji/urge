@@ -47,6 +47,9 @@ class URGE_RUNTIME_API Tone : public base::RefCounted<Tone> {
   /*--urge(serializable)--*/
   URGE_EXPORT_SERIALIZABLE(Tone);
 
+  /*--urge(comparable)--*/
+  URGE_EXPORT_COMPARABLE(Tone);
+
   /*--urge(name:set)--*/
   virtual void Set(float red,
                    float green,

@@ -22,6 +22,8 @@
                                          const std::string&, ExceptionState&); \
   static std::string Serialize(ExecutionContext*, scoped_refptr<type>,         \
                                ExceptionState&)
+#define URGE_EXPORT_COMPARABLE(type) \
+  virtual bool CompareWithOther(scoped_refptr<type>, ExceptionState&) = 0;
 
 #define URGE_DECLARE_OVERRIDE_ATTRIBUTE(name, type) \
   type Get_##name(ExceptionState&) override;        \

@@ -467,6 +467,19 @@ void MriInitSerializableBinding(VALUE klass) {
     return obj == value_obj ? Qtrue : Qfalse;                            \
   }
 
+#define MRI_OBJECT_ID_COMPARE_CUSTOM(klass)                                 \
+  MRI_METHOD(klass##_equal_to) {                                            \
+    scoped_refptr obj = MriGetStructData<content::klass>(self);             \
+    MriCheckArgc(argc, 1);                                                  \
+    scoped_refptr value_obj =                                               \
+        MriCheckStructData<content::klass>(argv[0], k##klass##DataType);    \
+    content::ExceptionState exception_state;                                \
+    VALUE result =                                                          \
+        obj->CompareWithOther(value_obj, exception_state) ? Qtrue : Qfalse; \
+    MriProcessException(exception_state);                                   \
+    return result;                                                          \
+  }
+
 #define MRI_DECLARE_OBJECT_COMPARE(ty)          \
   MriDefineMethod(klass, "==", ty##_equal_to);  \
   MriDefineMethod(klass, "===", ty##_equal_to); \

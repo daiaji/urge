@@ -40,6 +40,9 @@ class URGE_RUNTIME_API Rect : public base::RefCounted<Rect> {
   /*--urge(serializable)--*/
   URGE_EXPORT_SERIALIZABLE(Rect);
 
+  /*--urge(comparable)--*/
+  URGE_EXPORT_COMPARABLE(Rect);
+
   /*--urge(name:set)--*/
   virtual void Set(int32_t x,
                    int32_t y,

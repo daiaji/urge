@@ -87,7 +87,10 @@ class MriBindGen:
     func_body = ""
     if not is_module:
       func_body += "MRI_DEFINE_DATATYPE_REF({}, \"{}\", content::{});\n".format(kname, kname, kname)
-      func_body += "MRI_OBJECT_ID_COMPARE({});".format(kname)
+      if template["is_comparable"]:
+        func_body += "MRI_OBJECT_ID_COMPARE_CUSTOM({});".format(kname)
+      else:
+        func_body += "MRI_OBJECT_ID_COMPARE({});".format(kname)
 
     func_body += "\n"
 

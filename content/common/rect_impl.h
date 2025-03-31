@@ -21,6 +21,9 @@ class RectImpl : public Rect, public ValueNotification {
 
   static scoped_refptr<RectImpl> From(scoped_refptr<Rect> host);
 
+  bool CompareWithOther(scoped_refptr<Rect> other,
+                        ExceptionState& exception_state) override;
+
   void Set(int32_t x,
            int32_t y,
            int32_t width,

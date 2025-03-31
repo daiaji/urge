@@ -23,6 +23,9 @@ class ToneImpl : public Tone, public ValueNotification {
 
   static scoped_refptr<ToneImpl> From(scoped_refptr<Tone> host);
 
+  bool CompareWithOther(scoped_refptr<Tone> other,
+                        ExceptionState& exception_state) override;
+
   void Set(float red,
            float green,
            float blue,

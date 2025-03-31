@@ -25,6 +25,9 @@ class ColorImpl : public Color, public ValueNotification {
 
   static scoped_refptr<ColorImpl> From(scoped_refptr<Color> host);
 
+  bool CompareWithOther(scoped_refptr<Color> other,
+                        ExceptionState& exception_state) override;
+
   void Set(float red,
            float green,
            float blue,

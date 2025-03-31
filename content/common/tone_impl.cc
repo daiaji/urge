@@ -83,6 +83,11 @@ scoped_refptr<ToneImpl> ToneImpl::From(scoped_refptr<Tone> host) {
   return static_cast<ToneImpl*>(host.get());
 }
 
+bool ToneImpl::CompareWithOther(scoped_refptr<Tone> other,
+                                ExceptionState& exception_state) {
+  return static_cast<ToneImpl*>(other.get())->value_ == value_;
+}
+
 void ToneImpl::Set(float red,
                    float green,
                    float blue,
