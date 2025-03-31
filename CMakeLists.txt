@@ -96,19 +96,19 @@ add_library(mri_ruby UNKNOWN IMPORTED)
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
     set(RUBY_INCLUDE_PATH
-      "${PROJECT_SOURCE_DIR}/third_party/ruby/include/"
-      "${PROJECT_SOURCE_DIR}/third_party/ruby/config/x86/"
+      "${PROJECT_SOURCE_DIR}/third_party/ruby_extern/include/"
+      "${PROJECT_SOURCE_DIR}/third_party/ruby_extern/config/x86/"
     )
     set(RUBY_LIBRARY_PATH
-      "${PROJECT_SOURCE_DIR}/third_party/ruby/lib/x86/vcruntime140-ruby320-static.lib"
+      "${PROJECT_SOURCE_DIR}/third_party/ruby_extern/lib/x86/vcruntime140-ruby320-static.lib"
     )
   elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(RUBY_INCLUDE_PATH
-      "${PROJECT_SOURCE_DIR}/third_party/ruby/include/"
-      "${PROJECT_SOURCE_DIR}/third_party/ruby/config/x64/"
+      "${PROJECT_SOURCE_DIR}/third_party/ruby_extern/include/"
+      "${PROJECT_SOURCE_DIR}/third_party/ruby_extern/config/x64/"
     )
     set(RUBY_LIBRARY_PATH
-      "${PROJECT_SOURCE_DIR}/third_party/ruby/lib/x64/x64-vcruntime140-ruby320-static.lib"
+      "${PROJECT_SOURCE_DIR}/third_party/ruby_extern/lib/x64/x64-vcruntime140-ruby320-static.lib"
     )
   else ()
     message(FATAL_ERROR "No Implement")
@@ -125,17 +125,10 @@ set_target_properties(mri_ruby PROPERTIES
 #-------------------------------------------------------------------------
 
 add_subdirectory(base)
-
 add_subdirectory(components/filesystem)
 add_subdirectory(components/audioservice)
-
 add_subdirectory(ui)
 add_subdirectory(renderer)
 add_subdirectory(content)
-
-add_subdirectory(binding/unittests)
 add_subdirectory(binding/mri)
-
 add_subdirectory(app)
-
-add_subdirectory(unittests)
