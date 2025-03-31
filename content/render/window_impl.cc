@@ -161,7 +161,11 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
                                       TextureAgent* contents,
                                       bool pause,
                                       int32_t pause_index,
+                                      int32_t contents_opacity,
                                       int32_t cursor_opacity) {
+  const float contents_opacity_norm = contents_opacity / 255.0f;
+  const float cursor_opacity_norm = cursor_opacity / 255.0f;
+
   // Cursor render
   auto build_cursor_internal = [&](const base::Rect& rect,
                                    base::Rect quad_rects[9]) {
@@ -199,10 +203,9 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
     for (int32_t i = 0; i < 9; ++i)
       renderer::Quad::SetPositionRect(&vert[i], quad_rects[i]);
 
-    const base::Vec4 cursor_opacity_norm(static_cast<float>(cursor_opacity) /
-                                         255.0f);
+    const base::Vec4 color(cursor_opacity_norm * contents_opacity_norm);
     for (int32_t i = 0; i < 9; ++i)
-      renderer::Quad::SetColor(&vert[i], cursor_opacity_norm);
+      renderer::Quad::SetColor(&vert[i], color);
 
     return 9;
   };
@@ -253,6 +256,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, scroll_arrow_left_pos);
         renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_left_src);
+        renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
         quad_buffer.push_back(quad);
       }
 
@@ -260,6 +264,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, scroll_arrow_up_pos);
         renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_up_src);
+        renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
         quad_buffer.push_back(quad);
       }
 
@@ -267,6 +272,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, scroll_arrow_right_pos);
         renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_right_src);
+        renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
         quad_buffer.push_back(quad);
       }
 
@@ -274,6 +280,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, scroll_arrow_down_pos);
         renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_down_src);
+        renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
         quad_buffer.push_back(quad);
       }
     }
@@ -293,6 +300,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
                             display_offset.y + bound.height - 8 * scale,
                             8 * scale, 8 * scale));
       renderer::Quad::SetTexCoordRect(&quad, pause_animation[pause_index / 8]);
+      renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
       quad_buffer.push_back(quad);
     }
   }
@@ -310,6 +318,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
     renderer::Quad::SetPositionRect(
         &quad, base::Rect(content_position, contents->size));
     renderer::Quad::SetTexCoordRect(&quad, base::Rect(contents->size));
+    renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
     quad_buffer.push_back(quad);
 
     agent->contents_draw_count = 1;
@@ -790,11 +799,11 @@ void WindowImpl::ControlNodeHandlerInternal(
   TextureAgent* contents_agent = contents_ ? contents_->GetAgent() : nullptr;
 
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
-    screen()->PostTask(
-        base::BindOnce(&GPUCompositeControlLayerInternal, params->device,
-                       params->command_encoder, agent_, windowskin_agent,
-                       scale_, bound_, cursor_rect_->AsBaseRect(), origin_,
-                       contents_agent, pause_, pause_index_, cursor_opacity_));
+    screen()->PostTask(base::BindOnce(
+        &GPUCompositeControlLayerInternal, params->device,
+        params->command_encoder, agent_, windowskin_agent, scale_, bound_,
+        cursor_rect_->AsBaseRect(), origin_, contents_agent, pause_,
+        pause_index_, contents_opacity_, cursor_opacity_));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(
         base::BindOnce(&GPURenderControlLayerInternal, params->device,

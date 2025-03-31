@@ -254,7 +254,9 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
 
     renderer::Quad* quad_ptr = quads.data();
     const base::Vec2i offset = bound.Position();
-    float openness_norm = openness / 255.0f;
+    const float openness_norm = openness / 255.0f;
+    const float contents_opacity_norm = contents_opacity / 255.0f;
+    const float cursor_opacity_norm = cursor_opacity / 255.0f;
 
     if (windowskin) {
       // Background
@@ -305,24 +307,32 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
             if (origin.x > 0) {
               renderer::Quad::SetPositionRect(quad_ptr, arrow_left_dest);
               renderer::Quad::SetTexCoordRect(quad_ptr, arrow_left_src);
+              renderer::Quad::SetColor(quad_ptr,
+                                       base::Vec4(contents_opacity_norm));
               agent->controls_draw_count += 1;
               quad_ptr += 1;
             }
             if (origin.y > 0) {
               renderer::Quad::SetPositionRect(quad_ptr, arrow_up_dest);
               renderer::Quad::SetTexCoordRect(quad_ptr, arrow_up_src);
+              renderer::Quad::SetColor(quad_ptr,
+                                       base::Vec4(contents_opacity_norm));
               agent->controls_draw_count += 1;
               quad_ptr += 1;
             }
             if (padding_rect.width < (contents->size.x - origin.x)) {
               renderer::Quad::SetPositionRect(quad_ptr, arrow_right_dest);
               renderer::Quad::SetTexCoordRect(quad_ptr, arrow_right_src);
+              renderer::Quad::SetColor(quad_ptr,
+                                       base::Vec4(contents_opacity_norm));
               agent->controls_draw_count += 1;
               quad_ptr += 1;
             }
             if (padding_rect.height < (contents->size.y - origin.y)) {
               renderer::Quad::SetPositionRect(quad_ptr, arrow_down_dest);
               renderer::Quad::SetTexCoordRect(quad_ptr, arrow_down_src);
+              renderer::Quad::SetColor(quad_ptr,
+                                       base::Vec4(contents_opacity_norm));
               agent->controls_draw_count += 1;
               quad_ptr += 1;
             }
@@ -343,6 +353,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
                                       8 * scale, 8 * scale);
           renderer::Quad::SetPositionRect(quad_ptr, pause_dest);
           renderer::Quad::SetTexCoordRect(quad_ptr, pause_src[pause_index / 8]);
+          renderer::Quad::SetColor(quad_ptr, base::Vec4(contents_opacity_norm));
           agent->controls_draw_count += 1;
           quad_ptr += 1;
         }
@@ -389,10 +400,9 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
             for (int32_t i = 0; i < 9; ++i)
               renderer::Quad::SetPositionRect(&vert[i], quad_rects[i]);
 
-            const base::Vec4 cursor_opacity_norm(
-                static_cast<float>(cursor_opacity) / 255.0f);
+            const base::Vec4 color(cursor_opacity_norm * contents_opacity_norm);
             for (int32_t i = 0; i < 9; ++i)
-              renderer::Quad::SetColor(&vert[i], cursor_opacity_norm);
+              renderer::Quad::SetColor(&vert[i], color);
 
             return 9;
           };
@@ -421,8 +431,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         renderer::Quad::SetPositionRect(
             quad_ptr, base::Rect(content_offset - origin, contents->size));
         renderer::Quad::SetTexCoordRect(quad_ptr, base::Rect(contents->size));
-        renderer::Quad::SetColor(quad_ptr,
-                                 base::Vec4(contents_opacity / 255.0f));
+        renderer::Quad::SetColor(quad_ptr, base::Vec4(contents_opacity_norm));
         agent->contents_draw_count += 1;
       }
     }
