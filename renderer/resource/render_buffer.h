@@ -65,20 +65,23 @@ class BatchBuffer {
                   const TargetType* data,
                   uint32_t count = 1) {
     if (!buffer_ || buffer_.GetSize() < sizeof(TargetType) * count) {
+      size_t buffer_size = count * sizeof(TargetType);
       wgpu::BufferDescriptor buffer_desc;
       buffer_desc.label = "generic.batch.buffer";
       buffer_desc.usage = BatchUsage | wgpu::BufferUsage::CopyDst;
-      buffer_desc.size = count * sizeof(TargetType);
-      buffer_desc.mappedAtCreation = true;
+      buffer_desc.size = buffer_size;
+      buffer_desc.mappedAtCreation = !!data;
       buffer_ = device_.CreateBuffer(&buffer_desc);
-      size_t buffer_size = count * sizeof(TargetType);
-      std::memcpy(buffer_.GetMappedRange(0, buffer_size), data, buffer_size);
-      buffer_.Unmap();
+      if (data) {
+        std::memcpy(buffer_.GetMappedRange(0, buffer_size), data, buffer_size);
+        buffer_.Unmap();
+      }
       return true;
     }
 
-    encoder.WriteBuffer(buffer_, 0, reinterpret_cast<const uint8_t*>(data),
-                        count * sizeof(TargetType));
+    if (data)
+      encoder.WriteBuffer(buffer_, 0, reinterpret_cast<const uint8_t*>(data),
+                          count * sizeof(TargetType));
     return false;
   }
 

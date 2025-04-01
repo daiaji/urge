@@ -21,7 +21,6 @@ class RenderDevice {
     Pipeline_Color color;
     Pipeline_Viewport viewport;
     Pipeline_Sprite sprite;
-    Pipeline_SpriteInstance spriteinstance;
     Pipeline_AlphaTransition alphatrans;
     Pipeline_MappedTransition mappedtrans;
     Pipeline_Tilemap tilemap;
@@ -32,7 +31,6 @@ class RenderDevice {
           color(device, target),
           viewport(device, target),
           sprite(device, target),
-          spriteinstance(device, target),
           alphatrans(device, target),
           mappedtrans(device, target),
           tilemap(device, target),

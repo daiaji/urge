@@ -141,84 +141,10 @@ struct WorldMatrix {
   transMat: mat4x4<f32>,
 };
 
-struct EffectParams {
-  position: vec2<f32>,
-  origin: vec2<f32>,
-  scale: vec2<f32>,
-  rotation: f32,  
-
+struct SpriteVertex {
+  pos: vec4<f32>,
+  uv: vec2<f32>,
   color: vec4<f32>,
-  tone: vec4<f32>,
-  opacity: f32,
-  bushDepth: f32,
-  bushOpacity: f32,
-};
-
-struct VertexOutput {
-  @builtin(position) pos: vec4<f32>,
-  @location(0) uv: vec2<f32>,
-  @location(1) color: vec4<f32>,
-};
-
-@group(0) @binding(0) var<uniform> u_transform: WorldMatrix;
-@group(1) @binding(0) var u_texture: texture_2d<f32>;
-@group(1) @binding(1) var u_sampler: sampler;
-@group(1) @binding(2) var<uniform> u_texSize: vec2<f32>;
-@group(2) @binding(0) var<uniform> u_effect: EffectParams;
-
-const lumaF: vec3<f32> = vec3<f32>(0.299, 0.587, 0.114);
-
-@vertex
-fn vertexMain(
-    @location(0) pos: vec4<f32>,
-    @location(1) uv: vec2<f32>,
-    @location(2) color: vec4<f32>) -> VertexOutput {
-  var sine = sin(u_effect.rotation);
-  var cosine = cos(u_effect.rotation);
-
-  var sxs = u_effect.scale.x * sine;
-  var sys = u_effect.scale.y * sine;
-  var sxc = u_effect.scale.x * cosine;
-  var syc = u_effect.scale.y * cosine;
-
-  var tx = -u_effect.origin.x * sxc - u_effect.origin.y * sys + u_effect.position.x;
-  var ty = u_effect.origin.x * sxs - u_effect.origin.y * syc + u_effect.position.y;
-
-  var trans_pos = vec4<f32>(pos.x * sxc + pos.y * sys + tx, -pos.x * sxs + pos.y * syc + ty, pos.z, pos.w);
-
-  var result: VertexOutput;
-  result.pos = u_transform.projMat * trans_pos;
-  result.pos = u_transform.transMat * result.pos;
-  result.uv = u_texSize * uv;
-  result.color = color;
-  return result;
-}
-
-@fragment
-fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
-  var frag: vec4<f32> = textureSample(u_texture, u_sampler, vertex.uv);
-  
-  var luma: f32 = dot(frag.rgb, lumaF);
-  frag = vec4<f32>(mix(frag.rgb, vec3<f32>(luma), u_effect.tone.w), frag.a);
-  frag = vec4<f32>(frag.rgb + u_effect.tone.rgb, frag.a);
-  
-  frag.a *= u_effect.opacity;
-  frag = vec4<f32>(mix(frag.rgb, u_effect.color.rgb, u_effect.color.a), frag.a);
-
-  let currentPos = vertex.uv.y / u_texSize.y;
-  let underBush = select(1.0, 0.0, currentPos > u_effect.bushDepth);
-  frag.a *= clamp(u_effect.bushOpacity + underBush, 0.0, 1.0);
-
-  return frag;
-}
-
-)";
-
-const std::string kSpriteRenderInstanceWGSL = R"(
-
-struct WorldMatrix {
-  projMat: mat4x4<f32>,
-  transMat: mat4x4<f32>,
 };
 
 struct EffectParams {
@@ -245,7 +171,8 @@ struct VertexOutput {
 @group(1) @binding(0) var u_texture: texture_2d<f32>;
 @group(1) @binding(1) var u_sampler: sampler;
 @group(1) @binding(2) var<uniform> u_texSize: vec2<f32>;
-@group(2) @binding(0) var<storage, read> u_effects: array<EffectParams>;
+@group(2) @binding(0) var<storage, read> u_vertices: array<SpriteVertex>;
+@group(2) @binding(1) var<storage, read> u_effects: array<EffectParams>;
 
 const lumaF: vec3<f32> = vec3<f32>(0.299, 0.587, 0.114);
 
@@ -254,10 +181,12 @@ fn vertexMain(
     @location(0) pos: vec4<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) color: vec4<f32>,
+    @builtin(vertex_index) vertexIdx: u32,
     @builtin(instance_index) instanceIdx: u32
 ) -> VertexOutput {
   let effect = u_effects[instanceIdx];
-  
+  let vert = u_vertices[vertexIdx + 4 * instanceIdx];
+
   let sine = sin(effect.rotation);
   let cosine = cos(effect.rotation);
 
@@ -270,17 +199,17 @@ fn vertexMain(
   let ty = effect.origin.x * sxs - effect.origin.y * syc + effect.position.y;
 
   let trans_pos = vec4<f32>(
-    pos.x * sxc + pos.y * sys + tx,
-    -pos.x * sxs + pos.y * syc + ty,
-    pos.z,
-    pos.w
+    vert.pos.x * sxc + vert.pos.y * sys + tx,
+    -vert.pos.x * sxs + vert.pos.y * syc + ty,
+    vert.pos.z,
+    vert.pos.w
   );
 
   var result: VertexOutput;
   result.pos = u_transform.projMat * trans_pos;
   result.pos = u_transform.transMat * result.pos;
-  result.uv = u_texSize * uv;
-  result.color = color;
+  result.uv = u_texSize * vert.uv;
+  result.color = vert.color;
   result.instanceIdx = instanceIdx;
   return result;
 }

@@ -78,10 +78,9 @@ extern const std::string kViewportBaseRenderWGSL;
 // bind:
 //   @<0>: mat4x4
 //   @<1>: texture2d<f32>, sampler, vec2
-//   @<2>: [ { vec2, vec2, vec2, f32 }, vec4, vec4, f32, f32 ]
+//   @<2>: [ Vertex ], [ { vec2, vec2, vec2, f32 }, vec4, vec4, f32, f32 ]
 ///
 extern const std::string kSpriteRenderWGSL;
-extern const std::string kSpriteRenderInstanceWGSL;
 
 ///
 // type:

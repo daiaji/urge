@@ -68,12 +68,6 @@ class Pipeline_Sprite : public RenderPipelineBase {
   Pipeline_Sprite(const wgpu::Device& device, wgpu::TextureFormat target);
 };
 
-class Pipeline_SpriteInstance : public RenderPipelineBase {
- public:
-  Pipeline_SpriteInstance(const wgpu::Device& device,
-                          wgpu::TextureFormat target);
-};
-
 class Pipeline_AlphaTransition : public RenderPipelineBase {
  public:
   Pipeline_AlphaTransition(const wgpu::Device& device,

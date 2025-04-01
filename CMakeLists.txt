@@ -90,7 +90,11 @@ add_subdirectory(third_party/vorbis)
 add_subdirectory(third_party/soloud)
 include_directories(third_party/soloud/include)
 
-## CRuby-Mri
+## Integrate CRuby
+#add_subdirectory(third_party/ruby_integrate)
+#include_directories(third_party/ruby_integrate/include)
+
+## CRuby-Mri (extern)
 ## TODO: Enhance ruby build ins
 add_library(mri_ruby UNKNOWN IMPORTED)
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")

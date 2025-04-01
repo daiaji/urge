@@ -20,20 +20,14 @@ inline float DegreesToRadians(float degrees) {
 
 void GPUCreateSpriteInternal(renderer::RenderDevice* device,
                              SpriteAgent* agent) {
-  agent->batch = renderer::QuadBatch::Make(**device);
-
-  agent->uniform_buffer =
-      renderer::CreateUniformBuffer<renderer::SpriteUniform>(
-          **device, "sprite.uniform", wgpu::BufferUsage::CopyDst);
-  agent->uniform_binding =
-      renderer::SpriteUniform::CreateGroup(**device, agent->uniform_buffer);
+  agent->wave_cache.reserve(8);
 }
 
 void GPUDestroySpriteInternal(SpriteAgent* agent) {
   delete agent;
 }
 
-void GPUUpdateWaveSpriteInternal(wgpu::CommandEncoder* encoder,
+void GPUUpdateWaveSpriteInternal(SpriteBatch* batch_scheduler,
                                  SpriteAgent* agent,
                                  const base::Rect& src_rect,
                                  const SpriteImpl::WaveParams& wave,
@@ -44,9 +38,8 @@ void GPUUpdateWaveSpriteInternal(wgpu::CommandEncoder* encoder,
   int32_t block_count = loop_block + !!last_block_aligned_size;
   float wave_phase = DegreesToRadians(wave.phase);
 
-  agent->wave_draw_count = block_count;
   agent->wave_cache.resize(block_count);
-  renderer::Quad* quad = agent->wave_cache.data();
+  SpriteQuad* quad = agent->wave_cache.data();
 
   auto emit_wave_block = [&](int block_y, int block_size) {
     float wave_offset =
@@ -62,8 +55,8 @@ void GPUUpdateWaveSpriteInternal(wgpu::CommandEncoder* encoder,
       tex.width = -tex.width;
     }
 
-    renderer::Quad::SetPositionRect(quad, pos);
-    renderer::Quad::SetTexCoordRect(quad, tex);
+    SpriteQuad::SetPositionRect(quad, pos);
+    SpriteQuad::SetTexCoordRect(quad, tex);
     ++quad;
   };
 
@@ -72,13 +65,6 @@ void GPUUpdateWaveSpriteInternal(wgpu::CommandEncoder* encoder,
 
   if (last_block_aligned_size)
     emit_wave_block(loop_block * kWaveBlockAlign, last_block_aligned_size);
-
-  agent->batch->QueueWrite(*encoder, agent->wave_cache.data(),
-                           agent->wave_cache.size());
-
-  encoder->WriteBuffer(agent->uniform_buffer, 0,
-                       reinterpret_cast<const uint8_t*>(&uniform),
-                       sizeof(uniform));
 }
 
 void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
@@ -86,11 +72,13 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
                                   SpriteAgent* agent,
                                   TextureAgent* texture,
                                   TextureAgent* next_texture,
+                                  const SpriteImpl::WaveParams& wave,
                                   const renderer::SpriteUniform& uniform,
                                   const base::Rect& src_rect,
                                   int32_t mirror,
                                   bool src_rect_dirty) {
   // Update sprite quad if need
+
   if (src_rect_dirty) {
     base::Rect rect = src_rect;
 
@@ -102,22 +90,31 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
       texcoord =
           base::Rect(rect.x + rect.width, rect.y, -rect.width, rect.height);
 
-    renderer::Quad::SetPositionRect(&agent->quad, base::Vec2(rect.Size()));
-    renderer::Quad::SetTexCoordRect(&agent->quad, texcoord);
+    SpriteQuad::SetPositionRect(&agent->quad, base::Vec2(rect.Size()));
+    SpriteQuad::SetTexCoordRect(&agent->quad, texcoord);
   }
+
+  // Wave process if need
+  if (!wave.amp)
+    GPUUpdateWaveSpriteInternal(batch_scheduler, agent, src_rect, wave, uniform,
+                                mirror);
 
   // Start a batch if no context
   if (!batch_scheduler->GetCurrentTexture())
     batch_scheduler->BeginBatch(texture);
 
   // Push this node into batch scheduler if batchable
-  if (texture == batch_scheduler->GetCurrentTexture())
-    batch_scheduler->PushSprite(agent->quad, uniform);
+  if (texture == batch_scheduler->GetCurrentTexture()) {
+    if (wave.amp) {
+      for (const auto& it : agent->wave_cache)
+        batch_scheduler->PushSprite(it, uniform);
+    } else {
+      batch_scheduler->PushSprite(agent->quad, uniform);
+    }
+  }
 
   // End batch on this node if next cannot be batchable
   if (batch_scheduler->GetCurrentTexture() && next_texture != texture) {
-    agent->wave_draw_count = 0;
-
     // Execute batch draw info on this node
     batch_scheduler->EndBatch(&agent->instance_offset, &agent->instance_count);
   } else {
@@ -136,7 +133,7 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
                                   bool wave_active) {
   if (agent->instance_count) {
     // Batch draw
-    auto& pipeline_set = device->GetPipelines()->spriteinstance;
+    auto& pipeline_set = device->GetPipelines()->sprite;
     auto* pipeline =
         pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
@@ -148,22 +145,8 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
     renderpass_encoder->SetBindGroup(2, *batch_scheduler->GetUniformBinding());
     renderpass_encoder->SetVertexBuffer(
         0, *batch_scheduler->GetBatchVertexBuffer());
-    renderpass_encoder->MultiDrawIndexedIndirect(
-        *batch_scheduler->GetIndirectBuffer(), agent->instance_offset,
-        agent->instance_count);
-  } else if (agent->wave_draw_count) {
-    auto& pipeline_set = device->GetPipelines()->sprite;
-    auto* pipeline =
-        pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
-
-    renderpass_encoder->SetPipeline(*pipeline);
-    renderpass_encoder->SetIndexBuffer(**device->GetQuadIndex(),
-                                       device->GetQuadIndex()->format());
-    renderpass_encoder->SetBindGroup(0, *world_binding);
-    renderpass_encoder->SetBindGroup(1, texture->binding);
-    renderpass_encoder->SetBindGroup(2, agent->uniform_binding);
-    renderpass_encoder->SetVertexBuffer(0, **agent->batch);
-    renderpass_encoder->DrawIndexed(agent->wave_draw_count * 6);
+    renderpass_encoder->DrawIndexed(6, agent->instance_count, 0, 0,
+                                    agent->instance_offset);
   }
 }
 
@@ -638,27 +621,19 @@ void SpriteImpl::DrawableNodeHandlerInternal(
         static_cast<float>(src_rect.y + src_rect.height - bush_.depth);
     uniform_params_.bush_opacity = static_cast<float>(bush_.opacity) / 255.0f;
 
-    if (!wave_.amp) {
-      SpriteImpl* next_sprite =
-          node_.GetNextNode() ? node_.GetNextNode()->CastToNode<SpriteImpl>()
-                              : nullptr;
-      TextureAgent* next_texture =
-          GetOtherRenderBatchableTextureInternal(next_sprite);
+    SpriteImpl* next_sprite =
+        node_.GetNextNode() ? node_.GetNextNode()->CastToNode<SpriteImpl>()
+                            : nullptr;
+    TextureAgent* next_texture =
+        GetOtherRenderBatchableTextureInternal(next_sprite);
 
-      screen()->PostTask(base::BindOnce(
-          &GPUUpdateBatchSpriteInternal, params->device,
-          screen()->GetSpriteBatch(), agent_, current_texture, next_texture,
-          uniform_params_, src_rect, mirror_, src_rect_dirty_));
+    screen()->PostTask(base::BindOnce(
+        &GPUUpdateBatchSpriteInternal, params->device,
+        screen()->GetSpriteBatch(), agent_, current_texture, next_texture,
+        wave_, uniform_params_, src_rect, mirror_, src_rect_dirty_));
 
-      src_rect_dirty_ = false;
-    } else {
-      // Post render task
-      screen()->PostTask(
-          base::BindOnce(&GPUUpdateWaveSpriteInternal, params->command_encoder,
-                         agent_, src_rect, wave_, uniform_params_, mirror_));
-
-      wave_.dirty = false;
-    }
+    wave_.dirty = false;
+    src_rect_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(
         base::BindOnce(&GPUOnSpriteRenderingInternal, params->device,

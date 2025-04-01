@@ -163,21 +163,6 @@ Pipeline_Sprite::Pipeline_Sprite(const wgpu::Device& device,
                 target);
 }
 
-Pipeline_SpriteInstance::Pipeline_SpriteInstance(const wgpu::Device& device,
-                                                 wgpu::TextureFormat target)
-    : RenderPipelineBase(device) {
-  BuildPipeline(kSpriteRenderInstanceWGSL, "vertexMain", "fragmentMain",
-                {
-                    Vertex::GetLayout(),
-                },
-                {
-                    WorldMatrixUniform::GetLayout(device),
-                    TextureBindingUniform::GetLayout(device),
-                    SpriteUniform::GetInstanceLayout(device),
-                },
-                target);
-}
-
 Pipeline_AlphaTransition::Pipeline_AlphaTransition(const wgpu::Device& device,
                                                    wgpu::TextureFormat target)
     : RenderPipelineBase(device) {
