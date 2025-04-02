@@ -90,12 +90,9 @@ add_subdirectory(third_party/vorbis)
 add_subdirectory(third_party/soloud)
 include_directories(third_party/soloud/include)
 
-## LLGL
-set(LLGL_BUILD_STATIC_LIB ON)
-set(CMAKE_VERSION_TEMP ${CMAKE_VERSION})
-set(CMAKE_VERSION 3.15)
-add_subdirectory(third_party/LLGL)
-set(CMAKE_VERSION ${CMAKE_VERSION_TEMP})
+## VulkanHpp
+set(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC on)
+add_subdirectory(third_party/Vulkan-Hpp)
 
 ## CRuby-Mri (extern)
 ## TODO: Enhance ruby build ins
