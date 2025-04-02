@@ -19,6 +19,6 @@
 [submodule "third_party/vorbis"]
 	path = third_party/vorbis
 	url = https://github.com/xiph/vorbis.git
-[submodule "third_party/LLGL"]
-	path = third_party/LLGL
-	url = https://github.com/Admenri/LLGL
+[submodule "third_party/Vulkan-Hpp"]
+	path = third_party/Vulkan-Hpp
+	url = https://github.com/KhronosGroup/Vulkan-Hpp.git
