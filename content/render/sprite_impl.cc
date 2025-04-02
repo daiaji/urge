@@ -20,7 +20,7 @@ inline float DegreesToRadians(float degrees) {
 
 void GPUCreateSpriteInternal(renderer::RenderDevice* device,
                              SpriteAgent* agent) {
-  agent->wave_cache.reserve(8);
+  agent->wave_cache.reserve(1 << 3);
 }
 
 void GPUDestroySpriteInternal(SpriteAgent* agent) {
@@ -78,8 +78,11 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
                                   int32_t mirror,
                                   bool src_rect_dirty) {
   // Update sprite quad if need
-
-  if (src_rect_dirty) {
+  if (wave.amp) {
+    // Wave process if need
+    GPUUpdateWaveSpriteInternal(batch_scheduler, agent, src_rect, wave, uniform,
+                                mirror);
+  } else if (src_rect_dirty) {
     base::Rect rect = src_rect;
 
     rect.width = std::clamp(rect.width, 0, texture->size.x - rect.x);
@@ -93,11 +96,6 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
     SpriteQuad::SetPositionRect(&agent->quad, base::Vec2(rect.Size()));
     SpriteQuad::SetTexCoordRect(&agent->quad, texcoord);
   }
-
-  // Wave process if need
-  if (!wave.amp)
-    GPUUpdateWaveSpriteInternal(batch_scheduler, agent, src_rect, wave, uniform,
-                                mirror);
 
   // Start a batch if no context
   if (!batch_scheduler->GetCurrentTexture())

@@ -43,7 +43,6 @@ struct ViewportFragmentUniform {
 struct SpriteVertex {
   WGPU_ALIGN_TYPE(base::Vec4) position;
   WGPU_ALIGN_TYPE(base::Vec2) texcoord;
-  WGPU_ALIGN_TYPE(base::Vec4) color { 0.0f, 0.0f, 0.0f, 1.0f };
 };
 
 struct SpriteUniform {

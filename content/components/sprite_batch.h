@@ -17,7 +17,6 @@ struct SpriteQuad {
 
   static void SetPositionRect(SpriteQuad* data, const base::RectF& pos);
   static void SetTexCoordRect(SpriteQuad* data, const base::RectF& texcoord);
-  static void SetColor(SpriteQuad* data, const base::Vec4& color);
 };
 
 using SpriteQuadBuffer =

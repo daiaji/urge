@@ -90,9 +90,12 @@ add_subdirectory(third_party/vorbis)
 add_subdirectory(third_party/soloud)
 include_directories(third_party/soloud/include)
 
-## Integrate CRuby
-#add_subdirectory(third_party/ruby_integrate)
-#include_directories(third_party/ruby_integrate/include)
+## LLGL
+set(LLGL_BUILD_STATIC_LIB ON)
+set(CMAKE_VERSION_TEMP ${CMAKE_VERSION})
+set(CMAKE_VERSION 3.15)
+add_subdirectory(third_party/LLGL)
+set(CMAKE_VERSION ${CMAKE_VERSION_TEMP})
 
 ## CRuby-Mri (extern)
 ## TODO: Enhance ruby build ins

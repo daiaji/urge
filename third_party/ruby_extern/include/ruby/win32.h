@@ -117,9 +117,6 @@ typedef unsigned int uintptr_t;
 # include <unistd.h>
 #endif
 
-#define rb_w32_iswinnt()  TRUE
-#define rb_w32_iswin95()  FALSE
-
 #define WNOHANG -1
 
 #define O_SHARE_DELETE 0x20000000 /* for rb_w32_open(), rb_w32_wopen() */

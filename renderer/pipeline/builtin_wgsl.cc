@@ -144,7 +144,6 @@ struct WorldMatrix {
 struct SpriteVertex {
   pos: vec4<f32>,
   uv: vec2<f32>,
-  color: vec4<f32>,
 };
 
 struct EffectParams {
@@ -163,8 +162,7 @@ struct EffectParams {
 struct VertexOutput {
   @builtin(position) pos: vec4<f32>,
   @location(0) uv: vec2<f32>,
-  @location(1) color: vec4<f32>,
-  @location(2) @interpolate(flat) instanceIdx: u32,
+  @location(1) @interpolate(flat) instanceIdx: u32,
 };
 
 @group(0) @binding(0) var<uniform> u_transform: WorldMatrix;
@@ -178,9 +176,9 @@ const lumaF: vec3<f32> = vec3<f32>(0.299, 0.587, 0.114);
 
 @vertex
 fn vertexMain(
-    @location(0) pos: vec4<f32>,
-    @location(1) uv: vec2<f32>,
-    @location(2) color: vec4<f32>,
+    @location(0) pos_invalid: vec4<f32>,
+    @location(1) uv_invalid: vec2<f32>,
+    @location(2) color_invalid: vec4<f32>,
     @builtin(vertex_index) vertexIdx: u32,
     @builtin(instance_index) instanceIdx: u32
 ) -> VertexOutput {
@@ -209,7 +207,6 @@ fn vertexMain(
   result.pos = u_transform.projMat * trans_pos;
   result.pos = u_transform.transMat * result.pos;
   result.uv = u_texSize * vert.uv;
-  result.color = vert.color;
   result.instanceIdx = instanceIdx;
   return result;
 }

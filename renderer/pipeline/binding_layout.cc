@@ -33,6 +33,7 @@ wgpu::BindGroup WorldMatrixUniform::CreateGroup(const wgpu::Device& device,
   entries.buffer = buffer;
 
   wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.label = "world.transform";
   binding_desc.entryCount = 1;
   binding_desc.entries = &entries;
   binding_desc.layout = GetLayout(device);
@@ -81,6 +82,7 @@ wgpu::BindGroup TextureBindingUniform::CreateGroup(
   entries[2].buffer = buffer;
 
   wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.label = "texture.uniform";
   binding_desc.entryCount = _countof(entries);
   binding_desc.entries = entries;
   binding_desc.layout = GetLayout(device);
@@ -115,6 +117,7 @@ wgpu::BindGroup ViewportFragmentUniform::CreateGroup(
   entries.buffer = buffer;
 
   wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.label = "viewport.uniform";
   binding_desc.entryCount = 1;
   binding_desc.entries = &entries;
   binding_desc.layout = GetLayout(device);
@@ -154,6 +157,7 @@ wgpu::BindGroup SpriteUniform::CreateGroup(const wgpu::Device& device,
   entries[1].buffer = buffer;
 
   wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.label = "sprite.uniform";
   binding_desc.entryCount = _countof(entries);
   binding_desc.entries = entries;
   binding_desc.layout = GetLayout(device);
@@ -202,6 +206,7 @@ wgpu::BindGroup AlphaTransitionUniform::CreateGroup(
   entries[2].sampler = sampler;
 
   wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.label = "alphatrans.binding";
   binding_desc.entryCount = _countof(entries);
   binding_desc.entries = entries;
   binding_desc.layout = GetLayout(device);
@@ -257,6 +262,7 @@ wgpu::BindGroup VagueTransitionUniform::CreateGroup(
   entries[3].sampler = sampler;
 
   wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.label = "vaguetrans.binding";
   binding_desc.entryCount = _countof(entries);
   binding_desc.entries = entries;
   binding_desc.layout = GetLayout(device);
@@ -290,6 +296,7 @@ wgpu::BindGroup TilemapUniform::CreateGroup(const wgpu::Device& device,
   entries.buffer = buffer;
 
   wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.label = "tilemap.uniform";
   binding_desc.entryCount = 1;
   binding_desc.entries = &entries;
   binding_desc.layout = GetLayout(device);
@@ -323,6 +330,7 @@ wgpu::BindGroup Tilemap2Uniform::CreateGroup(const wgpu::Device& device,
   entries.buffer = buffer;
 
   wgpu::BindGroupDescriptor binding_desc;
+  binding_desc.label = "tilemap2.uniform";
   binding_desc.entryCount = 1;
   binding_desc.entries = &entries;
   binding_desc.layout = GetLayout(device);

@@ -27,14 +27,6 @@ void SpriteQuad::SetTexCoordRect(SpriteQuad* data,
       base::Vec2(texcoord.x, texcoord.y + texcoord.height);
 }
 
-void SpriteQuad::SetColor(SpriteQuad* data, const base::Vec4& color) {
-  int i = 0;
-  data->vertices[i++].color = color;
-  data->vertices[i++].color = color;
-  data->vertices[i++].color = color;
-  data->vertices[i++].color = color;
-}
-
 SpriteBatch::SpriteBatch(renderer::RenderDevice* device,
                          std::unique_ptr<renderer::QuadBatch> vertex_batch,
                          std::unique_ptr<SpriteQuadBuffer> quad_batch,
