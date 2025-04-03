@@ -619,9 +619,9 @@ void SpriteImpl::DrawableNodeHandlerInternal(
         static_cast<float>(src_rect.y + src_rect.height - bush_.depth);
     uniform_params_.bush_opacity = static_cast<float>(bush_.opacity) / 255.0f;
 
+    DrawableNode* next_node = node_.GetNextNode();
     SpriteImpl* next_sprite =
-        node_.GetNextNode() ? node_.GetNextNode()->CastToNode<SpriteImpl>()
-                            : nullptr;
+        next_node ? next_node->CastToNode<SpriteImpl>() : nullptr;
     TextureAgent* next_texture =
         GetOtherRenderBatchableTextureInternal(next_sprite);
 
@@ -651,15 +651,20 @@ TextureAgent* SpriteImpl::GetOtherRenderBatchableTextureInternal(
   if (!other)
     return nullptr;
 
-  // Disable batch if wave enabled
-  if (other->wave_.amp)
+  // Disable batch if other invisible
+  if (!other->node_.GetVisibility())
+    return nullptr;
+
+  // Disable batch if different blend effect
+  if (other->blend_type_ != blend_type_)
     return nullptr;
 
   // Disable batch if other has not an invalid texture
   if (!other->bitmap_)
     return nullptr;
 
-  if (other->blend_type_ != blend_type_)
+  // Disable batch if flash effect
+  if (other->flash_emitter_.IsFlashing() && other->flash_emitter_.IsInvalid())
     return nullptr;
 
   return other->bitmap_->GetAgent();

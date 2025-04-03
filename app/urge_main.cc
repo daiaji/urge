@@ -32,7 +32,7 @@ void ReplaceStringWidth(std::string& str, char before, char after) {
 
 int SDL_main(int argc, char* argv[]) {
 #if defined(OS_WIN)
-  ::SetConsoleCP(CP_UTF8);
+  ::SetConsoleOutputCP(CP_UTF8);
 #endif
 
   std::string app(argv[0]);

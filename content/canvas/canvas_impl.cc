@@ -539,6 +539,8 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
   }
 
   auto* canvas_texture_agent = new TextureAgent;
+  canvas_texture_agent->name =
+      std::to_string(size.x) + "x" + std::to_string(size.y);
   canvas_texture_agent->size = size;
 
   base::ThreadWorker::PostTask(
@@ -547,7 +549,7 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
                      size, canvas_texture_agent));
 
   return new CanvasImpl(screen, scheduler, canvas_texture_agent,
-                        new FontImpl(font_data));
+                        new FontImpl(font_data), canvas_texture_agent->name);
 }
 
 scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
@@ -581,6 +583,7 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
   }
 
   auto* canvas_texture_agent = new TextureAgent;
+  canvas_texture_agent->name = filename;
   canvas_texture_agent->size =
       base::Vec2i(memory_texture->w, memory_texture->h);
 
@@ -590,17 +593,19 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
                      memory_texture, filename, canvas_texture_agent));
 
   return new CanvasImpl(screen, scheduler, canvas_texture_agent,
-                        new FontImpl(font_data));
+                        new FontImpl(font_data), canvas_texture_agent->name);
 }
 
 CanvasImpl::CanvasImpl(RenderScreenImpl* screen,
                        CanvasScheduler* scheduler,
                        TextureAgent* texture,
-                       scoped_refptr<Font> font)
+                       scoped_refptr<Font> font,
+                       const std::string& name)
     : Disposable(screen),
       scheduler_(scheduler),
       texture_(texture),
       canvas_cache_(nullptr),
+      name_(name),
       font_(FontImpl::From(font)) {
   scheduler->children_.Append(this);
 }

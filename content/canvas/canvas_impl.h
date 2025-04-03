@@ -5,6 +5,8 @@
 #ifndef CONTENT_CANVAS_CANVAS_IMPL_H_
 #define CONTENT_CANVAS_CANVAS_IMPL_H_
 
+#include <string>
+
 #include "SDL3/SDL_surface.h"
 
 #include "base/containers/linked_list.h"
@@ -25,6 +27,9 @@ constexpr int32_t kBlockMaxSize = 4096;
 // Pooling object texture agent,
 // used for async thread task runner.
 struct TextureAgent {
+  // Debug name
+  std::string name;
+
   // Bitmap texture data
   wgpu::Texture data;
   wgpu::TextureView view;
@@ -48,7 +53,8 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
   CanvasImpl(RenderScreenImpl* screen,
              CanvasScheduler* scheduler,
              TextureAgent* texture,
-             scoped_refptr<Font> font);
+             scoped_refptr<Font> font,
+             const std::string& name);
   ~CanvasImpl() override;
 
   CanvasImpl(const CanvasImpl&) = delete;
@@ -67,6 +73,8 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
                                           ExceptionState& exception_state);
 
   static scoped_refptr<CanvasImpl> FromBitmap(scoped_refptr<Bitmap> host);
+
+  std::string GetCanvasName() const { return name_; }
 
   // Synchronize pending commands and fetch texture to buffer.
   // Read buffer for surface pixels data.
@@ -298,6 +306,7 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
   CanvasScheduler* scheduler_;
   TextureAgent* texture_;
   SDL_Surface* canvas_cache_;
+  std::string name_;
 
   Command* commands_ = nullptr;
   Command* last_command_ = nullptr;
