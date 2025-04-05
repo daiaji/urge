@@ -42,15 +42,27 @@ void Quad::SetPositionRect(Quad* data, const base::RectF& pos) {
   data->vertices[i++].position = base::Vec4(pos.x, pos.y + pos.height, 0, 1);
 }
 
-void Quad::SetTexCoordRect(Quad* data, const base::RectF& texcoord) {
+void Quad::SetTexCoordRectNorm(Quad* data, const base::RectF& texcoord) {
   int i = 0;
-  data->vertices[i++].texcoord = base::Vec2(texcoord.x, texcoord.y);
+  data->vertices[i++].texcoord = texcoord.Position();
   data->vertices[i++].texcoord =
       base::Vec2(texcoord.x + texcoord.width, texcoord.y);
-  data->vertices[i++].texcoord =
-      base::Vec2(texcoord.x + texcoord.width, texcoord.y + texcoord.height);
+  data->vertices[i++].texcoord = texcoord.Position() + texcoord.Size();
   data->vertices[i++].texcoord =
       base::Vec2(texcoord.x, texcoord.y + texcoord.height);
+}
+
+void Quad::SetTexCoordRect(Quad* data,
+                           const base::RectF& texcoord,
+                           const base::Vec2& size) {
+  const base::Vec2 tex_pos = texcoord.Position() / size;
+  const base::Vec2 tex_size = (texcoord.Position() + texcoord.Size()) / size;
+
+  int i = 0;
+  data->vertices[i++].texcoord = tex_pos;
+  data->vertices[i++].texcoord = base::Vec2(tex_size.x, tex_pos.y);
+  data->vertices[i++].texcoord = tex_size;
+  data->vertices[i++].texcoord = base::Vec2(tex_pos.x, tex_size.y);
 }
 
 void Quad::SetColor(Quad* data, const base::Vec4& color) {

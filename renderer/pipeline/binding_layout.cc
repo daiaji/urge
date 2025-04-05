@@ -47,7 +47,7 @@ wgpu::BindGroup WorldMatrixUniform::CreateGroup(const wgpu::Device& device,
 
 wgpu::BindGroupLayout TextureBindingUniform::GetLayout(
     const wgpu::Device& device) {
-  wgpu::BindGroupLayoutEntry entries[3];
+  wgpu::BindGroupLayoutEntry entries[2];
   entries[0].binding = 0;
   entries[0].visibility = wgpu::ShaderStage::Fragment;
   entries[0].texture.sampleType = wgpu::TextureSampleType::Float;
@@ -55,10 +55,6 @@ wgpu::BindGroupLayout TextureBindingUniform::GetLayout(
   entries[1].binding = 1;
   entries[1].visibility = wgpu::ShaderStage::Fragment;
   entries[1].sampler.type = wgpu::SamplerBindingType::Filtering;
-  entries[2].binding = 2;
-  entries[2].visibility =
-      wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
-  entries[2].buffer.type = wgpu::BufferBindingType::Uniform;
 
   wgpu::BindGroupLayoutDescriptor binding_desc;
   binding_desc.label = "texture.binding";
@@ -71,15 +67,12 @@ wgpu::BindGroupLayout TextureBindingUniform::GetLayout(
 wgpu::BindGroup TextureBindingUniform::CreateGroup(
     const wgpu::Device& device,
     const wgpu::TextureView& view,
-    const wgpu::Sampler& sampler,
-    const wgpu::Buffer& buffer) {
-  wgpu::BindGroupEntry entries[3];
+    const wgpu::Sampler& sampler) {
+  wgpu::BindGroupEntry entries[2];
   entries[0].binding = 0;
   entries[0].textureView = view;
   entries[1].binding = 1;
   entries[1].sampler = sampler;
-  entries[2].binding = 2;
-  entries[2].buffer = buffer;
 
   wgpu::BindGroupDescriptor binding_desc;
   binding_desc.label = "texture.uniform";

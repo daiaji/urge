@@ -16,7 +16,9 @@ struct SpriteQuad {
   renderer::SpriteVertex vertices[4];
 
   static void SetPositionRect(SpriteQuad* data, const base::RectF& pos);
-  static void SetTexCoordRect(SpriteQuad* data, const base::RectF& texcoord);
+  static void SetTexCoordRect(SpriteQuad* data,
+                              const base::RectF& texcoord,
+                              const base::Vec2i& size);
 };
 
 using SpriteQuadBuffer =

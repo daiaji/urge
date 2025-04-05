@@ -593,7 +593,8 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     {
       renderer::Quad transient_quad;
       renderer::Quad::SetPositionRect(&transient_quad, target_rect);
-      renderer::Quad::SetTexCoordRect(&transient_quad, base::Rect(resolution_));
+      renderer::Quad::SetTexCoordRect(&transient_quad, base::Rect(resolution_),
+                                      resolution_);
       renderer::Quad::SetColor(&transient_quad, base::Vec4(1));
       commander->WriteBuffer(agent_->present_vertex, 0,
                              reinterpret_cast<uint8_t*>(&transient_quad),
@@ -617,26 +618,22 @@ void RenderScreenImpl::PresentScreenBufferInternal(
 
     // Make present texture bindgroup
     {
-      renderer::TextureBindingUniform uniform;
-      uniform.texture_size = base::MakeInvert(resolution_);
-      wgpu::Buffer uniform_buffer =
-          renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
-              **agent_->device, "present.texture", wgpu::BufferUsage::None,
-              &uniform);
-
       wgpu::SamplerDescriptor sampler_desc;
       if (smooth_scale_) {
         sampler_desc.minFilter = wgpu::FilterMode::Linear;
         sampler_desc.minFilter = wgpu::FilterMode::Linear;
         sampler_desc.mipmapFilter = wgpu::MipmapFilterMode::Linear;
+      } else {
+        sampler_desc.minFilter = wgpu::FilterMode::Nearest;
+        sampler_desc.minFilter = wgpu::FilterMode::Nearest;
+        sampler_desc.mipmapFilter = wgpu::MipmapFilterMode::Nearest;
       }
 
       wgpu::Sampler present_sampler =
           (*agent_->device)->CreateSampler(&sampler_desc);
 
       texture_binding = renderer::TextureBindingUniform::CreateGroup(
-          **agent_->device, render_target->CreateView(), present_sampler,
-          uniform_buffer);
+          **agent_->device, render_target->CreateView(), present_sampler);
     }
 
     // Start screen render
@@ -843,8 +840,8 @@ void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad,
                                   base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
-  renderer::Quad::SetTexCoordRect(&transient_quad,
-                                  base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
+  renderer::Quad::SetTexCoordRectNorm(&transient_quad,
+                                      base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
   renderer::Quad::SetColor(&transient_quad, base::Vec4(progress));
   command_encoder->WriteBuffer(agent_->effect_vertex, 0,
                                reinterpret_cast<uint8_t*>(&transient_quad),
@@ -884,8 +881,8 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(float progress,
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad,
                                   base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
-  renderer::Quad::SetTexCoordRect(&transient_quad,
-                                  base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
+  renderer::Quad::SetTexCoordRectNorm(&transient_quad,
+                                      base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
   renderer::Quad::SetColor(&transient_quad, base::Vec4(vague, 0, 0, progress));
   command_encoder->WriteBuffer(agent_->effect_vertex, 0,
                                reinterpret_cast<uint8_t*>(&transient_quad),

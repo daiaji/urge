@@ -21,6 +21,7 @@ struct ViewportAgent {
   base::Rect region_cache;
 
   struct {
+    base::Vec2i layer_size;
     wgpu::Texture intermediate_layer;
     wgpu::BindGroup layer_binding;
     wgpu::Buffer uniform_buffer;

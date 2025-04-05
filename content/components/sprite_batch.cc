@@ -16,15 +16,16 @@ void SpriteQuad::SetPositionRect(SpriteQuad* data, const base::RectF& pos) {
 }
 
 void SpriteQuad::SetTexCoordRect(SpriteQuad* data,
-                                 const base::RectF& texcoord) {
+                                 const base::RectF& texcoord,
+                                 const base::Vec2i& size) {
+  const base::Vec2 tex_pos = texcoord.Position() / size;
+  const base::Vec2 tex_size = (texcoord.Position() + texcoord.Size()) / size;
+
   int i = 0;
-  data->vertices[i++].texcoord = base::Vec2(texcoord.x, texcoord.y);
-  data->vertices[i++].texcoord =
-      base::Vec2(texcoord.x + texcoord.width, texcoord.y);
-  data->vertices[i++].texcoord =
-      base::Vec2(texcoord.x + texcoord.width, texcoord.y + texcoord.height);
-  data->vertices[i++].texcoord =
-      base::Vec2(texcoord.x, texcoord.y + texcoord.height);
+  data->vertices[i++].texcoord = tex_pos;
+  data->vertices[i++].texcoord = base::Vec2(tex_size.x, tex_pos.y);
+  data->vertices[i++].texcoord = tex_size;
+  data->vertices[i++].texcoord = base::Vec2(tex_pos.x, tex_size.y);
 }
 
 SpriteBatch::SpriteBatch(renderer::RenderDevice* device,

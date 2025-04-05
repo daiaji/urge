@@ -41,6 +41,7 @@ struct TextureAgent {
   wgpu::BindGroup binding;
 
   // Text drawing cache texture
+  base::Vec2i text_cache_size;
   wgpu::Texture text_surface_cache;
   wgpu::BindGroup text_cache_binding;
   wgpu::Buffer text_write_cache;

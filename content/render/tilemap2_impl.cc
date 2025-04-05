@@ -381,14 +381,8 @@ void GPUMakeAtlasInternal(
       **device, "tilemap2.atlas",
       wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
       atlas_size);
-
-  renderer::TextureBindingUniform atlas_uniform;
-  atlas_uniform.texture_size = base::MakeInvert(atlas_size);
-  wgpu::Buffer atlas_uniform_buffer = renderer::CreateUniformBuffer(
-      **device, "tilemap.atlas", wgpu::BufferUsage::None, &atlas_uniform);
   agent->atlas_binding = renderer::TextureBindingUniform::CreateGroup(
-      **device, agent->atlas_texture.CreateView(), (*device)->CreateSampler(),
-      atlas_uniform_buffer);
+      **device, agent->atlas_texture.CreateView(), (*device)->CreateSampler());
 
   for (auto& it : make_commands) {
     wgpu::TexelCopyTextureInfo copy_src, copy_dst;
@@ -498,7 +492,11 @@ void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
     agent->uniform_binding =
         renderer::Tilemap2Uniform::CreateGroup(**device, agent->uniform_buffer);
 
+  base::Vec2 atlas_size(agent->atlas_texture.GetWidth(),
+                        agent->atlas_texture.GetHeight());
+
   renderer::Tilemap2Uniform uniform;
+  uniform.texture_size = base::MakeInvert(atlas_size);
   uniform.offset = offset;
   uniform.animation_offset = anim_offset;
   uniform.tile_size = tilesize;
@@ -980,7 +978,7 @@ void Tilemap2Impl::ParseMapDataInternal(
                            tilesize_ / 2.0f);
       autotile_set_pos(pos_rect, i);
 
-      renderer::Quad::SetTexCoordRect(&quads[i], tex_rect);
+      renderer::Quad::SetTexCoordRectNorm(&quads[i], tex_rect);
       renderer::Quad::SetPositionRect(&quads[i], pos_rect);
       renderer::Quad::SetColor(&quads[i], color);
     }
@@ -1013,7 +1011,7 @@ void Tilemap2Impl::ParseMapDataInternal(
         pos_rect.height -= table_leg;
       }
 
-      renderer::Quad::SetTexCoordRect(&quads[i], tex_rect);
+      renderer::Quad::SetTexCoordRectNorm(&quads[i], tex_rect);
       renderer::Quad::SetPositionRect(&quads[i], pos_rect);
       renderer::Quad::SetColor(&quads[i], color);
     }
@@ -1041,7 +1039,7 @@ void Tilemap2Impl::ParseMapDataInternal(
           base::RectF pos_rect(x * tilesize_ + i * (tilesize_ / 2.0f),
                                y * tilesize_, tilesize_ / 2.0f, tilesize_);
 
-          renderer::Quad::SetTexCoordRect(&quads[i], tex_rect);
+          renderer::Quad::SetTexCoordRectNorm(&quads[i], tex_rect);
           renderer::Quad::SetPositionRect(&quads[i], pos_rect);
           renderer::Quad::SetColor(&quads[i], color);
         }
@@ -1161,7 +1159,7 @@ void Tilemap2Impl::ParseMapDataInternal(
                     base::Vec2(tilesize_));
 
     renderer::Quad quad;
-    renderer::Quad::SetTexCoordRect(&quad, tex);
+    renderer::Quad::SetTexCoordRectNorm(&quad, tex);
     renderer::Quad::SetPositionRect(&quad, pos);
     renderer::Quad::SetColor(&quad, color);
 
@@ -1198,7 +1196,7 @@ void Tilemap2Impl::ParseMapDataInternal(
                     base::Vec2(tilesize_));
 
     renderer::Quad quad;
-    renderer::Quad::SetTexCoordRect(&quad, tex);
+    renderer::Quad::SetTexCoordRectNorm(&quad, tex);
     renderer::Quad::SetPositionRect(&quad, pos);
     renderer::Quad::SetColor(&quad, color);
 
@@ -1217,7 +1215,7 @@ void Tilemap2Impl::ParseMapDataInternal(
                     base::Vec2(tilesize_));
 
     renderer::Quad quad;
-    renderer::Quad::SetTexCoordRect(&quad, tex);
+    renderer::Quad::SetTexCoordRectNorm(&quad, tex);
     renderer::Quad::SetPositionRect(&quad, pos);
     renderer::Quad::SetColor(&quad, base::Vec4(0));
 

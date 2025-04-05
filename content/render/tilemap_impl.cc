@@ -322,14 +322,8 @@ void GPUMakeAtlasInternal(
       **device, "tilemap.atlas",
       wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
       atlas_size);
-
-  renderer::TextureBindingUniform atlas_uniform;
-  atlas_uniform.texture_size = base::MakeInvert(atlas_size);
-  wgpu::Buffer atlas_uniform_buffer = renderer::CreateUniformBuffer(
-      **device, "tilemap.atlas", wgpu::BufferUsage::None, &atlas_uniform);
   agent->atlas_binding = renderer::TextureBindingUniform::CreateGroup(
-      **device, agent->atlas_texture.CreateView(), (*device)->CreateSampler(),
-      atlas_uniform_buffer);
+      **device, agent->atlas_texture.CreateView(), (*device)->CreateSampler());
 
   for (auto& it : make_commands) {
     wgpu::TexelCopyTextureInfo copy_src, copy_dst;
@@ -409,7 +403,11 @@ void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
     agent->uniform_binding =
         renderer::TilemapUniform::CreateGroup(**device, agent->uniform_buffer);
 
+  base::Vec2 atlas_size(agent->atlas_texture.GetWidth(),
+                        agent->atlas_texture.GetHeight());
+
   renderer::TilemapUniform uniform;
+  uniform.texture_size = base::MakeInvert(atlas_size);
   uniform.offset = offset;
   uniform.tile_size = tilesize;
   uniform.anim_index = anim_index / 16;
@@ -933,7 +931,7 @@ void TilemapImpl::ParseMapDataInternal(
 
           renderer::Quad quad;
           renderer::Quad::SetPositionRect(&quad, chunk_pos);
-          renderer::Quad::SetTexCoordRect(&quad, tex_src);
+          renderer::Quad::SetTexCoordRectNorm(&quad, tex_src);
           renderer::Quad::SetColor(&quad, color);
           target->push_back(quad);
         }
@@ -947,7 +945,7 @@ void TilemapImpl::ParseMapDataInternal(
 
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, single_pos);
-        renderer::Quad::SetTexCoordRect(&quad, single_tex);
+        renderer::Quad::SetTexCoordRectNorm(&quad, single_tex);
         renderer::Quad::SetColor(&quad, color);
         target->push_back(quad);
       } break;
@@ -1020,7 +1018,7 @@ void TilemapImpl::ParseMapDataInternal(
 
     renderer::Quad quad;
     renderer::Quad::SetPositionRect(&quad, quad_pos);
-    renderer::Quad::SetTexCoordRect(&quad, quad_tex);
+    renderer::Quad::SetTexCoordRectNorm(&quad, quad_tex);
     renderer::Quad::SetColor(&quad, blend_color);
     target->push_back(quad);
   };

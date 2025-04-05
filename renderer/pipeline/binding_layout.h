@@ -22,13 +22,10 @@ struct WorldMatrixUniform {
 };
 
 struct TextureBindingUniform {
-  WGPU_ALIGN_TYPE(base::Vec2) texture_size;
-
   static wgpu::BindGroupLayout GetLayout(const wgpu::Device& device);
   static wgpu::BindGroup CreateGroup(const wgpu::Device& device,
                                      const wgpu::TextureView& view,
-                                     const wgpu::Sampler& sampler,
-                                     const wgpu::Buffer& buffer);
+                                     const wgpu::Sampler& sampler);
 };
 
 struct ViewportFragmentUniform {
@@ -81,6 +78,7 @@ struct VagueTransitionUniform {
 };
 
 struct TilemapUniform {
+  WGPU_ALIGN_TYPE(base::Vec2) texture_size;
   WGPU_ALIGN_TYPE(base::Vec2) offset;
   WGPU_ALIGN_TYPE(float) tile_size;
   WGPU_ALIGN_TYPE(float) anim_index;
@@ -91,6 +89,7 @@ struct TilemapUniform {
 };
 
 struct Tilemap2Uniform {
+  WGPU_ALIGN_TYPE(base::Vec2) texture_size;
   WGPU_ALIGN_TYPE(base::Vec2) offset;
   WGPU_ALIGN_TYPE(base::Vec2) animation_offset;
   WGPU_ALIGN_TYPE(float) tile_size;

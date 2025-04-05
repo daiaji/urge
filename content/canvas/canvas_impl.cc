@@ -33,34 +33,10 @@ wgpu::BindGroup MakeTextureWorldInternal(renderer::RenderDevice* device_base,
                                                    uniform_buffer);
 }
 
-wgpu::BindGroup MakeTextureBindingGroupInternal(
-    renderer::RenderDevice* device_base,
-    const base::Vec2& bitmap_size,
-    const wgpu::TextureView& view,
-    const wgpu::Sampler& sampler) {
-  renderer::TextureBindingUniform texture_size;
-  texture_size.texture_size = base::MakeInvert(bitmap_size);
-
-  auto uniform_buffer =
-      renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
-          **device_base, "bitmap.size", wgpu::BufferUsage::None, &texture_size);
-
-  return renderer::TextureBindingUniform::CreateGroup(**device_base, view,
-                                                      sampler, uniform_buffer);
-}
-
 wgpu::BindGroup MakeTextCacheInternal(renderer::RenderDevice* device_base,
                                       const base::Vec2i& cache_size,
                                       const wgpu::Sampler& sampler,
                                       wgpu::Texture* cache) {
-  renderer::TextureBindingUniform texture_size;
-  texture_size.texture_size = base::MakeInvert(cache_size);
-
-  auto uniform_buffer =
-      renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
-          **device_base, "text.cache.texture", wgpu::BufferUsage::None,
-          &texture_size);
-
   // Create video memory texture
   *cache = renderer::CreateTexture2D(
       **device_base, "textdraw.cache",
@@ -68,7 +44,7 @@ wgpu::BindGroup MakeTextCacheInternal(renderer::RenderDevice* device_base,
       cache_size);
 
   return renderer::TextureBindingUniform::CreateGroup(
-      **device_base, cache->CreateView(), sampler, uniform_buffer);
+      **device_base, cache->CreateView(), sampler);
 }
 
 void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
@@ -93,8 +69,8 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
   agent->world = MakeTextureWorldInternal(device_base, agent->size);
-  agent->binding = MakeTextureBindingGroupInternal(device_base, agent->size,
-                                                   agent->view, agent->sampler);
+  agent->binding = renderer::TextureBindingUniform::CreateGroup(
+      **device_base, agent->view, agent->sampler);
 
   // Write data in video memory
   wgpu::TexelCopyTextureInfo copy_texture;
@@ -128,8 +104,8 @@ void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
   agent->view = agent->data.CreateView();
   agent->sampler = (*device_base)->CreateSampler();
   agent->world = MakeTextureWorldInternal(device_base, agent->size);
-  agent->binding = MakeTextureBindingGroupInternal(device_base, agent->size,
-                                                   agent->view, agent->sampler);
+  agent->binding = renderer::TextureBindingUniform::CreateGroup(
+      **device_base, agent->view, agent->sampler);
 }
 
 void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
@@ -156,7 +132,8 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   blend_alpha.w = blit_alpha / 255.0f;
 
   renderer::Quad transient_quad;
-  renderer::Quad::SetTexCoordRect(&transient_quad, src_region);
+  renderer::Quad::SetTexCoordRect(&transient_quad, src_region,
+                                  src_texture->size);
   renderer::Quad::SetPositionRect(&transient_quad, dst_region);
   renderer::Quad::SetColor(&transient_quad, blend_alpha);
   scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);
@@ -370,17 +347,16 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   if (!agent->text_surface_cache ||
       agent->text_surface_cache.GetWidth() < text->w ||
       agent->text_surface_cache.GetHeight() < text->h) {
-    base::Vec2i text_size;
-    text_size.x = std::max<int32_t>(
+    agent->text_cache_size.x = std::max<int32_t>(
         agent->text_surface_cache ? agent->text_surface_cache.GetWidth() : 0,
         text->w);
-    text_size.y = std::max<int32_t>(
+    agent->text_cache_size.y = std::max<int32_t>(
         agent->text_surface_cache ? agent->text_surface_cache.GetHeight() : 0,
         text->h);
 
     agent->text_cache_binding =
-        MakeTextCacheInternal(scheduler->GetDevice(), text_size, agent->sampler,
-                              &agent->text_surface_cache);
+        MakeTextCacheInternal(scheduler->GetDevice(), agent->text_cache_size,
+                              agent->sampler, &agent->text_surface_cache);
   }
 
   wgpu::RenderPassColorAttachment attachment;
@@ -462,8 +438,8 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   base::Rect compose_position(align_x, align_y, text->w * zoom_x, text->h);
 
   renderer::Quad transient_quad;
-  renderer::Quad::SetTexCoordRect(&transient_quad,
-                                  base::Vec2(text->w, text->h));
+  renderer::Quad::SetTexCoordRect(&transient_quad, base::Vec2(text->w, text->h),
+                                  agent->text_cache_size);
   renderer::Quad::SetPositionRect(&transient_quad, compose_position);
   renderer::Quad::SetColor(&transient_quad, blend_alpha);
   scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);

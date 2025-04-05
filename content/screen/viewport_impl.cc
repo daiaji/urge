@@ -60,26 +60,19 @@ void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
   auto effect_layer = agent->effect.intermediate_layer;
   if (!effect_layer || effect_layer.GetWidth() < effect_size.x ||
       effect_layer.GetHeight() < effect_size.y) {
-    base::Vec2i new_size;
-    new_size.x = std::max<int32_t>(effect_size.x,
-                                   effect_layer ? effect_layer.GetWidth() : 0);
-    new_size.y = std::max<int32_t>(effect_size.y,
-                                   effect_layer ? effect_layer.GetHeight() : 0);
+    agent->effect.layer_size.x = std::max<int32_t>(
+        effect_size.x, effect_layer ? effect_layer.GetWidth() : 0);
+    agent->effect.layer_size.y = std::max<int32_t>(
+        effect_size.y, effect_layer ? effect_layer.GetHeight() : 0);
+
     agent->effect.intermediate_layer = renderer::CreateTexture2D(
         **device, "viewport.intermediate",
         wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::TextureBinding,
-        new_size);
-
-    renderer::TextureBindingUniform binding_uniform;
-    binding_uniform.texture_size = base::MakeInvert(new_size);
-    auto texture_uniform_buffer =
-        renderer::CreateUniformBuffer<renderer::TextureBindingUniform>(
-            **device, "viewport.layer.size", wgpu::BufferUsage::None,
-            &binding_uniform);
+        agent->effect.layer_size);
 
     agent->effect.layer_binding = renderer::TextureBindingUniform::CreateGroup(
         **device, agent->effect.intermediate_layer.CreateView(),
-        (*device)->CreateSampler(), texture_uniform_buffer);
+        (*device)->CreateSampler());
   }
 }
 
@@ -115,7 +108,8 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad, effect_region);
   renderer::Quad::SetTexCoordRect(&transient_quad,
-                                  base::Rect(effect_region.Size()));
+                                  base::Rect(effect_region.Size()),
+                                  agent->effect.layer_size);
   command_encoder->WriteBuffer(agent->effect.vertex_buffer, 0,
                                reinterpret_cast<uint8_t*>(&transient_quad),
                                sizeof(transient_quad));

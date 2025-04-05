@@ -28,6 +28,7 @@ int BuildTilesAlongAxis(TileAxis axis,
                         const base::Vec2i& dest_pos,
                         const base::Vec4& color,
                         int32_t main_axis_size,
+                        const base::Vec2i& texture_size,
                         renderer::Quad* quads);
 
 // Region tile generator:
@@ -35,6 +36,7 @@ int BuildTilesAlongAxis(TileAxis axis,
 int BuildTiles(const base::Rect& src_rect,
                const base::Rect& dest_rect,
                const base::Vec4& color,
+               const base::Vec2i& texture_size,
                renderer::Quad* quads);
 
 }  // namespace content

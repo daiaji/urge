@@ -29,6 +29,7 @@ void GPUDestroySpriteInternal(SpriteAgent* agent) {
 
 void GPUUpdateWaveSpriteInternal(SpriteBatch* batch_scheduler,
                                  SpriteAgent* agent,
+                                 TextureAgent* texture,
                                  const base::Rect& src_rect,
                                  const SpriteImpl::WaveParams& wave,
                                  const renderer::SpriteUniform& uniform,
@@ -56,7 +57,7 @@ void GPUUpdateWaveSpriteInternal(SpriteBatch* batch_scheduler,
     }
 
     SpriteQuad::SetPositionRect(quad, pos);
-    SpriteQuad::SetTexCoordRect(quad, tex);
+    SpriteQuad::SetTexCoordRect(quad, tex, texture->size);
     ++quad;
   };
 
@@ -80,8 +81,8 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
   // Update sprite quad if need
   if (wave.amp) {
     // Wave process if need
-    GPUUpdateWaveSpriteInternal(batch_scheduler, agent, src_rect, wave, uniform,
-                                mirror);
+    GPUUpdateWaveSpriteInternal(batch_scheduler, agent, texture, src_rect, wave,
+                                uniform, mirror);
   } else if (src_rect_dirty) {
     base::Rect rect = src_rect;
 
@@ -94,7 +95,7 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
           base::Rect(rect.x + rect.width, rect.y, -rect.width, rect.height);
 
     SpriteQuad::SetPositionRect(&agent->quad, base::Vec2(rect.Size()));
-    SpriteQuad::SetTexCoordRect(&agent->quad, texcoord);
+    SpriteQuad::SetTexCoordRect(&agent->quad, texcoord, texture->size);
   }
 
   // Start a batch if no context
@@ -616,7 +617,8 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     uniform_params_.tone = tone_->AsNormColor();
     uniform_params_.opacity = static_cast<float>(opacity_) / 255.0f;
     uniform_params_.bush_depth =
-        static_cast<float>(src_rect.y + src_rect.height - bush_.depth);
+        static_cast<float>(src_rect.y + src_rect.height - bush_.depth) /
+        current_texture->size.y;
     uniform_params_.bush_opacity = static_cast<float>(bush_.opacity) / 255.0f;
 
     DrawableNode* next_node = node_.GetNextNode();

@@ -93,7 +93,10 @@ struct Quad {
   Quad() = default;
 
   static void SetPositionRect(Quad* data, const base::RectF& pos);
-  static void SetTexCoordRect(Quad* data, const base::RectF& texcoord);
+  static void SetTexCoordRectNorm(Quad* data, const base::RectF& texcoord);
+  static void SetTexCoordRect(Quad* data,
+                              const base::RectF& texcoord,
+                              const base::Vec2& size);
   static void SetColor(Quad* data, const base::Vec4& color);
 
   Vertex* data() { return vertices; }

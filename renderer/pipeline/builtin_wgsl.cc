@@ -22,7 +22,6 @@ struct VertexOutput {
 @group(0) @binding(0) var<uniform> u_transform: WorldMatrix;
 @group(1) @binding(0) var u_texture: texture_2d<f32>;
 @group(1) @binding(1) var u_sampler: sampler;
-@group(1) @binding(2) var<uniform> u_texSize: vec2<f32>;
 
 @vertex
 fn vertexMain(
@@ -32,7 +31,7 @@ fn vertexMain(
   var result: VertexOutput;
   result.pos = u_transform.projMat * pos;
   result.pos = u_transform.transMat * result.pos;
-  result.uv = u_texSize * uv;
+  result.uv = uv;
   result.color = color;
   return result;
 }
@@ -100,7 +99,6 @@ struct VertexOutput {
 @group(0) @binding(0) var<uniform> u_transform: WorldMatrix;
 @group(1) @binding(0) var u_texture: texture_2d<f32>;
 @group(1) @binding(1) var u_sampler: sampler;
-@group(1) @binding(2) var<uniform> u_texSize: vec2<f32>;
 @group(2) @binding(0) var<uniform> u_effect: EffectParams;
 
 const lumaF: vec3<f32> = vec3<f32>(0.299, 0.587, 0.114);
@@ -113,7 +111,7 @@ fn vertexMain(
   var result: VertexOutput;
   result.pos = u_transform.projMat * pos;
   result.pos = u_transform.transMat * result.pos;
-  result.uv = u_texSize * uv;
+  result.uv = uv;
   result.color = color;
   return result;
 }
@@ -168,7 +166,6 @@ struct VertexOutput {
 @group(0) @binding(0) var<uniform> u_transform: WorldMatrix;
 @group(1) @binding(0) var u_texture: texture_2d<f32>;
 @group(1) @binding(1) var u_sampler: sampler;
-@group(1) @binding(2) var<uniform> u_texSize: vec2<f32>;
 @group(2) @binding(0) var<storage, read> u_vertices: array<SpriteVertex>;
 @group(2) @binding(1) var<storage, read> u_effects: array<EffectParams>;
 
@@ -206,7 +203,7 @@ fn vertexMain(
   var result: VertexOutput;
   result.pos = u_transform.projMat * trans_pos;
   result.pos = u_transform.transMat * result.pos;
-  result.uv = u_texSize * vert.uv;
+  result.uv = vert.uv;
   result.instanceIdx = instanceIdx;
   return result;
 }
@@ -226,7 +223,7 @@ fn fragmentMain(vertex: VertexOutput) -> @location(0) vec4f {
   frag = vec4(mix(frag.rgb, effect.color.rgb, effect.color.a), frag.a);
 
   // Bush
-  let currentPos = vertex.uv.y / u_texSize.y;
+  let currentPos = vertex.uv.y;
   let underBush = select(1.0, 0.0, currentPos > effect.bushDepth);
   frag.a *= clamp(effect.bushOpacity + underBush, 0.0, 1.0);
 
@@ -324,6 +321,7 @@ struct VertexOutput {
 };
 
 struct EffectParams {
+  texSize: vec2<f32>,
   offset: vec2<f32>,
   tileSize: f32,
   animateIndex: f32,
@@ -332,7 +330,6 @@ struct EffectParams {
 @group(0) @binding(0) var<uniform> u_transform: WorldMatrix;
 @group(1) @binding(0) var u_texture: texture_2d<f32>;
 @group(1) @binding(1) var u_sampler: sampler;
-@group(1) @binding(2) var<uniform> u_texSize: vec2<f32>;
 @group(2) @binding(0) var<uniform> u_effect: EffectParams;
 
 const kAutotileArea: vec2<f32> = vec2<f32>(3.0, 28.0);
@@ -356,7 +353,7 @@ fn vertexMain(
   var result: VertexOutput;
   result.pos = u_transform.projMat * trans_pos;
   result.pos = u_transform.transMat * result.pos;
-  result.uv = u_texSize * tex;
+  result.uv = u_effect.texSize * tex;
   result.color = color;
   return result;
 }
@@ -384,6 +381,7 @@ struct VertexOutput {
 };
 
 struct EffectParams {
+  texSize: vec2<f32>,
   offset: vec2<f32>,
   animationOffset: vec2<f32>,
   tileSize: f32,
@@ -392,7 +390,6 @@ struct EffectParams {
 @group(0) @binding(0) var<uniform> u_transform: WorldMatrix;
 @group(1) @binding(0) var u_texture: texture_2d<f32>;
 @group(1) @binding(1) var u_sampler: sampler;
-@group(1) @binding(2) var<uniform> u_texSize: vec2<f32>;
 @group(2) @binding(0) var<uniform> u_effect: EffectParams;
 
 const kRegularArea: vec2<f32> = vec2<f32>(12.0, 12.0);
@@ -426,7 +423,7 @@ fn vertexMain(
   var result: VertexOutput;
   result.pos = u_transform.projMat * trans_pos;
   result.pos = u_transform.transMat * result.pos;
-  result.uv = u_texSize * tex;
+  result.uv = u_effect.texSize * tex;
   result.color = color;
   return result;
 }

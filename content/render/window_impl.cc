@@ -23,6 +23,7 @@ void GPUDestroyWindowInternal(WindowAgent* agent) {
 void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
                                          wgpu::CommandEncoder* encoder,
                                          WindowAgent* agent,
+                                         TextureAgent* windowskin,
                                          int32_t scale,
                                          const base::Rect& bound,
                                          bool stretch,
@@ -74,13 +75,15 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
     base::Vec4 background_opacity_norm(opacity_norm * back_opacity_norm);
     if (stretch) {
       renderer::Quad::SetPositionRect(quad_ptr, dest_rect);
-      renderer::Quad::SetTexCoordRect(quad_ptr, background_src);
+      renderer::Quad::SetTexCoordRect(quad_ptr, background_src,
+                                      windowskin->size);
       renderer::Quad::SetColor(quad_ptr, background_opacity_norm);
       background_quad_count += 1;
     } else {
       // Build tiled background quads
-      background_quad_count += BuildTiles(background_src, dest_rect,
-                                          background_opacity_norm, quad_ptr);
+      background_quad_count +=
+          BuildTiles(background_src, dest_rect, background_opacity_norm,
+                     windowskin->size, quad_ptr);
     }
 
     quad_ptr += background_quad_count;
@@ -95,27 +98,31 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
     renderer::Quad::SetPositionRect(
         quad_ptr,
         base::Rect(display_offset.x, display_offset.y, 8 * scale, 8 * scale));
-    renderer::Quad::SetTexCoordRect(quad_ptr, corner_left_top);
+    renderer::Quad::SetTexCoordRect(quad_ptr, corner_left_top,
+                                    windowskin->size);
     renderer::Quad::SetColor(quad_ptr, base::Vec4(opacity_norm));
     ++quad_ptr;
     renderer::Quad::SetPositionRect(
         quad_ptr, base::Rect(display_offset.x + bound.width - 8 * scale,
                              display_offset.y, 8 * scale, 8 * scale));
-    renderer::Quad::SetTexCoordRect(quad_ptr, corner_right_top);
+    renderer::Quad::SetTexCoordRect(quad_ptr, corner_right_top,
+                                    windowskin->size);
     renderer::Quad::SetColor(quad_ptr, base::Vec4(opacity_norm));
     ++quad_ptr;
     renderer::Quad::SetPositionRect(
         quad_ptr, base::Rect(display_offset.x + bound.width - 8 * scale,
                              display_offset.y + bound.height - 8 * scale,
                              8 * scale, 8 * scale));
-    renderer::Quad::SetTexCoordRect(quad_ptr, corner_right_bottom);
+    renderer::Quad::SetTexCoordRect(quad_ptr, corner_right_bottom,
+                                    windowskin->size);
     renderer::Quad::SetColor(quad_ptr, base::Vec4(opacity_norm));
     ++quad_ptr;
     renderer::Quad::SetPositionRect(
         quad_ptr, base::Rect(display_offset.x,
                              display_offset.y + bound.height - 8 * scale,
                              8 * scale, 8 * scale));
-    renderer::Quad::SetTexCoordRect(quad_ptr, corner_left_bottom);
+    renderer::Quad::SetTexCoordRect(quad_ptr, corner_left_bottom,
+                                    windowskin->size);
     renderer::Quad::SetColor(quad_ptr, base::Vec4(opacity_norm));
     ++quad_ptr;
 
@@ -132,18 +139,21 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
     base::Vec2i frame_right_pos(display_offset.x + bound.width - 8 * scale,
                                 display_offset.y + 8 * scale);
 
-    quad_ptr += BuildTilesAlongAxis(TileAxis::HORIZONTAL, frame_up,
-                                    frame_up_pos, base::Vec4(opacity_norm),
-                                    bound.width - 16 * scale, quad_ptr);
-    quad_ptr += BuildTilesAlongAxis(TileAxis::HORIZONTAL, frame_down,
-                                    frame_down_pos, base::Vec4(opacity_norm),
-                                    bound.width - 16 * scale, quad_ptr);
-    quad_ptr += BuildTilesAlongAxis(TileAxis::VERTICAL, frame_left,
-                                    frame_left_pos, base::Vec4(opacity_norm),
-                                    bound.height - 16 * scale, quad_ptr);
-    quad_ptr += BuildTilesAlongAxis(TileAxis::VERTICAL, frame_right,
-                                    frame_right_pos, base::Vec4(opacity_norm),
-                                    bound.height - 16 * scale, quad_ptr);
+    quad_ptr += BuildTilesAlongAxis(
+        TileAxis::HORIZONTAL, frame_up, frame_up_pos, base::Vec4(opacity_norm),
+        bound.width - 16 * scale, windowskin->size, quad_ptr);
+    quad_ptr +=
+        BuildTilesAlongAxis(TileAxis::HORIZONTAL, frame_down, frame_down_pos,
+                            base::Vec4(opacity_norm), bound.width - 16 * scale,
+                            windowskin->size, quad_ptr);
+    quad_ptr +=
+        BuildTilesAlongAxis(TileAxis::VERTICAL, frame_left, frame_left_pos,
+                            base::Vec4(opacity_norm), bound.height - 16 * scale,
+                            windowskin->size, quad_ptr);
+    quad_ptr +=
+        BuildTilesAlongAxis(TileAxis::VERTICAL, frame_right, frame_right_pos,
+                            base::Vec4(opacity_norm), bound.height - 16 * scale,
+                            windowskin->size, quad_ptr);
   }
 
   agent->background_batch->QueueWrite(*encoder, quad_buffer.data(),
@@ -197,7 +207,8 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
 
     build_cursor_internal(src, quad_rects);
     for (int32_t i = 0; i < 9; ++i)
-      renderer::Quad::SetTexCoordRect(&vert[i], quad_rects[i]);
+      renderer::Quad::SetTexCoordRect(&vert[i], quad_rects[i],
+                                      windowskin->size);
 
     build_cursor_internal(dst, quad_rects);
     for (int32_t i = 0; i < 9; ++i)
@@ -255,7 +266,8 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
       if (origin.x > 0) {
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, scroll_arrow_left_pos);
-        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_left_src);
+        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_left_src,
+                                        windowskin->size);
         renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
         quad_buffer.push_back(quad);
       }
@@ -263,7 +275,8 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
       if (origin.y > 0) {
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, scroll_arrow_up_pos);
-        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_up_src);
+        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_up_src,
+                                        windowskin->size);
         renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
         quad_buffer.push_back(quad);
       }
@@ -271,7 +284,8 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
       if ((bound.width - 16 * scale) < (contents->size.x - origin.x)) {
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, scroll_arrow_right_pos);
-        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_right_src);
+        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_right_src,
+                                        windowskin->size);
         renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
         quad_buffer.push_back(quad);
       }
@@ -279,7 +293,8 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
       if ((bound.height - 16 * scale) < (contents->size.y - origin.y)) {
         renderer::Quad quad;
         renderer::Quad::SetPositionRect(&quad, scroll_arrow_down_pos);
-        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_down_src);
+        renderer::Quad::SetTexCoordRect(&quad, scroll_arrow_down_src,
+                                        windowskin->size);
         renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
         quad_buffer.push_back(quad);
       }
@@ -299,7 +314,8 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
           &quad, base::Rect(display_offset.x + (bound.width - 8 * scale) / 2,
                             display_offset.y + bound.height - 8 * scale,
                             8 * scale, 8 * scale));
-      renderer::Quad::SetTexCoordRect(&quad, pause_animation[pause_index / 8]);
+      renderer::Quad::SetTexCoordRect(&quad, pause_animation[pause_index / 8],
+                                      windowskin->size);
       renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
       quad_buffer.push_back(quad);
     }
@@ -317,7 +333,8 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
     renderer::Quad quad;
     renderer::Quad::SetPositionRect(
         &quad, base::Rect(content_position, contents->size));
-    renderer::Quad::SetTexCoordRect(&quad, base::Rect(contents->size));
+    renderer::Quad::SetTexCoordRect(&quad, base::Rect(contents->size),
+                                    contents->size);
     renderer::Quad::SetColor(&quad, base::Vec4(contents_opacity));
     quad_buffer.push_back(quad);
 
@@ -775,10 +792,10 @@ void WindowImpl::BackgroundNodeHandlerInternal(
 
   if (windowskin_ && windowskin_->GetAgent()) {
     if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
-      screen()->PostTask(base::BindOnce(&GPUCompositeBackgroundLayerInternal,
-                                        params->device, params->command_encoder,
-                                        agent_, scale_, bound_, stretch_,
-                                        opacity_, back_opacity_));
+      screen()->PostTask(base::BindOnce(
+          &GPUCompositeBackgroundLayerInternal, params->device,
+          params->command_encoder, agent_, windowskin_->GetAgent(), scale_,
+          bound_, stretch_, opacity_, back_opacity_));
     } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
       screen()->PostTask(base::BindOnce(
           &GPURenderBackgroundLayerInternal, params->device,

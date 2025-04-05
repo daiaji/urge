@@ -69,7 +69,8 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
       // Set vertex properties directly through pointer
       const base::RectF pos(current_x, current_y, item_x, item_y);
       renderer::Quad::SetPositionRect(quad_ptr, pos);
-      renderer::Quad::SetTexCoordRect(quad_ptr, base::Vec2(item_x, item_y));
+      renderer::Quad::SetTexCoordRect(quad_ptr, base::Vec2(item_x, item_y),
+                                      texture->size);
       renderer::Quad::SetColor(quad_ptr, opacity_norm);
 
       // Move to next quad using pointer arithmetic

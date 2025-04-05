@@ -17,6 +17,7 @@ int BuildTilesAlongAxis(TileAxis axis,
                         const base::Vec2i& dest_pos,
                         const base::Vec4& color,
                         int32_t main_axis_size,
+                        const base::Vec2i& texture_size,
                         renderer::Quad* quads) {
   if (main_axis_size <= 0)
     return 0;
@@ -29,7 +30,7 @@ int BuildTilesAlongAxis(TileAxis axis,
   base::Rect dest_rect = base::Rect(dest_pos, src_rect.Size());
   for (int32_t i = 0; i < full_blocks; ++i) {
     renderer::Quad* quad = quads + i;
-    renderer::Quad::SetTexCoordRect(quad, src_rect);
+    renderer::Quad::SetTexCoordRect(quad, src_rect, texture_size);
     renderer::Quad::SetPositionRect(quad, dest_rect);
     renderer::Quad::SetColor(quad, color);
 
@@ -51,7 +52,7 @@ int BuildTilesAlongAxis(TileAxis axis,
     }
 
     renderer::Quad* quad = quads + full_blocks;
-    renderer::Quad::SetTexCoordRect(quad, partial_src);
+    renderer::Quad::SetTexCoordRect(quad, partial_src, texture_size);
     renderer::Quad::SetPositionRect(quad, dest_rect);
     renderer::Quad::SetColor(quad, color);
   }
@@ -62,6 +63,7 @@ int BuildTilesAlongAxis(TileAxis axis,
 int BuildTiles(const base::Rect& src_rect,
                const base::Rect& dest_rect,
                const base::Vec4& color,
+               const base::Vec2i& texture_size,
                renderer::Quad* quads) {
   if (src_rect.IsInvalid() || dest_rect.IsInvalid())
     return 0;
@@ -79,7 +81,7 @@ int BuildTiles(const base::Rect& src_rect,
   for (int row = 0; row < full_rows; ++row) {
     const int row_quads = BuildTilesAlongAxis(
         TileAxis::HORIZONTAL, src_rect, base::Vec2i(dest_rect.x, current_y),
-        color, dest_rect.width, quads + offset);
+        color, dest_rect.width, texture_size, quads + offset);
 
     quad_count += row_quads;
     offset += row_quads;
@@ -93,7 +95,7 @@ int BuildTiles(const base::Rect& src_rect,
 
     const int row_quads = BuildTilesAlongAxis(
         TileAxis::HORIZONTAL, partial_src, base::Vec2i(dest_rect.x, current_y),
-        color, dest_rect.width, quads + offset);
+        color, dest_rect.width, texture_size, quads + offset);
 
     quad_count += row_quads;
   }
