@@ -1153,9 +1153,12 @@ void Tilemap2Impl::ParseMapDataInternal(
       ox += 8;
     }
 
-    base::RectF tex(ox * tilesize_ + 0.5f, (20 + oy) * tilesize_ + 0.5f,
-                    tilesize_ - 1.0f, tilesize_ - 1.0f);
-    base::RectF pos(x * tilesize_, y * tilesize_, tilesize_, tilesize_);
+    const base::Vec2 atlas_position(ox * tilesize_ + 0.5f,
+                                    (20 + oy) * tilesize_ + 0.5f);
+
+    base::RectF tex(atlas_position, base::Vec2(tilesize_ - 1.0f));
+    base::RectF pos(base::Vec2(x * tilesize_, y * tilesize_),
+                    base::Vec2(tilesize_));
 
     renderer::Quad quad;
     renderer::Quad::SetTexCoordRect(&quad, tex);
@@ -1187,9 +1190,12 @@ void Tilemap2Impl::ParseMapDataInternal(
       ox += 16;
     }
 
-    base::RectF tex((32 + ox) * tilesize_ + 0.5f, oy * tilesize_ + 0.5f,
-                    tilesize_ - 1.0f, tilesize_ - 1.0f);
-    base::RectF pos(x * tilesize_, y * tilesize_, tilesize_, tilesize_);
+    const base::Vec2 atlas_position((32 + ox) * tilesize_ + 0.5f,
+                                    oy * tilesize_ + 0.5f);
+
+    base::RectF tex(atlas_position, base::Vec2(tilesize_ - 1.0f));
+    base::RectF pos(base::Vec2(x * tilesize_, y * tilesize_),
+                    base::Vec2(tilesize_));
 
     renderer::Quad quad;
     renderer::Quad::SetTexCoordRect(&quad, tex);
@@ -1202,10 +1208,13 @@ void Tilemap2Impl::ParseMapDataInternal(
   auto process_shadow_tile = [&](int8_t shadow_id, int32_t x, int32_t y) {
     int32_t ox = shadow_id;
 
-    base::RectF tex((kShadowAtlasArea.x + ox) * tilesize_ + 0.5f,
-                    (kShadowAtlasArea.y) * tilesize_ + 0.5f, tilesize_ - 1.0f,
-                    tilesize_ - 1.0f);
-    base::RectF pos(x * tilesize_, y * tilesize_, tilesize_, tilesize_);
+    const base::Vec2 atlas_position(
+        (kShadowAtlasArea.x + ox) * tilesize_ + 0.5f,
+        (kShadowAtlasArea.y) * tilesize_ + 0.5f);
+
+    base::RectF tex(atlas_position, base::Vec2(tilesize_ - 1.0f));
+    base::RectF pos(base::Vec2(x * tilesize_, y * tilesize_),
+                    base::Vec2(tilesize_));
 
     renderer::Quad quad;
     renderer::Quad::SetTexCoordRect(&quad, tex);

@@ -67,6 +67,10 @@ set(BUILD_SHARED_LIBS FALSE)
 set(DAWN_FETCH_DEPENDENCIES TRUE)
 add_subdirectory(third_party/dawn)
 
+## DiligentCore
+add_subdirectory(third_party/DiligentCore)
+include_directories(third_party/DiligentCore)
+
 ## Dear IMGUI
 add_compile_definitions(IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
 add_subdirectory(third_party/imgui)
@@ -89,10 +93,6 @@ add_subdirectory(third_party/vorbis)
 ## Soloud
 add_subdirectory(third_party/soloud)
 include_directories(third_party/soloud/include)
-
-## VulkanHpp
-set(VULKAN_HPP_DISPATCH_LOADER_DYNAMIC on)
-add_subdirectory(third_party/Vulkan-Hpp)
 
 ## CRuby-Mri (extern)
 ## TODO: Enhance ruby build ins
