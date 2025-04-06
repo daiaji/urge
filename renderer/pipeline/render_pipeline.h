@@ -5,11 +5,20 @@
 #ifndef RENDERER_PIPELINE_RENDER_PIPELINE_H_
 #define RENDERER_PIPELINE_RENDER_PIPELINE_H_
 
+#include "Common/interface/RefCntAutoPtr.hpp"
+#include "Graphics/GraphicsEngine/interface/DeviceContext.h"
+#include "Graphics/GraphicsEngine/interface/PipelineState.h"
+#include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "Graphics/GraphicsTools/interface/GraphicsUtilities.h"
+#include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+
 #include "renderer/pipeline/binding_layout.h"
 #include "renderer/vertex/vertex_layout.h"
 
 namespace renderer {
 
+/// Color Blend Type of Pipeline
+///
 enum BlendType {
   NORMAL = 0,
   ADDITION,
@@ -19,38 +28,45 @@ enum BlendType {
   TYPE_NUMS,
 };
 
+/// Pipeline base manager
+///
 class RenderPipelineBase {
  public:
+  struct ShaderSource {
+    std::string source;
+    std::string entry = "main";
+    std::string name = "shader";
+  };
+
   virtual ~RenderPipelineBase() = default;
 
   RenderPipelineBase(const RenderPipelineBase&) = delete;
   RenderPipelineBase& operator=(const RenderPipelineBase&) = delete;
 
-  wgpu::RenderPipeline* GetPipeline(BlendType blend) {
-    return &pipelines_[blend];
+  Diligent::IPipelineState* GetPipeline(BlendType blend) {
+    return pipelines_[blend];
   }
 
-  wgpu::BindGroupLayout* GetLayout(size_t n) { return &layouts_[n]; }
-
  protected:
-  RenderPipelineBase(const wgpu::Device& device);
+  RenderPipelineBase(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device);
 
-  void BuildPipeline(const std::string& shader_source,
-                     const std::string& vs_entry,
-                     const std::string& fs_entry,
-                     std::vector<wgpu::VertexBufferLayout> vertex_layout,
-                     std::vector<wgpu::BindGroupLayout> bind_layout,
-                     wgpu::TextureFormat target_format);
+  void BuildPipeline(
+      const ShaderSource& vertex_shader,
+      const ShaderSource& pixel_shader,
+      const std::vector<Diligent::LayoutElement>& input_layout,
+      const std::vector<Diligent::ShaderResourceVariableDesc>& variables,
+      const std::vector<Diligent::ImmutableSamplerDesc>& samplers,
+      Diligent::TEXTURE_FORMAT target_format);
 
  private:
-  wgpu::Device device_;
-  std::vector<wgpu::BindGroupLayout> layouts_;
-  std::vector<wgpu::RenderPipeline> pipelines_;
+  Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
+  std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pipelines_;
 };
 
 class Pipeline_Base : public RenderPipelineBase {
  public:
-  Pipeline_Base(const wgpu::Device& device, wgpu::TextureFormat target);
+  Pipeline_Base(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+                Diligent::TEXTURE_FORMAT target_format);
 };
 
 class Pipeline_Color : public RenderPipelineBase {

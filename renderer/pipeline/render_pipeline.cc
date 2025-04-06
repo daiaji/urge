@@ -6,42 +6,44 @@
 
 #include <optional>
 
+#include "base/debug/logging.h"
 #include "renderer/pipeline/builtin_wgsl.h"
 
 namespace renderer {
 
 namespace {
 
-std::optional<wgpu::BlendState> GetWGPUBlendState(BlendType type) {
-  wgpu::BlendState state;
+Diligent::RenderTargetBlendDesc GetBlendState(BlendType type) {
+  Diligent::RenderTargetBlendDesc state;
   switch (type) {
     default:
     case renderer::BlendType::NORMAL:
-      state.color.operation = wgpu::BlendOperation::Add;
-      state.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
-      state.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
-      state.alpha.operation = wgpu::BlendOperation::Add;
-      state.alpha.srcFactor = wgpu::BlendFactor::One;
-      state.alpha.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
+      state.BlendEnable = Diligent::True;
+      state.BlendOp = Diligent::BLEND_OPERATION_ADD;
+      state.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
+      state.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+      state.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
       break;
     case renderer::BlendType::ADDITION:
-      state.color.operation = wgpu::BlendOperation::Add;
-      state.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
-      state.color.dstFactor = wgpu::BlendFactor::One;
-      state.alpha.operation = wgpu::BlendOperation::Add;
-      state.alpha.srcFactor = wgpu::BlendFactor::One;
-      state.alpha.dstFactor = wgpu::BlendFactor::One;
+      state.BlendEnable = Diligent::True;
+      state.BlendOp = Diligent::BLEND_OPERATION_ADD;
+      state.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
+      state.DestBlend = Diligent::BLEND_FACTOR_ONE;
+      state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+      state.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
       break;
     case renderer::BlendType::SUBSTRACTION:
-      state.color.operation = wgpu::BlendOperation::ReverseSubtract;
-      state.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
-      state.color.dstFactor = wgpu::BlendFactor::One;
-      state.alpha.operation = wgpu::BlendOperation::ReverseSubtract;
-      state.alpha.srcFactor = wgpu::BlendFactor::Zero;
-      state.alpha.dstFactor = wgpu::BlendFactor::One;
+      state.BlendEnable = Diligent::True;
+      state.BlendOp = Diligent::BLEND_OPERATION_REV_SUBTRACT;
+      state.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
+      state.DestBlend = Diligent::BLEND_FACTOR_ONE;
+      state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ZERO;
+      state.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
       break;
     case renderer::BlendType::NO_BLEND:
-      return std::nullopt;
+      state.BlendEnable = Diligent::False;
+      break;
   }
 
   return state;
@@ -49,66 +51,103 @@ std::optional<wgpu::BlendState> GetWGPUBlendState(BlendType type) {
 
 }  // namespace
 
-RenderPipelineBase::RenderPipelineBase(const wgpu::Device& device)
+RenderPipelineBase::RenderPipelineBase(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device)
     : device_(device) {}
 
 void RenderPipelineBase::BuildPipeline(
-    const std::string& shader_source,
-    const std::string& vs_entry,
-    const std::string& fs_entry,
-    std::vector<wgpu::VertexBufferLayout> vertex_layout,
-    std::vector<wgpu::BindGroupLayout> bind_layout,
-    wgpu::TextureFormat target_format) {
-  wgpu::ShaderModuleWGSLDescriptor wgsl_desc;
-  wgsl_desc.code = std::string_view(shader_source);
+    const ShaderSource& vertex_shader,
+    const ShaderSource& pixel_shader,
+    const std::vector<Diligent::LayoutElement>& input_layout,
+    const std::vector<Diligent::ShaderResourceVariableDesc>& variables,
+    const std::vector<Diligent::ImmutableSamplerDesc>& samplers,
+    Diligent::TEXTURE_FORMAT target_format) {
+  Diligent::GraphicsPipelineStateCreateInfo pipeline_state_desc;
+  pipeline_state_desc.PSODesc.Name = "";
+  pipeline_state_desc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
 
-  wgpu::ShaderModuleDescriptor shader_module_desc;
-  shader_module_desc.nextInChain = &wgsl_desc;
-  wgpu::ShaderModule shader_module =
-      device_.CreateShaderModule(&shader_module_desc);
+  pipeline_state_desc.GraphicsPipeline.NumRenderTargets = 1;
+  pipeline_state_desc.GraphicsPipeline.RTVFormats[0] = target_format;
+  pipeline_state_desc.GraphicsPipeline.PrimitiveTopology =
+      Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  pipeline_state_desc.GraphicsPipeline.RasterizerDesc.CullMode =
+      Diligent::CULL_MODE_NONE;
+  pipeline_state_desc.GraphicsPipeline.RasterizerDesc.ScissorEnable =
+      Diligent::True;
+  pipeline_state_desc.GraphicsPipeline.DepthStencilDesc.DepthEnable =
+      Diligent::False;
 
-  layouts_ = std::move(bind_layout);
-  wgpu::PipelineLayoutDescriptor pipeline_layout_desc;
-  pipeline_layout_desc.bindGroupLayoutCount = layouts_.size();
-  pipeline_layout_desc.bindGroupLayouts = layouts_.data();
-  wgpu::PipelineLayout pipeline_layout =
-      device_.CreatePipelineLayout(&pipeline_layout_desc);
+  Diligent::ShaderCreateInfo shader_desc;
+  Diligent::RefCntAutoPtr<Diligent::IShader> vertex_shader_object,
+      pixel_shader_object;
+  shader_desc.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
+  shader_desc.Desc.UseCombinedTextureSamplers = Diligent::True;
+  shader_desc.CompileFlags =
+      Diligent::SHADER_COMPILE_FLAG_PACK_MATRIX_ROW_MAJOR;
 
-  wgpu::VertexState vertex_state;
-  vertex_state.module = shader_module;
-  vertex_state.entryPoint = std::string_view(vs_entry);
-  vertex_state.bufferCount = vertex_layout.size();
-  vertex_state.buffers = vertex_layout.data();
+  {
+    shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
+    shader_desc.EntryPoint = vertex_shader.entry.c_str();
+    shader_desc.Desc.Name = vertex_shader.name.c_str();
+    shader_desc.Source = vertex_shader.source.c_str();
+    device_->CreateShader(shader_desc, &vertex_shader_object);
 
-  wgpu::ColorTargetState color_target;
-  color_target.format = target_format;
+    shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
+    shader_desc.EntryPoint = pixel_shader.entry.c_str();
+    shader_desc.Desc.Name = pixel_shader.name.c_str();
+    shader_desc.Source = pixel_shader.source.c_str();
+    device_->CreateShader(shader_desc, &pixel_shader_object);
+  }
 
-  wgpu::FragmentState fragment_state;
-  fragment_state.module = shader_module;
-  fragment_state.entryPoint = std::string_view(fs_entry);
-  fragment_state.targetCount = 1;
-  fragment_state.targets = &color_target;
+  pipeline_state_desc.pVS = vertex_shader_object;
+  pipeline_state_desc.pPS = pixel_shader_object;
 
-  wgpu::RenderPipelineDescriptor descriptor;
-  descriptor.layout = pipeline_layout;
-  descriptor.vertex = vertex_state;
-  descriptor.fragment = &fragment_state;
+  pipeline_state_desc.GraphicsPipeline.InputLayout.LayoutElements =
+      input_layout.data();
+  pipeline_state_desc.GraphicsPipeline.InputLayout.NumElements =
+      input_layout.size();
+
+  pipeline_state_desc.PSODesc.ResourceLayout.Variables = variables.data();
+  pipeline_state_desc.PSODesc.ResourceLayout.NumVariables = variables.size();
+
+  pipeline_state_desc.PSODesc.ResourceLayout.ImmutableSamplers =
+      samplers.data();
+  pipeline_state_desc.PSODesc.ResourceLayout.NumImmutableSamplers =
+      samplers.size();
 
   for (int i = 0; i < BlendType::TYPE_NUMS; ++i) {
-    // Generate color blend structure.
-    auto blend_state = GetWGPUBlendState(static_cast<BlendType>(i));
-    color_target.blend = nullptr;
-    if (blend_state.has_value())
-      color_target.blend = &blend_state.value();
+    pipeline_state_desc.GraphicsPipeline.BlendDesc.RenderTargets[0] =
+        GetBlendState(static_cast<BlendType>(i));
 
-    // Create graphics pipeline
-    pipelines_.push_back(device_.CreateRenderPipeline(&descriptor));
+    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_state;
+    device_->CreateGraphicsPipelineState(pipeline_state_desc, &pipeline_state);
+
+    pipelines_.push_back(pipeline_state);
+
+    if (i > 0 && !pipeline_state->IsCompatibleWith(pipelines_[0]))
+      LOG(FATAL) << "[Renderer] Pipeline is not compatible with other state.";
   }
 }
 
-Pipeline_Base::Pipeline_Base(const wgpu::Device& device,
-                             wgpu::TextureFormat target)
+Pipeline_Base::Pipeline_Base(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+    Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_Texture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
   BuildPipeline(kBaseRenderWGSL, "vertexMain", "fragmentMain",
                 {
                     Vertex::GetLayout(),
@@ -117,7 +156,7 @@ Pipeline_Base::Pipeline_Base(const wgpu::Device& device,
                     WorldMatrixUniform::GetLayout(device),
                     TextureBindingUniform::GetLayout(device),
                 },
-                target);
+                target_format);
 }
 
 Pipeline_Color::Pipeline_Color(const wgpu::Device& device,

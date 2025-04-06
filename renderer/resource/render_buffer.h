@@ -5,6 +5,11 @@
 #ifndef RENDERER_RESOURCE_RENDER_BUFFER_H_
 #define RENDERER_RESOURCE_RENDER_BUFFER_H_
 
+#include "Common/interface/RefCntAutoPtr.hpp"
+#include "Graphics/GraphicsEngine/interface/Buffer.h"
+#include "Graphics/GraphicsEngine/interface/DeviceContext.h"
+#include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+
 #include "renderer/renderer_config.h"
 #include "renderer/vertex/vertex_layout.h"
 
@@ -18,25 +23,27 @@ class QuadIndexCache {
   QuadIndexCache& operator=(const QuadIndexCache&) = delete;
 
   // Make quad index(6) buffer cache
-  static std::unique_ptr<QuadIndexCache> Make(const wgpu::Device& device);
+  static std::unique_ptr<QuadIndexCache> Make(
+      Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device);
 
   // Allocate a new capacity index buffer for drawcall using,
   // |quadrangle_size| is the count not the byte size.
-  wgpu::Buffer* Allocate(uint32_t quadrangle_size);
+  void Allocate(uint32_t quadrangle_size);
 
-  wgpu::Buffer& operator*() { return index_buffer_; }
-  wgpu::IndexFormat format() const { return format_; }
+  Diligent::RefCntAutoPtr<Diligent::IBuffer>& operator*() { return buffer_; }
+  Diligent::VALUE_TYPE format() const { return format_; }
 
  private:
-  QuadIndexCache(const wgpu::Device& device);
+  QuadIndexCache(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device);
 
-  wgpu::Device device_;
-  wgpu::IndexFormat format_;
-  wgpu::Buffer index_buffer_;
+  Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
+  Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer_;
+  Diligent::VALUE_TYPE format_;
+
   std::vector<uint16_t> cache_;
 };
 
-template <typename TargetType, wgpu::BufferUsage BatchUsage>
+template <typename TargetType, Diligent::BIND_FLAGS BatchBind>
 class BatchBuffer {
  public:
   ~BatchBuffer() = default;
@@ -44,56 +51,62 @@ class BatchBuffer {
   BatchBuffer(const BatchBuffer&) = delete;
   BatchBuffer& operator=(const BatchBuffer&) = delete;
 
-  static std::unique_ptr<BatchBuffer> Make(const wgpu::Device& device,
-                                           uint64_t initial_count = 0) {
-    wgpu::Buffer result_buffer;
+  static std::unique_ptr<BatchBuffer> Make(
+      Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+      uint64_t initial_count = 0) {
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> result_buffer;
     if (initial_count) {
-      wgpu::BufferDescriptor buffer_desc;
-      buffer_desc.label = "generic.batch.buffer";
-      buffer_desc.usage = BatchUsage | wgpu::BufferUsage::CopyDst;
-      buffer_desc.size = initial_count * sizeof(TargetType);
-      buffer_desc.mappedAtCreation = false;
-      result_buffer = device.CreateBuffer(&buffer_desc);
+      Diligent::BufferDesc buffer_desc;
+      buffer_desc.Name = "generic.batch.buffer";
+      buffer_desc.Usage = Diligent::USAGE_DYNAMIC;
+      buffer_desc.BindFlags = BatchBind;
+      buffer_desc.Size = initial_count * sizeof(TargetType);
+      device->CreateBuffer(buffer_desc, nullptr, &result_buffer);
     }
 
     return std::unique_ptr<BatchBuffer>(new BatchBuffer(device, result_buffer));
   }
 
-  wgpu::Buffer& operator*() { return buffer_; }
+  Diligent::RefCntAutoPtr<Diligent::IBuffer>& operator*() { return buffer_; }
 
-  bool QueueWrite(const wgpu::CommandEncoder& encoder,
+  bool QueueWrite(Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context,
                   const TargetType* data,
                   uint32_t count = 1) {
-    if (!buffer_ || buffer_.GetSize() < sizeof(TargetType) * count) {
+    if (!buffer_ || buffer_->GetDesc().Size < sizeof(TargetType) * count) {
       size_t buffer_size = count * sizeof(TargetType);
-      wgpu::BufferDescriptor buffer_desc;
-      buffer_desc.label = "generic.batch.buffer";
-      buffer_desc.usage = BatchUsage | wgpu::BufferUsage::CopyDst;
-      buffer_desc.size = buffer_size;
-      buffer_desc.mappedAtCreation = !!data;
-      buffer_ = device_.CreateBuffer(&buffer_desc);
-      if (data) {
-        std::memcpy(buffer_.GetMappedRange(0, buffer_size), data, buffer_size);
-        buffer_.Unmap();
-      }
+
+      Diligent::BufferDesc buffer_desc;
+      buffer_desc.Name = "generic.batch.buffer";
+      buffer_desc.Usage = Diligent::USAGE_DYNAMIC;
+      buffer_desc.BindFlags = BatchBind;
+
+      Diligent::BufferData buffer_data;
+      buffer_data.pData = data;
+      buffer_data.DataSize = buffer_size;
+      buffer_data.pContext = context;
+
+      device_->CreateBuffer(buffer_desc, &buffer_data, &buffer_);
+
       return true;
     }
 
     if (data)
-      encoder.WriteBuffer(buffer_, 0, reinterpret_cast<const uint8_t*>(data),
-                          count * sizeof(TargetType));
+      context->UpdateBuffer(buffer_, 0, count * sizeof(TargetType),
+                            reinterpret_cast<const uint8_t*>(data),
+                            Diligent::RESOURCE_STATE_TRANSITION_MODE_VERIFY);
     return false;
   }
 
  private:
-  BatchBuffer(const wgpu::Device& device, const wgpu::Buffer& buffer)
+  BatchBuffer(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+              Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer)
       : device_(device), buffer_(buffer) {}
 
-  wgpu::Device device_;
-  wgpu::Buffer buffer_;
+  Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
+  Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer_;
 };
 
-using QuadBatch = BatchBuffer<Quad, wgpu::BufferUsage::Vertex>;
+using QuadBatch = BatchBuffer<Quad, Diligent::BIND_FLAGS::BIND_VERTEX_BUFFER>;
 
 }  // namespace renderer
 

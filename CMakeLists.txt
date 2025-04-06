@@ -62,11 +62,6 @@ include_directories(third_party/freetype/include)
 add_subdirectory(third_party/text_render)
 include_directories(third_party/text_render/include)
 
-## WebGPU Renderer
-set(BUILD_SHARED_LIBS FALSE)
-set(DAWN_FETCH_DEPENDENCIES TRUE)
-add_subdirectory(third_party/dawn)
-
 ## Zlib
 add_subdirectory(third_party/zlib)
 include_directories(third_party/zlib)

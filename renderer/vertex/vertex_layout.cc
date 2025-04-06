@@ -6,31 +6,17 @@
 
 namespace renderer {
 
-wgpu::VertexBufferLayout Vertex::GetLayout() {
-  static wgpu::VertexAttribute attrs[3];
+std::vector<Diligent::LayoutElement> Vertex::GetLayout() {
+  static std::vector<Diligent::LayoutElement> input_elements = {
+      /* Position Vec4 */
+      Diligent::LayoutElement{0, 0, 4, Diligent::VT_FLOAT32, Diligent::False},
+      /* TexCoord Vec2 */
+      Diligent::LayoutElement{1, 0, 2, Diligent::VT_FLOAT32, Diligent::False},
+      /* Color Vec4 */
+      Diligent::LayoutElement{2, 0, 4, Diligent::VT_FLOAT32, Diligent::False},
+  };
 
-  // Position: vec4<f32>
-  attrs[0].format = wgpu::VertexFormat::Float32x4;
-  attrs[0].offset = 0 * sizeof(float);
-  attrs[0].shaderLocation = 0;
-
-  // TexCoord: vec2<f32>
-  attrs[1].format = wgpu::VertexFormat::Float32x2;
-  attrs[1].offset = 4 * sizeof(float);
-  attrs[1].shaderLocation = 1;
-
-  // Color: vec4<f32>
-  attrs[2].format = wgpu::VertexFormat::Float32x4;
-  attrs[2].offset = 6 * sizeof(float);
-  attrs[2].shaderLocation = 2;
-
-  wgpu::VertexBufferLayout layout;
-  layout.arrayStride = sizeof(Vertex);
-  layout.attributeCount = _countof(attrs);
-  layout.attributes = attrs;
-  layout.stepMode = wgpu::VertexStepMode::Vertex;
-
-  return layout;
+  return input_elements;
 }
 
 void Quad::SetPositionRect(Quad* data, const base::RectF& pos) {

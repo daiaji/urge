@@ -21,15 +21,16 @@ static std::array<uint16_t, 6> kQuadrangleDrawIndices = {
     0, 1, 2, 2, 3, 0,
 };
 
-QuadIndexCache::QuadIndexCache(const wgpu::Device& device)
-    : device_(device), format_(wgpu::IndexFormat::Uint16) {}
+QuadIndexCache::QuadIndexCache(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device)
+    : device_(device), format_(Diligent::VALUE_TYPE::VT_UINT16) {}
 
 std::unique_ptr<QuadIndexCache> renderer::QuadIndexCache::Make(
-    const wgpu::Device& device) {
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device) {
   return std::unique_ptr<QuadIndexCache>(new QuadIndexCache(device));
 }
 
-wgpu::Buffer* QuadIndexCache::Allocate(uint32_t quadrangle_size) {
+void QuadIndexCache::Allocate(uint32_t quadrangle_size) {
   uint32_t required_indices_size =
       quadrangle_size * kQuadrangleDrawIndices.size();
 
@@ -42,27 +43,27 @@ wgpu::Buffer* QuadIndexCache::Allocate(uint32_t quadrangle_size) {
         cache_.push_back(i * 4 + it);
 
     // Reset old buffer
-    index_buffer_ = nullptr;
+    buffer_.Release();
   }
 
   // Upload to GPU
-  if (!index_buffer_) {
+  if (!buffer_) {
     // Allocate bigger buffer
-    wgpu::BufferDescriptor buffer_desc;
-    buffer_desc.label = "IndexBuffer.Immutable.Quadrangle";
-    buffer_desc.usage = wgpu::BufferUsage::Index;
-    buffer_desc.mappedAtCreation = true;
-    buffer_desc.size = required_indices_size *
+    Diligent::BufferDesc buffer_desc;
+    buffer_desc.Name = "generic.index.buffer";
+    buffer_desc.Usage = Diligent::USAGE_IMMUTABLE;
+    buffer_desc.BindFlags = Diligent::BIND_INDEX_BUFFER;
+    buffer_desc.Size = required_indices_size *
                        sizeof(decltype(kQuadrangleDrawIndices)::value_type);
-    index_buffer_ = device_.CreateBuffer(&buffer_desc);
 
-    // Re-Write indices data to buffer
-    void* dest_memory = index_buffer_.GetMappedRange();
-    std::memcpy(dest_memory, cache_.data(), buffer_desc.size);
-    index_buffer_.Unmap();
+    // Upload new index data
+    Diligent::BufferData buffer_data;
+    buffer_data.pData = cache_.data();
+    buffer_data.DataSize = buffer_desc.Size;
+
+    // Create buffer object
+    device_->CreateBuffer(buffer_desc, &buffer_data, &buffer_);
   }
-
-  return &index_buffer_;
 }
 
 }  // namespace renderer
