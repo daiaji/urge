@@ -271,15 +271,15 @@ struct SpriteVertex {
 };
 
 struct SpriteParams {
-  Color: vec4<f32>,
-  Tone: vec4<f32>,
-  Position: vec2<f32>,
-  Origin: vec2<f32>,
-  Scale: vec2<f32>,
-  Rotation: f32,
-  Opacity: f32,
-  BushDepth: f32,
-  BushOpacity: f32,
+  float4 Color;
+  float4 Tone;
+  float2 Position;
+  float2 Origin;
+  float2 Scale;
+  float Rotation;
+  float Opacity;
+  float BushDepth;
+  float BushOpacity;
 };
 
 StructuredBuffer<SpriteVertex> u_Vertices;
@@ -296,7 +296,11 @@ struct VSInput {
 struct PSInput {
   float4 Pos : SV_Position;
   float2 UV : TEXCOORD0;
-  uint InstanceIdx : NORMAL;
+  float4 Color : NORMAL;
+  float4 Tone : NORMAL;
+  float Opacity : NORMAL;
+  float BushDepth : NORMAL;
+  float BushOpacity : NORMAL;
 };
 
 void main(in VSInput VSIn, out PSInput PSIn) {
@@ -324,26 +328,16 @@ void main(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Pos = mul(transPos, u_Transform.ProjMat);
   PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
   PSIn.UV = vert.UV;
-  PSIn.InstanceIdx = VSIn.InstanceIdx;
+  PSIn.Color = effect.Color;
+  PSIn.Tone = effect.Tone;
+  PSIn.Opacity = effect.Opacity;
+  PSIn.BushDepth = effect.BushDepth;
+  PSIn.BushOpacity = effect.BushOpacity;
 }
 
 )";
 
 const std::string kHLSL_SpriteRender_PixelShader = R"(
-
-struct SpriteParams {
-  Color: vec4<f32>,
-  Tone: vec4<f32>,
-  Position: vec2<f32>,
-  Origin: vec2<f32>,
-  Scale: vec2<f32>,
-  Rotation: f32,
-  Opacity: f32,
-  BushDepth: f32,
-  BushOpacity: f32,
-};
-
-StructuredBuffer<SpriteParams> u_Params;
 
 Texture2D u_Texture;
 SamplerState u_Texture_sampler;
@@ -351,7 +345,11 @@ SamplerState u_Texture_sampler;
 struct PSInput {
   float4 Pos : SV_Position;
   float2 UV : TEXCOORD0;
-  uint InstanceIdx : NORMAL;
+  float4 Color : NORMAL;
+  float4 Tone : NORMAL;
+  float Opacity : NORMAL;
+  float BushDepth : NORMAL;
+  float BushOpacity : NORMAL;
 };
 
 struct PSOutput {
@@ -361,22 +359,21 @@ struct PSOutput {
 static const float3 lumaF = float3(0.299, 0.587, 0.114);
 
 void main(in PSInput PSIn, out PSOutput PSOut) {
-  SpriteParams effect = u_Params[PSIn.InstanceIdx];
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
   
   // Tone
   float luma = dot(frag.rgb, lumaF);
-  frag.rgb = lerp(frag.rgb, float3(luma, luma, luma), effect.Tone.w);
-  frag.rgb += effect.Tone.rgb;
+  frag.rgb = lerp(frag.rgb, float3(luma, luma, luma), PSIn.Tone.w);
+  frag.rgb += PSIn.Tone.rgb;
     
   // Color
-  frag.a *= effect.Opacity;
-  frag.rgb = lerp(frag.rgb, effect.Color.rgb, effect.Color.a);
+  frag.a *= PSIn.Opacity;
+  frag.rgb = lerp(frag.rgb, PSIn.Color.rgb, PSIn.Color.a);
     
   // Bush
   float currentPos = PSIn.UV.y;
-  float underBush = (currentPos > effect.BushDepth) ? 0.0 : 1.0;
-  frag.a *= clamp(effect.BushOpacity + underBush, 0.0, 1.0);
+  float underBush = (currentPos > PSIn.BushDepth) ? 0.0 : 1.0;
+  frag.a *= clamp(PSIn.BushOpacity + underBush, 0.0, 1.0);
 
   PSOut.Color = frag;
 }

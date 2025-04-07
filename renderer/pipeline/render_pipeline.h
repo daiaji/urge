@@ -12,7 +12,6 @@
 #include "Graphics/GraphicsTools/interface/GraphicsUtilities.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 
-#include "renderer/pipeline/binding_layout.h"
 #include "renderer/vertex/vertex_layout.h"
 
 namespace renderer {
@@ -43,9 +42,11 @@ class RenderPipelineBase {
   RenderPipelineBase(const RenderPipelineBase&) = delete;
   RenderPipelineBase& operator=(const RenderPipelineBase&) = delete;
 
-  Diligent::IPipelineState* GetPipeline(BlendType blend) {
+  inline Diligent::IPipelineState* GetPipeline(BlendType blend) const {
     return pipelines_[blend];
   }
+
+  void CreateResourceBinding(Diligent::IShaderResourceBinding** out);
 
  protected:
   RenderPipelineBase(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device);
@@ -67,43 +68,9 @@ class Pipeline_Base : public RenderPipelineBase {
  public:
   Pipeline_Base(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
                 Diligent::TEXTURE_FORMAT target_format);
-};
 
-class Pipeline_Color : public RenderPipelineBase {
- public:
-  Pipeline_Color(const wgpu::Device& device, wgpu::TextureFormat target);
-};
-
-class Pipeline_Viewport : public RenderPipelineBase {
- public:
-  Pipeline_Viewport(const wgpu::Device& device, wgpu::TextureFormat target);
-};
-
-class Pipeline_Sprite : public RenderPipelineBase {
- public:
-  Pipeline_Sprite(const wgpu::Device& device, wgpu::TextureFormat target);
-};
-
-class Pipeline_AlphaTransition : public RenderPipelineBase {
- public:
-  Pipeline_AlphaTransition(const wgpu::Device& device,
-                           wgpu::TextureFormat target);
-};
-
-class Pipeline_MappedTransition : public RenderPipelineBase {
- public:
-  Pipeline_MappedTransition(const wgpu::Device& device,
-                            wgpu::TextureFormat target);
-};
-
-class Pipeline_Tilemap : public RenderPipelineBase {
- public:
-  Pipeline_Tilemap(const wgpu::Device& device, wgpu::TextureFormat target);
-};
-
-class Pipeline_Tilemap2 : public RenderPipelineBase {
- public:
-  Pipeline_Tilemap2(const wgpu::Device& device, wgpu::TextureFormat target);
+  static const char kUniform_Transform[];
+  static const char kUniform_Texture[];
 };
 
 }  // namespace renderer

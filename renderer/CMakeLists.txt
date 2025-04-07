@@ -8,10 +8,10 @@ cmake_minimum_required(VERSION 3.20.1)
 set(ENGINE_RENDERER_SRC
   device/render_device.cc
   device/render_device.h
-  pipeline/binding_layout.cc
-  pipeline/binding_layout.h
   pipeline/builtin_hlsl.cc
   pipeline/builtin_hlsl.h
+  pipeline/render_binding.cc
+  pipeline/render_binding.h
   pipeline/render_pipeline.cc
   pipeline/render_pipeline.h
   resource/render_buffer.cc

@@ -4,10 +4,8 @@
 
 #include "renderer/pipeline/render_pipeline.h"
 
-#include <optional>
-
 #include "base/debug/logging.h"
-#include "renderer/pipeline/builtin_wgsl.h"
+#include "renderer/pipeline/builtin_hlsl.h"
 
 namespace renderer {
 
@@ -54,6 +52,11 @@ Diligent::RenderTargetBlendDesc GetBlendState(BlendType type) {
 RenderPipelineBase::RenderPipelineBase(
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device)
     : device_(device) {}
+
+void RenderPipelineBase::CreateResourceBinding(
+    Diligent::IShaderResourceBinding** out) {
+  pipelines_[0]->CreateShaderResourceBinding(out, Diligent::True);
+}
 
 void RenderPipelineBase::BuildPipeline(
     const ShaderSource& vertex_shader,
@@ -122,10 +125,10 @@ void RenderPipelineBase::BuildPipeline(
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_state;
     device_->CreateGraphicsPipelineState(pipeline_state_desc, &pipeline_state);
 
-    pipelines_.push_back(pipeline_state);
-
     if (i > 0 && !pipeline_state->IsCompatibleWith(pipelines_[0]))
-      LOG(FATAL) << "[Renderer] Pipeline is not compatible with other state.";
+      LOG(ERROR) << "[Renderer] Pipeline is not compatible with other state.";
+
+    pipelines_.push_back(pipeline_state);
   }
 }
 
@@ -133,7 +136,14 @@ Pipeline_Base::Pipeline_Base(
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
     Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
+  const ShaderSource vertex_shader{kHLSL_BaseRender_VertexShader, "main",
+                                   "base.vertex"};
+  const ShaderSource pixel_shader{kHLSL_BaseRender_PixelShader, "main",
+                                  "base.pixel"};
+
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_VERTEX, "u_Transform",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
@@ -148,114 +158,8 @@ Pipeline_Base::Pipeline_Base(
       },
   };
 
-  BuildPipeline(kBaseRenderWGSL, "vertexMain", "fragmentMain",
-                {
-                    Vertex::GetLayout(),
-                },
-                {
-                    WorldMatrixUniform::GetLayout(device),
-                    TextureBindingUniform::GetLayout(device),
-                },
-                target_format);
-}
-
-Pipeline_Color::Pipeline_Color(const wgpu::Device& device,
-                               wgpu::TextureFormat target)
-    : RenderPipelineBase(device) {
-  BuildPipeline(kColorRenderWGSL, "vertexMain", "fragmentMain",
-                {
-                    Vertex::GetLayout(),
-                },
-                {
-                    WorldMatrixUniform::GetLayout(device),
-                },
-                target);
-}
-
-Pipeline_Viewport::Pipeline_Viewport(const wgpu::Device& device,
-                                     wgpu::TextureFormat target)
-    : RenderPipelineBase(device) {
-  BuildPipeline(kViewportBaseRenderWGSL, "vertexMain", "fragmentMain",
-                {
-                    Vertex::GetLayout(),
-                },
-                {
-                    WorldMatrixUniform::GetLayout(device),
-                    TextureBindingUniform::GetLayout(device),
-                    ViewportFragmentUniform::GetLayout(device),
-                },
-                target);
-}
-
-Pipeline_Sprite::Pipeline_Sprite(const wgpu::Device& device,
-                                 wgpu::TextureFormat target)
-    : RenderPipelineBase(device) {
-  BuildPipeline(kSpriteRenderWGSL, "vertexMain", "fragmentMain",
-                {
-                    Vertex::GetLayout(),
-                },
-                {
-                    WorldMatrixUniform::GetLayout(device),
-                    TextureBindingUniform::GetLayout(device),
-                    SpriteUniform::GetLayout(device),
-                },
-                target);
-}
-
-Pipeline_AlphaTransition::Pipeline_AlphaTransition(const wgpu::Device& device,
-                                                   wgpu::TextureFormat target)
-    : RenderPipelineBase(device) {
-  BuildPipeline(kAlphaTransitionRenderWGSL, "vertexMain", "fragmentMain",
-                {
-                    Vertex::GetLayout(),
-                },
-                {
-                    AlphaTransitionUniform::GetLayout(device),
-                },
-                target);
-}
-
-Pipeline_MappedTransition::Pipeline_MappedTransition(const wgpu::Device& device,
-                                                     wgpu::TextureFormat target)
-    : RenderPipelineBase(device) {
-  BuildPipeline(kMappedTransitionRenderWGSL, "vertexMain", "fragmentMain",
-                {
-                    Vertex::GetLayout(),
-                },
-                {
-                    VagueTransitionUniform::GetLayout(device),
-                },
-                target);
-}
-
-Pipeline_Tilemap::Pipeline_Tilemap(const wgpu::Device& device,
-                                   wgpu::TextureFormat target)
-    : RenderPipelineBase(device) {
-  BuildPipeline(kTilemapRenderWGSL, "vertexMain", "fragmentMain",
-                {
-                    Vertex::GetLayout(),
-                },
-                {
-                    WorldMatrixUniform::GetLayout(device),
-                    TextureBindingUniform::GetLayout(device),
-                    TilemapUniform::GetLayout(device),
-                },
-                target);
-}
-
-Pipeline_Tilemap2::Pipeline_Tilemap2(const wgpu::Device& device,
-                                     wgpu::TextureFormat target)
-    : RenderPipelineBase(device) {
-  BuildPipeline(kTilemap2RenderWGSL, "vertexMain", "fragmentMain",
-                {
-                    Vertex::GetLayout(),
-                },
-                {
-                    WorldMatrixUniform::GetLayout(device),
-                    TextureBindingUniform::GetLayout(device),
-                    Tilemap2Uniform::GetLayout(device),
-                },
-                target);
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
+                samplers, target_format);
 }
 
 }  // namespace renderer
