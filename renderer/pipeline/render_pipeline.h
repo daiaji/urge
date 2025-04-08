@@ -68,9 +68,50 @@ class Pipeline_Base : public RenderPipelineBase {
  public:
   Pipeline_Base(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
                 Diligent::TEXTURE_FORMAT target_format);
+};
 
-  static const char kUniform_Transform[];
-  static const char kUniform_Texture[];
+class Pipeline_Color : public RenderPipelineBase {
+ public:
+  Pipeline_Color(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+                 Diligent::TEXTURE_FORMAT target_format);
+};
+
+class Pipeline_Flat : public RenderPipelineBase {
+ public:
+  Pipeline_Flat(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+                Diligent::TEXTURE_FORMAT target_format);
+};
+
+class Pipeline_Sprite : public RenderPipelineBase {
+ public:
+  Pipeline_Sprite(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+                  Diligent::TEXTURE_FORMAT target_format);
+};
+
+class Pipeline_AlphaTransition : public RenderPipelineBase {
+ public:
+  Pipeline_AlphaTransition(
+      Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+      Diligent::TEXTURE_FORMAT target_format);
+};
+
+class Pipeline_VagueTransition : public RenderPipelineBase {
+ public:
+  Pipeline_VagueTransition(
+      Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+      Diligent::TEXTURE_FORMAT target_format);
+};
+
+class Pipeline_Tilemap : public RenderPipelineBase {
+ public:
+  Pipeline_Tilemap(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+                   Diligent::TEXTURE_FORMAT target_format);
+};
+
+class Pipeline_Tilemap2 : public RenderPipelineBase {
+ public:
+  Pipeline_Tilemap2(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+                    Diligent::TEXTURE_FORMAT target_format);
 };
 
 }  // namespace renderer

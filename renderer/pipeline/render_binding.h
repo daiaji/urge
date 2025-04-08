@@ -12,6 +12,9 @@
 #include "Graphics/GraphicsTools/interface/GraphicsUtilities.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 
+#include "base/math/rectangle.h"
+#include "base/math/vector.h"
+
 namespace renderer {
 
 class Binding_Base;
@@ -29,7 +32,9 @@ class RenderBindingBase {
   RenderBindingBase& operator=(const RenderBindingBase&) = delete;
 
   template <class Ty>
-  static std::unique_ptr<Ty> Create(ShaderBinding binding);
+  static std::unique_ptr<Ty> Create(ShaderBinding binding) {
+    return std::unique_ptr<Ty>(new Ty(binding));
+  }
 
   Diligent::IShaderResourceBinding* RawPtr() const { return binding_; }
 
@@ -54,15 +59,116 @@ class Binding_Base : public RenderBindingBase {
   Binding_Base(ShaderBinding binding);
 };
 
-///
-// Specific Create Function
-///
+class Binding_Color : public RenderBindingBase {
+ public:
+  ShaderVariable u_transform;
 
-template <>
-inline std::unique_ptr<Binding_Base> RenderBindingBase::Create(
-    ShaderBinding binding) {
-  return std::unique_ptr<Binding_Base>(new Binding_Base(binding));
-}
+ private:
+  friend class RenderBindingBase;
+  Binding_Color(ShaderBinding binding);
+};
+
+class Binding_Flat : public RenderBindingBase {
+ public:
+  struct Params {
+    base::Vec4 color;
+    base::Vec4 tone;
+  };
+
+  ShaderVariable u_transform;
+  ShaderVariable u_texture;
+  ShaderVariable u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_Flat(ShaderBinding binding);
+};
+
+class Binding_Sprite : public RenderBindingBase {
+ public:
+  struct Vertex {
+    base::Vec4 position;
+    base::Vec2 texcoord;
+  };
+
+  struct Params {
+    base::Vec4 Color;
+    base::Vec4 Tone;
+    base::Vec2 Position;
+    base::Vec2 Origin;
+    base::Vec2 Scale;
+    float Rotation;
+    float Opacity;
+    float BushDepth;
+    float BushOpacity;
+  };
+
+  ShaderVariable u_transform;
+  ShaderVariable u_texture;
+  ShaderVariable u_vertices;
+  ShaderVariable u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_Sprite(ShaderBinding binding);
+};
+
+class Binding_AlphaTrans : public RenderBindingBase {
+ public:
+  ShaderVariable u_frozen_texture;
+  ShaderVariable u_current_texture;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_AlphaTrans(ShaderBinding binding);
+};
+
+class Binding_VagueTrans : public RenderBindingBase {
+ public:
+  ShaderVariable u_frozen_texture;
+  ShaderVariable u_current_texture;
+  ShaderVariable u_trans_texture;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_VagueTrans(ShaderBinding binding);
+};
+
+class Binding_Tilemap : public RenderBindingBase {
+ public:
+  struct Params {
+    base::Vec2 tex_size;
+    base::Vec2 offset;
+    float animate_index;
+    float tile_size;
+  };
+
+  ShaderVariable u_transform;
+  ShaderVariable u_texture;
+  ShaderVariable u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_Tilemap(ShaderBinding binding);
+};
+
+class Binding_Tilemap2 : public RenderBindingBase {
+ public:
+  struct Params {
+    base::Vec2 tex_size;
+    base::Vec2 offset;
+    base::Vec2 animation_offset;
+    float tile_size;
+  };
+
+  ShaderVariable u_transform;
+  ShaderVariable u_texture;
+  ShaderVariable u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_Tilemap2(ShaderBinding binding);
+};
 
 }  // namespace renderer
 

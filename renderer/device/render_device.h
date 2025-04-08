@@ -7,7 +7,6 @@
 
 #include "renderer/pipeline/render_pipeline.h"
 #include "renderer/resource/render_buffer.h"
-#include "renderer/utils/buffer_utils.h"
 #include "ui/widget/widget.h"
 
 #include <memory>
@@ -19,45 +18,40 @@ class RenderDevice {
   struct PipelineSet {
     Pipeline_Base base;
     Pipeline_Color color;
-    Pipeline_Viewport viewport;
+    Pipeline_Flat viewport;
     Pipeline_Sprite sprite;
     Pipeline_AlphaTransition alphatrans;
-    Pipeline_MappedTransition mappedtrans;
+    Pipeline_VagueTransition mappedtrans;
     Pipeline_Tilemap tilemap;
     Pipeline_Tilemap2 tilemap2;
 
-    PipelineSet(const wgpu::Device& device, wgpu::TextureFormat target)
-        : base(device, target),
-          color(device, target),
-          viewport(device, target),
-          sprite(device, target),
-          alphatrans(device, target),
-          mappedtrans(device, target),
-          tilemap(device, target),
-          tilemap2(device, target) {}
+    PipelineSet(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+                Diligent::TEXTURE_FORMAT target_format)
+        : base(device, target_format),
+          color(device, target_format),
+          viewport(device, target_format),
+          sprite(device, target_format),
+          alphatrans(device, target_format),
+          mappedtrans(device, target_format),
+          tilemap(device, target_format),
+          tilemap2(device, target_format) {}
   };
 
   static std::unique_ptr<RenderDevice> Create(
-      base::WeakPtr<ui::Widget> window_target,
-      wgpu::BackendType required_backend = wgpu::BackendType::Undefined,
-      const std::vector<std::string>& enable_toggles = {},
-      const std::vector<std::string>& disable_toggles = {});
-
-  static wgpu::Instance* GetGPUInstance();
+      base::WeakPtr<ui::Widget> window_target);
 
   ~RenderDevice();
 
   RenderDevice(const RenderDevice&) = delete;
   RenderDevice& operator=(const RenderDevice&) = delete;
 
-  // WGPU Device access
-  wgpu::Device* operator->() { return &device_; }
-  wgpu::Device& operator*() { return device_; }
+  // Device access
+  Diligent::IRenderDevice* operator->() { return device_; }
+  Diligent::IRenderDevice* operator*() { return device_; }
 
   // Device Attribute interface
-  wgpu::Adapter* GetAdapter() { return &adapter_; }
-  wgpu::Queue* GetQueue() { return &queue_; }
-  wgpu::Surface* GetSurface() { return &surface_; }
+  Diligent::IDeviceContext* GetContext() const { return context_; }
+  Diligent::ISwapChain* GetSwapchain() const { return swapchain_; }
 
   // Render window device
   base::WeakPtr<ui::Widget> GetWindow() { return window_; }
@@ -65,26 +59,21 @@ class RenderDevice {
   // Pre-compile shaders set storage
   PipelineSet* GetPipelines() const { return pipelines_.get(); }
   QuadIndexCache* GetQuadIndex() const { return quad_index_.get(); }
-  wgpu::TextureFormat SurfaceFormat() const { return surface_format_; }
 
  private:
   RenderDevice(base::WeakPtr<ui::Widget> window,
-               const wgpu::Adapter& adapter,
-               const wgpu::Device& device,
-               const wgpu::Queue& queue,
-               const wgpu::Surface& surface,
-               wgpu::TextureFormat surface_format,
+               Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+               Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context,
+               Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain,
                std::unique_ptr<PipelineSet> pipelines,
                std::unique_ptr<QuadIndexCache> quad_index);
 
   base::WeakPtr<ui::Widget> window_;
 
-  wgpu::Adapter adapter_;
-  wgpu::Device device_;
-  wgpu::Queue queue_;
-  wgpu::Surface surface_;
+  Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
+  Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context_;
+  Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain_;
 
-  wgpu::TextureFormat surface_format_;
   std::unique_ptr<PipelineSet> pipelines_;
   std::unique_ptr<QuadIndexCache> quad_index_;
 };

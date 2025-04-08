@@ -162,4 +162,235 @@ Pipeline_Base::Pipeline_Base(
                 samplers, target_format);
 }
 
+Pipeline_Color::Pipeline_Color(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+    Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource vertex_shader{kHLSL_ColorRender_VertexShader, "main",
+                                   "color.vertex"};
+  const ShaderSource pixel_shader{kHLSL_ColorRender_PixelShader, "main",
+                                  "color.pixel"};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_VERTEX, "u_Transform",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables, {},
+                target_format);
+}
+
+Pipeline_Flat::Pipeline_Flat(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+    Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource vertex_shader{kHLSL_FlatRender_VertexShader, "main",
+                                   "flat.vertex"};
+  const ShaderSource pixel_shader{kHLSL_FlatRender_PixelShader, "main",
+                                  "flat.pixel"};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_VERTEX, "u_Transform",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_Effect",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_Texture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
+                samplers, target_format);
+}
+
+Pipeline_Sprite::Pipeline_Sprite(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+    Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource vertex_shader{kHLSL_SpriteRender_VertexShader, "main",
+                                   "sprite.vertex"};
+  const ShaderSource pixel_shader{kHLSL_SpriteRender_PixelShader, "main",
+                                  "sprite.pixel"};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_VERTEX, "u_Transform",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_VERTEX, "u_Vertices",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_VERTEX, "u_Params",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_Texture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
+                samplers, target_format);
+}
+
+Pipeline_AlphaTransition::Pipeline_AlphaTransition(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+    Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource vertex_shader{kHLSL_AlphaTransitionRender_VertexShader,
+                                   "main", "alphatrans.vertex"};
+  const ShaderSource pixel_shader{kHLSL_AlphaTransitionRender_PixelShader,
+                                  "main", "alphatrans.pixel"};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_PIXEL, "u_FrozenTexture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_CurrentTexture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_FrozenTexture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_CurrentTexture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
+                samplers, target_format);
+}
+
+Pipeline_VagueTransition::Pipeline_VagueTransition(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+    Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource vertex_shader{kHLSL_MappingTransitionRender_VertexShader,
+                                   "main", "vaguetrans.vertex"};
+  const ShaderSource pixel_shader{kHLSL_MappingTransitionRender_PixelShader,
+                                  "main", "vaguetrans.pixel"};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_PIXEL, "u_FrozenTexture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_CurrentTexture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_TransTexture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_FrozenTexture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_CurrentTexture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_TransTexture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
+                samplers, target_format);
+}
+
+Pipeline_Tilemap::Pipeline_Tilemap(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+    Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource vertex_shader{kHLSL_TilemapRender_VertexShader, "main",
+                                   "tilemap.vertex"};
+  const ShaderSource pixel_shader{kHLSL_TilemapRender_PixelShader, "main",
+                                  "tilemap.pixel"};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_VERTEX, "u_Transform",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_VERTEX, "u_Params",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_Texture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
+                samplers, target_format);
+}
+
+Pipeline_Tilemap2::Pipeline_Tilemap2(
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+    Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource vertex_shader{kHLSL_Tilemap2Render_VertexShader, "main",
+                                   "tilemap.vertex"};
+  const ShaderSource pixel_shader{kHLSL_Tilemap2Render_PixelShader, "main",
+                                  "tilemap.pixel"};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_VERTEX, "u_Transform",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_VERTEX, "u_Params",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_Texture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
+                samplers, target_format);
+}
+
 }  // namespace renderer
