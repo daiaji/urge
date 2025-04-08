@@ -11,6 +11,9 @@
 
 #include <memory>
 
+template <typename Ty>
+using RRefPtr = Diligent::RefCntAutoPtr<Ty>;
+
 namespace renderer {
 
 class RenderDevice {

@@ -53,11 +53,6 @@ RenderPipelineBase::RenderPipelineBase(
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device)
     : device_(device) {}
 
-void RenderPipelineBase::CreateResourceBinding(
-    Diligent::IShaderResourceBinding** out) {
-  pipelines_[0]->CreateShaderResourceBinding(out, Diligent::True);
-}
-
 void RenderPipelineBase::BuildPipeline(
     const ShaderSource& vertex_shader,
     const ShaderSource& pixel_shader,

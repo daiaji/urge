@@ -15,30 +15,23 @@
 #include "content/public/engine_graphics.h"
 #include "content/render/drawable_controller.h"
 #include "content/worker/coroutine_context.h"
-#include "renderer/context/device_context.h"
 #include "renderer/device/render_device.h"
 
 namespace content {
 
 struct RenderGraphicsAgent {
   std::unique_ptr<renderer::RenderDevice> device;
-  std::unique_ptr<renderer::DeviceContext> context;
   std::unique_ptr<CanvasScheduler> canvas_scheduler;
   std::unique_ptr<SpriteBatch> sprite_batch;
 
-  wgpu::Texture* present_target = nullptr;
-  wgpu::Texture screen_buffer;
-  wgpu::Texture frozen_buffer;
-  wgpu::Texture transition_buffer;
+  RRefPtr<Diligent::ITexture> screen_buffer;
+  RRefPtr<Diligent::ITexture> frozen_buffer;
+  RRefPtr<Diligent::ITexture> transition_buffer;
+  RRefPtr<Diligent::IBuffer> world_transform;
+  RRefPtr<Diligent::IBufferView> world_binding;
 
-  renderer::RenderPass render_pass;
-  wgpu::BindGroup world_binding;
-  wgpu::Buffer world_buffer;
-  wgpu::Buffer effect_vertex;
-  wgpu::BindGroup transition_binding;
-
+  Diligent::ITexture* present_target = nullptr;
   std::unique_ptr<renderer::Pipeline_Base> present_pipeline;
-  wgpu::Buffer present_vertex;
 };
 
 class GraphicsChild {
@@ -78,7 +71,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void CreateButtonGUISettings();
 
   renderer::RenderDevice* GetDevice() const;
-  renderer::DeviceContext* GetContext() const;
   CanvasScheduler* GetCanvasScheduler() const;
   SpriteBatch* GetSpriteBatch() const;
   ScopedFontData* GetScopedFontContext() const;
@@ -135,20 +127,20 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
                                   const std::string& wgpu_backend);
   void DestroyGraphicsDeviceInternal();
 
-  void PresentScreenBufferInternal(wgpu::Texture* render_target);
-  void FrameProcessInternal(wgpu::Texture* present_target);
+  void PresentScreenBufferInternal(Diligent::ITexture* render_target);
+  void FrameProcessInternal(Diligent::ITexture* present_target);
   void UpdateWindowViewportInternal();
   void ResetScreenBufferInternal();
   int DetermineRepeatNumberInternal(double delta_rate);
 
   void RenderFrameInternal(DrawNodeController* controller,
-                           wgpu::Texture* render_target,
+                           Diligent::ITexture* render_target,
                            const base::Vec2i& target_size);
 
-  void FrameBeginRenderPassInternal(wgpu::Texture* render_target);
+  void FrameBeginRenderPassInternal(Diligent::ITexture* render_target);
   void FrameEndRenderPassInternal();
 
-  void CreateTransitionUniformInternal(wgpu::Texture* transition_mapping);
+  void CreateTransitionUniformInternal(Diligent::ITexture* transition_mapping);
   void RenderAlphaTransitionFrameInternal(float progress);
   void RenderVagueTransitionFrameInternal(float progress, float vague);
 

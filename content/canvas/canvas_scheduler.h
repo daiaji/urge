@@ -8,7 +8,6 @@
 #include "base/worker/thread_worker.h"
 #include "components/filesystem/io_service.h"
 #include "content/canvas/canvas_impl.h"
-#include "renderer/context/device_context.h"
 #include "renderer/device/render_device.h"
 #include "renderer/resource/render_buffer.h"
 
@@ -23,11 +22,9 @@ class CanvasScheduler {
 
   static std::unique_ptr<CanvasScheduler> MakeInstance(
       renderer::RenderDevice* device,
-      renderer::DeviceContext* context,
       filesystem::IOService* io_service);
 
   renderer::RenderDevice* GetDevice();
-  renderer::DeviceContext* GetContext();
   filesystem::IOService* GetIO();
 
   // Bind a worker for current scheduler,
@@ -46,13 +43,11 @@ class CanvasScheduler {
  private:
   friend class CanvasImpl;
   CanvasScheduler(renderer::RenderDevice* device,
-                  renderer::DeviceContext* context,
                   filesystem::IOService* io_service);
 
   base::LinkedList<CanvasImpl> children_;
 
   renderer::RenderDevice* device_;
-  renderer::DeviceContext* immediate_context_;
   base::ThreadWorker* render_worker_;
   filesystem::IOService* io_service_;
   std::vector<uint8_t> text_render_buffer_;

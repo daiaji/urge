@@ -353,8 +353,8 @@ void PlaneImpl::DrawableNodeHandlerInternal(
       screen()->PostTask(base::BindOnce(
           &GPUUpdatePlaneQuadArrayInternal, params->device,
           params->command_encoder, agent_, bitmap_->GetAgent(),
-          params->viewport.Size(), scale_, origin_, color_->AsNormColor(),
-          tone_->AsNormColor(), opacity_));
+          params->viewport.Size(), scale_, origin_ + params->origin,
+          color_->AsNormColor(), tone_->AsNormColor(), opacity_));
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(

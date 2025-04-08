@@ -15,7 +15,6 @@
 
 #include "content/canvas/canvas_scheduler.h"
 #include "content/profile/command_ids.h"
-#include "renderer/utils/texture_utils.h"
 
 namespace content {
 
@@ -190,10 +189,6 @@ renderer::RenderDevice* RenderScreenImpl::GetDevice() const {
   return agent_->device.get();
 }
 
-renderer::DeviceContext* RenderScreenImpl::GetContext() const {
-  return agent_->context.get();
-}
-
 CanvasScheduler* RenderScreenImpl::GetCanvasScheduler() const {
   return agent_->canvas_scheduler.get();
 }
@@ -220,7 +215,7 @@ base::CallbackListSubscription RenderScreenImpl::AddTickObserver(
 }
 
 void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
-                                           wgpu::Texture* render_target,
+                                           Diligent::ITexture* render_target,
                                            const base::Vec2i& target_size) {
   // Submit pending canvas commands
   agent_->canvas_scheduler->SubmitPendingPaintCommands();
@@ -228,7 +223,7 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
   controller_params.device = agent_->device.get();
-  controller_params.command_encoder = agent_->context->GetImmediateEncoder();
+  controller_params.context = agent_->device->GetContext();
   controller_params.screen_buffer = render_target;
   controller_params.screen_size = target_size;
   controller_params.viewport = target_size;
@@ -243,7 +238,7 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
       render_worker_,
       base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
                      base::Unretained(agent_->sprite_batch.get()),
-                     controller_params.command_encoder));
+                     controller_params.context));
 
   // 2) Setup renderpass
   base::ThreadWorker::PostTask(
@@ -252,9 +247,8 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
                      base::Unretained(this), render_target));
 
   // 3) Notify render a frame
-  controller_params.root_world = &agent_->world_binding;
-  controller_params.world_binding = &agent_->world_binding;
-  controller_params.renderpass_encoder = &agent_->render_pass;
+  controller_params.root_world = agent_->world_binding;
+  controller_params.world_binding = agent_->world_binding;
   controller->BroadCastNotification(DrawableNode::ON_RENDERING,
                                     &controller_params);
 
@@ -269,12 +263,12 @@ void RenderScreenImpl::Update(ExceptionState& exception_state) {
   if (!frozen_) {
     if (!(allow_skip_frame_ && frame_skip_required_)) {
       // Render a frame and push into render queue
-      RenderFrameInternal(&controller_, &agent_->screen_buffer, resolution_);
+      RenderFrameInternal(&controller_, agent_->screen_buffer, resolution_);
     }
   }
 
   // Process frame delay
-  FrameProcessInternal(&agent_->screen_buffer);
+  FrameProcessInternal(agent_->screen_buffer);
 }
 
 void RenderScreenImpl::Wait(uint32_t duration,
@@ -292,7 +286,7 @@ void RenderScreenImpl::FadeOut(uint32_t duration,
     brightness_ = current_brightness -
                   current_brightness * (i / static_cast<float>(duration));
     if (frozen_) {
-      FrameProcessInternal(&agent_->frozen_buffer);
+      FrameProcessInternal(agent_->frozen_buffer);
     } else {
       Update(exception_state);
     }
@@ -313,7 +307,7 @@ void RenderScreenImpl::FadeIn(uint32_t duration,
         current_brightness + diff * (i / static_cast<float>(duration));
 
     if (frozen_) {
-      FrameProcessInternal(&agent_->frozen_buffer);
+      FrameProcessInternal(agent_->frozen_buffer);
     } else {
       Update(exception_state);
     }
@@ -326,7 +320,7 @@ void RenderScreenImpl::FadeIn(uint32_t duration,
 void RenderScreenImpl::Freeze(ExceptionState& exception_state) {
   if (!frozen_) {
     // Get frozen scene snapshot for transition
-    RenderFrameInternal(&controller_, &agent_->frozen_buffer, resolution_);
+    RenderFrameInternal(&controller_, agent_->frozen_buffer, resolution_);
 
     // Set forzen flag for blocking frame update
     frozen_ = true;
@@ -373,13 +367,13 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
   Put_Brightness(255, exception_state);
   vague = std::clamp<int>(vague, 1, 256);
   float vague_norm = vague / 255.0f;
-  wgpu::Texture* transition_mapping = nullptr;
+  RRefPtr<Diligent::ITexture>* transition_mapping = nullptr;
 
   if (bitmap)
     transition_mapping = &CanvasImpl::FromBitmap(bitmap)->GetAgent()->data;
 
   // Get current scene snapshot for transition
-  RenderFrameInternal(&controller_, &agent_->transition_buffer, resolution_);
+  RenderFrameInternal(&controller_, agent_->transition_buffer, resolution_);
 
   // Create binding group
   base::ThreadWorker::PostTask(
@@ -404,7 +398,7 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
                          base::Unretained(this), progress));
 
     // Present to screen
-    FrameProcessInternal(&agent_->screen_buffer);
+    FrameProcessInternal(agent_->screen_buffer);
   }
 
   // Transition process complete
@@ -477,19 +471,11 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
     base::WeakPtr<ui::Widget> window,
     const std::string& wgpu_backend) {
   // Create device on window
-  agent_->device = renderer::RenderDevice::Create(
-      window,
-      magic_enum::enum_cast<wgpu::BackendType>(wgpu_backend)
-          .value_or(wgpu::BackendType::Undefined),
-      {"skip_validation"});
-
-  // Create immediate command encoder
-  agent_->context =
-      renderer::DeviceContext::MakeContextFor(agent_->device.get());
+  agent_->device = renderer::RenderDevice::Create(window);
 
   // Create global canvas scheduler
-  agent_->canvas_scheduler = CanvasScheduler::MakeInstance(
-      agent_->device.get(), agent_->context.get(), io_service_);
+  agent_->canvas_scheduler =
+      CanvasScheduler::MakeInstance(agent_->device.get(), io_service_);
   agent_->canvas_scheduler->InitWithRenderWorker(render_worker_);
 
   // Create global sprite batch scheduler
@@ -547,7 +533,7 @@ void RenderScreenImpl::DestroyGraphicsDeviceInternal() {
 }
 
 void RenderScreenImpl::PresentScreenBufferInternal(
-    wgpu::Texture* render_target) {
+    Diligent::ITexture* render_target) {
   // Update drawing viewport
   UpdateWindowViewportInternal();
 
@@ -671,7 +657,8 @@ void RenderScreenImpl::PresentScreenBufferInternal(
   hardware_surface->Present();
 }
 
-void RenderScreenImpl::FrameProcessInternal(wgpu::Texture* present_target) {
+void RenderScreenImpl::FrameProcessInternal(
+    Diligent::ITexture* present_target) {
   // Setup target
   agent_->present_target = present_target;
 
@@ -691,17 +678,8 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
   if (!(window_size == window_size_)) {
     window_size_ = window_size;
 
-    // Configure of new surface
-    wgpu::SurfaceConfiguration config;
-    config.device = **agent_->device;
-    config.format = agent_->device->SurfaceFormat();
-    config.width = window_size_.x;
-    config.height = window_size_.y;
-    config.presentMode = wgpu::PresentMode::Fifo;
-
     // Resize screen surface
-    auto* hardware_surface = agent_->device->GetSurface();
-    hardware_surface->Configure(&config);
+    agent_->device->GetSwapchain()->Resize(window_size_.x, window_size_.y);
   }
 
   float window_ratio = static_cast<float>(window_size.x) / window_size.y;
@@ -720,9 +698,11 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
 }
 
 void RenderScreenImpl::ResetScreenBufferInternal() {
-  wgpu::TextureUsage usage =
-      wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc |
-      wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
+  RRefPtr<Diligent::ITexture> Usage usage =
+      RRefPtr<Diligent::ITexture> Usage::CopyDst |
+      RRefPtr<Diligent::ITexture> Usage::CopySrc |
+      RRefPtr<Diligent::ITexture> Usage::RenderAttachment |
+      RRefPtr<Diligent::ITexture> Usage::TextureBinding;
 
   agent_->screen_buffer = renderer::CreateTexture2D(
       **GetDevice(), "screen.buffer", usage, resolution_);
@@ -751,7 +731,7 @@ int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
 }
 
 void RenderScreenImpl::FrameBeginRenderPassInternal(
-    wgpu::Texture* render_target) {
+    Diligent::ITexture* render_target) {
   auto* encoder = agent_->context->GetImmediateEncoder();
   base::Vec2i target_size(render_target->GetWidth(),
                           render_target->GetHeight());
@@ -811,7 +791,7 @@ void RenderScreenImpl::FrameEndRenderPassInternal() {
 }
 
 void RenderScreenImpl::CreateTransitionUniformInternal(
-    wgpu::Texture* transition_mapping) {
+    Diligent::ITexture* transition_mapping) {
   if (transition_mapping)
     agent_->transition_binding = renderer::VagueTransitionUniform::CreateGroup(
         **GetDevice(), agent_->frozen_buffer.CreateView(),

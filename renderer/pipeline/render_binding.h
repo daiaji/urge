@@ -17,8 +17,6 @@
 
 namespace renderer {
 
-class Binding_Base;
-
 class RenderBindingBase {
  public:
   using ShaderBinding =
@@ -31,7 +29,7 @@ class RenderBindingBase {
   RenderBindingBase(const RenderBindingBase&) = delete;
   RenderBindingBase& operator=(const RenderBindingBase&) = delete;
 
-  template <class Ty>
+  template <typename Ty>
   static std::unique_ptr<Ty> Create(ShaderBinding binding) {
     return std::unique_ptr<Ty>(new Ty(binding));
   }

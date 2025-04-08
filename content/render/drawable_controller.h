@@ -11,7 +11,6 @@
 #include "base/containers/linked_list.h"
 #include "base/math/rectangle.h"
 #include "renderer/device/render_device.h"
-#include "renderer/render/render_pass.h"
 #include "renderer/resource/render_buffer.h"
 
 namespace content {
@@ -81,12 +80,12 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
     // [Stage: all]
     // Hardware render command encoder,
     // handler: writeBuffer, writeTexture, copyTexture
-    wgpu::CommandEncoder* command_encoder = nullptr;
+    Diligent::IDeviceContext* context = nullptr;
 
     // [Stage: all]
     // Abstract "screen" render buffer,
     // maybe graphics or viewport snapshot buffer.
-    wgpu::Texture* screen_buffer = nullptr;
+    Diligent::ITexture* screen_buffer = nullptr;
     base::Vec2i screen_size;
 
     // [Stage: all]
@@ -95,13 +94,9 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
     base::Vec2i origin;
 
     // [Stage: on rendering]
-    // Main render pass encoder.
-    renderer::RenderPass* renderpass_encoder = nullptr;
-
-    // [Stage: on rendering]
     // World transform matrix.
-    wgpu::BindGroup* root_world = nullptr;
-    wgpu::BindGroup* world_binding = nullptr;
+    Diligent::IBufferView* root_world = nullptr;
+    Diligent::IBufferView* world_binding = nullptr;
   };
 
   using NotificationHandler =

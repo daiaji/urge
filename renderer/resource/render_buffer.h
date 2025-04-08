@@ -43,7 +43,10 @@ class QuadIndexCache {
   std::vector<uint16_t> cache_;
 };
 
-template <typename TargetType, Diligent::BIND_FLAGS BatchBind>
+template <typename TargetType,
+          Diligent::BIND_FLAGS BatchBind,
+          Diligent::BUFFER_MODE BufferMode = Diligent::BUFFER_MODE_UNDEFINED,
+          Diligent::CPU_ACCESS_FLAGS CPUAccess = Diligent::CPU_ACCESS_WRITE>
 class BatchBuffer {
  public:
   ~BatchBuffer() = default;
@@ -51,28 +54,41 @@ class BatchBuffer {
   BatchBuffer(const BatchBuffer&) = delete;
   BatchBuffer& operator=(const BatchBuffer&) = delete;
 
-  static std::unique_ptr<BatchBuffer> Make(
-      Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device) {
-    return std::unique_ptr<BatchBuffer>(new BatchBuffer(device));
+  static std::unique_ptr<BatchBuffer> Make(Diligent::IRenderDevice* device,
+                                           uint32_t initial_count = 0) {
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer;
+
+    if (initial_count > 0) {
+      Diligent::BufferDesc buffer_desc;
+      buffer_desc.Name = "generic.batch.buffer";
+      buffer_desc.Size = initial_count * sizeof(TargetType);
+      buffer_desc.BindFlags = BatchBind;
+      buffer_desc.Usage = Diligent::USAGE_DYNAMIC;
+      buffer_desc.CPUAccessFlags = CPUAccess;
+      buffer_desc.Mode = BufferMode;
+      buffer_desc.ElementByteStride = sizeof(TargetType);
+
+      device->CreateBuffer(buffer_desc, nullptr, &buffer);
+    }
+
+    return std::unique_ptr<BatchBuffer>(new BatchBuffer(device), buffer);
   }
 
-  Diligent::RefCntAutoPtr<Diligent::IBuffer>& operator*() { return buffer_; }
+  Diligent::IBuffer* operator*() { return buffer_; }
 
-  bool QueueWrite(
-      Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context,
-      const TargetType* data,
-      uint32_t count,
-      Diligent::BUFFER_MODE buffer_mode = Diligent::BUFFER_MODE_STRUCTURED,
-      Diligent::CPU_ACCESS_FLAGS cpu_access = Diligent::CPU_ACCESS_WRITE) {
+  bool QueueWrite(Diligent::IDeviceContext* context,
+                  const TargetType* data,
+                  uint32_t count = 1) {
     if (!buffer_ || buffer_->GetDesc().Size < sizeof(TargetType) * count) {
       size_t buffer_size = count * sizeof(TargetType);
 
       Diligent::BufferDesc buffer_desc;
       buffer_desc.Name = "generic.batch.buffer";
-      buffer_desc.Usage = Diligent::USAGE_DYNAMIC;
+      buffer_desc.Size = buffer_size;
       buffer_desc.BindFlags = BatchBind;
-      buffer_desc.CPUAccessFlags = cpu_access;
-      buffer_desc.Mode = buffer_mode;
+      buffer_desc.Usage = Diligent::USAGE_DYNAMIC;
+      buffer_desc.CPUAccessFlags = CPUAccess;
+      buffer_desc.Mode = BufferMode;
       buffer_desc.ElementByteStride = sizeof(TargetType);
 
       Diligent::BufferData buffer_data;
@@ -89,18 +105,23 @@ class BatchBuffer {
       context->UpdateBuffer(buffer_, 0, count * sizeof(TargetType),
                             reinterpret_cast<const uint8_t*>(data),
                             Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+
     return false;
   }
 
  private:
-  BatchBuffer(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device)
-      : device_(device) {}
+  BatchBuffer(Diligent::IRenderDevice* device,
+              Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer)
+      : device_(device), buffer_(buffer) {}
 
-  Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
+  Diligent::IRenderDevice* device_;
   Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer_;
 };
 
-using QuadBatch = BatchBuffer<Quad, Diligent::BIND_FLAGS::BIND_VERTEX_BUFFER>;
+using QuadBatch = BatchBuffer<Quad,
+                              Diligent::BIND_VERTEX_BUFFER,
+                              Diligent::BUFFER_MODE_STRUCTURED,
+                              Diligent::CPU_ACCESS_WRITE>;
 
 }  // namespace renderer
 

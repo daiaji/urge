@@ -12,6 +12,7 @@
 #include "Graphics/GraphicsTools/interface/GraphicsUtilities.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 
+#include "renderer/pipeline/render_binding.h"
 #include "renderer/vertex/vertex_layout.h"
 
 namespace renderer {
@@ -46,7 +47,12 @@ class RenderPipelineBase {
     return pipelines_[blend];
   }
 
-  void CreateResourceBinding(Diligent::IShaderResourceBinding** out);
+  template <typename Ty>
+  std::unique_ptr<Ty> CreateBinding() {
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding;
+    pipelines_[0]->CreateShaderResourceBinding(&binding);
+    return RenderBindingBase::Create<Ty>(binding);
+  }
 
  protected:
   RenderPipelineBase(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device);

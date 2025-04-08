@@ -9,11 +9,12 @@
 
 #include "content/canvas/canvas_impl.h"
 #include "renderer/device/render_device.h"
+#include "renderer/pipeline/render_binding.h"
 
 namespace content {
 
 struct SpriteQuad {
-  renderer::SpriteVertex vertices[4];
+  renderer::Binding_Sprite::Vertex vertices[4];
 
   static void SetPositionRect(SpriteQuad* data, const base::RectF& pos);
   static void SetTexCoordRect(SpriteQuad* data,
@@ -22,10 +23,14 @@ struct SpriteQuad {
 };
 
 using SpriteQuadBuffer =
-    renderer::BatchBuffer<SpriteQuad, wgpu::BufferUsage::Storage>;
+    renderer::BatchBuffer<SpriteQuad,
+                          Diligent::BIND_FLAGS::BIND_UNORDERED_ACCESS,
+                          Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED>;
 
 using SpriteBatchBuffer =
-    renderer::BatchBuffer<renderer::SpriteUniform, wgpu::BufferUsage::Storage>;
+    renderer::BatchBuffer<renderer::Binding_Sprite::Params,
+                          Diligent::BIND_FLAGS::BIND_UNORDERED_ACCESS,
+                          Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED>;
 
 class SpriteBatch {
  public:
@@ -37,17 +42,19 @@ class SpriteBatch {
   static std::unique_ptr<SpriteBatch> Make(renderer::RenderDevice* device);
 
   TextureAgent* GetCurrentTexture() const { return current_texture_; }
-  wgpu::BindGroup* GetUniformBinding() { return &uniform_binding_; }
-  wgpu::Buffer* GetBatchVertexBuffer() { return &**vertex_batch_; }
+
+  Diligent::IBuffer* GetVertexBuffer() { return **vertex_batch_; }
+  Diligent::IBufferView* GetQuadBinding() { return quad_binding_; }
+  Diligent::IBufferView* GetUniformBinding() { return uniform_binding_; }
 
   void BeginBatch(TextureAgent* texture);
 
   void PushSprite(const SpriteQuad& quad,
-                  const renderer::SpriteUniform& uniform);
+                  const renderer::Binding_Sprite::Params& uniform);
 
   void EndBatch(uint32_t* instance_offset, uint32_t* instance_count);
 
-  void SubmitBatchDataAndResetCache(wgpu::CommandEncoder* encoder);
+  void SubmitBatchDataAndResetCache(Diligent::IDeviceContext* context);
 
  private:
   SpriteBatch(renderer::RenderDevice* device,
@@ -59,13 +66,13 @@ class SpriteBatch {
   int32_t last_batch_index_;
 
   std::vector<SpriteQuad> quad_cache_;
-  std::vector<renderer::SpriteUniform> uniform_cache_;
+  std::vector<renderer::Binding_Sprite::Params> uniform_cache_;
 
   std::unique_ptr<renderer::QuadBatch> vertex_batch_;
   std::unique_ptr<SpriteQuadBuffer> quad_batch_;
+  RRefPtr<Diligent::IBufferView> quad_binding_;
   std::unique_ptr<SpriteBatchBuffer> uniform_batch_;
-
-  wgpu::BindGroup uniform_binding_;
+  RRefPtr<Diligent::IBufferView> uniform_binding_;
 };
 
 }  // namespace content

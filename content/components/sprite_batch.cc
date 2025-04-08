@@ -57,7 +57,7 @@ void SpriteBatch::BeginBatch(TextureAgent* texture) {
 }
 
 void SpriteBatch::PushSprite(const SpriteQuad& quad,
-                             const renderer::SpriteUniform& uniform) {
+                             const renderer::Binding_Sprite::Params& uniform) {
   quad_cache_.push_back(quad);
   uniform_cache_.push_back(uniform);
 }
@@ -73,22 +73,21 @@ void SpriteBatch::EndBatch(uint32_t* instance_offset,
   last_batch_index_ = -1;
 }
 
-void SpriteBatch::SubmitBatchDataAndResetCache(wgpu::CommandEncoder* encoder) {
+void SpriteBatch::SubmitBatchDataAndResetCache(
+    Diligent::IDeviceContext* context) {
   // Setup index buffer
   device_->GetQuadIndex()->Allocate(uniform_cache_.size());
 
   // Upload data and rebuild binding
-  bool update_binding_group = false;
-  if (quad_cache_.size())
-    update_binding_group |= quad_batch_->QueueWrite(
-        *encoder, quad_cache_.data(), quad_cache_.size());
-  if (uniform_cache_.size())
-    update_binding_group |= uniform_batch_->QueueWrite(
-        *encoder, uniform_cache_.data(), uniform_cache_.size());
+  if (quad_batch_->QueueWrite(context, quad_cache_.data(), quad_cache_.size()))
+    quad_binding_ =
+        (**quad_batch_)->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
 
-  if (update_binding_group)
-    uniform_binding_ = renderer::SpriteUniform::CreateGroup(
-        **device_, **quad_batch_, **uniform_batch_);
+  if (uniform_batch_->QueueWrite(context, uniform_cache_.data(),
+                                 uniform_cache_.size()))
+    uniform_binding_ =
+        (**uniform_batch_)
+            ->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
 
   // Reset cache
   quad_cache_.clear();
