@@ -23,6 +23,8 @@ struct WindowAgent {
   std::vector<renderer::Quad> control_cache;
   std::unique_ptr<renderer::QuadBatch> control_batch;
 
+  std::unique_ptr<renderer::Binding_Base> shader_binding;
+
   int32_t control_draw_count;
   int32_t contents_draw_count;
 };

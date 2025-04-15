@@ -41,11 +41,13 @@ struct TilemapAgent {
   int32_t ground_draw_count;
   std::vector<int32_t> above_draw_count;
 
-  wgpu::Texture atlas_texture;
-  wgpu::BindGroup atlas_binding;
+  std::unique_ptr<renderer::Binding_Tilemap> shader_binding;
 
-  wgpu::Buffer uniform_buffer;
-  wgpu::BindGroup uniform_binding;
+  RRefPtr<Diligent::ITexture> atlas_texture;
+  RRefPtr<Diligent::ITextureView> atlas_binding;
+
+  RRefPtr<Diligent::IBuffer> uniform_buffer;
+  RRefPtr<Diligent::IBufferView> uniform_binding;
 };
 
 class TilemapImpl;

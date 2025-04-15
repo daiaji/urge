@@ -6,7 +6,7 @@
 #define CONTENT_COMPOSITE_TILEQUAD_H_
 
 #include "base/math/rectangle.h"
-#include "renderer/vertex/vertex_layout.h"
+#include "renderer/layout/vertex_layout.h"
 
 namespace content {
 

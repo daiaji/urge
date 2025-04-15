@@ -266,7 +266,7 @@ cbuffer WorldMatrixBuffer {
 };
 
 struct SpriteVertex {
-  float2 Pos;
+  float4 Pos;
   float2 UV;
 };
 
@@ -546,8 +546,8 @@ cbuffer WorldMatrixBuffer {
 };
 
 struct TilemapParams {
-  float2 TexSize;
   float2 Offset;
+  float2 TexSize;
   float AnimateIndex;
   float TileSize;
 };
@@ -612,7 +612,7 @@ struct PSOutput {
 
 void main(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
-  PSOut.Color.rgb = lerp(frag, PSIn.Color.rgb, PSIn.Color.a);
+  PSOut.Color.rgb = lerp(frag.rgb, PSIn.Color.rgb, PSIn.Color.a);
   PSOut.Color.a = frag.a;
 }
 
@@ -647,8 +647,8 @@ cbuffer WorldMatrixBuffer {
 };
 
 struct Tilemap2Params {
-  float2 TexSize;
   float2 Offset;
+  float2 TexSize;
   float2 AnimationOffset;  
   float TileSize;
 };
@@ -727,7 +727,7 @@ struct PSOutput {
 
 void main(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
-  PSOut.Color.rgb = lerp(frag, PSIn.Color.rgb, PSIn.Color.a);
+  PSOut.Color.rgb = lerp(frag.rgb, PSIn.Color.rgb, PSIn.Color.a);
   PSOut.Color.a = frag.a;
 }
 

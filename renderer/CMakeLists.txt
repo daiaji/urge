@@ -8,6 +8,9 @@ cmake_minimum_required(VERSION 3.20.1)
 set(ENGINE_RENDERER_SRC
   device/render_device.cc
   device/render_device.h
+  layout/vertex_layout.cc
+  layout/vertex_layout.h
+  layout/uniform_layout.h
   pipeline/builtin_hlsl.cc
   pipeline/builtin_hlsl.h
   pipeline/render_binding.cc
@@ -16,8 +19,8 @@ set(ENGINE_RENDERER_SRC
   pipeline/render_pipeline.h
   resource/render_buffer.cc
   resource/render_buffer.h
-  vertex/vertex_layout.cc
-  vertex/vertex_layout.h
+  utils/texture_utils.cc
+  utils/texture_utils.h
 )
 
 add_library(engine_renderer STATIC ${ENGINE_RENDERER_SRC})
@@ -26,6 +29,6 @@ target_link_libraries(engine_renderer PUBLIC
   engine_ui
   
   Diligent-GraphicsEngine
+  Diligent-GraphicsTools
   Diligent-GraphicsEngineOpenGL-static
-  Diligent-TextureLoader
 )

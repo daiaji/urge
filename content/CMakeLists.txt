@@ -102,7 +102,6 @@ target_link_libraries(engine_content PUBLIC
   engine_base
   engine_ui
   engine_renderer
-  engine_imgui
   components_filesystem
   sdl_image_loader
   sdl_ttf_render

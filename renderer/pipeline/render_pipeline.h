@@ -12,8 +12,8 @@
 #include "Graphics/GraphicsTools/interface/GraphicsUtilities.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 
+#include "renderer/layout/vertex_layout.h"
 #include "renderer/pipeline/render_binding.h"
-#include "renderer/vertex/vertex_layout.h"
 
 namespace renderer {
 
@@ -55,7 +55,7 @@ class RenderPipelineBase {
   }
 
  protected:
-  RenderPipelineBase(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device);
+  RenderPipelineBase(Diligent::IRenderDevice* device);
 
   void BuildPipeline(
       const ShaderSource& vertex_shader,
@@ -66,57 +66,55 @@ class RenderPipelineBase {
       Diligent::TEXTURE_FORMAT target_format);
 
  private:
-  Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
+  Diligent::IRenderDevice* device_;
   std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pipelines_;
 };
 
 class Pipeline_Base : public RenderPipelineBase {
  public:
-  Pipeline_Base(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+  Pipeline_Base(Diligent::IRenderDevice* device,
                 Diligent::TEXTURE_FORMAT target_format);
 };
 
 class Pipeline_Color : public RenderPipelineBase {
  public:
-  Pipeline_Color(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+  Pipeline_Color(Diligent::IRenderDevice* device,
                  Diligent::TEXTURE_FORMAT target_format);
 };
 
 class Pipeline_Flat : public RenderPipelineBase {
  public:
-  Pipeline_Flat(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+  Pipeline_Flat(Diligent::IRenderDevice* device,
                 Diligent::TEXTURE_FORMAT target_format);
 };
 
 class Pipeline_Sprite : public RenderPipelineBase {
  public:
-  Pipeline_Sprite(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+  Pipeline_Sprite(Diligent::IRenderDevice* device,
                   Diligent::TEXTURE_FORMAT target_format);
 };
 
 class Pipeline_AlphaTransition : public RenderPipelineBase {
  public:
-  Pipeline_AlphaTransition(
-      Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
-      Diligent::TEXTURE_FORMAT target_format);
+  Pipeline_AlphaTransition(Diligent::IRenderDevice* device,
+                           Diligent::TEXTURE_FORMAT target_format);
 };
 
 class Pipeline_VagueTransition : public RenderPipelineBase {
  public:
-  Pipeline_VagueTransition(
-      Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
-      Diligent::TEXTURE_FORMAT target_format);
+  Pipeline_VagueTransition(Diligent::IRenderDevice* device,
+                           Diligent::TEXTURE_FORMAT target_format);
 };
 
 class Pipeline_Tilemap : public RenderPipelineBase {
  public:
-  Pipeline_Tilemap(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+  Pipeline_Tilemap(Diligent::IRenderDevice* device,
                    Diligent::TEXTURE_FORMAT target_format);
 };
 
 class Pipeline_Tilemap2 : public RenderPipelineBase {
  public:
-  Pipeline_Tilemap2(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
+  Pipeline_Tilemap2(Diligent::IRenderDevice* device,
                     Diligent::TEXTURE_FORMAT target_format);
 };
 

@@ -55,8 +55,6 @@ class ContentRunner {
                 base::WeakPtr<ui::Widget> window);
   void InitializeContentInternal();
   void TickHandlerInternal();
-  void CreateSettingsMenuGUIInternal();
-  void CreateFPSMonitorGUIInternal();
   void UpdateDisplayFPSInternal();
   static void EngineEntryFunctionInternal(fiber_t* fiber);
 

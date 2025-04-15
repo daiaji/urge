@@ -32,11 +32,13 @@ struct Tilemap2Agent {
   int32_t ground_draw_count = 0;
   int32_t above_draw_count = 0;
 
-  wgpu::Texture atlas_texture;
-  wgpu::BindGroup atlas_binding;
+  std::unique_ptr<renderer::Binding_Tilemap2> shader_binding;
 
-  wgpu::Buffer uniform_buffer;
-  wgpu::BindGroup uniform_binding;
+  RRefPtr<Diligent::ITexture> atlas_texture;
+  RRefPtr<Diligent::ITextureView> atlas_binding;
+
+  RRefPtr<Diligent::IBuffer> uniform_buffer;
+  RRefPtr<Diligent::IBufferView> uniform_binding;
 };
 
 class TilemapBitmapImpl : public TilemapBitmap {

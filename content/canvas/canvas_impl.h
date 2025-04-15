@@ -14,7 +14,6 @@
 #include "content/components/disposable.h"
 #include "content/public/engine_bitmap.h"
 #include "content/render/drawable_controller.h"
-#include "renderer/context/device_context.h"
 
 #include <queue>
 
@@ -31,20 +30,17 @@ struct TextureAgent {
   std::string name;
 
   // Bitmap texture data
-  wgpu::Texture data;
-  wgpu::TextureView view;
   base::Vec2i size;
+  RRefPtr<Diligent::ITexture> data;
+  RRefPtr<Diligent::ITextureView> view;
 
   // Shader binding cache data
-  wgpu::Sampler sampler;
-  wgpu::BindGroup world;
-  wgpu::BindGroup binding;
+  RRefPtr<Diligent::IBuffer> world_buffer;
+  RRefPtr<Diligent::IBufferView> world_binding;
 
   // Text drawing cache texture
   base::Vec2i text_cache_size;
-  wgpu::Texture text_surface_cache;
-  wgpu::BindGroup text_cache_binding;
-  wgpu::Buffer text_write_cache;
+  RRefPtr<Diligent::ITexture> text_cache_texture;
 };
 
 class CanvasImpl : public base::LinkNode<CanvasImpl>,

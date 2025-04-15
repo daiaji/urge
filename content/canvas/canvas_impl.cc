@@ -18,33 +18,17 @@ namespace content {
 
 namespace {
 
-wgpu::BindGroup MakeTextureWorldInternal(renderer::RenderDevice* device_base,
-                                         const base::Vec2& bitmap_size) {
-  renderer::WorldMatrixUniform world_matrix;
+void MakeTextureWorldInternal(renderer::RenderDevice* device,
+                              const base::Vec2& bitmap_size,
+                              Diligent::IBuffer** out) {
+  renderer::WorldTransform world_matrix;
   renderer::MakeProjectionMatrix(world_matrix.projection, bitmap_size);
   renderer::MakeIdentityMatrix(world_matrix.transform);
 
-  auto uniform_buffer =
-      renderer::CreateUniformBuffer<renderer::WorldMatrixUniform>(
-          **device_base, "bitmap.world", wgpu::BufferUsage::None,
-          &world_matrix);
-
-  return renderer::WorldMatrixUniform::CreateGroup(**device_base,
-                                                   uniform_buffer);
-}
-
-wgpu::BindGroup MakeTextCacheInternal(renderer::RenderDevice* device_base,
-                                      const base::Vec2i& cache_size,
-                                      const wgpu::Sampler& sampler,
-                                      wgpu::Texture* cache) {
-  // Create video memory texture
-  *cache = renderer::CreateTexture2D(
-      **device_base, "textdraw.cache",
-      wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::TextureBinding,
-      cache_size);
-
-  return renderer::TextureBindingUniform::CreateGroup(
-      **device_base, cache->CreateView(), sampler);
+  Diligent::CreateUniformBuffer(
+      **device, sizeof(world_matrix), "bitmap.binding.world", out,
+      Diligent::USAGE_IMMUTABLE, Diligent::BIND_UNIFORM_BUFFER,
+      Diligent::CPU_ACCESS_WRITE, &world_matrix);
 }
 
 void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
@@ -58,35 +42,23 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
     initial_data = conv;
   }
 
-  wgpu::TextureUsage texture_usage =
-      wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc |
-      wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
+  agent->name = "bitmap.texture<\"" + name + "\">";
+
+  renderer::CreateTexture2D(
+      **device_base, &agent->data, agent->name, initial_data,
+      Diligent::USAGE_DEFAULT,
+      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
 
   agent->size = base::Vec2i(initial_data->w, initial_data->h);
-  agent->data = renderer::CreateTexture2D(**device_base,
-                                          "bitmap.texture<\"" + name + "\">",
-                                          texture_usage, agent->size);
-  agent->view = agent->data.CreateView();
-  agent->sampler = (*device_base)->CreateSampler();
-  agent->world = MakeTextureWorldInternal(device_base, agent->size);
-  agent->binding = renderer::TextureBindingUniform::CreateGroup(
-      **device_base, agent->view, agent->sampler);
+  agent->view =
+      agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
 
-  // Write data in video memory
-  wgpu::TexelCopyTextureInfo copy_texture;
-  copy_texture.texture = agent->data;
+  MakeTextureWorldInternal(device_base, agent->size, &agent->world_buffer);
 
-  wgpu::TexelCopyBufferLayout texture_data_layout;
-  texture_data_layout.bytesPerRow = initial_data->pitch;
-  texture_data_layout.rowsPerImage = initial_data->h;
-
-  wgpu::Extent3D write_size;
-  write_size.width = initial_data->w;
-  write_size.height = initial_data->h;
-
-  device_base->GetQueue()->WriteTexture(&copy_texture, initial_data->pixels,
-                                        initial_data->pitch * initial_data->h,
-                                        &texture_data_layout, &write_size);
+  Diligent::BufferViewDesc buffer_view_desc;
+  buffer_view_desc.Name = "bitmap.world.buffer";
+  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+  agent->world_buffer->CreateView(buffer_view_desc, &agent->world_binding);
 
   SDL_DestroySurface(initial_data);
 }
@@ -94,18 +66,24 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
 void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
                                       const base::Vec2i& initial_size,
                                       TextureAgent* agent) {
-  wgpu::TextureUsage texture_usage =
-      wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc |
-      wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
+  agent->name = "bitmap.texture<\"" + std::to_string(initial_size.x) + "x" +
+                std::to_string(initial_size.y) + "\">";
+
+  renderer::CreateTexture2D(
+      **device_base, &agent->data, agent->name, initial_size,
+      Diligent::USAGE_DEFAULT,
+      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
 
   agent->size = initial_size;
-  agent->data = renderer::CreateTexture2D(**device_base, "bitmap.texture.size",
-                                          texture_usage, agent->size);
-  agent->view = agent->data.CreateView();
-  agent->sampler = (*device_base)->CreateSampler();
-  agent->world = MakeTextureWorldInternal(device_base, agent->size);
-  agent->binding = renderer::TextureBindingUniform::CreateGroup(
-      **device_base, agent->view, agent->sampler);
+  agent->view =
+      agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+
+  MakeTextureWorldInternal(device_base, agent->size, &agent->world_buffer);
+
+  Diligent::BufferViewDesc buffer_view_desc;
+  buffer_view_desc.Name = "bitmap.world.buffer";
+  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+  agent->world_buffer->CreateView(buffer_view_desc, &agent->world_binding);
 }
 
 void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
@@ -114,19 +92,9 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                  TextureAgent* src_texture,
                                  const base::Rect& src_region,
                                  float blit_alpha) {
+  auto* context = scheduler->GetDevice()->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
-
-  wgpu::RenderPassColorAttachment attachment;
-  attachment.view = dst_texture->view;
-  attachment.loadOp = wgpu::LoadOp::Load;
-  attachment.storeOp = wgpu::StoreOp::Store;
-
-  wgpu::RenderPassDescriptor renderpass;
-  renderpass.colorAttachmentCount = 1;
-  renderpass.colorAttachments = &attachment;
-
-  auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
 
   base::Vec4 blend_alpha;
   blend_alpha.w = blit_alpha / 255.0f;
@@ -136,156 +104,159 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                   src_texture->size);
   renderer::Quad::SetPositionRect(&transient_quad, dst_region);
   renderer::Quad::SetColor(&transient_quad, blend_alpha);
-  scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);
+  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
-  auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
-  renderpass_encoder.SetViewport(0, 0, dst_texture->size.x, dst_texture->size.y,
-                                 0, 0);
-  renderpass_encoder.SetPipeline(*pipeline);
-  renderpass_encoder.SetVertexBuffer(0, **scheduler->quad_batch());
-  renderpass_encoder.SetIndexBuffer(
-      **scheduler->GetDevice()->GetQuadIndex(),
-      scheduler->GetDevice()->GetQuadIndex()->format());
-  renderpass_encoder.SetBindGroup(0, dst_texture->world);
-  renderpass_encoder.SetBindGroup(1, src_texture->binding);
-  renderpass_encoder.DrawIndexed(6);
-  renderpass_encoder.End();
+  // Setup render target
+  Diligent::ITextureView* render_target_view = dst_texture->view;
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Set scissor region
+  Diligent::Rect render_scissor;
+  render_scissor.right = dst_texture->size.x;
+  render_scissor.bottom = dst_texture->size.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+
+  // Setup uniform params
+  scheduler->base_binding()->u_transform->Set(dst_texture->world_binding);
+  scheduler->base_binding()->u_texture->Set(src_texture->view);
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **scheduler->base_binding(),
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **scheduler->quad_batch();
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**scheduler->GetDevice()->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6;
+  draw_indexed_attribs.IndexType =
+      scheduler->GetDevice()->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
 }
 
 void GPUDestroyTextureInternal(TextureAgent* agent) {
-  agent->data = nullptr;
-  agent->view = nullptr;
-
-  agent->sampler = nullptr;
-  agent->world = nullptr;
-  agent->binding = nullptr;
-
-  agent->text_surface_cache = nullptr;
-  agent->text_surface_cache = nullptr;
-  agent->text_write_cache = nullptr;
-
   delete agent;
 }
 
 void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
                                        TextureAgent* agent,
                                        SDL_Surface* surface_cache) {
+  auto* context = scheduler->GetDevice()->GetContext();
   auto& device = *scheduler->GetDevice();
-  auto* encoder = scheduler->GetContext()->GetImmediateEncoder();
 
-  // Buffer align
-  uint32_t aligned_bytes_per_row = (surface_cache->pitch + 255) & ~255;
+  // Create temp surface buffer
+  Diligent::TextureDesc stage_buffer_desc = agent->data->GetDesc();
+  stage_buffer_desc.Name = "bitmap.read.stagebuffer";
+  stage_buffer_desc.Usage = Diligent::USAGE_STAGING;
+  stage_buffer_desc.BindFlags = Diligent::BIND_NONE;
+  stage_buffer_desc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
 
-  // Temp pixels read buffer
-  wgpu::BufferDescriptor buffer_desc;
-  buffer_desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-  buffer_desc.size = aligned_bytes_per_row * surface_cache->h;
-  buffer_desc.mappedAtCreation = false;
-  wgpu::Buffer read_buffer = device->CreateBuffer(&buffer_desc);
+  RRefPtr<Diligent::ITexture> stage_read_buffer;
+  device->CreateTexture(stage_buffer_desc, nullptr, &stage_read_buffer);
 
-  // Copy pixels data to temp buffer
-  wgpu::TexelCopyTextureInfo copy_texture;
-  wgpu::TexelCopyBufferInfo copy_buffer;
-  wgpu::Extent3D copy_extent;
-  copy_texture.texture = agent->data;
-  copy_buffer.buffer = read_buffer;
-  copy_buffer.layout.bytesPerRow = aligned_bytes_per_row;
-  copy_buffer.layout.rowsPerImage = surface_cache->h;
-  copy_extent.width = surface_cache->w;
-  copy_extent.height = surface_cache->h;
-  encoder->CopyTextureToBuffer(&copy_texture, &copy_buffer, &copy_extent);
+  // Reset render target
+  context->SetRenderTargets(
+      0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  // Synchronize immediate context and flush
-  scheduler->GetContext()->Flush();
+  // Copy textrue to temp buffer
+  Diligent::CopyTextureAttribs copy_texture_attribs(
+      agent->data.RawPtr(), Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+      stage_read_buffer.RawPtr(),
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->CopyTexture(copy_texture_attribs);
+  context->WaitForIdle();
 
-  // Fetch buffer to texture
-  auto future = read_buffer.MapAsync(
-      wgpu::MapMode::Read, 0, read_buffer.GetSize(),
-      wgpu::CallbackMode::WaitAnyOnly,
-      [&](wgpu::MapAsyncStatus status, wgpu::StringView message) {
-        const auto* src_pixels =
-            static_cast<const uint8_t*>(read_buffer.GetConstMappedRange());
+  // Read buffer data from mapping
+  Diligent::MappedTextureSubresource MappedData;
+  context->MapTextureSubresource(stage_read_buffer, 0, 0, Diligent::MAP_READ,
+                                 Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr,
+                                 MappedData);
 
-        for (uint32_t y = 0; y < surface_cache->h; ++y)
-          std::memcpy(static_cast<uint8_t*>(surface_cache->pixels) +
-                          y * surface_cache->pitch,
-                      src_pixels + y * aligned_bytes_per_row,
-                      surface_cache->pitch);
+  uint8_t* dst_data = static_cast<uint8_t*>(surface_cache->pixels);
+  uint8_t* src_data = static_cast<uint8_t*>(MappedData.pData);
+  for (size_t i = 0; i < surface_cache->h; ++i) {
+    memcpy(dst_data, src_data, surface_cache->pitch);
+    dst_data += surface_cache->pitch;
+    src_data += MappedData.Stride;
+  }
 
-        read_buffer.Unmap();
-      });
-
-  // Wait async mapping
-  renderer::RenderDevice::GetGPUInstance()->WaitAny(future, UINT64_MAX);
+  context->UnmapTextureSubresource(stage_read_buffer, 0, 0);
 }
 
 void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
                                         TextureAgent* agent,
                                         std::vector<uint8_t> pixels,
                                         const base::Vec2i& surface_size) {
-  auto& device = *scheduler->GetDevice();
-  auto* encoder = scheduler->GetContext()->GetImmediateEncoder();
+  auto* context = scheduler->GetDevice()->GetContext();
 
-  // Temp pixels read buffer
-  wgpu::BufferDescriptor buffer_desc;
-  buffer_desc.label = "updatetexture.temp.buffer";
-  buffer_desc.usage = wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::MapWrite;
-  buffer_desc.size = pixels.size();
-  buffer_desc.mappedAtCreation = true;
-  wgpu::Buffer write_buffer = device->CreateBuffer(&buffer_desc);
+  Diligent::TextureSubResData texture_sub_res_data(pixels.data(),
+                                                   surface_size.x * 4);
+  Diligent::Box box(0, surface_size.x, 0, surface_size.y);
 
-  std::memcpy(write_buffer.GetMappedRange(), pixels.data(), pixels.size());
-  write_buffer.Unmap();
-
-  // Align size
-  uint32_t aligned_bytes_per_row = (surface_size.x * 4 + 255) & ~255;
-
-  // Copy pixels data to texture
-  wgpu::TexelCopyTextureInfo copy_texture;
-  wgpu::TexelCopyBufferInfo copy_buffer;
-  wgpu::Extent3D copy_extent;
-  copy_texture.texture = agent->data;
-  copy_buffer.buffer = write_buffer;
-  copy_buffer.layout.bytesPerRow = aligned_bytes_per_row;
-  copy_buffer.layout.rowsPerImage = surface_size.y;
-  copy_extent.width = surface_size.x;
-  copy_extent.height = surface_size.y;
-  encoder->CopyBufferToTexture(&copy_buffer, &copy_texture, &copy_extent);
+  context->UpdateTexture(agent->data, 0, 0, box, texture_sub_res_data,
+                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
                                TextureAgent* agent,
                                const base::Rect& region,
                                const base::Vec4& color) {
+  auto* context = scheduler->GetDevice()->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
-
-  wgpu::RenderPassColorAttachment attachment;
-  attachment.view = agent->view;
-  attachment.loadOp = wgpu::LoadOp::Load;
-  attachment.storeOp = wgpu::StoreOp::Store;
-
-  wgpu::RenderPassDescriptor renderpass;
-  renderpass.colorAttachmentCount = 1;
-  renderpass.colorAttachments = &attachment;
-
-  auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
 
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad, region);
   renderer::Quad::SetColor(&transient_quad, color);
-  scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);
+  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
-  auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
-  renderpass_encoder.SetViewport(0, 0, agent->size.x, agent->size.y, 0, 0);
-  renderpass_encoder.SetPipeline(*pipeline);
-  renderpass_encoder.SetVertexBuffer(0, **scheduler->quad_batch());
-  renderpass_encoder.SetIndexBuffer(
-      **scheduler->GetDevice()->GetQuadIndex(),
-      scheduler->GetDevice()->GetQuadIndex()->format());
-  renderpass_encoder.SetBindGroup(0, agent->world);
-  renderpass_encoder.DrawIndexed(6);
-  renderpass_encoder.End();
+  Diligent::ITextureView* render_target_view = agent->view;
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Set scissor region
+  Diligent::Rect render_scissor;
+  render_scissor.right = agent->size.x;
+  render_scissor.bottom = agent->size.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+
+  // Setup uniform params
+  scheduler->color_binding()->u_transform->Set(agent->world_binding);
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **scheduler->color_binding(),
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **scheduler->quad_batch();
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**scheduler->GetDevice()->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6;
+  draw_indexed_attribs.IndexType =
+      scheduler->GetDevice()->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
 }
 
 void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
@@ -294,19 +265,9 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
                                        const base::Vec4& color1,
                                        const base::Vec4& color2,
                                        bool vertical) {
+  auto* context = scheduler->GetDevice()->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
-
-  wgpu::RenderPassColorAttachment attachment;
-  attachment.view = agent->view;
-  attachment.loadOp = wgpu::LoadOp::Load;
-  attachment.storeOp = wgpu::StoreOp::Store;
-
-  wgpu::RenderPassDescriptor renderpass;
-  renderpass.colorAttachmentCount = 1;
-  renderpass.colorAttachments = &attachment;
-
-  auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
 
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad, region);
@@ -321,18 +282,43 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
     transient_quad.vertices[2].color = color2;
     transient_quad.vertices[3].color = color1;
   }
-  scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);
+  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
-  auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
-  renderpass_encoder.SetViewport(0, 0, agent->size.x, agent->size.y, 0, 0);
-  renderpass_encoder.SetPipeline(*pipeline);
-  renderpass_encoder.SetVertexBuffer(0, **scheduler->quad_batch());
-  renderpass_encoder.SetIndexBuffer(
-      **scheduler->GetDevice()->GetQuadIndex(),
-      scheduler->GetDevice()->GetQuadIndex()->format());
-  renderpass_encoder.SetBindGroup(0, agent->world);
-  renderpass_encoder.DrawIndexed(6);
-  renderpass_encoder.End();
+  Diligent::ITextureView* render_target_view = agent->view;
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Set scissor region
+  Diligent::Rect render_scissor;
+  render_scissor.right = agent->size.x;
+  render_scissor.bottom = agent->size.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+
+  // Setup uniform params
+  scheduler->color_binding()->u_transform->Set(agent->world_binding);
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **scheduler->color_binding(),
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **scheduler->quad_batch();
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**scheduler->GetDevice()->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6;
+  draw_indexed_attribs.IndexType =
+      scheduler->GetDevice()->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
 }
 
 void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
@@ -341,82 +327,32 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
                                       SDL_Surface* text,
                                       float opacity,
                                       int align) {
+  auto* context = scheduler->GetDevice()->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
-  if (!agent->text_surface_cache ||
-      agent->text_surface_cache.GetWidth() < text->w ||
-      agent->text_surface_cache.GetHeight() < text->h) {
-    agent->text_cache_size.x = std::max<int32_t>(
-        agent->text_surface_cache ? agent->text_surface_cache.GetWidth() : 0,
-        text->w);
-    agent->text_cache_size.y = std::max<int32_t>(
-        agent->text_surface_cache ? agent->text_surface_cache.GetHeight() : 0,
-        text->h);
+  if (!agent->text_cache_texture || agent->text_cache_size.x < text->w ||
+      agent->text_cache_size.y < text->h) {
+    agent->text_cache_size.x =
+        std::max<int32_t>(agent->text_cache_size.x, text->w);
+    agent->text_cache_size.y =
+        std::max<int32_t>(agent->text_cache_size.y, text->h);
 
-    agent->text_cache_binding =
-        MakeTextCacheInternal(scheduler->GetDevice(), agent->text_cache_size,
-                              agent->sampler, &agent->text_surface_cache);
+    renderer::CreateTexture2D(**scheduler->GetDevice(),
+                              &agent->text_cache_texture, "textdraw.cache",
+                              agent->text_cache_size);
   }
 
-  wgpu::RenderPassColorAttachment attachment;
-  attachment.view = agent->view;
-  attachment.loadOp = wgpu::LoadOp::Load;
-  attachment.storeOp = wgpu::StoreOp::Store;
+  // Update text texture cache
+  Diligent::TextureSubResData texture_sub_res_data(text->pixels, text->pitch);
+  Diligent::Box box(0, text->w, 0, text->h);
 
-  wgpu::RenderPassDescriptor renderpass;
-  renderpass.colorAttachmentCount = 1;
-  renderpass.colorAttachments = &attachment;
+  context->UpdateTexture(agent->text_cache_texture, 0, 0, box,
+                         texture_sub_res_data,
+                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  auto* command_encoder = scheduler->GetContext()->GetImmediateEncoder();
-
-  // Align size
-  uint32_t aligned_bytes_per_row =
-      (agent->text_surface_cache.GetWidth() * 4 + 255) & ~255;
-  uint32_t buffer_size =
-      aligned_bytes_per_row * agent->text_surface_cache.GetHeight();
-
-  if (!agent->text_write_cache ||
-      agent->text_write_cache.GetSize() < buffer_size) {
-    // Temp pixels read buffer
-    wgpu::BufferDescriptor buffer_desc;
-    buffer_desc.label = "drawtext.temp.buffer";
-    buffer_desc.usage = wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst;
-    buffer_desc.size = buffer_size;
-    buffer_desc.mappedAtCreation = false;
-    agent->text_write_cache =
-        (*scheduler->GetDevice())->CreateBuffer(&buffer_desc);
-  }
-
-  const uint32_t write_buffer_size = aligned_bytes_per_row * text->h;
-  if (write_buffer_size) {
-    if (write_buffer_size > scheduler->text_render_buffer()->size())
-      scheduler->text_render_buffer()->resize(write_buffer_size);
-
-    uint8_t* temp_memory_buffer = scheduler->text_render_buffer()->data();
-    std::memset(temp_memory_buffer, 0, write_buffer_size);
-    for (size_t i = 0; i < text->h; ++i)
-      std::memcpy(temp_memory_buffer + aligned_bytes_per_row * i,
-                  static_cast<uint8_t*>(text->pixels) + text->pitch * i,
-                  text->pitch);
-
-    command_encoder->WriteBuffer(agent->text_write_cache, 0, temp_memory_buffer,
-                                 write_buffer_size);
-  }
-
-  // Copy pixels data to texture
-  wgpu::TexelCopyTextureInfo copy_texture;
-  wgpu::TexelCopyBufferInfo copy_buffer;
-  wgpu::Extent3D copy_extent;
-  copy_texture.texture = agent->text_surface_cache;
-  copy_buffer.buffer = agent->text_write_cache;
-  copy_buffer.layout.bytesPerRow = aligned_bytes_per_row;
-  copy_buffer.layout.rowsPerImage = agent->text_surface_cache.GetHeight();
-  copy_extent.width = text->w;
-  copy_extent.height = text->h;
-  command_encoder->CopyBufferToTexture(&copy_buffer, &copy_texture,
-                                       &copy_extent);
-
+  // Render to self texture
   base::Vec4 blend_alpha;
   blend_alpha.w = opacity / 255.0f;
 
@@ -433,6 +369,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
       break;
   }
 
+  // Assemble attributes
   float zoom_x = static_cast<float>(region.width) / text->w;
   zoom_x = std::min(zoom_x, 1.0f);
   base::Rect compose_position(align_x, align_y, text->w * zoom_x, text->h);
@@ -442,19 +379,47 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
                                   agent->text_cache_size);
   renderer::Quad::SetPositionRect(&transient_quad, compose_position);
   renderer::Quad::SetColor(&transient_quad, blend_alpha);
-  scheduler->quad_batch()->QueueWrite(*command_encoder, &transient_quad);
+  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
-  auto renderpass_encoder = command_encoder->BeginRenderPass(&renderpass);
-  renderpass_encoder.SetViewport(0, 0, agent->size.x, agent->size.y, 0, 0);
-  renderpass_encoder.SetPipeline(*pipeline);
-  renderpass_encoder.SetVertexBuffer(0, **scheduler->quad_batch());
-  renderpass_encoder.SetIndexBuffer(
-      **scheduler->GetDevice()->GetQuadIndex(),
-      scheduler->GetDevice()->GetQuadIndex()->format());
-  renderpass_encoder.SetBindGroup(0, agent->world);
-  renderpass_encoder.SetBindGroup(1, agent->text_cache_binding);
-  renderpass_encoder.DrawIndexed(6);
-  renderpass_encoder.End();
+  // Setup render target
+  Diligent::ITextureView* render_target_view = agent->view;
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Set scissor region
+  Diligent::Rect render_scissor;
+  render_scissor.right = agent->size.x;
+  render_scissor.bottom = agent->size.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+
+  // Setup uniform params
+  scheduler->base_binding()->u_transform->Set(agent->world_binding);
+  scheduler->base_binding()->u_texture->Set(
+      agent->text_cache_texture->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **scheduler->base_binding(),
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **scheduler->quad_batch();
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**scheduler->GetDevice()->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6;
+  draw_indexed_attribs.IndexType =
+      scheduler->GetDevice()->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
 }
 
 }  // namespace

@@ -69,12 +69,6 @@ include_directories(third_party/zlib)
 ## Diligent Engine
 add_subdirectory(third_party/DiligentCore)
 include_directories(third_party/DiligentCore)
-add_subdirectory(third_party/DiligentTools)
-include_directories(third_party/DiligentTools)
-
-## Dear IMGUI
-add_compile_definitions(IMGUI_IMPL_WEBGPU_BACKEND_DAWN)
-add_subdirectory(third_party/imgui)
 
 ## Physfs
 set(PHYSFS_BUILD_STATIC TRUE)

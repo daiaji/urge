@@ -18,8 +18,9 @@ struct PlaneAgent {
   std::vector<renderer::Quad> cache;
   uint32_t quad_size;
 
-  wgpu::BindGroup uniform_binding;
-  wgpu::Buffer uniform_buffer;
+  std::unique_ptr<renderer::Binding_Flat> shader_binding;
+  RRefPtr<Diligent::IBuffer> uniform_buffer;
+  RRefPtr<Diligent::IBufferView> uniform_binding;
 };
 
 class PlaneImpl : public Plane, public GraphicsChild, public Disposable {

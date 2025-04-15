@@ -14,7 +14,7 @@ namespace content {
 
 // IDL generator format:
 // Inhert: refcounted only.
-// Interface referrence: RGSS Referrence
+// Interface reference: RGSS Reference
 /*--urge(name:Table)--*/
 class URGE_RUNTIME_API Table : public base::RefCounted<Table> {
  public:

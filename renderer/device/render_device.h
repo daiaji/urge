@@ -49,8 +49,8 @@ class RenderDevice {
   RenderDevice& operator=(const RenderDevice&) = delete;
 
   // Device access
-  Diligent::IRenderDevice* operator->() { return device_; }
-  Diligent::IRenderDevice* operator*() { return device_; }
+  inline Diligent::IRenderDevice* operator->() { return device_; }
+  inline Diligent::IRenderDevice* operator*() { return device_; }
 
   // Device Attribute interface
   Diligent::IDeviceContext* GetContext() const { return context_; }

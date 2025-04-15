@@ -12,11 +12,17 @@ namespace {
 
 void GPUCreatePlaneInternal(renderer::RenderDevice* device, PlaneAgent* agent) {
   agent->batch = renderer::QuadBatch::Make(**device);
-  agent->uniform_buffer =
-      renderer::CreateUniformBuffer<renderer::ViewportFragmentUniform>(
-          **device, "plane.uniform", wgpu::BufferUsage::CopyDst);
-  agent->uniform_binding = renderer::ViewportFragmentUniform::CreateGroup(
-      **device, agent->uniform_buffer);
+  agent->shader_binding =
+      device->GetPipelines()->viewport.CreateBinding<renderer::Binding_Flat>();
+
+  Diligent::CreateUniformBuffer(
+      **device, sizeof(renderer::Binding_Flat::Params), "plane.flat.uniform",
+      &agent->uniform_buffer, Diligent::USAGE_DEFAULT);
+
+  Diligent::BufferViewDesc buffer_view_desc;
+  buffer_view_desc.Name = "plane.uniform.binding";
+  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+  agent->uniform_buffer->CreateView(buffer_view_desc, &agent->uniform_binding);
 }
 
 void GPUDestroyPlaneInternal(PlaneAgent* agent) {
@@ -24,7 +30,6 @@ void GPUDestroyPlaneInternal(PlaneAgent* agent) {
 }
 
 void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
-                                     wgpu::CommandEncoder* command_encoder,
                                      PlaneAgent* agent,
                                      TextureAgent* texture,
                                      const base::Vec2i& viewport_size,
@@ -80,37 +85,53 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
     current_y += item_y;  // Y-axis accumulation
   }
 
+  auto* context = device->GetContext();
   device->GetQuadIndex()->Allocate(quad_size);
   agent->quad_size = quad_size;
-  agent->batch->QueueWrite(*command_encoder, agent->cache.data(),
-                           agent->cache.size());
+  agent->batch->QueueWrite(context, agent->cache.data(), agent->cache.size());
 
-  renderer::ViewportFragmentUniform transient_uniform;
+  renderer::Binding_Flat::Params transient_uniform;
   transient_uniform.color = color;
   transient_uniform.tone = tone;
-  command_encoder->WriteBuffer(agent->uniform_buffer, 0,
-                               reinterpret_cast<uint8_t*>(&transient_uniform),
-                               sizeof(transient_uniform));
+  context->UpdateBuffer(agent->uniform_buffer, 0, sizeof(transient_uniform),
+                        &transient_uniform,
+                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
-                                    renderer::RenderPass* encoder,
-                                    wgpu::BindGroup* world_binding,
+                                    Diligent::IBufferView* world_binding,
                                     PlaneAgent* agent,
                                     TextureAgent* texture,
                                     int32_t blend_type) {
+  auto* context = device->GetContext();
   auto& pipeline_set = device->GetPipelines()->viewport;
   auto* pipeline =
       pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
-  encoder->SetPipeline(*pipeline);
-  encoder->SetVertexBuffer(0, **agent->batch);
-  encoder->SetIndexBuffer(**device->GetQuadIndex(),
-                          device->GetQuadIndex()->format());
-  encoder->SetBindGroup(0, *world_binding);
-  encoder->SetBindGroup(1, texture->binding);
-  encoder->SetBindGroup(2, agent->uniform_binding);
-  encoder->DrawIndexed(agent->quad_size * 6);
+  // Setup uniform params
+  agent->shader_binding->u_transform->Set(world_binding);
+  agent->shader_binding->u_texture->Set(texture->view);
+  agent->shader_binding->u_params->Set(agent->uniform_binding);
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **agent->shader_binding,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **agent->batch;
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**device->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6 * agent->cache.size();
+  draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
 }
 
 }  // namespace
@@ -349,18 +370,19 @@ void PlaneImpl::DrawableNodeHandlerInternal(
 
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     if (quad_array_dirty_) {
-      quad_array_dirty_ = false;
       screen()->PostTask(base::BindOnce(
-          &GPUUpdatePlaneQuadArrayInternal, params->device,
-          params->command_encoder, agent_, bitmap_->GetAgent(),
-          params->viewport.Size(), scale_, origin_ + params->origin,
-          color_->AsNormColor(), tone_->AsNormColor(), opacity_));
+          &GPUUpdatePlaneQuadArrayInternal, params->device, agent_,
+          bitmap_->GetAgent(), params->viewport.Size(), scale_,
+          origin_ + params->origin, color_->AsNormColor(), tone_->AsNormColor(),
+          opacity_));
+
+      quad_array_dirty_ = false;
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(
         base::BindOnce(&GPUOnViewportRenderingInternal, params->device,
-                       params->renderpass_encoder, params->world_binding,
-                       agent_, bitmap_->GetAgent(), blend_type_));
+                       base::Unretained(params->world_binding), agent_,
+                       bitmap_->GetAgent(), blend_type_));
   }
 }
 

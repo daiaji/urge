@@ -40,6 +40,11 @@ class CanvasScheduler {
   renderer::QuadBatch* quad_batch() { return common_quad_batch_.get(); }
   std::vector<uint8_t>* text_render_buffer() { return &text_render_buffer_; }
 
+  renderer::Binding_Base* base_binding() { return generic_base_binding_.get(); }
+  renderer::Binding_Color* color_binding() {
+    return generic_color_binding_.get();
+  }
+
  private:
   friend class CanvasImpl;
   CanvasScheduler(renderer::RenderDevice* device,
@@ -51,6 +56,9 @@ class CanvasScheduler {
   base::ThreadWorker* render_worker_;
   filesystem::IOService* io_service_;
   std::vector<uint8_t> text_render_buffer_;
+
+  std::unique_ptr<renderer::Binding_Base> generic_base_binding_;
+  std::unique_ptr<renderer::Binding_Color> generic_color_binding_;
 
   std::unique_ptr<renderer::QuadBatch> common_quad_batch_;
 };

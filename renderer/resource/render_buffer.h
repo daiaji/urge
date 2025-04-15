@@ -10,8 +10,8 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 
+#include "renderer/layout/vertex_layout.h"
 #include "renderer/renderer_config.h"
-#include "renderer/vertex/vertex_layout.h"
 
 namespace renderer {
 
@@ -71,7 +71,7 @@ class BatchBuffer {
       device->CreateBuffer(buffer_desc, nullptr, &buffer);
     }
 
-    return std::unique_ptr<BatchBuffer>(new BatchBuffer(device), buffer);
+    return std::unique_ptr<BatchBuffer>(new BatchBuffer(device, buffer));
   }
 
   Diligent::IBuffer* operator*() { return buffer_; }
@@ -91,14 +91,7 @@ class BatchBuffer {
       buffer_desc.Mode = BufferMode;
       buffer_desc.ElementByteStride = sizeof(TargetType);
 
-      Diligent::BufferData buffer_data;
-      buffer_data.pData = data;
-      buffer_data.DataSize = buffer_size;
-      buffer_data.pContext = context;
-
-      device_->CreateBuffer(buffer_desc, &buffer_data, &buffer_);
-
-      return true;
+      device_->CreateBuffer(buffer_desc, nullptr, &buffer_);
     }
 
     if (data)
@@ -120,7 +113,7 @@ class BatchBuffer {
 
 using QuadBatch = BatchBuffer<Quad,
                               Diligent::BIND_VERTEX_BUFFER,
-                              Diligent::BUFFER_MODE_STRUCTURED,
+                              Diligent::BUFFER_MODE_UNDEFINED,
                               Diligent::CPU_ACCESS_WRITE>;
 
 }  // namespace renderer

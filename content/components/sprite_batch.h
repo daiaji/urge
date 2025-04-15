@@ -24,12 +24,12 @@ struct SpriteQuad {
 
 using SpriteQuadBuffer =
     renderer::BatchBuffer<SpriteQuad,
-                          Diligent::BIND_FLAGS::BIND_UNORDERED_ACCESS,
+                          Diligent::BIND_FLAGS::BIND_SHADER_RESOURCE,
                           Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED>;
 
 using SpriteBatchBuffer =
     renderer::BatchBuffer<renderer::Binding_Sprite::Params,
-                          Diligent::BIND_FLAGS::BIND_UNORDERED_ACCESS,
+                          Diligent::BIND_FLAGS::BIND_SHADER_RESOURCE,
                           Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED>;
 
 class SpriteBatch {
@@ -43,6 +43,7 @@ class SpriteBatch {
 
   TextureAgent* GetCurrentTexture() const { return current_texture_; }
 
+  renderer::Binding_Sprite* GetShaderBinding() { return binding_.get(); }
   Diligent::IBuffer* GetVertexBuffer() { return **vertex_batch_; }
   Diligent::IBufferView* GetQuadBinding() { return quad_binding_; }
   Diligent::IBufferView* GetUniformBinding() { return uniform_binding_; }
@@ -54,10 +55,11 @@ class SpriteBatch {
 
   void EndBatch(uint32_t* instance_offset, uint32_t* instance_count);
 
-  void SubmitBatchDataAndResetCache(Diligent::IDeviceContext* context);
+  void SubmitBatchDataAndResetCache(renderer::RenderDevice* device);
 
  private:
   SpriteBatch(renderer::RenderDevice* device,
+              std::unique_ptr<renderer::Binding_Sprite> binding,
               std::unique_ptr<renderer::QuadBatch> vertex_batch,
               std::unique_ptr<SpriteQuadBuffer> quad_batch,
               std::unique_ptr<SpriteBatchBuffer> uniform_batch);
@@ -68,6 +70,7 @@ class SpriteBatch {
   std::vector<SpriteQuad> quad_cache_;
   std::vector<renderer::Binding_Sprite::Params> uniform_cache_;
 
+  std::unique_ptr<renderer::Binding_Sprite> binding_;
   std::unique_ptr<renderer::QuadBatch> vertex_batch_;
   std::unique_ptr<SpriteQuadBuffer> quad_batch_;
   RRefPtr<Diligent::IBufferView> quad_binding_;

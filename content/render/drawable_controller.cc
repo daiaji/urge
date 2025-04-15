@@ -24,7 +24,7 @@ DrawableNode::DrawableNode(DrawNodeController* controller,
     : controller_(controller),
       key_(default_key),
       visible_(visible),
-      batch_info_(typeid(DrawableNode)),
+      batch_id_(0),
       batch_self_(nullptr) {
   if (controller_)
     controller_->InsertChildNodeInternal(this);
@@ -35,7 +35,7 @@ DrawableNode::DrawableNode(DrawableNode&& other)
       handler_(std::move(other.handler_)),
       key_(std::move(other.key_)),
       visible_(other.visible_),
-      batch_info_(std::move(other.batch_info_)),
+      batch_id_(other.batch_id_),
       batch_self_(other.batch_self_) {}
 
 DrawableNode::~DrawableNode() {

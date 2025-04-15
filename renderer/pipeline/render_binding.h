@@ -34,10 +34,14 @@ class RenderBindingBase {
     return std::unique_ptr<Ty>(new Ty(binding));
   }
 
-  Diligent::IShaderResourceBinding* RawPtr() const { return binding_; }
+  // Raw ptr access
+  inline Diligent::IShaderResourceBinding* operator->() { return binding_; }
+  inline Diligent::IShaderResourceBinding* operator*() { return binding_; }
 
  protected:
   RenderBindingBase(ShaderBinding binding);
+
+  Diligent::IShaderResourceBinding* RawPtr() const { return binding_; }
 
  private:
   ShaderBinding binding_;
@@ -135,8 +139,8 @@ class Binding_VagueTrans : public RenderBindingBase {
 class Binding_Tilemap : public RenderBindingBase {
  public:
   struct Params {
-    base::Vec2 tex_size;
     base::Vec2 offset;
+    base::Vec2 tex_size;
     float animate_index;
     float tile_size;
   };
@@ -153,8 +157,8 @@ class Binding_Tilemap : public RenderBindingBase {
 class Binding_Tilemap2 : public RenderBindingBase {
  public:
   struct Params {
-    base::Vec2 tex_size;
     base::Vec2 offset;
+    base::Vec2 tex_size;
     base::Vec2 animation_offset;
     float tile_size;
   };

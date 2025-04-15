@@ -42,6 +42,14 @@ namespace content {
 
 class DrawNodeController;
 
+struct TypeID {
+  template <typename Ty>
+  static std::size_t Of() {
+    static std::byte buffer;
+    return reinterpret_cast<std::size_t>(&buffer);
+  }
+};
+
 // Multi weight sorted key data structure.
 struct SortKey {
   int64_t weight[3];
@@ -76,11 +84,6 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
     // Logic abstract render device for drawable node.
     // Never be null whenever events.
     renderer::RenderDevice* device = nullptr;
-
-    // [Stage: all]
-    // Hardware render command encoder,
-    // handler: writeBuffer, writeTexture, copyTexture
-    Diligent::IDeviceContext* context = nullptr;
 
     // [Stage: all]
     // Abstract "screen" render buffer,
@@ -139,13 +142,13 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
   // Batch info setup
   template <typename Ty>
   void SetupBatchable(Ty* self) {
-    batch_info_ = typeid(Ty);
+    batch_id_ = TypeID::Of<Ty>();
     batch_self_ = self;
   }
 
   template <typename Ty>
   Ty* CastToNode() {
-    if (batch_info_ == typeid(Ty))
+    if (batch_id_ == TypeID::Of<Ty>())
       return static_cast<Ty*>(batch_self_);
     return nullptr;
   }
@@ -163,7 +166,7 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
   SortKey key_;
   bool visible_;
 
-  std::type_index batch_info_;
+  std::size_t batch_id_;
   void* batch_self_;
 };
 

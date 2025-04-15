@@ -28,6 +28,12 @@ void CanvasScheduler::InitWithRenderWorker(base::ThreadWorker* worker) {
 
   // Make canvas drawing common transient vertex buffer
   common_quad_batch_ = renderer::QuadBatch::Make(**device_);
+
+  // Create generic resource binding
+  generic_base_binding_ =
+      device_->GetPipelines()->base.CreateBinding<renderer::Binding_Base>();
+  generic_color_binding_ =
+      device_->GetPipelines()->color.CreateBinding<renderer::Binding_Color>();
 }
 
 void CanvasScheduler::SubmitPendingPaintCommands() {

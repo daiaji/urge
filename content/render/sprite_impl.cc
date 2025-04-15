@@ -27,13 +27,14 @@ void GPUDestroySpriteInternal(SpriteAgent* agent) {
   delete agent;
 }
 
-void GPUUpdateWaveSpriteInternal(SpriteBatch* batch_scheduler,
-                                 SpriteAgent* agent,
-                                 TextureAgent* texture,
-                                 const base::Rect& src_rect,
-                                 const SpriteImpl::WaveParams& wave,
-                                 const renderer::SpriteUniform& uniform,
-                                 bool mirror) {
+void GPUUpdateWaveSpriteInternal(
+    SpriteBatch* batch_scheduler,
+    SpriteAgent* agent,
+    TextureAgent* texture,
+    const base::Rect& src_rect,
+    const SpriteImpl::WaveParams& wave,
+    const renderer::Binding_Sprite::Params& uniform,
+    bool mirror) {
   int32_t last_block_aligned_size = src_rect.height % kWaveBlockAlign;
   int32_t loop_block = src_rect.height / kWaveBlockAlign;
   int32_t block_count = loop_block + !!last_block_aligned_size;
@@ -68,16 +69,17 @@ void GPUUpdateWaveSpriteInternal(SpriteBatch* batch_scheduler,
     emit_wave_block(loop_block * kWaveBlockAlign, last_block_aligned_size);
 }
 
-void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
-                                  SpriteBatch* batch_scheduler,
-                                  SpriteAgent* agent,
-                                  TextureAgent* texture,
-                                  TextureAgent* next_texture,
-                                  const SpriteImpl::WaveParams& wave,
-                                  const renderer::SpriteUniform& uniform,
-                                  const base::Rect& src_rect,
-                                  int32_t mirror,
-                                  bool src_rect_dirty) {
+void GPUUpdateBatchSpriteInternal(
+    renderer::RenderDevice* device,
+    SpriteBatch* batch_scheduler,
+    SpriteAgent* agent,
+    TextureAgent* texture,
+    TextureAgent* next_texture,
+    const SpriteImpl::WaveParams& wave,
+    const renderer::Binding_Sprite::Params& uniform,
+    const base::Rect& src_rect,
+    int32_t mirror,
+    bool src_rect_dirty) {
   // Update sprite quad if need
   if (wave.amp) {
     // Wave process if need
@@ -123,29 +125,49 @@ void GPUUpdateBatchSpriteInternal(renderer::RenderDevice* device,
 }
 
 void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
-                                  renderer::RenderPass* renderpass_encoder,
                                   SpriteBatch* batch_scheduler,
-                                  wgpu::BindGroup* world_binding,
+                                  Diligent::IBufferView* world_binding,
                                   SpriteAgent* agent,
                                   TextureAgent* texture,
                                   int32_t blend_type,
                                   bool wave_active) {
   if (agent->instance_count) {
     // Batch draw
+    auto* context = device->GetContext();
     auto& pipeline_set = device->GetPipelines()->sprite;
     auto* pipeline =
         pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
-    renderpass_encoder->SetPipeline(*pipeline);
-    renderpass_encoder->SetIndexBuffer(**device->GetQuadIndex(),
-                                       device->GetQuadIndex()->format());
-    renderpass_encoder->SetBindGroup(0, *world_binding);
-    renderpass_encoder->SetBindGroup(1, texture->binding);
-    renderpass_encoder->SetBindGroup(2, *batch_scheduler->GetUniformBinding());
-    renderpass_encoder->SetVertexBuffer(
-        0, *batch_scheduler->GetBatchVertexBuffer());
-    renderpass_encoder->DrawIndexed(6, agent->instance_count, 0, 0,
-                                    agent->instance_offset);
+    // Setup uniform params
+    batch_scheduler->GetShaderBinding()->u_transform->Set(world_binding);
+    batch_scheduler->GetShaderBinding()->u_texture->Set(texture->view);
+    batch_scheduler->GetShaderBinding()->u_vertices->Set(
+        batch_scheduler->GetQuadBinding());
+    batch_scheduler->GetShaderBinding()->u_params->Set(
+        batch_scheduler->GetUniformBinding());
+
+    // Apply pipeline state
+    context->SetPipelineState(pipeline);
+    context->CommitShaderResources(
+        **batch_scheduler->GetShaderBinding(),
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Apply vertex index
+    Diligent::IBuffer* const vertex_buffer = batch_scheduler->GetVertexBuffer();
+    context->SetVertexBuffers(
+        0, 1, &vertex_buffer, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->SetIndexBuffer(
+        **device->GetQuadIndex(), 0,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Execute render command
+    Diligent::DrawIndexedAttribs draw_indexed_attribs;
+    draw_indexed_attribs.NumIndices = 6;
+    draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+    draw_indexed_attribs.NumInstances = agent->instance_count;
+    draw_indexed_attribs.FirstInstanceLocation = agent->instance_offset;
+    context->DrawIndexed(draw_indexed_attribs);
   }
 }
 
@@ -177,7 +199,7 @@ SpriteImpl::SpriteImpl(RenderScreenImpl* screen,
       &SpriteImpl::SrcRectChangedInternal, base::Unretained(this)));
 
   std::memset(&uniform_params_, 0, sizeof(uniform_params_));
-  uniform_params_.scale = base::Vec2(1.0f);
+  uniform_params_.Scale = base::Vec2(1.0f);
 
   agent_ = new SpriteAgent;
   screen->PostTask(
@@ -301,21 +323,21 @@ int32_t SpriteImpl::Get_X(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
-  return uniform_params_.position.x;
+  return uniform_params_.Position.x;
 }
 
 void SpriteImpl::Put_X(const int32_t& value, ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  uniform_params_.position.x = value;
+  uniform_params_.Position.x = value;
 }
 
 int32_t SpriteImpl::Get_Y(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
-  return uniform_params_.position.y;
+  return uniform_params_.Position.y;
 }
 
 void SpriteImpl::Put_Y(const int32_t& value, ExceptionState& exception_state) {
@@ -323,7 +345,7 @@ void SpriteImpl::Put_Y(const int32_t& value, ExceptionState& exception_state) {
     return;
 
   // Set normal Y attribute for all version.
-  uniform_params_.position.y = value;
+  uniform_params_.Position.y = value;
 
   // Sort with Z and Y attribute on RGSS 2/3.
   if (screen()->GetAPIVersion() >= ContentProfile::APIVersion::RGSS2) {
@@ -350,35 +372,35 @@ int32_t SpriteImpl::Get_Ox(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
-  return uniform_params_.origin.x;
+  return uniform_params_.Origin.x;
 }
 
 void SpriteImpl::Put_Ox(const int32_t& value, ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  uniform_params_.origin.x = value;
+  uniform_params_.Origin.x = value;
 }
 
 int32_t SpriteImpl::Get_Oy(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
-  return uniform_params_.origin.y;
+  return uniform_params_.Origin.y;
 }
 
 void SpriteImpl::Put_Oy(const int32_t& value, ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  uniform_params_.origin.y = value;
+  uniform_params_.Origin.y = value;
 }
 
 float SpriteImpl::Get_ZoomX(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
-  return uniform_params_.scale.x;
+  return uniform_params_.Scale.x;
 }
 
 void SpriteImpl::Put_ZoomX(const float& value,
@@ -386,14 +408,14 @@ void SpriteImpl::Put_ZoomX(const float& value,
   if (CheckDisposed(exception_state))
     return;
 
-  uniform_params_.scale.x = value;
+  uniform_params_.Scale.x = value;
 }
 
 float SpriteImpl::Get_ZoomY(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
-  return uniform_params_.scale.y;
+  return uniform_params_.Scale.y;
 }
 
 void SpriteImpl::Put_ZoomY(const float& value,
@@ -401,7 +423,7 @@ void SpriteImpl::Put_ZoomY(const float& value,
   if (CheckDisposed(exception_state))
     return;
 
-  uniform_params_.scale.y = value;
+  uniform_params_.Scale.y = value;
 }
 
 float SpriteImpl::Get_Angle(ExceptionState& exception_state) {
@@ -417,7 +439,7 @@ void SpriteImpl::Put_Angle(const float& value,
     return;
 
   angle_ = value;
-  uniform_params_.rotation = angle_ * kPi / 180.0f;
+  uniform_params_.Rotation = angle_ * kPi / 180.0f;
 }
 
 int32_t SpriteImpl::Get_WaveAmp(ExceptionState& exception_state) {
@@ -613,13 +635,13 @@ void SpriteImpl::DrawableNodeHandlerInternal(
           (flash_color.w > composite_color.w ? flash_color : composite_color);
 
     base::Rect src_rect = src_rect_->AsBaseRect();
-    uniform_params_.color = target_color;
-    uniform_params_.tone = tone_->AsNormColor();
-    uniform_params_.opacity = static_cast<float>(opacity_) / 255.0f;
-    uniform_params_.bush_depth =
+    uniform_params_.Color = target_color;
+    uniform_params_.Tone = tone_->AsNormColor();
+    uniform_params_.Opacity = static_cast<float>(opacity_) / 255.0f;
+    uniform_params_.BushDepth =
         static_cast<float>(src_rect.y + src_rect.height - bush_.depth) /
         current_texture->size.y;
-    uniform_params_.bush_opacity = static_cast<float>(bush_.opacity) / 255.0f;
+    uniform_params_.BushOpacity = static_cast<float>(bush_.opacity) / 255.0f;
 
     DrawableNode* next_node = node_.GetNextNode();
     SpriteImpl* next_sprite =
@@ -635,11 +657,10 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     wave_.dirty = false;
     src_rect_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(
-        base::BindOnce(&GPUOnSpriteRenderingInternal, params->device,
-                       params->renderpass_encoder, screen()->GetSpriteBatch(),
-                       params->world_binding, agent_, current_texture,
-                       blend_type_, !!wave_.amp));
+    screen()->PostTask(base::BindOnce(
+        &GPUOnSpriteRenderingInternal, params->device,
+        screen()->GetSpriteBatch(), base::Unretained(params->world_binding),
+        agent_, current_texture, blend_type_, !!wave_.amp));
   }
 }
 

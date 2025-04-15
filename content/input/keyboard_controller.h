@@ -40,8 +40,7 @@ class KeyboardControllerImpl : public Input {
   KeyboardControllerImpl& operator=(const KeyboardControllerImpl&) = delete;
 
   void ApplyKeySymBinding(const KeySymMap& keysyms);
-  bool CreateButtonGUISettings();
-  void SetUpdateEnable(bool enable) { enable_update_ = enable; }
+  inline void SetUpdateEnable(bool enable) { enable_update_ = enable; }
 
  public:
   void Update(ExceptionState& exception_state) override;
@@ -77,14 +76,10 @@ class KeyboardControllerImpl : public Input {
   void UpdateDir4Internal();
   void UpdateDir8Internal();
 
-  void TryReadBindingsInternal();
-  void StorageBindingsInternal();
-
   base::WeakPtr<ui::Widget> window_;
   ContentProfile* profile_;
   I18NProfile* i18n_profile_;
   KeySymMap key_bindings_;
-  KeySymMap setting_bindings_;
   bool disable_gui_key_input_;
   bool enable_update_;
 

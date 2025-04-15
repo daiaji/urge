@@ -9,12 +9,10 @@
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_timer.h"
 #include "magic_enum/magic_enum.hpp"
-#include "third_party/imgui/imgui.h"
-#include "third_party/imgui/imgui_impl_sdl3.h"
-#include "third_party/imgui/imgui_impl_wgpu.h"
 
 #include "content/canvas/canvas_scheduler.h"
 #include "content/profile/command_ids.h"
+#include "renderer/utils/texture_utils.h"
 
 namespace content {
 
@@ -42,7 +40,6 @@ RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
       last_count_time_(SDL_GetPerformanceCounter()),
       desired_delta_time_(SDL_GetPerformanceFrequency() / frame_rate_),
       frame_skip_required_(false),
-      enable_render_gui_(false),
       keep_ratio_(true),
       smooth_scale_(false),
       allow_skip_frame_(true),
@@ -61,38 +58,6 @@ void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
                                             const std::string& wgpu_backend) {
   // Setup render thread worker (maybe null)
   render_worker_ = render_worker;
-
-  // Setup Dear ImGui context
-  IMGUI_CHECKVERSION();
-  ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO();
-  io.IniFilename = nullptr;
-  io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
-
-  // Apply DPI Settings
-  int display_w, display_h;
-  SDL_GetWindowSizeInPixels(window->AsSDLWindow(), &display_w, &display_h);
-  io.DisplaySize =
-      ImVec2(static_cast<float>(display_w), static_cast<float>(display_h));
-  io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-  float window_scale = SDL_GetWindowDisplayScale(window->AsSDLWindow());
-  ImGui::GetStyle().ScaleAllSizes(window_scale);
-
-  // Apply default font
-  int64_t font_data_size;
-  auto* font_data = scoped_font_->GetUIDefaultFont(&font_data_size);
-  ImFontConfig font_config;
-  font_config.FontDataOwnedByAtlas = false;
-  io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(font_data), font_data_size,
-                                 16.0f * window_scale, &font_config,
-                                 io.Fonts->GetGlyphRangesChineseFull());
-
-  // Setup Dear ImGui style
-  ImGui::StyleColorsDark();
-
-  // Setup imgui platform backends
-  ImGui_ImplSDL3_InitForOther(window->AsSDLWindow());
 
   // Setup render device on render thread if possible
   agent_ = new RenderGraphicsAgent;
@@ -123,66 +88,9 @@ void RenderScreenImpl::PresentScreen() {
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::PresentScreenBufferInternal,
-                     base::Unretained(this), agent_->present_target));
+                     base::Unretained(this),
+                     base::Unretained(agent_->present_target)));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
-}
-
-void RenderScreenImpl::CreateButtonGUISettings() {
-  if (ImGui::CollapsingHeader(
-          i18n_profile_->GetI18NString(IDS_SETTINGS_GRAPHICS, "Graphics")
-              .c_str())) {
-    ImGui::TextWrapped(
-        "%s: %s",
-        i18n_profile_->GetI18NString(IDS_GRAPHICS_RENDERER, "Renderer").c_str(),
-        renderer_info_.device.c_str());
-    ImGui::Separator();
-    ImGui::TextWrapped(
-        "%s: %s",
-        i18n_profile_->GetI18NString(IDS_GRAPHICS_VENDOR, "Vendor").c_str(),
-        renderer_info_.vendor.c_str());
-    ImGui::Separator();
-    ImGui::TextWrapped(
-        "%s: %s",
-        i18n_profile_->GetI18NString(IDS_GRAPHICS_DESCRIPTION, "Description")
-            .c_str(),
-        renderer_info_.description.c_str());
-    ImGui::Separator();
-
-    // Keep Ratio
-    ImGui::Checkbox(
-        i18n_profile_->GetI18NString(IDS_GRAPHICS_KEEP_RATIO, "Keep Ratio")
-            .c_str(),
-        &keep_ratio_);
-
-    // Smooth Scale
-    ImGui::Checkbox(
-        i18n_profile_->GetI18NString(IDS_GRAPHICS_SMOOTH_SCALE, "Smooth Scale")
-            .c_str(),
-        &smooth_scale_);
-
-    // Skip Frame
-    ImGui::Checkbox(
-        i18n_profile_->GetI18NString(IDS_GRAPHICS_SKIP_FRAME, "Skip Frame")
-            .c_str(),
-        &allow_skip_frame_);
-
-    // Fullscreen
-    bool is_fullscreen = GetDevice()->GetWindow()->IsFullscreen(),
-         last_fullscreen = is_fullscreen;
-    ImGui::Checkbox(
-        i18n_profile_->GetI18NString(IDS_GRAPHICS_FULLSCREEN, "Fullscreen")
-            .c_str(),
-        &is_fullscreen);
-    if (last_fullscreen != is_fullscreen)
-      GetDevice()->GetWindow()->SetFullscreen(is_fullscreen);
-
-    // Background running
-    ImGui::Checkbox(i18n_profile_
-                        ->GetI18NString(IDS_GRAPHICS_BACKGROUND_RUNNING,
-                                        "Background Running")
-                        .c_str(),
-                    &allow_background_running_);
-  }
 }
 
 renderer::RenderDevice* RenderScreenImpl::GetDevice() const {
@@ -218,12 +126,11 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
                                            Diligent::ITexture* render_target,
                                            const base::Vec2i& target_size) {
   // Submit pending canvas commands
-  agent_->canvas_scheduler->SubmitPendingPaintCommands();
+  GetCanvasScheduler()->SubmitPendingPaintCommands();
 
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
-  controller_params.device = agent_->device.get();
-  controller_params.context = agent_->device->GetContext();
+  controller_params.device = GetDevice();
   controller_params.screen_buffer = render_target;
   controller_params.screen_size = target_size;
   controller_params.viewport = target_size;
@@ -235,16 +142,15 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
 
   // 1.5) Update sprite batch
   base::ThreadWorker::PostTask(
-      render_worker_,
-      base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
-                     base::Unretained(agent_->sprite_batch.get()),
-                     controller_params.context));
+      render_worker_, base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
+                                     base::Unretained(GetSpriteBatch()),
+                                     controller_params.device));
 
   // 2) Setup renderpass
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::FrameBeginRenderPassInternal,
-                     base::Unretained(this), render_target));
+                     base::Unretained(this), base::Unretained(render_target)));
 
   // 3) Notify render a frame
   controller_params.root_world = agent_->world_binding;
@@ -363,23 +269,18 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
   if (!frozen_)
     return;
 
-  // Fix screen attribute
+  // Fetch screen attribute
   Put_Brightness(255, exception_state);
   vague = std::clamp<int>(vague, 1, 256);
   float vague_norm = vague / 255.0f;
-  RRefPtr<Diligent::ITexture>* transition_mapping = nullptr;
 
+  // Fetch transmapping if available
+  Diligent::ITexture* transition_mapping = nullptr;
   if (bitmap)
-    transition_mapping = &CanvasImpl::FromBitmap(bitmap)->GetAgent()->data;
+    transition_mapping = CanvasImpl::FromBitmap(bitmap)->GetAgent()->data;
 
   // Get current scene snapshot for transition
   RenderFrameInternal(&controller_, agent_->transition_buffer, resolution_);
-
-  // Create binding group
-  base::ThreadWorker::PostTask(
-      render_worker_,
-      base::BindOnce(&RenderScreenImpl::CreateTransitionUniformInternal,
-                     base::Unretained(this), transition_mapping));
 
   for (int i = 0; i < duration; ++i) {
     // Norm transition progress
@@ -390,7 +291,8 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
       base::ThreadWorker::PostTask(
           render_worker_,
           base::BindOnce(&RenderScreenImpl::RenderVagueTransitionFrameInternal,
-                         base::Unretained(this), progress, vague_norm));
+                         base::Unretained(this), progress, vague_norm,
+                         base::Unretained(transition_mapping)));
     else
       base::ThreadWorker::PostTask(
           render_worker_,
@@ -411,7 +313,7 @@ scoped_refptr<Bitmap> RenderScreenImpl::SnapToBitmap(
       GetCanvasScheduler(), this, scoped_font_, resolution_, exception_state);
 
   if (target) {
-    RenderFrameInternal(&controller_, &target->GetAgent()->data, resolution_);
+    RenderFrameInternal(&controller_, target->GetAgent()->data, resolution_);
     base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
   }
 
@@ -481,65 +383,47 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
   // Create global sprite batch scheduler
   agent_->sprite_batch = SpriteBatch::Make(agent_->device.get());
 
-  // Create screen world matrix buffer
-  agent_->world_buffer =
-      renderer::CreateUniformBuffer<renderer::WorldMatrixUniform>(
-          **agent_->device, "screen.world.matrix", wgpu::BufferUsage::CopyDst);
-
-  // Create uniform binding
-  agent_->world_binding = renderer::WorldMatrixUniform::CreateGroup(
-      **agent_->device, agent_->world_buffer);
-
-  // Create effect vertex buffer
-  agent_->effect_vertex = renderer::CreateVertexBuffer<renderer::Vertex>(
-      **agent_->device, "screen.brightness.vertex", wgpu::BufferUsage::CopyDst,
-      4);
-
   // Create screen present pipeline and buffer
   agent_->present_pipeline.reset(new renderer::Pipeline_Base(
-      **agent_->device, agent_->device->SurfaceFormat()));
-  agent_->present_vertex = renderer::CreateVertexBuffer<renderer::Vertex>(
-      **agent_->device, "screen.vertex", wgpu::BufferUsage::CopyDst, 4);
+      **agent_->device,
+      agent_->device->GetSwapchain()->GetDesc().ColorBufferFormat));
 
-  // Setup imgui renderer backends
-  ImGui_ImplWGPU_InitInfo init_info;
-  init_info.Device = (*agent_->device)->Get();
-  init_info.NumFramesInFlight = 3;
-  init_info.RenderTargetFormat =
-      static_cast<WGPUTextureFormat>(agent_->device->SurfaceFormat());
-  init_info.DepthStencilFormat = WGPUTextureFormat_Undefined;
-  ImGui_ImplWGPU_Init(&init_info);
-  ImGui_ImplWGPU_NewFrame();
+  // Create generic quads batch
+  agent_->effect_quads = renderer::QuadBatch::Make(**agent_->device);
+  agent_->effect_binding = agent_->device->GetPipelines()
+                               ->color.CreateBinding<renderer::Binding_Color>();
+
+  // Create transition generic quads
+  agent_->transition_quads = renderer::QuadBatch::Make(**agent_->device);
 
   // Setup renderer info
-  wgpu::AdapterInfo adapter_info;
-  GetDevice()->GetAdapter()->GetInfo(&adapter_info);
-  renderer_info_.device = adapter_info.device;
-  renderer_info_.vendor = adapter_info.vendor;
-  renderer_info_.description = adapter_info.description;
+  Diligent::GraphicsAdapterInfo adapter_info =
+      (**GetDevice())->GetAdapterInfo();
+  renderer_info_.device = adapter_info.DeviceId;
+  renderer_info_.vendor = adapter_info.VendorId;
+  renderer_info_.description = adapter_info.Description;
 
   // Create screen buffer
   ResetScreenBufferInternal();
 }
 
 void RenderScreenImpl::DestroyGraphicsDeviceInternal() {
-  // Cleanup IMGUI Components
-  ImGui_ImplWGPU_Shutdown();
-  ImGui_ImplSDL3_Shutdown();
-  ImGui::DestroyContext();
-
   // Release agent resource
   delete agent_;
 }
 
 void RenderScreenImpl::PresentScreenBufferInternal(
     Diligent::ITexture* render_target) {
+  // Initial device attribute
+  Diligent::IDeviceContext* context = GetDevice()->GetContext();
+  Diligent::ISwapChain* swapchain = GetDevice()->GetSwapchain();
+
   // Update drawing viewport
   UpdateWindowViewportInternal();
 
   // Process mouse coordinate and viewport rect
   base::Rect target_rect;
-  base::WeakPtr<ui::Widget> window = agent_->device->GetWindow();
+  base::WeakPtr<ui::Widget> window = GetDevice()->GetWindow();
   window->GetMouseState().resolution = resolution_;
   if (keep_ratio_) {
     target_rect = display_viewport_;
@@ -551,110 +435,74 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     window->GetMouseState().screen = window_size_;
   }
 
-  // Get screen surface
-  auto* hardware_surface = agent_->device->GetSurface();
-
-  wgpu::SurfaceTexture surface_texture;
-  hardware_surface->GetCurrentTexture(&surface_texture);
-
-  // Blit internal screen buffer to screen surface
-  auto* commander = agent_->context->GetImmediateEncoder();
-
-  wgpu::RenderPassColorAttachment attachment;
-  attachment.view = surface_texture.texture.CreateView();
-  attachment.loadOp = wgpu::LoadOp::Clear;
-  attachment.storeOp = wgpu::StoreOp::Store;
-  attachment.clearValue = {0, 0, 0, 1};
-
-  wgpu::RenderPassDescriptor renderpass;
-  renderpass.colorAttachmentCount = 1;
-  renderpass.colorAttachments = &attachment;
+  // Setup render params
+  auto* render_target_view = swapchain->GetCurrentBackBufferRTV();
+  auto& pipeline_set = *agent_->present_pipeline;
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
+  std::unique_ptr<renderer::QuadBatch> present_quads =
+      renderer::QuadBatch::Make(**GetDevice());
+  std::unique_ptr<renderer::Binding_Base> present_binding =
+      pipeline_set.CreateBinding<renderer::Binding_Base>();
+  RRefPtr<Diligent::IBuffer> present_uniform;
 
   if (render_target) {
-    // Setup binding and vertex
-    wgpu::RenderPipeline& pipeline =
-        *agent_->present_pipeline->GetPipeline(renderer::BlendType::NO_BLEND);
-    wgpu::BindGroup world_binding, texture_binding;
+    // Update vertex
+    renderer::Quad transient_quad;
+    renderer::Quad::SetPositionRect(&transient_quad, target_rect);
+    renderer::Quad::SetTexCoordRect(&transient_quad, base::Rect(resolution_),
+                                    resolution_);
+    present_quads->QueueWrite(context, &transient_quad);
 
-    {
-      renderer::Quad transient_quad;
-      renderer::Quad::SetPositionRect(&transient_quad, target_rect);
-      renderer::Quad::SetTexCoordRect(&transient_quad, base::Rect(resolution_),
-                                      resolution_);
-      renderer::Quad::SetColor(&transient_quad, base::Vec4(1));
-      commander->WriteBuffer(agent_->present_vertex, 0,
-                             reinterpret_cast<uint8_t*>(&transient_quad),
-                             sizeof(transient_quad));
-    }
+    // Update window screen transform
+    renderer::WorldTransform world_matrix;
+    renderer::MakeProjectionMatrix(world_matrix.projection, window->GetSize());
+    renderer::MakeIdentityMatrix(world_matrix.transform);
 
-    {
-      renderer::WorldMatrixUniform world_matrix;
-      renderer::MakeProjectionMatrix(world_matrix.projection,
-                                     window->GetSize());
-      renderer::MakeIdentityMatrix(world_matrix.transform);
+    Diligent::CreateUniformBuffer(
+        **GetDevice(), sizeof(renderer::WorldTransform),
+        "present.world.uniform", &present_uniform, Diligent::USAGE_IMMUTABLE,
+        Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
+        &world_matrix);
 
-      wgpu::Buffer world_matrix_uniform =
-          renderer::CreateUniformBuffer<renderer::WorldMatrixUniform>(
-              **agent_->device, "present.world.uniform",
-              wgpu::BufferUsage::None, &world_matrix);
-
-      world_binding = renderer::WorldMatrixUniform::CreateGroup(
-          **agent_->device, world_matrix_uniform);
-    }
-
-    // Make present texture bindgroup
-    {
-      wgpu::SamplerDescriptor sampler_desc;
-      if (smooth_scale_) {
-        sampler_desc.minFilter = wgpu::FilterMode::Linear;
-        sampler_desc.minFilter = wgpu::FilterMode::Linear;
-        sampler_desc.mipmapFilter = wgpu::MipmapFilterMode::Linear;
-      } else {
-        sampler_desc.minFilter = wgpu::FilterMode::Nearest;
-        sampler_desc.minFilter = wgpu::FilterMode::Nearest;
-        sampler_desc.mipmapFilter = wgpu::MipmapFilterMode::Nearest;
-      }
-
-      wgpu::Sampler present_sampler =
-          (*agent_->device)->CreateSampler(&sampler_desc);
-
-      texture_binding = renderer::TextureBindingUniform::CreateGroup(
-          **agent_->device, render_target->CreateView(), present_sampler);
-    }
-
-    // Start screen render
-    {
-      auto pass = commander->BeginRenderPass(&renderpass);
-      pass.SetPipeline(*agent_->present_pipeline->GetPipeline(
-          renderer::BlendType::NO_BLEND));
-      pass.SetViewport(0, 0, window->GetSize().x, window->GetSize().y, 0, 0);
-      pass.SetBindGroup(0, world_binding);
-      pass.SetBindGroup(1, texture_binding);
-      pass.SetVertexBuffer(0, agent_->present_vertex);
-      pass.SetIndexBuffer(**agent_->device->GetQuadIndex(),
-                          agent_->device->GetQuadIndex()->format());
-      pass.DrawIndexed(6);
-      pass.End();
-    }
+    // Set world transform
+    present_binding->u_transform->Set(present_uniform);
+    present_binding->u_texture->Set(render_target_view);
   }
 
-  // Start imgui layer render
-  if (enable_render_gui_) {
-    // New frame
-    ImGui_ImplWGPU_NewFrame();
+  // Prepare for rendering
+  float clear_color[] = {0, 0, 0, 1};
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->ClearRenderTarget(
+      render_target_view, clear_color,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    // Rendering IMGUI
-    ImGui::Render();
+  // Start screen render
+  if (render_target) {
+    // Apply pipeline state
+    context->SetPipelineState(pipeline);
+    context->CommitShaderResources(
+        **present_binding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    attachment.loadOp = wgpu::LoadOp::Load;
-    auto render_pass = commander->BeginRenderPass(&renderpass);
-    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), render_pass.Get());
-    render_pass.End();
+    // Apply vertex index
+    Diligent::IBuffer* const vertex_buffer = **present_quads;
+    context->SetVertexBuffers(
+        0, 1, &vertex_buffer, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->SetIndexBuffer(
+        **GetDevice()->GetQuadIndex(), 0,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Execute render command
+    Diligent::DrawIndexedAttribs draw_indexed_attribs;
+    draw_indexed_attribs.NumIndices = 6;
+    draw_indexed_attribs.IndexType = GetDevice()->GetQuadIndex()->format();
+    context->DrawIndexed(draw_indexed_attribs);
   }
 
-  // Flush command buffer and present WGPU surface
-  agent_->context->Flush();
-  hardware_surface->Present();
+  // Flush command buffer and present GPU surface
+  swapchain->Present();
 }
 
 void RenderScreenImpl::FrameProcessInternal(
@@ -673,13 +521,13 @@ void RenderScreenImpl::FrameProcessInternal(
 }
 
 void RenderScreenImpl::UpdateWindowViewportInternal() {
-  auto window_size = agent_->device->GetWindow()->GetSize();
+  auto window_size = GetDevice()->GetWindow()->GetSize();
 
   if (!(window_size == window_size_)) {
     window_size_ = window_size;
 
     // Resize screen surface
-    agent_->device->GetSwapchain()->Resize(window_size_.x, window_size_.y);
+    GetDevice()->GetSwapchain()->Resize(window_size_.x, window_size_.y);
   }
 
   float window_ratio = static_cast<float>(window_size.x) / window_size.y;
@@ -698,18 +546,34 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
 }
 
 void RenderScreenImpl::ResetScreenBufferInternal() {
-  RRefPtr<Diligent::ITexture> Usage usage =
-      RRefPtr<Diligent::ITexture> Usage::CopyDst |
-      RRefPtr<Diligent::ITexture> Usage::CopySrc |
-      RRefPtr<Diligent::ITexture> Usage::RenderAttachment |
-      RRefPtr<Diligent::ITexture> Usage::TextureBinding;
+  constexpr Diligent::BIND_FLAGS bind_flags =
+      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE;
 
-  agent_->screen_buffer = renderer::CreateTexture2D(
-      **GetDevice(), "screen.buffer", usage, resolution_);
-  agent_->frozen_buffer = renderer::CreateTexture2D(
-      **GetDevice(), "screen.buffer", usage, resolution_);
-  agent_->transition_buffer = renderer::CreateTexture2D(
-      **GetDevice(), "screen.buffer", usage, resolution_);
+  renderer::CreateTexture2D(**GetDevice(), &agent_->screen_buffer,
+                            "screen.main.buffer", resolution_,
+                            Diligent::USAGE_DEFAULT, bind_flags);
+  renderer::CreateTexture2D(**GetDevice(), &agent_->frozen_buffer,
+                            "screen.frozen.buffer", resolution_,
+                            Diligent::USAGE_DEFAULT, bind_flags);
+  renderer::CreateTexture2D(**GetDevice(), &agent_->transition_buffer,
+                            "screen.transition.buffer", resolution_,
+                            Diligent::USAGE_DEFAULT, bind_flags);
+
+  renderer::WorldTransform world_transform;
+  renderer::MakeIdentityMatrix(world_transform.transform);
+  renderer::MakeProjectionMatrix(world_transform.projection, resolution_);
+
+  agent_->world_transform.Release();
+  Diligent::CreateUniformBuffer(
+      **GetDevice(), sizeof(renderer::WorldTransform),
+      "graphics.world.transform", &agent_->world_transform,
+      Diligent::USAGE_IMMUTABLE, Diligent::BIND_UNIFORM_BUFFER,
+      Diligent::CPU_ACCESS_WRITE, &world_transform);
+
+  Diligent::BufferViewDesc buffer_view_desc;
+  buffer_view_desc.Name = "graphics.world.view";
+  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
+  agent_->world_transform->CreateView(buffer_view_desc, &agent_->world_binding);
 }
 
 int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
@@ -732,89 +596,86 @@ int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
 
 void RenderScreenImpl::FrameBeginRenderPassInternal(
     Diligent::ITexture* render_target) {
-  auto* encoder = agent_->context->GetImmediateEncoder();
-  base::Vec2i target_size(render_target->GetWidth(),
-                          render_target->GetHeight());
+  // Initial context
+  Diligent::IDeviceContext* context = GetDevice()->GetContext();
 
-  wgpu::RenderPassColorAttachment attachment;
-  attachment.view = render_target->CreateView();
-  attachment.loadOp = wgpu::LoadOp::Clear;
-  attachment.storeOp = wgpu::StoreOp::Store;
-  attachment.clearValue = {0, 0, 0, 1};
+  // Initial render target size
+  const base::Vec2i target_size(render_target->GetDesc().Width,
+                                render_target->GetDesc().Height);
 
-  wgpu::RenderPassDescriptor renderpass;
-  renderpass.colorAttachmentCount = 1;
-  renderpass.colorAttachments = &attachment;
-
-  // Update world matrix size
-  renderer::WorldMatrixUniform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, target_size);
-  renderer::MakeIdentityMatrix(world_matrix.transform);
-  encoder->WriteBuffer(agent_->world_buffer, 0,
-                       reinterpret_cast<uint8_t*>(&world_matrix),
-                       sizeof(world_matrix));
-
-  // Update brightness
+  // Update screen effect params
   if (brightness_ < 255) {
     renderer::Quad effect_quad;
     renderer::Quad::SetPositionRect(&effect_quad, base::Rect(target_size));
     renderer::Quad::SetColor(&effect_quad,
                              base::Vec4(0, 0, 0, (255 - brightness_) / 255.0f));
-    encoder->WriteBuffer(agent_->effect_vertex, 0,
-                         reinterpret_cast<uint8_t*>(&effect_quad),
-                         sizeof(effect_quad));
+    agent_->effect_quads->QueueWrite(context, &effect_quad);
   }
 
-  // Begin render pass
-  agent_->render_pass = encoder->BeginRenderPass(&renderpass);
-  agent_->render_pass.SetViewport(0, 0, target_size.x, target_size.y, 0, 0);
-  agent_->render_pass.SetScissorRect(0, 0, target_size.x, target_size.y);
+  // Set render target in context and clear previous buffer
+  auto render_target_view =
+      render_target->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+  const float clear_color[] = {0, 0, 0, 1};
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->ClearRenderTarget(
+      render_target_view, clear_color,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  Diligent::Rect render_scissor;
+  render_scissor.right = target_size.x;
+  render_scissor.bottom = target_size.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
 }
 
 void RenderScreenImpl::FrameEndRenderPassInternal() {
+  // Initial context
+  Diligent::IDeviceContext* context = GetDevice()->GetContext();
+
+  // Render screen effect if need
   if (brightness_ < 255) {
     // Apply brightness effect
-    auto& pipeline_set = agent_->device->GetPipelines()->color;
+    auto& pipeline_set = GetDevice()->GetPipelines()->color;
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
-    agent_->render_pass.SetPipeline(*pipeline);
-    agent_->render_pass.SetBindGroup(0, agent_->world_binding);
-    agent_->render_pass.SetVertexBuffer(0, agent_->effect_vertex);
-    agent_->render_pass.SetIndexBuffer(
-        **agent_->device->GetQuadIndex(),
-        agent_->device->GetQuadIndex()->format());
-    agent_->render_pass.DrawIndexed(6);
+    // Set world transform
+    agent_->effect_binding->u_transform->Set(agent_->world_binding);
+
+    // Apply pipeline state
+    context->SetPipelineState(pipeline);
+    context->CommitShaderResources(
+        **agent_->effect_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Apply vertex index
+    Diligent::IBuffer* const vertex_buffer = **agent_->effect_quads;
+    context->SetVertexBuffers(
+        0, 1, &vertex_buffer, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->SetIndexBuffer(
+        **GetDevice()->GetQuadIndex(), 0,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Execute render command
+    Diligent::DrawIndexedAttribs draw_indexed_attribs;
+    draw_indexed_attribs.NumIndices = 6;
+    draw_indexed_attribs.IndexType = GetDevice()->GetQuadIndex()->format();
+    context->DrawIndexed(draw_indexed_attribs);
   }
-
-  // End render pass
-  agent_->render_pass.End();
-}
-
-void RenderScreenImpl::CreateTransitionUniformInternal(
-    Diligent::ITexture* transition_mapping) {
-  if (transition_mapping)
-    agent_->transition_binding = renderer::VagueTransitionUniform::CreateGroup(
-        **GetDevice(), agent_->frozen_buffer.CreateView(),
-        agent_->transition_buffer.CreateView(),
-        transition_mapping->CreateView(), (*GetDevice())->CreateSampler());
-  else
-    agent_->transition_binding = renderer::AlphaTransitionUniform::CreateGroup(
-        **GetDevice(), agent_->frozen_buffer.CreateView(),
-        agent_->transition_buffer.CreateView(),
-        (*GetDevice())->CreateSampler());
 }
 
 void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
-  auto* command_encoder = agent_->context->GetImmediateEncoder();
+  // Initial context
+  Diligent::IDeviceContext* context = GetDevice()->GetContext();
 
-  wgpu::RenderPassColorAttachment attachment;
-  attachment.view = agent_->screen_buffer.CreateView();
-  attachment.loadOp = wgpu::LoadOp::Load;
-  attachment.storeOp = wgpu::StoreOp::Store;
-
-  wgpu::RenderPassDescriptor renderpass;
-  renderpass.colorAttachmentCount = 1;
-  renderpass.colorAttachments = &attachment;
+  // Create binding if need
+  if (!agent_->transition_binding)
+    agent_->transition_binding =
+        GetDevice()
+            ->GetPipelines()
+            ->alphatrans.CreateBinding<renderer::Binding_AlphaTrans>();
 
   // Update transition uniform
   renderer::Quad transient_quad;
@@ -823,39 +684,71 @@ void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
   renderer::Quad::SetTexCoordRectNorm(&transient_quad,
                                       base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
   renderer::Quad::SetColor(&transient_quad, base::Vec4(progress));
-  command_encoder->WriteBuffer(agent_->effect_vertex, 0,
-                               reinterpret_cast<uint8_t*>(&transient_quad),
-                               sizeof(transient_quad));
+  agent_->transition_quads->QueueWrite(context, &transient_quad);
 
   // Composite transition frame
-  auto& pipeline_set = agent_->device->GetPipelines()->alphatrans;
+  auto render_target_view = agent_->screen_buffer->GetDefaultView(
+      Diligent::TEXTURE_VIEW_RENDER_TARGET);
+  const float clear_color[] = {0, 0, 0, 1};
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->ClearRenderTarget(
+      render_target_view, clear_color,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  Diligent::Rect render_scissor;
+  render_scissor.right = resolution_.x;
+  render_scissor.bottom = resolution_.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+
+  // Apply brightness effect
+  auto& pipeline_set = GetDevice()->GetPipelines()->alphatrans;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
-  wgpu::RenderPassEncoder render_pass =
-      command_encoder->BeginRenderPass(&renderpass);
-  render_pass.SetPipeline(*pipeline);
-  render_pass.SetViewport(0, 0, agent_->screen_buffer.GetWidth(),
-                          agent_->screen_buffer.GetHeight(), 0, 0);
-  render_pass.SetBindGroup(0, agent_->transition_binding);
-  render_pass.SetVertexBuffer(0, agent_->effect_vertex);
-  render_pass.SetIndexBuffer(**agent_->device->GetQuadIndex(),
-                             agent_->device->GetQuadIndex()->format());
-  render_pass.DrawIndexed(6);
-  render_pass.End();
+  // Set uniform texture
+  static_cast<renderer::Binding_AlphaTrans*>(agent_->transition_binding.get())
+      ->u_current_texture->Set(agent_->transition_buffer->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+  static_cast<renderer::Binding_AlphaTrans*>(agent_->transition_binding.get())
+      ->u_frozen_texture->Set(agent_->frozen_buffer->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **agent_->transition_binding,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **agent_->transition_quads;
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**GetDevice()->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6;
+  draw_indexed_attribs.IndexType = GetDevice()->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
 }
 
-void RenderScreenImpl::RenderVagueTransitionFrameInternal(float progress,
-                                                          float vague) {
-  auto* command_encoder = agent_->context->GetImmediateEncoder();
+void RenderScreenImpl::RenderVagueTransitionFrameInternal(
+    float progress,
+    float vague,
+    Diligent::ITexture* trans_mapping) {
+  // Initial context
+  Diligent::IDeviceContext* context = GetDevice()->GetContext();
 
-  wgpu::RenderPassColorAttachment attachment;
-  attachment.view = agent_->screen_buffer.CreateView();
-  attachment.loadOp = wgpu::LoadOp::Load;
-  attachment.storeOp = wgpu::StoreOp::Store;
-
-  wgpu::RenderPassDescriptor renderpass;
-  renderpass.colorAttachmentCount = 1;
-  renderpass.colorAttachments = &attachment;
+  // Create binding if need
+  if (!agent_->transition_binding)
+    agent_->transition_binding =
+        GetDevice()
+            ->GetPipelines()
+            ->mappedtrans.CreateBinding<renderer::Binding_VagueTrans>();
 
   // Update transition uniform
   renderer::Quad transient_quad;
@@ -864,25 +757,59 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(float progress,
   renderer::Quad::SetTexCoordRectNorm(&transient_quad,
                                       base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
   renderer::Quad::SetColor(&transient_quad, base::Vec4(vague, 0, 0, progress));
-  command_encoder->WriteBuffer(agent_->effect_vertex, 0,
-                               reinterpret_cast<uint8_t*>(&transient_quad),
-                               sizeof(transient_quad));
+  agent_->transition_quads->QueueWrite(context, &transient_quad);
 
   // Composite transition frame
-  auto& pipeline_set = agent_->device->GetPipelines()->mappedtrans;
+  auto render_target_view = agent_->screen_buffer->GetDefaultView(
+      Diligent::TEXTURE_VIEW_RENDER_TARGET);
+  const float clear_color[] = {0, 0, 0, 1};
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->ClearRenderTarget(
+      render_target_view, clear_color,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  Diligent::Rect render_scissor;
+  render_scissor.right = resolution_.x;
+  render_scissor.bottom = resolution_.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+
+  // Apply brightness effect
+  auto& pipeline_set = GetDevice()->GetPipelines()->mappedtrans;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
-  wgpu::RenderPassEncoder render_pass =
-      command_encoder->BeginRenderPass(&renderpass);
-  render_pass.SetPipeline(*pipeline);
-  render_pass.SetViewport(0, 0, agent_->screen_buffer.GetWidth(),
-                          agent_->screen_buffer.GetHeight(), 0, 0);
-  render_pass.SetBindGroup(0, agent_->transition_binding);
-  render_pass.SetVertexBuffer(0, agent_->effect_vertex);
-  render_pass.SetIndexBuffer(**agent_->device->GetQuadIndex(),
-                             agent_->device->GetQuadIndex()->format());
-  render_pass.DrawIndexed(6);
-  render_pass.End();
+  // Set uniform texture
+  static_cast<renderer::Binding_VagueTrans*>(agent_->transition_binding.get())
+      ->u_current_texture->Set(agent_->transition_buffer->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+  static_cast<renderer::Binding_VagueTrans*>(agent_->transition_binding.get())
+      ->u_frozen_texture->Set(agent_->frozen_buffer->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+  static_cast<renderer::Binding_VagueTrans*>(agent_->transition_binding.get())
+      ->u_trans_texture->Set(trans_mapping->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **agent_->transition_binding,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **agent_->transition_quads;
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**GetDevice()->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6;
+  draw_indexed_attribs.IndexType = GetDevice()->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
 }
 
 void RenderScreenImpl::AddDisposable(Disposable* disp) {

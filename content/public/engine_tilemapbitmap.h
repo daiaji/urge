@@ -17,7 +17,7 @@ namespace content {
 
 // IDL generator format:
 // Inhert: refcounted only.
-// Interface referrence: RGSS Referrence
+// Interface reference: RGSS Reference
 /*--urge(name:TilemapBitmap)--*/
 class URGE_RUNTIME_API TilemapBitmap : public base::RefCounted<TilemapBitmap> {
  public:

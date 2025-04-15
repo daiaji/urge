@@ -16,6 +16,7 @@
 #include "content/render/drawable_controller.h"
 #include "content/worker/coroutine_context.h"
 #include "renderer/device/render_device.h"
+#include "renderer/layout/uniform_layout.h"
 
 namespace content {
 
@@ -29,6 +30,12 @@ struct RenderGraphicsAgent {
   RRefPtr<Diligent::ITexture> transition_buffer;
   RRefPtr<Diligent::IBuffer> world_transform;
   RRefPtr<Diligent::IBufferView> world_binding;
+
+  std::unique_ptr<renderer::QuadBatch> effect_quads;
+  std::unique_ptr<renderer::Binding_Color> effect_binding;
+
+  std::unique_ptr<renderer::QuadBatch> transition_quads;
+  std::unique_ptr<renderer::RenderBindingBase> transition_binding;
 
   Diligent::ITexture* present_target = nullptr;
   std::unique_ptr<renderer::Pipeline_Base> present_pipeline;
@@ -66,9 +73,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
                             base::WeakPtr<ui::Widget> window,
                             const std::string& wgpu_backend);
 
-  inline void SetRenderGUI(bool enable) { enable_render_gui_ = enable; }
   void PresentScreen();
-  void CreateButtonGUISettings();
 
   renderer::RenderDevice* GetDevice() const;
   CanvasScheduler* GetCanvasScheduler() const;
@@ -140,9 +145,10 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void FrameBeginRenderPassInternal(Diligent::ITexture* render_target);
   void FrameEndRenderPassInternal();
 
-  void CreateTransitionUniformInternal(Diligent::ITexture* transition_mapping);
   void RenderAlphaTransitionFrameInternal(float progress);
-  void RenderVagueTransitionFrameInternal(float progress, float vague);
+  void RenderVagueTransitionFrameInternal(float progress,
+                                          float vague,
+                                          Diligent::ITexture* trans_mapping);
 
   // DisposableCollection methods:
   void AddDisposable(Disposable* disp) override;
@@ -174,7 +180,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   uint64_t desired_delta_time_;
   bool frame_skip_required_;
 
-  bool enable_render_gui_;
   bool keep_ratio_;
   bool smooth_scale_;
   bool allow_skip_frame_;

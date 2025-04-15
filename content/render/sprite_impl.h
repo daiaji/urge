@@ -91,7 +91,7 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
   scoped_refptr<CanvasImpl> bitmap_;
   scoped_refptr<RectImpl> src_rect_;
 
-  renderer::SpriteUniform uniform_params_;
+  renderer::Binding_Sprite::Params uniform_params_;
   WaveParams wave_;
 
   struct {

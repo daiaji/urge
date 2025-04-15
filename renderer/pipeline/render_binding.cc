@@ -10,31 +10,31 @@ RenderBindingBase::RenderBindingBase(ShaderBinding binding)
     : binding_(binding) {}
 
 Binding_Base::Binding_Base(ShaderBinding binding) : RenderBindingBase(binding) {
-  u_transform =
-      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "u_Transform");
+  u_transform = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                            "WorldMatrixBuffer");
   u_texture =
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
 }
 
 Binding_Color::Binding_Color(ShaderBinding binding)
     : RenderBindingBase(binding) {
-  u_transform =
-      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "u_Transform");
+  u_transform = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                            "WorldMatrixBuffer");
 }
 
 Binding_Flat::Binding_Flat(ShaderBinding binding) : RenderBindingBase(binding) {
-  u_transform =
-      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "u_Transform");
+  u_transform = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                            "WorldMatrixBuffer");
   u_texture =
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
-  u_params =
-      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Effect");
+  u_params = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                         "FlatUniformConstants");
 }
 
 Binding_Sprite::Binding_Sprite(ShaderBinding binding)
     : RenderBindingBase(binding) {
-  u_transform =
-      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "u_Transform");
+  u_transform = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                            "WorldMatrixBuffer");
   u_texture =
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
   u_vertices =
@@ -63,22 +63,22 @@ Binding_VagueTrans::Binding_VagueTrans(ShaderBinding binding)
 
 Binding_Tilemap::Binding_Tilemap(ShaderBinding binding)
     : RenderBindingBase(binding) {
-  u_transform =
-      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "u_Transform");
+  u_transform = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                            "WorldMatrixBuffer");
   u_texture =
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
-  u_params =
-      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Params");
+  u_params = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                         "TilemapUniformBuffer");
 }
 
 Binding_Tilemap2::Binding_Tilemap2(ShaderBinding binding)
     : RenderBindingBase(binding) {
-  u_transform =
-      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "u_Transform");
+  u_transform = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                            "WorldMatrixBuffer");
   u_texture =
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
-  u_params =
-      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Params");
+  u_params = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                         "Tilemap2UniformBuffer");
 }
 
 }  // namespace renderer

@@ -4,33 +4,10 @@
 
 #include "content/worker/content_runner.h"
 
-#include "third_party/imgui/imgui.h"
-#include "third_party/imgui/imgui_impl_sdl3.h"
-#include "third_party/imgui/imgui_impl_wgpu.h"
-
 #include "content/context/execution_context.h"
 #include "content/profile/command_ids.h"
 
 namespace content {
-
-namespace {
-
-void DrawEngineInfoGUI(I18NProfile* i18n_profile) {
-  if (ImGui::CollapsingHeader(
-          i18n_profile->GetI18NString(IDS_SETTINGS_ABOUT, "About").c_str())) {
-    ImGui::Text("Universal Ruby Game Engine (URGE) Runtime");
-    ImGui::Separator();
-    ImGui::Text("Copyright (C) 2018-2025 Admenri Adev.");
-    ImGui::TextWrapped(
-        "The URGE is licensed under the BSD-2-Clause License, see LICENSE for "
-        "more information.");
-
-    if (ImGui::Button("Github"))
-      SDL_OpenURL("https://github.com/Admenri/urge");
-  }
-}
-
-}  // namespace
 
 ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
                              std::unique_ptr<filesystem::IOService> io_service,
@@ -73,10 +50,6 @@ bool ContentRunner::RunMainLoop() {
         binding_reset_flag_.store(1);
       }
     }
-
-    // IMGUI Event
-    if (!disable_gui_input_)
-      ImGui_ImplSDL3_ProcessEvent(&queued_event);
   }
 
   // Update fps
@@ -86,24 +59,9 @@ bool ContentRunner::RunMainLoop() {
   input_impl_->SetUpdateEnable(true);
   mouse_impl_->SetUpdateEnable(true);
 
-  bool render_gui = show_settings_menu_ || show_fps_monitor_;
-  if (render_gui) {
-    // Start IMGUI frame
-    ImGui_ImplSDL3_NewFrame();
-    // Layout new frame
-    ImGui::NewFrame();
+  // TODO: render GUI
 
-    if (show_settings_menu_)
-      CreateSettingsMenuGUIInternal();
-    if (show_fps_monitor_)
-      CreateFPSMonitorGUIInternal();
-
-    // End of layout
-    ImGui::EndFrame();
-  }
-
-  // Present screen
-  graphics_impl_->SetRenderGUI(render_gui);
+  // Present screen buffer
   graphics_impl_->PresentScreen();
 
   return exit_code_.load();
@@ -168,43 +126,6 @@ void ContentRunner::TickHandlerInternal() {
     binding_reset_flag_.store(0);
     binding_->ResetSignalRequired();
   }
-}
-
-void ContentRunner::CreateSettingsMenuGUIInternal() {
-  ImGui::SetNextWindowPos(ImVec2(), ImGuiCond_FirstUseEver);
-  ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_FirstUseEver);
-
-  if (ImGui::Begin(i18n_profile_->GetI18NString(IDS_MENU_SETTINGS, "Settings")
-                       .c_str())) {
-    // GUI focus manage
-    input_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
-    mouse_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
-
-    // Button settings
-    disable_gui_input_ = input_impl_->CreateButtonGUISettings();
-
-    // Graphics settings
-    graphics_impl_->CreateButtonGUISettings();
-
-    // Audio settings
-    // TODO:
-
-    // Engine Info
-    DrawEngineInfoGUI(i18n_profile_.get());
-  }
-
-  // End window create
-  ImGui::End();
-}
-
-void ContentRunner::CreateFPSMonitorGUIInternal() {
-  if (ImGui::Begin("FPS"))
-    ImGui::PlotHistogram("", fps_history_.data(),
-                         static_cast<int>(fps_history_.size()), 0, nullptr,
-                         0.0f, FLT_MAX, ImVec2(300, 80));
-
-  // End window create
-  ImGui::End();
 }
 
 void ContentRunner::UpdateDisplayFPSInternal() {

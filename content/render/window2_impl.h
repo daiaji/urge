@@ -21,12 +21,14 @@ struct Window2Agent {
   std::unique_ptr<renderer::QuadBatch> background_batch;
   std::unique_ptr<renderer::QuadBatch> controls_batch;
 
-  wgpu::Texture background_texture;
-  wgpu::BindGroup world_binding;
-  wgpu::BindGroup background_binding;
+  std::unique_ptr<renderer::Binding_Base> shader_binding;
 
-  wgpu::Buffer uniform_buffer;
-  wgpu::BindGroup uniform_binding;
+  RRefPtr<Diligent::ITexture> background_texture;
+  RRefPtr<Diligent::IBuffer> background_world;
+  RRefPtr<Diligent::IBufferView> background_binding;
+
+  RRefPtr<Diligent::IBuffer> uniform_buffer;
+  RRefPtr<Diligent::IBufferView> uniform_binding;
 
   int32_t background_draw_count;
   int32_t controls_draw_count;
