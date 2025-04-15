@@ -25,10 +25,7 @@ struct Window2Agent {
 
   RRefPtr<Diligent::ITexture> background_texture;
   RRefPtr<Diligent::IBuffer> background_world;
-  RRefPtr<Diligent::IBufferView> background_binding;
-
   RRefPtr<Diligent::IBuffer> uniform_buffer;
-  RRefPtr<Diligent::IBufferView> uniform_binding;
 
   int32_t background_draw_count;
   int32_t controls_draw_count;

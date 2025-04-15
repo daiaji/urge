@@ -52,13 +52,10 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
   agent->size = base::Vec2i(initial_data->w, initial_data->h);
   agent->view =
       agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+  agent->target =
+      agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
 
   MakeTextureWorldInternal(device_base, agent->size, &agent->world_buffer);
-
-  Diligent::BufferViewDesc buffer_view_desc;
-  buffer_view_desc.Name = "bitmap.world.buffer";
-  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
-  agent->world_buffer->CreateView(buffer_view_desc, &agent->world_binding);
 
   SDL_DestroySurface(initial_data);
 }
@@ -77,13 +74,10 @@ void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
   agent->size = initial_size;
   agent->view =
       agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+  agent->target =
+      agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
 
   MakeTextureWorldInternal(device_base, agent->size, &agent->world_buffer);
-
-  Diligent::BufferViewDesc buffer_view_desc;
-  buffer_view_desc.Name = "bitmap.world.buffer";
-  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
-  agent->world_buffer->CreateView(buffer_view_desc, &agent->world_binding);
 }
 
 void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
@@ -107,7 +101,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
   // Setup render target
-  Diligent::ITextureView* render_target_view = dst_texture->view;
+  Diligent::ITextureView* render_target_view = dst_texture->target;
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -120,7 +114,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                            render_scissor.bottom + render_scissor.top);
 
   // Setup uniform params
-  scheduler->base_binding()->u_transform->Set(dst_texture->world_binding);
+  scheduler->base_binding()->u_transform->Set(dst_texture->world_buffer);
   scheduler->base_binding()->u_texture->Set(src_texture->view);
 
   // Apply pipeline state
@@ -222,7 +216,7 @@ void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
   renderer::Quad::SetColor(&transient_quad, color);
   scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
-  Diligent::ITextureView* render_target_view = agent->view;
+  Diligent::ITextureView* render_target_view = agent->target;
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -235,7 +229,7 @@ void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
                            render_scissor.bottom + render_scissor.top);
 
   // Setup uniform params
-  scheduler->color_binding()->u_transform->Set(agent->world_binding);
+  scheduler->color_binding()->u_transform->Set(agent->world_buffer);
 
   // Apply pipeline state
   context->SetPipelineState(pipeline);
@@ -284,7 +278,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   }
   scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
-  Diligent::ITextureView* render_target_view = agent->view;
+  Diligent::ITextureView* render_target_view = agent->target;
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -297,7 +291,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
                            render_scissor.bottom + render_scissor.top);
 
   // Setup uniform params
-  scheduler->color_binding()->u_transform->Set(agent->world_binding);
+  scheduler->color_binding()->u_transform->Set(agent->world_buffer);
 
   // Apply pipeline state
   context->SetPipelineState(pipeline);
@@ -382,7 +376,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
   // Setup render target
-  Diligent::ITextureView* render_target_view = agent->view;
+  Diligent::ITextureView* render_target_view = agent->target;
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -395,7 +389,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
                            render_scissor.bottom + render_scissor.top);
 
   // Setup uniform params
-  scheduler->base_binding()->u_transform->Set(agent->world_binding);
+  scheduler->base_binding()->u_transform->Set(agent->world_buffer);
   scheduler->base_binding()->u_texture->Set(
       agent->text_cache_texture->GetDefaultView(
           Diligent::TEXTURE_VIEW_SHADER_RESOURCE));

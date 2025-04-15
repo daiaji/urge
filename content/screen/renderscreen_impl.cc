@@ -153,8 +153,8 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
                      base::Unretained(this), base::Unretained(render_target)));
 
   // 3) Notify render a frame
-  controller_params.root_world = agent_->world_binding;
-  controller_params.world_binding = agent_->world_binding;
+  controller_params.root_world = agent_->world_transform;
+  controller_params.world_binding = agent_->world_transform;
   controller->BroadCastNotification(DrawableNode::ON_RENDERING,
                                     &controller_params);
 
@@ -449,8 +449,8 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     // Update vertex
     renderer::Quad transient_quad;
     renderer::Quad::SetPositionRect(&transient_quad, target_rect);
-    renderer::Quad::SetTexCoordRect(&transient_quad, base::Rect(resolution_),
-                                    resolution_);
+    renderer::Quad::SetTexCoordRectNorm(&transient_quad,
+                                        base::Rect(0, 0, 1, 1));
     present_quads->QueueWrite(context, &transient_quad);
 
     // Update window screen transform
@@ -458,19 +458,15 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     renderer::MakeProjectionMatrix(world_matrix.projection, window->GetSize());
     renderer::MakeIdentityMatrix(world_matrix.transform);
 
-    Diligent::CreateUniformBuffer(
-        **GetDevice(), sizeof(renderer::WorldTransform),
-        "present.world.uniform", &present_uniform, Diligent::USAGE_IMMUTABLE,
-        Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
-        &world_matrix);
-
-    // Set world transform
-    present_binding->u_transform->Set(present_uniform);
-    present_binding->u_texture->Set(render_target_view);
+    Diligent::CreateUniformBuffer(**GetDevice(), sizeof(world_matrix),
+                                  "present.world.uniform", &present_uniform,
+                                  Diligent::USAGE_IMMUTABLE,
+                                  Diligent::BIND_UNIFORM_BUFFER,
+                                  Diligent::CPU_ACCESS_NONE, &world_matrix);
   }
 
   // Prepare for rendering
-  float clear_color[] = {0, 0, 0, 1};
+  float clear_color[] = {1, 1, 0, 1};
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -478,8 +474,18 @@ void RenderScreenImpl::PresentScreenBufferInternal(
       render_target_view, clear_color,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
+  Diligent::Rect scissor;
+  scissor.right = window->GetSize().x;
+  scissor.bottom = window->GetSize().y;
+  context->SetScissorRects(1, &scissor, 1, scissor.bottom + scissor.top);
+
   // Start screen render
   if (render_target) {
+    // Set world transform
+    present_binding->u_transform->Set(present_uniform);
+    present_binding->u_texture->Set(
+        render_target->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+
     // Apply pipeline state
     context->SetPipelineState(pipeline);
     context->CommitShaderResources(
@@ -569,11 +575,6 @@ void RenderScreenImpl::ResetScreenBufferInternal() {
       "graphics.world.transform", &agent_->world_transform,
       Diligent::USAGE_IMMUTABLE, Diligent::BIND_UNIFORM_BUFFER,
       Diligent::CPU_ACCESS_WRITE, &world_transform);
-
-  Diligent::BufferViewDesc buffer_view_desc;
-  buffer_view_desc.Name = "graphics.world.view";
-  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
-  agent_->world_transform->CreateView(buffer_view_desc, &agent_->world_binding);
 }
 
 int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
@@ -641,7 +642,7 @@ void RenderScreenImpl::FrameEndRenderPassInternal() {
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
     // Set world transform
-    agent_->effect_binding->u_transform->Set(agent_->world_binding);
+    agent_->effect_binding->u_transform->Set(agent_->world_transform);
 
     // Apply pipeline state
     context->SetPipelineState(pipeline);

@@ -33,10 +33,10 @@ struct TextureAgent {
   base::Vec2i size;
   RRefPtr<Diligent::ITexture> data;
   RRefPtr<Diligent::ITextureView> view;
+  RRefPtr<Diligent::ITextureView> target;
 
   // Shader binding cache data
   RRefPtr<Diligent::IBuffer> world_buffer;
-  RRefPtr<Diligent::IBufferView> world_binding;
 
   // Text drawing cache texture
   base::Vec2i text_cache_size;

@@ -69,6 +69,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
     auto* factory = GetEngineFactoryOpenGL();
     Diligent::EngineGLCreateInfo gl_create_info;
     gl_create_info.Window = native_window;
+    gl_create_info.ZeroToOneNDZ = Diligent::True;
     factory->CreateDeviceAndSwapChainGL(gl_create_info, &device, &context,
                                         swap_chain_desc, &swapchain);
   }

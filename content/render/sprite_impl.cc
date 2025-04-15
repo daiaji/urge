@@ -126,7 +126,7 @@ void GPUUpdateBatchSpriteInternal(
 
 void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
                                   SpriteBatch* batch_scheduler,
-                                  Diligent::IBufferView* world_binding,
+                                  Diligent::IBuffer* world_binding,
                                   SpriteAgent* agent,
                                   TextureAgent* texture,
                                   int32_t blend_type,

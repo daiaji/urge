@@ -421,7 +421,7 @@ void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
-                                  Diligent::IBufferView* world_binding,
+                                  Diligent::IBuffer* world_binding,
                                   TilemapAgent* agent) {
   if (!agent->atlas_texture)
     return;
@@ -460,7 +460,7 @@ void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
-                                 Diligent::IBufferView* world_binding,
+                                 Diligent::IBuffer* world_binding,
                                  TilemapAgent* agent,
                                  int32_t index) {
   if (!agent->atlas_texture)

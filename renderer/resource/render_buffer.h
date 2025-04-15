@@ -46,7 +46,8 @@ class QuadIndexCache {
 template <typename TargetType,
           Diligent::BIND_FLAGS BatchBind,
           Diligent::BUFFER_MODE BufferMode = Diligent::BUFFER_MODE_UNDEFINED,
-          Diligent::CPU_ACCESS_FLAGS CPUAccess = Diligent::CPU_ACCESS_WRITE>
+          Diligent::CPU_ACCESS_FLAGS CPUAccess = Diligent::CPU_ACCESS_NONE,
+          Diligent::USAGE Usage = Diligent::USAGE_DEFAULT>
 class BatchBuffer {
  public:
   ~BatchBuffer() = default;
@@ -60,10 +61,10 @@ class BatchBuffer {
 
     if (initial_count > 0) {
       Diligent::BufferDesc buffer_desc;
-      buffer_desc.Name = "generic.batch.buffer";
+      buffer_desc.Name = typeid(TargetType).name();
       buffer_desc.Size = initial_count * sizeof(TargetType);
       buffer_desc.BindFlags = BatchBind;
-      buffer_desc.Usage = Diligent::USAGE_DYNAMIC;
+      buffer_desc.Usage = Usage;
       buffer_desc.CPUAccessFlags = CPUAccess;
       buffer_desc.Mode = BufferMode;
       buffer_desc.ElementByteStride = sizeof(TargetType);
@@ -76,17 +77,17 @@ class BatchBuffer {
 
   Diligent::IBuffer* operator*() { return buffer_; }
 
-  bool QueueWrite(Diligent::IDeviceContext* context,
+  void QueueWrite(Diligent::IDeviceContext* context,
                   const TargetType* data,
                   uint32_t count = 1) {
     if (!buffer_ || buffer_->GetDesc().Size < sizeof(TargetType) * count) {
       size_t buffer_size = count * sizeof(TargetType);
 
       Diligent::BufferDesc buffer_desc;
-      buffer_desc.Name = "generic.batch.buffer";
+      buffer_desc.Name = typeid(TargetType).name();
       buffer_desc.Size = buffer_size;
       buffer_desc.BindFlags = BatchBind;
-      buffer_desc.Usage = Diligent::USAGE_DYNAMIC;
+      buffer_desc.Usage = Usage;
       buffer_desc.CPUAccessFlags = CPUAccess;
       buffer_desc.Mode = BufferMode;
       buffer_desc.ElementByteStride = sizeof(TargetType);
@@ -94,12 +95,16 @@ class BatchBuffer {
       device_->CreateBuffer(buffer_desc, nullptr, &buffer_);
     }
 
-    if (data)
-      context->UpdateBuffer(buffer_, 0, count * sizeof(TargetType),
-                            reinterpret_cast<const uint8_t*>(data),
+    if constexpr (Usage == Diligent::USAGE_DEFAULT) {
+      context->UpdateBuffer(buffer_, 0, count * sizeof(TargetType), data,
                             Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
-
-    return false;
+    } else {
+      void* data = nullptr;
+      context->MapBuffer(buffer_, Diligent::MAP_WRITE,
+                         Diligent::MAP_FLAG_DISCARD, data);
+      std::memcpy(data, data, count * sizeof(TargetType));
+      context->UnmapBuffer(buffer_, Diligent::MAP_WRITE);
+    }
   }
 
  private:
@@ -111,10 +116,7 @@ class BatchBuffer {
   Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer_;
 };
 
-using QuadBatch = BatchBuffer<Quad,
-                              Diligent::BIND_VERTEX_BUFFER,
-                              Diligent::BUFFER_MODE_UNDEFINED,
-                              Diligent::CPU_ACCESS_WRITE>;
+using QuadBatch = BatchBuffer<Quad, Diligent::BIND_VERTEX_BUFFER>;
 
 }  // namespace renderer
 

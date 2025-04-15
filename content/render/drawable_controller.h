@@ -98,8 +98,8 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
 
     // [Stage: on rendering]
     // World transform matrix.
-    Diligent::IBufferView* root_world = nullptr;
-    Diligent::IBufferView* world_binding = nullptr;
+    Diligent::IBuffer* root_world = nullptr;
+    Diligent::IBuffer* world_binding = nullptr;
   };
 
   using NotificationHandler =

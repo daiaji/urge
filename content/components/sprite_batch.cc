@@ -82,16 +82,20 @@ void SpriteBatch::SubmitBatchDataAndResetCache(renderer::RenderDevice* device) {
   device_->GetQuadIndex()->Allocate(uniform_cache_.size());
 
   // Upload data and rebuild binding
-  if (quad_batch_->QueueWrite(device->GetContext(), quad_cache_.data(),
-                              quad_cache_.size()))
+  if (quad_cache_.size()) {
+    quad_batch_->QueueWrite(device->GetContext(), quad_cache_.data(),
+                            quad_cache_.size());
     quad_binding_ =
         (**quad_batch_)->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+  }
 
-  if (uniform_batch_->QueueWrite(device->GetContext(), uniform_cache_.data(),
-                                 uniform_cache_.size()))
+  if (uniform_cache_.size()) {
+    uniform_batch_->QueueWrite(device->GetContext(), uniform_cache_.data(),
+                               uniform_cache_.size());
     uniform_binding_ =
         (**uniform_batch_)
             ->GetDefaultView(Diligent::BUFFER_VIEW_SHADER_RESOURCE);
+  }
 
   // Reset cache
   quad_cache_.clear();

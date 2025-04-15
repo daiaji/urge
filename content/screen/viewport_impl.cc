@@ -17,16 +17,11 @@ namespace {
 void GPUCreateViewportAgent(renderer::RenderDevice* device,
                             ViewportAgent* agent) {
   Diligent::CreateUniformBuffer(**device, sizeof(renderer::WorldTransform),
-                                "viewport.world", &agent->world_uniform);
+                                "viewport.world", &agent->world_uniform,
+                                Diligent::USAGE_DEFAULT);
   Diligent::CreateUniformBuffer(
       **device, sizeof(renderer::Binding_Flat::Params), "viewport.effect",
-      &agent->effect.uniform_buffer);
-
-  Diligent::BufferViewDesc buffer_view_desc;
-  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
-  agent->world_uniform->CreateView(buffer_view_desc, &agent->world_binding);
-  agent->effect.uniform_buffer->CreateView(buffer_view_desc,
-                                           &agent->effect.uniform_binding);
+      &agent->effect.uniform_buffer, Diligent::USAGE_DEFAULT);
 
   agent->effect.quads = renderer::QuadBatch::Make(**device);
   agent->effect.binding =
@@ -83,7 +78,7 @@ void GPUResetViewportRegion(renderer::RenderDevice* device,
 
 void GPUApplyViewportEffect(renderer::RenderDevice* device,
                             Diligent::ITexture* screen_buffer,
-                            Diligent::IBufferView* root_world,
+                            Diligent::IBuffer* root_world,
                             ViewportAgent* agent,
                             const base::Rect& effect_region,
                             const base::Vec4& color,
@@ -131,7 +126,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
   agent->effect.binding->u_texture->Set(
       agent->effect.intermediate_layer->GetDefaultView(
           Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-  agent->effect.binding->u_params->Set(agent->effect.uniform_binding);
+  agent->effect.binding->u_params->Set(agent->effect.uniform_buffer);
 
   // Apply pipeline state
   context->SetPipelineState(pipeline);
@@ -155,7 +150,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
 }
 
 void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
-                                   Diligent::IBufferView* root_world,
+                                   Diligent::IBuffer* root_world,
                                    const base::Rect& last_viewport,
                                    Diligent::ITexture* screen_buffer,
                                    ViewportAgent* agent,
@@ -341,8 +336,8 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
       base::Unretained(bitmap_agent->data.RawPtr()), offset));
 
   // 3) Notify render a frame
-  controller_params.root_world = bitmap_agent->world_binding;
-  controller_params.world_binding = agent_->world_binding;
+  controller_params.root_world = bitmap_agent->world_buffer;
+  controller_params.world_binding = agent_->world_uniform;
   controller_.BroadCastNotification(DrawableNode::ON_RENDERING,
                                     &controller_params);
 
@@ -533,7 +528,7 @@ void ViewportImpl::DrawableNodeHandlerInternal(
 
   if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     // Setup viewport's world settings
-    transient_params.world_binding = agent_->world_binding;
+    transient_params.world_binding = agent_->world_uniform;
 
     // Set new viewport
     screen()->PostTask(

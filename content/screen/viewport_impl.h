@@ -17,9 +17,7 @@ namespace content {
 
 struct ViewportAgent {
   base::Rect region_cache;
-
   RRefPtr<Diligent::IBuffer> world_uniform;
-  RRefPtr<Diligent::IBufferView> world_binding;
 
   struct {
     base::Vec2i layer_size;
@@ -27,7 +25,6 @@ struct ViewportAgent {
     std::unique_ptr<renderer::Binding_Flat> binding;
     RRefPtr<Diligent::ITexture> intermediate_layer;
     RRefPtr<Diligent::IBuffer> uniform_buffer;
-    RRefPtr<Diligent::IBufferView> uniform_binding;
   } effect;
 };
 

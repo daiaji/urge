@@ -25,12 +25,16 @@ struct SpriteQuad {
 using SpriteQuadBuffer =
     renderer::BatchBuffer<SpriteQuad,
                           Diligent::BIND_FLAGS::BIND_SHADER_RESOURCE,
-                          Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED>;
+                          Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED,
+                          Diligent::CPU_ACCESS_WRITE,
+                          Diligent::USAGE_DYNAMIC>;
 
 using SpriteBatchBuffer =
     renderer::BatchBuffer<renderer::Binding_Sprite::Params,
                           Diligent::BIND_FLAGS::BIND_SHADER_RESOURCE,
-                          Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED>;
+                          Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED,
+                          Diligent::CPU_ACCESS_WRITE,
+                          Diligent::USAGE_DYNAMIC>;
 
 class SpriteBatch {
  public:

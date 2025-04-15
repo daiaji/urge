@@ -29,7 +29,6 @@ struct RenderGraphicsAgent {
   RRefPtr<Diligent::ITexture> frozen_buffer;
   RRefPtr<Diligent::ITexture> transition_buffer;
   RRefPtr<Diligent::IBuffer> world_transform;
-  RRefPtr<Diligent::IBufferView> world_binding;
 
   std::unique_ptr<renderer::QuadBatch> effect_quads;
   std::unique_ptr<renderer::Binding_Color> effect_binding;

@@ -349,7 +349,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
-                                      Diligent::IBufferView* world_binding,
+                                      Diligent::IBuffer* world_binding,
                                       const base::Rect& last_viewport,
                                       const base::Rect& bound,
                                       WindowAgent* agent,
@@ -411,7 +411,7 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderControlLayerInternal(renderer::RenderDevice* device,
-                                   Diligent::IBufferView* world_binding,
+                                   Diligent::IBuffer* world_binding,
                                    const base::Rect& last_viewport,
                                    const base::Vec2i& last_origin,
                                    const base::Rect& bound,

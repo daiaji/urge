@@ -99,7 +99,7 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
 }
 
 void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
-                                    Diligent::IBufferView* world_binding,
+                                    Diligent::IBuffer* world_binding,
                                     PlaneAgent* agent,
                                     TextureAgent* texture,
                                     int32_t blend_type) {

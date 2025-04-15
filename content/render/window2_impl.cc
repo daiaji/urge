@@ -22,11 +22,6 @@ void GPUCreateWindowInternal(renderer::RenderDevice* device,
   Diligent::CreateUniformBuffer(
       **device, sizeof(renderer::Binding_Flat::Params), "window2.uniform",
       &agent->uniform_buffer, Diligent::USAGE_DEFAULT);
-
-  Diligent::BufferViewDesc buffer_view_desc;
-  buffer_view_desc.Name = "window2.uniform";
-  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
-  agent->uniform_buffer->CreateView(buffer_view_desc, &agent->uniform_binding);
 }
 
 void GPUDestroyWindowInternal(Window2Agent* agent) {
@@ -75,12 +70,6 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
                                     Diligent::USAGE_IMMUTABLE,
                                     Diligent::BIND_UNIFORM_BUFFER,
                                     Diligent::CPU_ACCESS_NONE, &world_matrix);
-
-      Diligent::BufferViewDesc buffer_view_desc;
-      buffer_view_desc.Name = "window2.base.world";
-      buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
-      agent->background_world->CreateView(buffer_view_desc,
-                                          &agent->background_binding);
 
       background_dirty = true;
     }
@@ -243,7 +232,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         // Setup uniform params
         flat_binding->u_transform->Set(agent->background_world);
         flat_binding->u_texture->Set(windowskin->view);
-        flat_binding->u_params->Set(agent->uniform_binding);
+        flat_binding->u_params->Set(agent->uniform_buffer);
 
         base_binding->u_transform->Set(agent->background_world);
         base_binding->u_texture->Set(windowskin->view);
@@ -500,7 +489,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
-                                  Diligent::IBufferView* world_binding,
+                                  Diligent::IBuffer* world_binding,
                                   Window2Agent* agent,
                                   TextureAgent* windowskin,
                                   TextureAgent* contents,
