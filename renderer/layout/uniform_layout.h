@@ -9,7 +9,7 @@
 
 namespace renderer {
 
-struct WorldTransform {
+struct alignas(16) WorldTransform {
   float projection[16];
   float transform[16];
 };

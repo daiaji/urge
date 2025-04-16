@@ -87,12 +87,14 @@ void RenderPipelineBase::BuildPipeline(
     shader_desc.EntryPoint = vertex_shader.entry.c_str();
     shader_desc.Desc.Name = vertex_shader.name.c_str();
     shader_desc.Source = vertex_shader.source.c_str();
+    shader_desc.SourceLength = vertex_shader.source.size();
     device_->CreateShader(shader_desc, &vertex_shader_object);
 
     shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
     shader_desc.EntryPoint = pixel_shader.entry.c_str();
     shader_desc.Desc.Name = pixel_shader.name.c_str();
     shader_desc.Source = pixel_shader.source.c_str();
+    shader_desc.SourceLength = pixel_shader.source.size();
     device_->CreateShader(shader_desc, &pixel_shader_object);
   }
 

@@ -77,7 +77,7 @@ extern const std::string kHLSL_FlatRender_PixelShader;
 // resource:
 //   { float4x4, float4x4 }
 //   { Texture2D }
-//   < { float2, float2 } >
+//   < { float4, float2 } >
 //   < { float4, float4, float2, float2, float2, float, float, float, float } >
 ///
 extern const std::string kHLSL_SpriteRender_VertexShader;

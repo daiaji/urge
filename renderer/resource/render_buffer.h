@@ -62,6 +62,7 @@ class BatchBuffer {
     if (initial_count > 0) {
       Diligent::BufferDesc buffer_desc;
       MakeBufferDesc(buffer_desc, initial_count * sizeof(TargetType));
+
       device->CreateBuffer(buffer_desc, nullptr, &buffer);
     }
 
@@ -86,10 +87,10 @@ class BatchBuffer {
       context->UpdateBuffer(buffer_, 0, bytes_size, data,
                             Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     } else {
-      void* data = nullptr;
+      void* mapping_buffer = nullptr;
       context->MapBuffer(buffer_, Diligent::MAP_WRITE,
-                         Diligent::MAP_FLAG_DISCARD, data);
-      std::memcpy(data, data, bytes_size);
+                         Diligent::MAP_FLAG_DISCARD, mapping_buffer);
+      std::memcpy(mapping_buffer, data, bytes_size);
       context->UnmapBuffer(buffer_, Diligent::MAP_WRITE);
     }
   }

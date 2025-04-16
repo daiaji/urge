@@ -17,6 +17,9 @@
 
 namespace renderer {
 
+#define SHADER_RESOURCE(name) struct alignas(16) name
+#define ALIGNMENT_TYPE(ty) alignas(sizeof(ty)) ty
+
 class RenderBindingBase {
  public:
   using ShaderBinding =
@@ -72,9 +75,9 @@ class Binding_Color : public RenderBindingBase {
 
 class Binding_Flat : public RenderBindingBase {
  public:
-  struct Params {
-    base::Vec4 color;
-    base::Vec4 tone;
+  SHADER_RESOURCE(Params) {
+    ALIGNMENT_TYPE(base::Vec4) color;
+    ALIGNMENT_TYPE(base::Vec4) tone;
   };
 
   ShaderVariable u_transform;
@@ -88,21 +91,21 @@ class Binding_Flat : public RenderBindingBase {
 
 class Binding_Sprite : public RenderBindingBase {
  public:
-  struct Vertex {
-    base::Vec4 position;
-    base::Vec2 texcoord;
+  SHADER_RESOURCE(Vertex) {
+    ALIGNMENT_TYPE(base::Vec4) position;
+    ALIGNMENT_TYPE(base::Vec2) texcoord;
   };
 
-  struct Params {
-    base::Vec4 Color;
-    base::Vec4 Tone;
-    base::Vec2 Position;
-    base::Vec2 Origin;
-    base::Vec2 Scale;
-    float Rotation;
-    float Opacity;
-    float BushDepth;
-    float BushOpacity;
+  SHADER_RESOURCE(Params) {
+    ALIGNMENT_TYPE(base::Vec4) Color;
+    ALIGNMENT_TYPE(base::Vec4) Tone;
+    ALIGNMENT_TYPE(base::Vec2) Position;
+    ALIGNMENT_TYPE(base::Vec2) Origin;
+    ALIGNMENT_TYPE(base::Vec2) Scale;
+    ALIGNMENT_TYPE(float) Rotation;
+    ALIGNMENT_TYPE(float) Opacity;
+    ALIGNMENT_TYPE(float) BushDepth;
+    ALIGNMENT_TYPE(float) BushOpacity;
   };
 
   ShaderVariable u_transform;
@@ -138,11 +141,11 @@ class Binding_VagueTrans : public RenderBindingBase {
 
 class Binding_Tilemap : public RenderBindingBase {
  public:
-  struct Params {
-    base::Vec2 offset;
-    base::Vec2 tex_size;
-    float animate_index;
-    float tile_size;
+  SHADER_RESOURCE(Params) {
+    ALIGNMENT_TYPE(base::Vec2) offset;
+    ALIGNMENT_TYPE(base::Vec2) tex_size;
+    ALIGNMENT_TYPE(float) animate_index;
+    ALIGNMENT_TYPE(float) tile_size;
   };
 
   ShaderVariable u_transform;
@@ -156,11 +159,11 @@ class Binding_Tilemap : public RenderBindingBase {
 
 class Binding_Tilemap2 : public RenderBindingBase {
  public:
-  struct Params {
-    base::Vec2 offset;
-    base::Vec2 tex_size;
-    base::Vec2 animation_offset;
-    float tile_size;
+  SHADER_RESOURCE(Params) {
+    ALIGNMENT_TYPE(base::Vec2) offset;
+    ALIGNMENT_TYPE(base::Vec2) tex_size;
+    ALIGNMENT_TYPE(base::Vec2) animation_offset;
+    ALIGNMENT_TYPE(float) tile_size;
   };
 
   ShaderVariable u_transform;

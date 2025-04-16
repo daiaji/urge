@@ -250,7 +250,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 // resource:
 //   { float4x4, float4x4 }
 //   { Texture2D }
-//   < { float2, float2 } >
+//   < { float4, float2 } >
 //   < { float2, float2, float2, float, float4, float4, float, float, float } >
 ///
 
