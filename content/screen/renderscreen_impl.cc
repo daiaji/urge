@@ -457,7 +457,8 @@ void RenderScreenImpl::PresentScreenBufferInternal(
 
     // Update window screen transform
     renderer::WorldTransform world_matrix;
-    renderer::MakeProjectionMatrix(world_matrix.projection, window->GetSize());
+    renderer::MakeProjectionMatrix(world_matrix.projection, window->GetSize(),
+                                   GetDevice()->IsUVFlip());
     renderer::MakeIdentityMatrix(world_matrix.transform);
 
     Diligent::CreateUniformBuffer(**GetDevice(), sizeof(world_matrix),
@@ -569,7 +570,8 @@ void RenderScreenImpl::ResetScreenBufferInternal() {
 
   renderer::WorldTransform world_transform;
   renderer::MakeIdentityMatrix(world_transform.transform);
-  renderer::MakeProjectionMatrix(world_transform.projection, resolution_);
+  renderer::MakeProjectionMatrix(world_transform.projection, resolution_,
+                                 GetDevice()->IsUVFlip());
 
   agent_->world_transform.Release();
   Diligent::CreateUniformBuffer(

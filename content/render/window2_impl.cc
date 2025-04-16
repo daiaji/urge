@@ -62,7 +62,8 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
           Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
 
       renderer::WorldTransform world_matrix;
-      renderer::MakeProjectionMatrix(world_matrix.projection, bound.Size());
+      renderer::MakeProjectionMatrix(world_matrix.projection, bound.Size(),
+                                     device->IsUVFlip());
       renderer::MakeIdentityMatrix(world_matrix.transform);
 
       Diligent::CreateUniformBuffer(**device, sizeof(world_matrix),

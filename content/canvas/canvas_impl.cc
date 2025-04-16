@@ -22,7 +22,8 @@ void MakeTextureWorldInternal(renderer::RenderDevice* device,
                               const base::Vec2& bitmap_size,
                               Diligent::IBuffer** out) {
   renderer::WorldTransform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, bitmap_size);
+  renderer::MakeProjectionMatrix(world_matrix.projection, bitmap_size,
+                                 device->IsUVFlip());
   renderer::MakeIdentityMatrix(world_matrix.transform);
 
   Diligent::CreateUniformBuffer(

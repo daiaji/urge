@@ -63,6 +63,9 @@ class RenderDevice {
   PipelineSet* GetPipelines() const { return pipelines_.get(); }
   QuadIndexCache* GetQuadIndex() const { return quad_index_.get(); }
 
+  // Platform specific
+  inline bool IsUVFlip() const { return device_->GetDeviceInfo().IsGLDevice(); }
+
  private:
   RenderDevice(base::WeakPtr<ui::Widget> window,
                Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,

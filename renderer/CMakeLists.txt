@@ -10,6 +10,7 @@ set(ENGINE_RENDERER_SRC
   device/render_device.h
   layout/vertex_layout.cc
   layout/vertex_layout.h
+  layout/uniform_layout.cc
   layout/uniform_layout.h
   pipeline/builtin_hlsl.cc
   pipeline/builtin_hlsl.h

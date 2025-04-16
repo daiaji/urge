@@ -42,7 +42,7 @@ void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
   // Reload viewport offset based transform matrix
   renderer::WorldTransform world_matrix;
   renderer::MakeProjectionMatrix(world_matrix.projection, screen_size,
-                                 viewport_offset);
+                                 viewport_offset, device->IsUVFlip());
   renderer::MakeIdentityMatrix(world_matrix.transform);
 
   context->UpdateBuffer(agent->world_uniform, 0, sizeof(world_matrix),
@@ -184,7 +184,8 @@ void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
 
   // Reload viewport offset based transform matrix
   renderer::WorldTransform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, target_size, offset);
+  renderer::MakeProjectionMatrix(world_matrix.projection, target_size, offset,
+                                 device->IsUVFlip());
   renderer::MakeIdentityMatrix(world_matrix.transform);
 
   context->UpdateBuffer(agent->world_uniform, 0, sizeof(world_matrix),
