@@ -61,14 +61,7 @@ class BatchBuffer {
 
     if (initial_count > 0) {
       Diligent::BufferDesc buffer_desc;
-      buffer_desc.Name = typeid(TargetType).name();
-      buffer_desc.Size = initial_count * sizeof(TargetType);
-      buffer_desc.BindFlags = BatchBind;
-      buffer_desc.Usage = Usage;
-      buffer_desc.CPUAccessFlags = CPUAccess;
-      buffer_desc.Mode = BufferMode;
-      buffer_desc.ElementByteStride = sizeof(TargetType);
-
+      MakeBufferDesc(buffer_desc, initial_count * sizeof(TargetType));
       device->CreateBuffer(buffer_desc, nullptr, &buffer);
     }
 
@@ -80,29 +73,23 @@ class BatchBuffer {
   void QueueWrite(Diligent::IDeviceContext* context,
                   const TargetType* data,
                   uint32_t count = 1) {
-    if (!buffer_ || buffer_->GetDesc().Size < sizeof(TargetType) * count) {
-      size_t buffer_size = count * sizeof(TargetType);
-
+    size_t bytes_size = count * sizeof(TargetType);
+    if (!buffer_ || buffer_->GetDesc().Size < bytes_size) {
       Diligent::BufferDesc buffer_desc;
-      buffer_desc.Name = typeid(TargetType).name();
-      buffer_desc.Size = buffer_size;
-      buffer_desc.BindFlags = BatchBind;
-      buffer_desc.Usage = Usage;
-      buffer_desc.CPUAccessFlags = CPUAccess;
-      buffer_desc.Mode = BufferMode;
-      buffer_desc.ElementByteStride = sizeof(TargetType);
+      MakeBufferDesc(buffer_desc, bytes_size);
 
+      buffer_.Release();
       device_->CreateBuffer(buffer_desc, nullptr, &buffer_);
     }
 
     if constexpr (Usage == Diligent::USAGE_DEFAULT) {
-      context->UpdateBuffer(buffer_, 0, count * sizeof(TargetType), data,
+      context->UpdateBuffer(buffer_, 0, bytes_size, data,
                             Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
     } else {
       void* data = nullptr;
       context->MapBuffer(buffer_, Diligent::MAP_WRITE,
                          Diligent::MAP_FLAG_DISCARD, data);
-      std::memcpy(data, data, count * sizeof(TargetType));
+      std::memcpy(data, data, bytes_size);
       context->UnmapBuffer(buffer_, Diligent::MAP_WRITE);
     }
   }
@@ -111,6 +98,17 @@ class BatchBuffer {
   BatchBuffer(Diligent::IRenderDevice* device,
               Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer)
       : device_(device), buffer_(buffer) {}
+
+  static void MakeBufferDesc(Diligent::BufferDesc& buffer_desc,
+                             size_t bytes_size) {
+    buffer_desc.Name = typeid(TargetType).name();
+    buffer_desc.Size = bytes_size;
+    buffer_desc.BindFlags = BatchBind;
+    buffer_desc.Usage = Usage;
+    buffer_desc.CPUAccessFlags = CPUAccess;
+    buffer_desc.Mode = BufferMode;
+    buffer_desc.ElementByteStride = sizeof(TargetType);
+  }
 
   Diligent::IRenderDevice* device_;
   Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer_;

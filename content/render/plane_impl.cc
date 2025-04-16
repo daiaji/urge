@@ -18,11 +18,6 @@ void GPUCreatePlaneInternal(renderer::RenderDevice* device, PlaneAgent* agent) {
   Diligent::CreateUniformBuffer(
       **device, sizeof(renderer::Binding_Flat::Params), "plane.flat.uniform",
       &agent->uniform_buffer, Diligent::USAGE_DEFAULT);
-
-  Diligent::BufferViewDesc buffer_view_desc;
-  buffer_view_desc.Name = "plane.uniform.binding";
-  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
-  agent->uniform_buffer->CreateView(buffer_view_desc, &agent->uniform_binding);
 }
 
 void GPUDestroyPlaneInternal(PlaneAgent* agent) {
@@ -111,7 +106,7 @@ void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
   // Setup uniform params
   agent->shader_binding->u_transform->Set(world_binding);
   agent->shader_binding->u_texture->Set(texture->view);
-  agent->shader_binding->u_params->Set(agent->uniform_binding);
+  agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
   // Apply pipeline state
   context->SetPipelineState(pipeline);

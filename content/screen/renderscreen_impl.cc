@@ -449,8 +449,10 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     // Update vertex
     renderer::Quad transient_quad;
     renderer::Quad::SetPositionRect(&transient_quad, target_rect);
-    renderer::Quad::SetTexCoordRectNorm(&transient_quad,
-                                        base::Rect(0, 0, 1, 1));
+    renderer::Quad::SetTexCoordRectNorm(
+        &transient_quad, (*GetDevice())->GetDeviceInfo().IsGLDevice()
+                             ? base::Rect(0, 1, 1, -1)
+                             : base::Rect(0, 0, 1, 1));
     present_quads->QueueWrite(context, &transient_quad);
 
     // Update window screen transform
@@ -466,7 +468,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
   }
 
   // Prepare for rendering
-  float clear_color[] = {1, 1, 0, 1};
+  float clear_color[] = {0, 0, 0, 1};
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -571,10 +573,10 @@ void RenderScreenImpl::ResetScreenBufferInternal() {
 
   agent_->world_transform.Release();
   Diligent::CreateUniformBuffer(
-      **GetDevice(), sizeof(renderer::WorldTransform),
-      "graphics.world.transform", &agent_->world_transform,
-      Diligent::USAGE_IMMUTABLE, Diligent::BIND_UNIFORM_BUFFER,
-      Diligent::CPU_ACCESS_WRITE, &world_transform);
+      **GetDevice(), sizeof(world_transform), "graphics.world.transform",
+      &agent_->world_transform, Diligent::USAGE_IMMUTABLE,
+      Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
+      &world_transform);
 }
 
 int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {

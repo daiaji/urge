@@ -36,9 +36,7 @@ struct Tilemap2Agent {
 
   RRefPtr<Diligent::ITexture> atlas_texture;
   RRefPtr<Diligent::ITextureView> atlas_binding;
-
   RRefPtr<Diligent::IBuffer> uniform_buffer;
-  RRefPtr<Diligent::IBufferView> uniform_binding;
 };
 
 class TilemapBitmapImpl : public TilemapBitmap {

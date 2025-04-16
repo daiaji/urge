@@ -373,11 +373,6 @@ void GPUCreateTilemapInternal(renderer::RenderDevice* device,
       **device, sizeof(renderer::Binding_Tilemap::Params), "tilemap.uniform",
       &agent->uniform_buffer, Diligent::USAGE_DEFAULT,
       Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE);
-
-  Diligent::BufferViewDesc buffer_view_desc;
-  buffer_view_desc.Name = "tilemap.uniform.binding";
-  buffer_view_desc.ViewType = Diligent::BUFFER_VIEW_SHADER_RESOURCE;
-  agent->uniform_buffer->CreateView(buffer_view_desc, &agent->uniform_binding);
 }
 
 void GPUDestroyTilemapInternal(Tilemap2Agent* agent) {
@@ -501,7 +496,7 @@ void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
     // Setup uniform params
     agent->shader_binding->u_transform->Set(world_binding);
     agent->shader_binding->u_texture->Set(agent->atlas_binding);
-    agent->shader_binding->u_params->Set(agent->uniform_binding);
+    agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
     // Apply pipeline state
     context->SetPipelineState(pipeline);
@@ -540,7 +535,7 @@ void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
     // Setup uniform params
     agent->shader_binding->u_transform->Set(world_binding);
     agent->shader_binding->u_texture->Set(agent->atlas_binding);
-    agent->shader_binding->u_params->Set(agent->uniform_binding);
+    agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
     // Apply pipeline state
     context->SetPipelineState(pipeline);
