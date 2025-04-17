@@ -682,12 +682,16 @@ void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
             ->GetPipelines()
             ->alphatrans.CreateBinding<renderer::Binding_AlphaTrans>();
 
+  // Target UV
+  const bool flip_uv = (*GetDevice())->GetDeviceInfo().IsGLDevice();
+  const base::RectF uv_rect = flip_uv ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
+                                      : base::RectF(0.0f, 0.0f, 1.0f, 1.0f);
+
   // Update transition uniform
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad,
                                   base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
-  renderer::Quad::SetTexCoordRectNorm(&transient_quad,
-                                      base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
+  renderer::Quad::SetTexCoordRectNorm(&transient_quad, uv_rect);
   renderer::Quad::SetColor(&transient_quad, base::Vec4(progress));
   agent_->transition_quads->QueueWrite(context, &transient_quad);
 
@@ -755,12 +759,16 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(
             ->GetPipelines()
             ->mappedtrans.CreateBinding<renderer::Binding_VagueTrans>();
 
+  // Target UV
+  const bool flip_uv = (*GetDevice())->GetDeviceInfo().IsGLDevice();
+  const base::RectF uv_rect = flip_uv ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
+                                      : base::RectF(0.0f, 0.0f, 1.0f, 1.0f);
+
   // Update transition uniform
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad,
                                   base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
-  renderer::Quad::SetTexCoordRectNorm(&transient_quad,
-                                      base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
+  renderer::Quad::SetTexCoordRectNorm(&transient_quad, uv_rect);
   renderer::Quad::SetColor(&transient_quad, base::Vec4(vague, 0, 0, progress));
   agent_->transition_quads->QueueWrite(context, &transient_quad);
 

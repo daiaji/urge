@@ -22,22 +22,22 @@ class RenderDevice {
     Pipeline_Base base;
     Pipeline_Color color;
     Pipeline_Flat viewport;
+    Pipeline_Sprite sprite;
     Pipeline_AlphaTransition alphatrans;
     Pipeline_VagueTransition mappedtrans;
     Pipeline_Tilemap tilemap;
     Pipeline_Tilemap2 tilemap2;
-    Pipeline_Sprite sprite;
 
     PipelineSet(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
                 Diligent::TEXTURE_FORMAT target_format)
         : base(device, target_format),
           color(device, target_format),
           viewport(device, target_format),
+          sprite(device, target_format),
           alphatrans(device, target_format),
           mappedtrans(device, target_format),
           tilemap(device, target_format),
-          tilemap2(device, target_format),
-          sprite(device, target_format) {}
+          tilemap2(device, target_format) {}
   };
 
   static std::unique_ptr<RenderDevice> Create(

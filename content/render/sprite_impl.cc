@@ -163,10 +163,9 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
 
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
-    draw_indexed_attribs.NumIndices = 6;
+    draw_indexed_attribs.NumIndices = 6 * agent->instance_count;
     draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
-    draw_indexed_attribs.NumInstances = agent->instance_count;
-    draw_indexed_attribs.FirstInstanceLocation = agent->instance_offset;
+    draw_indexed_attribs.FirstIndexLocation = 6 * agent->instance_offset;
     context->DrawIndexed(draw_indexed_attribs);
   }
 }

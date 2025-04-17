@@ -83,6 +83,8 @@ void SpriteBatch::SubmitBatchDataAndResetCache(renderer::RenderDevice* device) {
 
   // Upload data and rebuild binding
   if (quad_cache_.size()) {
+    vertex_batch_->QueueWrite(device->GetContext(), nullptr,
+                              quad_cache_.size());
     quad_batch_->QueueWrite(device->GetContext(), quad_cache_.data(),
                             quad_cache_.size());
     quad_binding_ =

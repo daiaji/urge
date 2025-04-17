@@ -47,7 +47,8 @@ template <typename TargetType,
           Diligent::BIND_FLAGS BatchBind,
           Diligent::BUFFER_MODE BufferMode = Diligent::BUFFER_MODE_UNDEFINED,
           Diligent::CPU_ACCESS_FLAGS CPUAccess = Diligent::CPU_ACCESS_NONE,
-          Diligent::USAGE Usage = Diligent::USAGE_DEFAULT>
+          Diligent::USAGE Usage = Diligent::USAGE_DEFAULT,
+          size_t ElementCount = 1>
 class BatchBuffer {
  public:
   ~BatchBuffer() = default;
@@ -108,14 +109,19 @@ class BatchBuffer {
     buffer_desc.Usage = Usage;
     buffer_desc.CPUAccessFlags = CPUAccess;
     buffer_desc.Mode = BufferMode;
-    buffer_desc.ElementByteStride = sizeof(TargetType);
+    buffer_desc.ElementByteStride = sizeof(TargetType) / ElementCount;
   }
 
   Diligent::IRenderDevice* device_;
   Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer_;
 };
 
-using QuadBatch = BatchBuffer<Quad, Diligent::BIND_VERTEX_BUFFER>;
+using QuadBatch = BatchBuffer<Quad,
+                              Diligent::BIND_VERTEX_BUFFER,
+                              Diligent::BUFFER_MODE_UNDEFINED,
+                              Diligent::CPU_ACCESS_NONE,
+                              Diligent::USAGE_DEFAULT,
+                              4>;
 
 }  // namespace renderer
 

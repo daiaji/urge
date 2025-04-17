@@ -290,7 +290,6 @@ struct VSInput {
   float2 UV : ATTRIB1;
   float4 Color : ATTRIB2;
   uint VertexIdx : SV_VertexID;
-  uint InstanceIdx : SV_InstanceID;
 };
 
 struct PSInput {
@@ -304,8 +303,10 @@ struct PSInput {
 };
 
 void main(in VSInput VSIn, out PSInput PSIn) {
-  SpriteVertex vert = u_Vertices[VSIn.VertexIdx + 4 * VSIn.InstanceIdx];
-  SpriteParams effect = u_Params[VSIn.InstanceIdx];
+  uint instance_index = VSIn.VertexIdx / 4;
+  uint vertex_index = VSIn.VertexIdx % 4;
+  SpriteVertex vert = u_Vertices[vertex_index + 4 * instance_index];
+  SpriteParams effect = u_Params[instance_index];
 
   float sine = sin(effect.Rotation);
   float cosine = cos(effect.Rotation);

@@ -27,7 +27,8 @@ using SpriteQuadBuffer =
                           Diligent::BIND_FLAGS::BIND_SHADER_RESOURCE,
                           Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED,
                           Diligent::CPU_ACCESS_WRITE,
-                          Diligent::USAGE_DYNAMIC>;
+                          Diligent::USAGE_DYNAMIC,
+                          4>;
 
 using SpriteBatchBuffer =
     renderer::BatchBuffer<renderer::Binding_Sprite::Params,
