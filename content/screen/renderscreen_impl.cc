@@ -16,7 +16,9 @@
 
 namespace content {
 
-RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
+RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
+                                   base::ThreadWorker* render_worker,
+                                   CoroutineContext* cc,
                                    ContentProfile* profile,
                                    I18NProfile* i18n_profile,
                                    filesystem::IOService* io_service,
@@ -27,7 +29,7 @@ RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
       profile_(profile),
       i18n_profile_(i18n_profile),
       io_service_(io_service),
-      render_worker_(nullptr),
+      render_worker_(render_worker),
       scoped_font_(scoped_font),
       agent_(nullptr),
       frozen_(false),
@@ -43,7 +45,15 @@ RenderScreenImpl::RenderScreenImpl(CoroutineContext* cc,
       keep_ratio_(true),
       smooth_scale_(false),
       allow_skip_frame_(true),
-      allow_background_running_(true) {}
+      allow_background_running_(true) {
+  // Setup render device on render thread if possible
+  agent_ = new RenderGraphicsAgent;
+  base::ThreadWorker::PostTask(
+      render_worker,
+      base::BindOnce(&RenderScreenImpl::CreateGraphicsDeviceInternal,
+                     base::Unretained(this), window));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker);
+}
 
 RenderScreenImpl::~RenderScreenImpl() {
   base::ThreadWorker::PostTask(
@@ -53,22 +63,7 @@ RenderScreenImpl::~RenderScreenImpl() {
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
-void RenderScreenImpl::InitWithRenderWorker(base::ThreadWorker* render_worker,
-                                            base::WeakPtr<ui::Widget> window,
-                                            const std::string& wgpu_backend) {
-  // Setup render thread worker (maybe null)
-  render_worker_ = render_worker;
-
-  // Setup render device on render thread if possible
-  agent_ = new RenderGraphicsAgent;
-  base::ThreadWorker::PostTask(
-      render_worker,
-      base::BindOnce(&RenderScreenImpl::InitGraphicsDeviceInternal,
-                     base::Unretained(this), window, wgpu_backend));
-  base::ThreadWorker::WaitWorkerSynchronize(render_worker);
-}
-
-void RenderScreenImpl::PresentScreen() {
+void RenderScreenImpl::PresentScreenBuffer() {
   // Determine update repeat time
   const uint64_t now_time = SDL_GetPerformanceCounter();
   const uint64_t delta_time = now_time - last_count_time_;
@@ -93,20 +88,9 @@ void RenderScreenImpl::PresentScreen() {
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
-renderer::RenderDevice* RenderScreenImpl::GetDevice() const {
-  return agent_->device.get();
-}
-
-CanvasScheduler* RenderScreenImpl::GetCanvasScheduler() const {
-  return agent_->canvas_scheduler.get();
-}
-
-SpriteBatch* RenderScreenImpl::GetSpriteBatch() const {
-  return agent_->sprite_batch.get();
-}
-
-ScopedFontData* RenderScreenImpl::GetScopedFontContext() const {
-  return scoped_font_;
+base::CallbackListSubscription RenderScreenImpl::AddTickObserver(
+    const base::RepeatingClosure& handler) {
+  return tick_observers_.Add(handler);
 }
 
 void RenderScreenImpl::PostTask(base::OnceClosure task) {
@@ -117,64 +101,20 @@ void RenderScreenImpl::WaitWorkerSynchronize() {
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
-base::CallbackListSubscription RenderScreenImpl::AddTickObserver(
-    const base::RepeatingClosure& handler) {
-  return tick_observers_.Add(handler);
-}
-
-void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
-                                           Diligent::ITexture* render_target,
-                                           const base::Vec2i& target_size) {
-  // Submit pending canvas commands
-  GetCanvasScheduler()->SubmitPendingPaintCommands();
-
-  // Prepare for rendering context
-  DrawableNode::RenderControllerParams controller_params;
-  controller_params.device = GetDevice();
-  controller_params.screen_buffer = render_target;
-  controller_params.screen_size = target_size;
-  controller_params.viewport = target_size;
-  controller_params.origin = base::Vec2i();
-
-  // 1) Execute pre-composite handler
-  controller->BroadCastNotification(DrawableNode::BEFORE_RENDER,
-                                    &controller_params);
-
-  // 1.5) Update sprite batch
-  base::ThreadWorker::PostTask(
-      render_worker_, base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
-                                     base::Unretained(GetSpriteBatch()),
-                                     controller_params.device));
-
-  // 2) Setup renderpass
-  base::ThreadWorker::PostTask(
-      render_worker_,
-      base::BindOnce(&RenderScreenImpl::FrameBeginRenderPassInternal,
-                     base::Unretained(this), base::Unretained(render_target)));
-
-  // 3) Notify render a frame
-  controller_params.root_world = agent_->world_transform;
-  controller_params.world_binding = agent_->world_transform;
-  controller->BroadCastNotification(DrawableNode::ON_RENDERING,
-                                    &controller_params);
-
-  // 4) End render pass and process after-render effect
-  base::ThreadWorker::PostTask(
-      render_worker_,
-      base::BindOnce(&RenderScreenImpl::FrameEndRenderPassInternal,
-                     base::Unretained(this)));
-}
-
 void RenderScreenImpl::Update(ExceptionState& exception_state) {
+  // Skip render if freeze screen or allow skip frames
   if (!frozen_) {
     if (!(allow_skip_frame_ && frame_skip_required_)) {
       // Render a frame and push into render queue
-      RenderFrameInternal(&controller_, agent_->screen_buffer, resolution_);
+      // This function only encodes the render commands
+      RenderFrameInternal(&controller_, agent_->screen_buffer.RawDblPtr(),
+                          resolution_);
     }
   }
 
   // Process frame delay
-  FrameProcessInternal(agent_->screen_buffer);
+  // This calling will yield to event coroutine and present
+  FrameProcessInternal(agent_->screen_buffer.RawDblPtr());
 }
 
 void RenderScreenImpl::Wait(uint32_t duration,
@@ -192,7 +132,7 @@ void RenderScreenImpl::FadeOut(uint32_t duration,
     brightness_ = current_brightness -
                   current_brightness * (i / static_cast<float>(duration));
     if (frozen_) {
-      FrameProcessInternal(agent_->frozen_buffer);
+      FrameProcessInternal(agent_->frozen_buffer.RawDblPtr());
     } else {
       Update(exception_state);
     }
@@ -213,7 +153,7 @@ void RenderScreenImpl::FadeIn(uint32_t duration,
         current_brightness + diff * (i / static_cast<float>(duration));
 
     if (frozen_) {
-      FrameProcessInternal(agent_->frozen_buffer);
+      FrameProcessInternal(agent_->frozen_buffer.RawDblPtr());
     } else {
       Update(exception_state);
     }
@@ -226,7 +166,8 @@ void RenderScreenImpl::FadeIn(uint32_t duration,
 void RenderScreenImpl::Freeze(ExceptionState& exception_state) {
   if (!frozen_) {
     // Get frozen scene snapshot for transition
-    RenderFrameInternal(&controller_, agent_->frozen_buffer, resolution_);
+    RenderFrameInternal(&controller_, agent_->frozen_buffer.RawDblPtr(),
+                        resolution_);
 
     // Set forzen flag for blocking frame update
     frozen_ = true;
@@ -280,7 +221,8 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
     transition_mapping = CanvasImpl::FromBitmap(bitmap)->GetAgent()->data;
 
   // Get current scene snapshot for transition
-  RenderFrameInternal(&controller_, agent_->transition_buffer, resolution_);
+  RenderFrameInternal(&controller_, agent_->transition_buffer.RawDblPtr(),
+                      resolution_);
 
   for (int i = 0; i < duration; ++i) {
     // Norm transition progress
@@ -300,7 +242,7 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
                          base::Unretained(this), progress));
 
     // Present to screen
-    FrameProcessInternal(agent_->screen_buffer);
+    FrameProcessInternal(agent_->screen_buffer.RawDblPtr());
   }
 
   // Transition process complete
@@ -313,7 +255,8 @@ scoped_refptr<Bitmap> RenderScreenImpl::SnapToBitmap(
       GetCanvasScheduler(), this, scoped_font_, resolution_, exception_state);
 
   if (target) {
-    RenderFrameInternal(&controller_, target->GetAgent()->data, resolution_);
+    RenderFrameInternal(&controller_, target->GetAgent()->data.RawDblPtr(),
+                        resolution_);
     base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
   }
 
@@ -369,21 +312,43 @@ void RenderScreenImpl::PlayMovie(const std::string& filename,
                                     "unimplement Graphics.play_movie");
 }
 
-void RenderScreenImpl::InitGraphicsDeviceInternal(
-    base::WeakPtr<ui::Widget> window,
-    const std::string& wgpu_backend) {
-  // Create device on window
+uint32_t RenderScreenImpl::Get_FrameRate(ExceptionState&) {
+  return frame_rate_;
+}
+
+void RenderScreenImpl::Put_FrameRate(const uint32_t& rate, ExceptionState&) {
+  frame_rate_ = rate;
+}
+
+uint32_t RenderScreenImpl::Get_FrameCount(ExceptionState&) {
+  return frame_count_;
+}
+
+void RenderScreenImpl::Put_FrameCount(const uint32_t& count, ExceptionState&) {
+  frame_count_ = count;
+}
+
+uint32_t RenderScreenImpl::Get_Brightness(ExceptionState&) {
+  return brightness_;
+}
+
+void RenderScreenImpl::Put_Brightness(const uint32_t& value, ExceptionState&) {
+  brightness_ = std::clamp<uint32_t>(value, 0, 255);
+}
+
+void RenderScreenImpl::CreateGraphicsDeviceInternal(
+    base::WeakPtr<ui::Widget> window) {
+  // Create primary device on window widget
   agent_->device = renderer::RenderDevice::Create(window);
 
   // Create global canvas scheduler
-  agent_->canvas_scheduler =
-      CanvasScheduler::MakeInstance(agent_->device.get(), io_service_);
-  agent_->canvas_scheduler->InitWithRenderWorker(render_worker_);
+  agent_->canvas_scheduler = CanvasScheduler::MakeInstance(
+      render_worker_, agent_->device.get(), io_service_);
 
   // Create global sprite batch scheduler
   agent_->sprite_batch = SpriteBatch::Make(agent_->device.get());
 
-  // Create screen present pipeline and buffer
+  // Create screen present pipeline
   agent_->present_pipeline.reset(new renderer::Pipeline_Base(
       **agent_->device,
       agent_->device->GetSwapchain()->GetDesc().ColorBufferFormat));
@@ -396,13 +361,6 @@ void RenderScreenImpl::InitGraphicsDeviceInternal(
   // Create transition generic quads
   agent_->transition_quads = renderer::QuadBatch::Make(**agent_->device);
 
-  // Setup renderer info
-  Diligent::GraphicsAdapterInfo adapter_info =
-      (**GetDevice())->GetAdapterInfo();
-  renderer_info_.device = adapter_info.DeviceId;
-  renderer_info_.vendor = adapter_info.VendorId;
-  renderer_info_.description = adapter_info.Description;
-
   // Create screen buffer
   ResetScreenBufferInternal();
 }
@@ -412,8 +370,78 @@ void RenderScreenImpl::DestroyGraphicsDeviceInternal() {
   delete agent_;
 }
 
+void RenderScreenImpl::ResetScreenBufferInternal() {
+  constexpr Diligent::BIND_FLAGS bind_flags =
+      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE;
+
+  renderer::CreateTexture2D(**GetDevice(), &agent_->screen_buffer,
+                            "screen.main.buffer", resolution_,
+                            Diligent::USAGE_DEFAULT, bind_flags);
+  renderer::CreateTexture2D(**GetDevice(), &agent_->frozen_buffer,
+                            "screen.frozen.buffer", resolution_,
+                            Diligent::USAGE_DEFAULT, bind_flags);
+  renderer::CreateTexture2D(**GetDevice(), &agent_->transition_buffer,
+                            "screen.transition.buffer", resolution_,
+                            Diligent::USAGE_DEFAULT, bind_flags);
+
+  renderer::WorldTransform world_transform;
+  renderer::MakeIdentityMatrix(world_transform.transform);
+  renderer::MakeProjectionMatrix(world_transform.projection, resolution_,
+                                 GetDevice()->IsUVFlip());
+
+  agent_->world_transform.Release();
+  Diligent::CreateUniformBuffer(
+      **GetDevice(), sizeof(world_transform), "graphics.world.transform",
+      &agent_->world_transform, Diligent::USAGE_IMMUTABLE,
+      Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
+      &world_transform);
+}
+
+void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
+                                           Diligent::ITexture** render_target,
+                                           const base::Vec2i& target_size) {
+  // Submit pending canvas commands
+  GetCanvasScheduler()->SubmitPendingPaintCommands();
+
+  // Prepare for rendering context
+  DrawableNode::RenderControllerParams controller_params;
+  controller_params.device = GetDevice();
+  controller_params.screen_buffer = render_target;
+  controller_params.screen_size = target_size;
+  controller_params.viewport = target_size;
+  controller_params.origin = base::Vec2i();
+
+  // 1) Execute pre-composite handler
+  controller->BroadCastNotification(DrawableNode::BEFORE_RENDER,
+                                    &controller_params);
+
+  // 1.5) Update sprite batch
+  base::ThreadWorker::PostTask(
+      render_worker_, base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
+                                     base::Unretained(GetSpriteBatch()),
+                                     controller_params.device));
+
+  // 2) Setup renderpass
+  base::ThreadWorker::PostTask(
+      render_worker_,
+      base::BindOnce(&RenderScreenImpl::FrameBeginRenderPassInternal,
+                     base::Unretained(this), base::Unretained(render_target)));
+
+  // 3) Notify render a frame
+  controller_params.root_world = agent_->world_transform.RawDblPtr();
+  controller_params.world_binding = controller_params.root_world;
+  controller->BroadCastNotification(DrawableNode::ON_RENDERING,
+                                    &controller_params);
+
+  // 4) End render pass and process after-render effect
+  base::ThreadWorker::PostTask(
+      render_worker_,
+      base::BindOnce(&RenderScreenImpl::FrameEndRenderPassInternal,
+                     base::Unretained(this)));
+}
+
 void RenderScreenImpl::PresentScreenBufferInternal(
-    Diligent::ITexture* render_target) {
+    Diligent::ITexture** render_target) {
   // Initial device attribute
   Diligent::IDeviceContext* context = GetDevice()->GetContext();
   Diligent::ISwapChain* swapchain = GetDevice()->GetSwapchain();
@@ -487,7 +515,8 @@ void RenderScreenImpl::PresentScreenBufferInternal(
     // Set world transform
     present_binding->u_transform->Set(present_uniform);
     present_binding->u_texture->Set(
-        render_target->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+        (*render_target)
+            ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
 
     // Apply pipeline state
     context->SetPipelineState(pipeline);
@@ -515,7 +544,7 @@ void RenderScreenImpl::PresentScreenBufferInternal(
 }
 
 void RenderScreenImpl::FrameProcessInternal(
-    Diligent::ITexture* present_target) {
+    Diligent::ITexture** present_target) {
   // Setup target
   agent_->present_target = present_target;
 
@@ -554,33 +583,6 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
   display_viewport_.y = (window_size.y - display_viewport_.height) / 2.0f;
 }
 
-void RenderScreenImpl::ResetScreenBufferInternal() {
-  constexpr Diligent::BIND_FLAGS bind_flags =
-      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE;
-
-  renderer::CreateTexture2D(**GetDevice(), &agent_->screen_buffer,
-                            "screen.main.buffer", resolution_,
-                            Diligent::USAGE_DEFAULT, bind_flags);
-  renderer::CreateTexture2D(**GetDevice(), &agent_->frozen_buffer,
-                            "screen.frozen.buffer", resolution_,
-                            Diligent::USAGE_DEFAULT, bind_flags);
-  renderer::CreateTexture2D(**GetDevice(), &agent_->transition_buffer,
-                            "screen.transition.buffer", resolution_,
-                            Diligent::USAGE_DEFAULT, bind_flags);
-
-  renderer::WorldTransform world_transform;
-  renderer::MakeIdentityMatrix(world_transform.transform);
-  renderer::MakeProjectionMatrix(world_transform.projection, resolution_,
-                                 GetDevice()->IsUVFlip());
-
-  agent_->world_transform.Release();
-  Diligent::CreateUniformBuffer(
-      **GetDevice(), sizeof(world_transform), "graphics.world.transform",
-      &agent_->world_transform, Diligent::USAGE_IMMUTABLE,
-      Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
-      &world_transform);
-}
-
 int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
   smooth_delta_time_ *= 0.8;
   smooth_delta_time_ += std::fmin(delta_rate, 2) * 0.2;
@@ -600,13 +602,14 @@ int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
 }
 
 void RenderScreenImpl::FrameBeginRenderPassInternal(
-    Diligent::ITexture* render_target) {
+    Diligent::ITexture** render_target) {
   // Initial context
   Diligent::IDeviceContext* context = GetDevice()->GetContext();
 
-  // Initial render target size
-  const base::Vec2i target_size(render_target->GetDesc().Width,
-                                render_target->GetDesc().Height);
+  // Initial render target info
+  Diligent::ITexture* const render_target_ptr = *render_target;
+  const base::Vec2i target_size(render_target_ptr->GetDesc().Width,
+                                render_target_ptr->GetDesc().Height);
 
   // Update screen effect params
   if (brightness_ < 255) {
@@ -619,7 +622,7 @@ void RenderScreenImpl::FrameBeginRenderPassInternal(
 
   // Set render target in context and clear previous buffer
   auto render_target_view =
-      render_target->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+      render_target_ptr->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
   const float clear_color[] = {0, 0, 0, 1};
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
@@ -827,30 +830,6 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(
 
 void RenderScreenImpl::AddDisposable(Disposable* disp) {
   disposable_elements_.Append(disp);
-}
-
-uint32_t RenderScreenImpl::Get_FrameRate(ExceptionState&) {
-  return frame_rate_;
-}
-
-void RenderScreenImpl::Put_FrameRate(const uint32_t& rate, ExceptionState&) {
-  frame_rate_ = rate;
-}
-
-uint32_t RenderScreenImpl::Get_FrameCount(ExceptionState&) {
-  return frame_count_;
-}
-
-void RenderScreenImpl::Put_FrameCount(const uint32_t& count, ExceptionState&) {
-  frame_count_ = count;
-}
-
-uint32_t RenderScreenImpl::Get_Brightness(ExceptionState&) {
-  return brightness_;
-}
-
-void RenderScreenImpl::Put_Brightness(const uint32_t& value, ExceptionState&) {
-  brightness_ = std::clamp<uint32_t>(value, 0, 255);
 }
 
 }  // namespace content

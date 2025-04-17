@@ -416,7 +416,7 @@ void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
-                                  Diligent::IBuffer* world_binding,
+                                  Diligent::IBuffer** world_binding,
                                   TilemapAgent* agent) {
   if (!agent->atlas_texture)
     return;
@@ -427,7 +427,7 @@ void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
     // Setup uniform params
-    agent->shader_binding->u_transform->Set(world_binding);
+    agent->shader_binding->u_transform->Set(*world_binding);
     agent->shader_binding->u_texture->Set(agent->atlas_binding);
     agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
@@ -455,7 +455,7 @@ void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
-                                 Diligent::IBuffer* world_binding,
+                                 Diligent::IBuffer** world_binding,
                                  TilemapAgent* agent,
                                  int32_t index) {
   if (!agent->atlas_texture)
@@ -472,7 +472,7 @@ void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
       auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
       // Setup uniform params
-      agent->shader_binding->u_transform->Set(world_binding);
+      agent->shader_binding->u_transform->Set(*world_binding);
       agent->shader_binding->u_texture->Set(agent->atlas_binding);
       agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
@@ -792,9 +792,9 @@ void TilemapImpl::GroundNodeHandlerInternal(
                                       params->device, agent_, render_offset_,
                                       tilesize_, anim_index_));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(
-        base::BindOnce(&GPURenderGroundLayerInternal, params->device,
-                       base::Unretained(params->world_binding), agent_));
+    screen()->PostTask(base::BindOnce(&GPURenderGroundLayerInternal,
+                                      params->device, params->world_binding,
+                                      agent_));
   }
 }
 
@@ -803,9 +803,9 @@ void TilemapImpl::AboveNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
   if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(base::BindOnce(
-        &GPURenderAboveLayerInternal, params->device,
-        base::Unretained(params->world_binding), agent_, layer_index));
+    screen()->PostTask(base::BindOnce(&GPURenderAboveLayerInternal,
+                                      params->device, params->world_binding,
+                                      agent_, layer_index));
   }
 }
 

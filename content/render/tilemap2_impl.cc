@@ -386,8 +386,11 @@ void GPUMakeAtlasInternal(
     const base::Vec2i& atlas_size,
     std::vector<Tilemap2Impl::AtlasCompositeCommand> make_commands) {
   auto* context = device->GetContext();
+
+  agent->atlas_texture.Release();
   renderer::CreateTexture2D(**device, &agent->atlas_texture, "tilemap2.atlas",
                             atlas_size);
+
   agent->atlas_binding = agent->atlas_texture->GetDefaultView(
       Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
 
@@ -483,7 +486,7 @@ void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
-                                  Diligent::IBuffer* world_binding,
+                                  Diligent::IBuffer** world_binding,
                                   Tilemap2Agent* agent) {
   if (!agent->atlas_texture)
     return;
@@ -494,7 +497,7 @@ void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
     // Setup uniform params
-    agent->shader_binding->u_transform->Set(world_binding);
+    agent->shader_binding->u_transform->Set(*world_binding);
     agent->shader_binding->u_texture->Set(agent->atlas_binding);
     agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
@@ -522,7 +525,7 @@ void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
-                                 Diligent::IBuffer* world_binding,
+                                 Diligent::IBuffer** world_binding,
                                  Tilemap2Agent* agent) {
   if (!agent->atlas_texture)
     return;
@@ -533,7 +536,7 @@ void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
     // Setup uniform params
-    agent->shader_binding->u_transform->Set(world_binding);
+    agent->shader_binding->u_transform->Set(*world_binding);
     agent->shader_binding->u_texture->Set(agent->atlas_binding);
     agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
@@ -846,9 +849,9 @@ void Tilemap2Impl::GroundNodeHandlerInternal(
         &GPUUpdateTilemapUniformInternal, params->device, agent_,
         render_offset_, animation_offset_, tilesize_));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(
-        base::BindRepeating(&GPURenderGroundLayerInternal, params->device,
-                            base::Unretained(params->world_binding), agent_));
+    screen()->PostTask(base::BindRepeating(&GPURenderGroundLayerInternal,
+                                           params->device,
+                                           params->world_binding, agent_));
   }
 }
 
@@ -856,9 +859,9 @@ void Tilemap2Impl::AboveNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
   if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(
-        base::BindRepeating(&GPURenderAboveLayerInternal, params->device,
-                            base::Unretained(params->world_binding), agent_));
+    screen()->PostTask(base::BindRepeating(&GPURenderAboveLayerInternal,
+                                           params->device,
+                                           params->world_binding, agent_));
   }
 }
 

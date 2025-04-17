@@ -56,6 +56,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
     if (!agent->background_texture ||
         agent->background_texture->GetDesc().Width != bound.width ||
         agent->background_texture->GetDesc().Height != bound.height) {
+      agent->background_texture.Release();
       renderer::CreateTexture2D(
           **device, &agent->background_texture, "window2.background",
           bound.Size(), Diligent::USAGE_DEFAULT,
@@ -210,7 +211,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         auto* pipeline_base =
             pipeline_set_base.GetPipeline(renderer::BlendType::NORMAL);
 
-        float clear_color[] = {0, 0, 0, 1};
+        float clear_color[] = {0, 0, 0, 0};
         auto* render_target_view = agent->background_texture->GetDefaultView(
             Diligent::TEXTURE_VIEW_RENDER_TARGET);
         context->SetRenderTargets(
@@ -219,6 +220,12 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         context->ClearRenderTarget(
             render_target_view, clear_color,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        Diligent::Rect render_scissor;
+        render_scissor.right = bound.width;
+        render_scissor.bottom = bound.height;
+        context->SetScissorRects(1, &render_scissor, 1,
+                                 render_scissor.bottom + render_scissor.top);
 
         device->GetQuadIndex()->Allocate(quads.size() + 20);
 
@@ -490,7 +497,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
-                                  Diligent::IBuffer* world_binding,
+                                  Diligent::IBuffer** world_binding,
                                   Window2Agent* agent,
                                   TextureAgent* windowskin,
                                   TextureAgent* contents,
@@ -503,7 +510,7 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
   // Setup world uniform
-  agent->shader_binding->u_transform->Set(world_binding);
+  agent->shader_binding->u_transform->Set(*world_binding);
 
   // Apply vertex index
   Diligent::IBuffer* const vertex_buffer = **agent->controls_batch;
@@ -1106,11 +1113,10 @@ void Window2Impl::DrawableNodeHandlerInternal(
         padding_rect, tone_->AsNormColor(), rgss3_style_, background_dirty_));
     background_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(
-        base::BindOnce(&GPURenderWindowQuadsInternal, params->device,
-                       base::Unretained(params->world_binding), agent_,
-                       windowskin_agent, contents_agent, bound_, padding_rect,
-                       params->viewport, params->origin));
+    screen()->PostTask(base::BindOnce(
+        &GPURenderWindowQuadsInternal, params->device, params->world_binding,
+        agent_, windowskin_agent, contents_agent, bound_, padding_rect,
+        params->viewport, params->origin));
   }
 }
 

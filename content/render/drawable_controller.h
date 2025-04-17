@@ -88,7 +88,7 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
     // [Stage: all]
     // Abstract "screen" render buffer,
     // maybe graphics or viewport snapshot buffer.
-    Diligent::ITexture* screen_buffer = nullptr;
+    Diligent::ITexture** screen_buffer = nullptr;
     base::Vec2i screen_size;
 
     // [Stage: all]
@@ -98,8 +98,8 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
 
     // [Stage: on rendering]
     // World transform matrix.
-    Diligent::IBuffer* root_world = nullptr;
-    Diligent::IBuffer* world_binding = nullptr;
+    Diligent::IBuffer** root_world = nullptr;
+    Diligent::IBuffer** world_binding = nullptr;
   };
 
   using NotificationHandler =

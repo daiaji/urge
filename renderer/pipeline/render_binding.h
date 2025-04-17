@@ -109,9 +109,9 @@ class Binding_Sprite : public RenderBindingBase {
   };
 
   ShaderVariable u_transform;
-  ShaderVariable u_texture;
   ShaderVariable u_vertices;
   ShaderVariable u_params;
+  ShaderVariable u_texture;
 
  private:
   friend class RenderBindingBase;
@@ -149,8 +149,8 @@ class Binding_Tilemap : public RenderBindingBase {
   };
 
   ShaderVariable u_transform;
-  ShaderVariable u_texture;
   ShaderVariable u_params;
+  ShaderVariable u_texture;
 
  private:
   friend class RenderBindingBase;
@@ -167,8 +167,8 @@ class Binding_Tilemap2 : public RenderBindingBase {
   };
 
   ShaderVariable u_transform;
-  ShaderVariable u_texture;
   ShaderVariable u_params;
+  ShaderVariable u_texture;
 
  private:
   friend class RenderBindingBase;

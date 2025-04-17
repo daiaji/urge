@@ -20,17 +20,15 @@ class CanvasScheduler {
   CanvasScheduler(const CanvasScheduler&) = delete;
   CanvasScheduler& operator=(const CanvasScheduler&) = delete;
 
+  // All bitmap/canvas draw command will be encoded on this worker.
+  // If worker set to null, it will be executed immediately on caller thread.
   static std::unique_ptr<CanvasScheduler> MakeInstance(
+      base::ThreadWorker* worker,
       renderer::RenderDevice* device,
       filesystem::IOService* io_service);
 
-  renderer::RenderDevice* GetDevice();
-  filesystem::IOService* GetIO();
-
-  // Bind a worker for current scheduler,
-  // all bitmap/canvas draw command will be encoded on this worker.
-  // If worker set to null, it will be executed immediately on caller thread.
-  void InitWithRenderWorker(base::ThreadWorker* worker);
+  renderer::RenderDevice* GetDevice() const;
+  filesystem::IOService* GetIOService() const;
 
   // Sync all pending command to device queue,
   // clear children canvas command queue.
@@ -47,7 +45,8 @@ class CanvasScheduler {
 
  private:
   friend class CanvasImpl;
-  CanvasScheduler(renderer::RenderDevice* device,
+  CanvasScheduler(base::ThreadWorker* worker,
+                  renderer::RenderDevice* device,
                   filesystem::IOService* io_service);
 
   base::LinkedList<CanvasImpl> children_;

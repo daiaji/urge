@@ -94,7 +94,7 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
 }
 
 void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
-                                    Diligent::IBuffer* world_binding,
+                                    Diligent::IBuffer** world_binding,
                                     PlaneAgent* agent,
                                     TextureAgent* texture,
                                     int32_t blend_type) {
@@ -104,7 +104,7 @@ void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
       pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
   // Setup uniform params
-  agent->shader_binding->u_transform->Set(world_binding);
+  agent->shader_binding->u_transform->Set(*world_binding);
   agent->shader_binding->u_texture->Set(texture->view);
   agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
@@ -374,10 +374,9 @@ void PlaneImpl::DrawableNodeHandlerInternal(
       quad_array_dirty_ = false;
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(
-        base::BindOnce(&GPUOnViewportRenderingInternal, params->device,
-                       base::Unretained(params->world_binding), agent_,
-                       bitmap_->GetAgent(), blend_type_));
+    screen()->PostTask(base::BindOnce(
+        &GPUOnViewportRenderingInternal, params->device, params->world_binding,
+        agent_, bitmap_->GetAgent(), blend_type_));
   }
 }
 

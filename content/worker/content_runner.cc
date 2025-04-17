@@ -62,7 +62,7 @@ bool ContentRunner::RunMainLoop() {
   // TODO: render GUI
 
   // Present screen buffer
-  graphics_impl_->PresentScreen();
+  graphics_impl_->PresentScreenBuffer();
 
   return exit_code_.load();
 }
@@ -101,17 +101,16 @@ void ContentRunner::InitializeContentInternal() {
   scoped_font_.reset(
       new ScopedFontData(io_service_.get(), profile_->default_font_path));
   graphics_impl_.reset(new RenderScreenImpl(
-      cc_.get(), profile_.get(), i18n_profile_.get(), io_service_.get(),
-      scoped_font_.get(), resolution, frame_rate));
+      window_, render_worker_.get(), cc_.get(), profile_.get(),
+      i18n_profile_.get(), io_service_.get(), scoped_font_.get(), resolution,
+      frame_rate));
   input_impl_.reset(new KeyboardControllerImpl(
       window_->AsWeakPtr(), profile_.get(), i18n_profile_.get()));
   audio_impl_.reset(
       new AudioImpl(profile_.get(), io_service_.get(), i18n_profile_.get()));
   mouse_impl_.reset(new MouseImpl(window_->AsWeakPtr(), profile_.get()));
 
-  // Init all module workers
-  graphics_impl_->InitWithRenderWorker(render_worker_.get(), window_,
-                                       profile_->wgpu_backend);
+  // Hook graphics event loop
   tick_observer_ = graphics_impl_->AddTickObserver(base::BindRepeating(
       &ContentRunner::TickHandlerInternal, base::Unretained(this)));
 }

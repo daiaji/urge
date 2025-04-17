@@ -333,6 +333,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
     agent->text_cache_size.y =
         std::max<int32_t>(agent->text_cache_size.y, text->h);
 
+    agent->text_cache_texture.Release();
     renderer::CreateTexture2D(**scheduler->GetDevice(),
                               &agent->text_cache_texture, "textdraw.cache",
                               agent->text_cache_size);
@@ -502,7 +503,7 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
       &memory_texture);
 
   filesystem::IOState io_state;
-  scheduler->GetIO()->OpenRead(filename, file_handler, &io_state);
+  scheduler->GetIOService()->OpenRead(filename, file_handler, &io_state);
 
   if (io_state.error_count) {
     exception_state.ThrowContentError(

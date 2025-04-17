@@ -36,7 +36,7 @@ struct RenderGraphicsAgent {
   std::unique_ptr<renderer::QuadBatch> transition_quads;
   std::unique_ptr<renderer::RenderBindingBase> transition_binding;
 
-  Diligent::ITexture* present_target = nullptr;
+  Diligent::ITexture** present_target = nullptr;
   std::unique_ptr<renderer::Pipeline_Base> present_pipeline;
 };
 
@@ -56,7 +56,9 @@ class GraphicsChild {
 
 class RenderScreenImpl : public Graphics, public DisposableCollection {
  public:
-  RenderScreenImpl(CoroutineContext* cc,
+  RenderScreenImpl(base::WeakPtr<ui::Widget> window,
+                   base::ThreadWorker* render_worker,
+                   CoroutineContext* cc,
                    ContentProfile* profile,
                    I18NProfile* i18n_profile,
                    filesystem::IOService* io_service,
@@ -68,30 +70,30 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   RenderScreenImpl(const RenderScreenImpl&) = delete;
   RenderScreenImpl& operator=(const RenderScreenImpl&) = delete;
 
-  void InitWithRenderWorker(base::ThreadWorker* render_worker,
-                            base::WeakPtr<ui::Widget> window,
-                            const std::string& wgpu_backend);
-
-  void PresentScreen();
-
-  renderer::RenderDevice* GetDevice() const;
-  CanvasScheduler* GetCanvasScheduler() const;
-  SpriteBatch* GetSpriteBatch() const;
-  ScopedFontData* GetScopedFontContext() const;
+  // Present current screen buffer to window.
+  // This function will wait for delta time to clamp fps.
+  void PresentScreenBuffer();
 
   DrawNodeController* GetDrawableController() { return &controller_; }
   base::ThreadWorker* GetRenderRunner() const { return render_worker_; }
   base::Vec2i GetResolution() const { return resolution_; }
 
+  renderer::RenderDevice* GetDevice() const { return agent_->device.get(); }
+  SpriteBatch* GetSpriteBatch() const { return agent_->sprite_batch.get(); }
+  ScopedFontData* GetScopedFontContext() const { return scoped_font_; }
+  CanvasScheduler* GetCanvasScheduler() const {
+    return agent_->canvas_scheduler.get();
+  }
+
   ContentProfile::APIVersion GetAPIVersion() const {
     return profile_->api_version;
   }
 
-  void PostTask(base::OnceClosure task);
-  void WaitWorkerSynchronize();
-
   base::CallbackListSubscription AddTickObserver(
       const base::RepeatingClosure& handler);
+
+  void PostTask(base::OnceClosure task);
+  void WaitWorkerSynchronize();
 
  public:
   void Update(ExceptionState& exception_state) override;
@@ -127,21 +129,21 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Brightness, uint32_t);
 
  private:
-  void InitGraphicsDeviceInternal(base::WeakPtr<ui::Widget> window,
-                                  const std::string& wgpu_backend);
+  void CreateGraphicsDeviceInternal(base::WeakPtr<ui::Widget> window);
   void DestroyGraphicsDeviceInternal();
-
-  void PresentScreenBufferInternal(Diligent::ITexture* render_target);
-  void FrameProcessInternal(Diligent::ITexture* present_target);
-  void UpdateWindowViewportInternal();
   void ResetScreenBufferInternal();
-  int DetermineRepeatNumberInternal(double delta_rate);
 
   void RenderFrameInternal(DrawNodeController* controller,
-                           Diligent::ITexture* render_target,
+                           Diligent::ITexture** render_target,
                            const base::Vec2i& target_size);
 
-  void FrameBeginRenderPassInternal(Diligent::ITexture* render_target);
+  void PresentScreenBufferInternal(Diligent::ITexture** render_target);
+  void FrameProcessInternal(Diligent::ITexture** present_target);
+
+  void UpdateWindowViewportInternal();
+  int DetermineRepeatNumberInternal(double delta_rate);
+
+  void FrameBeginRenderPassInternal(Diligent::ITexture** render_target);
   void FrameEndRenderPassInternal();
 
   void RenderAlphaTransitionFrameInternal(float progress);
@@ -183,12 +185,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   bool smooth_scale_;
   bool allow_skip_frame_;
   bool allow_background_running_;
-
-  struct {
-    std::string device;
-    std::string vendor;
-    std::string description;
-  } renderer_info_;
 };
 
 }  // namespace content

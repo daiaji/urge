@@ -9,31 +9,19 @@ namespace content {
 CanvasScheduler::~CanvasScheduler() = default;
 
 std::unique_ptr<CanvasScheduler> CanvasScheduler::MakeInstance(
+    base::ThreadWorker* worker,
     renderer::RenderDevice* device,
     filesystem::IOService* io_service) {
   return std::unique_ptr<CanvasScheduler>(
-      new CanvasScheduler(device, io_service));
+      new CanvasScheduler(worker, device, io_service));
 }
 
-renderer::RenderDevice* CanvasScheduler::GetDevice() {
+renderer::RenderDevice* CanvasScheduler::GetDevice() const {
   return device_;
 }
 
-filesystem::IOService* CanvasScheduler::GetIO() {
+filesystem::IOService* CanvasScheduler::GetIOService() const {
   return io_service_;
-}
-
-void CanvasScheduler::InitWithRenderWorker(base::ThreadWorker* worker) {
-  render_worker_ = worker;
-
-  // Make canvas drawing common transient vertex buffer
-  common_quad_batch_ = renderer::QuadBatch::Make(**device_);
-
-  // Create generic resource binding
-  generic_base_binding_ =
-      device_->GetPipelines()->base.CreateBinding<renderer::Binding_Base>();
-  generic_color_binding_ =
-      device_->GetPipelines()->color.CreateBinding<renderer::Binding_Color>();
 }
 
 void CanvasScheduler::SubmitPendingPaintCommands() {
@@ -43,8 +31,17 @@ void CanvasScheduler::SubmitPendingPaintCommands() {
   }
 }
 
-CanvasScheduler::CanvasScheduler(renderer::RenderDevice* device,
+CanvasScheduler::CanvasScheduler(base::ThreadWorker* worker,
+                                 renderer::RenderDevice* device,
                                  filesystem::IOService* io_service)
-    : device_(device), render_worker_(nullptr), io_service_(io_service) {}
+    : device_(device),
+      render_worker_(worker),
+      io_service_(io_service),
+      generic_base_binding_(
+          device->GetPipelines()->base.CreateBinding<renderer::Binding_Base>()),
+      generic_color_binding_(
+          device->GetPipelines()
+              ->color.CreateBinding<renderer::Binding_Color>()),
+      common_quad_batch_(renderer::QuadBatch::Make(**device)) {}
 
 }  // namespace content

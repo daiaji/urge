@@ -126,7 +126,7 @@ void GPUUpdateBatchSpriteInternal(
 
 void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
                                   SpriteBatch* batch_scheduler,
-                                  Diligent::IBuffer* world_binding,
+                                  Diligent::IBuffer** world_binding,
                                   SpriteAgent* agent,
                                   TextureAgent* texture,
                                   int32_t blend_type,
@@ -139,7 +139,7 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
         pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
     // Setup uniform params
-    batch_scheduler->GetShaderBinding()->u_transform->Set(world_binding);
+    batch_scheduler->GetShaderBinding()->u_transform->Set(*world_binding);
     batch_scheduler->GetShaderBinding()->u_texture->Set(texture->view);
     batch_scheduler->GetShaderBinding()->u_vertices->Set(
         batch_scheduler->GetQuadBinding());
@@ -656,10 +656,10 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     wave_.dirty = false;
     src_rect_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(base::BindOnce(
-        &GPUOnSpriteRenderingInternal, params->device,
-        screen()->GetSpriteBatch(), base::Unretained(params->world_binding),
-        agent_, current_texture, blend_type_, !!wave_.amp));
+    screen()->PostTask(
+        base::BindOnce(&GPUOnSpriteRenderingInternal, params->device,
+                       screen()->GetSpriteBatch(), params->world_binding,
+                       agent_, current_texture, blend_type_, !!wave_.amp));
   }
 }
 

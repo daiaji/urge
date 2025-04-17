@@ -349,7 +349,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
-                                      Diligent::IBuffer* world_binding,
+                                      Diligent::IBuffer** world_binding,
                                       const base::Rect& last_viewport,
                                       const base::Rect& bound,
                                       WindowAgent* agent,
@@ -374,7 +374,7 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
     }
 
     // Setup uniform params
-    agent->shader_binding->u_transform->Set(world_binding);
+    agent->shader_binding->u_transform->Set(*world_binding);
     agent->shader_binding->u_texture->Set(windowskin->view);
 
     // Apply pipeline state
@@ -411,7 +411,7 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
 }
 
 void GPURenderControlLayerInternal(renderer::RenderDevice* device,
-                                   Diligent::IBuffer* world_binding,
+                                   Diligent::IBuffer** world_binding,
                                    const base::Rect& last_viewport,
                                    const base::Vec2i& last_origin,
                                    const base::Rect& bound,
@@ -455,7 +455,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
 
     if (windowskin && agent->control_draw_count) {
       // Setup uniform params
-      agent->shader_binding->u_transform->Set(world_binding);
+      agent->shader_binding->u_transform->Set(*world_binding);
       agent->shader_binding->u_texture->Set(windowskin->view);
 
       // Apply pipeline state
@@ -495,7 +495,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
 
     if (contents && agent->contents_draw_count) {
       // Setup uniform params
-      agent->shader_binding->u_transform->Set(world_binding);
+      agent->shader_binding->u_transform->Set(*world_binding);
       agent->shader_binding->u_texture->Set(contents->view);
 
       // Apply pipeline state
@@ -879,10 +879,10 @@ void WindowImpl::BackgroundNodeHandlerInternal(
                                         windowskin_->GetAgent(), scale_, bound_,
                                         stretch_, opacity_, back_opacity_));
     } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-      screen()->PostTask(base::BindOnce(
-          &GPURenderBackgroundLayerInternal, params->device,
-          base::Unretained(params->world_binding), params->viewport, bound_,
-          agent_, windowskin_->GetAgent()));
+      screen()->PostTask(base::BindOnce(&GPURenderBackgroundLayerInternal,
+                                        params->device, params->world_binding,
+                                        params->viewport, bound_, agent_,
+                                        windowskin_->GetAgent()));
     }
   }
 }
@@ -904,11 +904,10 @@ void WindowImpl::ControlNodeHandlerInternal(
         contents_agent, pause_, pause_index_, contents_opacity_,
         cursor_opacity_));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(
-        base::BindOnce(&GPURenderControlLayerInternal, params->device,
-                       base::Unretained(params->world_binding),
-                       params->viewport, params->origin, bound_, agent_,
-                       windowskin_agent, contents_agent, scale_));
+    screen()->PostTask(base::BindOnce(
+        &GPURenderControlLayerInternal, params->device, params->world_binding,
+        params->viewport, params->origin, bound_, agent_, windowskin_agent,
+        contents_agent, scale_));
   }
 }
 

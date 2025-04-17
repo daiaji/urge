@@ -77,8 +77,8 @@ void GPUResetViewportRegion(renderer::RenderDevice* device,
 }
 
 void GPUApplyViewportEffect(renderer::RenderDevice* device,
-                            Diligent::ITexture* screen_buffer,
-                            Diligent::IBuffer* root_world,
+                            Diligent::ITexture** screen_buffer,
+                            Diligent::IBuffer** root_world,
                             ViewportAgent* agent,
                             const base::Rect& effect_region,
                             const base::Vec4& color,
@@ -92,7 +92,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
   box.MaxY = effect_region.y + effect_region.height;
 
   Diligent::CopyTextureAttribs copy_texture_attribs;
-  copy_texture_attribs.pSrcTexture = screen_buffer;
+  copy_texture_attribs.pSrcTexture = *screen_buffer;
   copy_texture_attribs.pSrcBox = &box;
   copy_texture_attribs.pDstTexture = agent->effect.intermediate_layer;
   context->CopyTexture(copy_texture_attribs);
@@ -116,13 +116,13 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
 
   // Apply render target
   Diligent::ITextureView* render_target_view =
-      screen_buffer->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+      (*screen_buffer)->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Setup uniform params
-  agent->effect.binding->u_transform->Set(root_world);
+  agent->effect.binding->u_transform->Set(*root_world);
   agent->effect.binding->u_texture->Set(
       agent->effect.intermediate_layer->GetDefaultView(
           Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
@@ -150,9 +150,9 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
 }
 
 void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
-                                   Diligent::IBuffer* root_world,
+                                   Diligent::IBuffer** root_world,
                                    const base::Rect& last_viewport,
-                                   Diligent::ITexture* screen_buffer,
+                                   Diligent::ITexture** screen_buffer,
                                    ViewportAgent* agent,
                                    const base::Rect& effect_region,
                                    const base::Vec4& color,
@@ -314,7 +314,7 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
   controller_params.device = screen()->GetDevice();
-  controller_params.screen_buffer = bitmap_agent->data;
+  controller_params.screen_buffer = bitmap_agent->data.RawDblPtr();
   controller_params.screen_size = bitmap_agent->size;
   controller_params.viewport = bitmap_agent->size;
   controller_params.origin = base::Vec2i();
@@ -337,8 +337,8 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
       base::Unretained(bitmap_agent->data.RawPtr()), offset));
 
   // 3) Notify render a frame
-  controller_params.root_world = bitmap_agent->world_buffer;
-  controller_params.world_binding = agent_->world_uniform;
+  controller_params.root_world = bitmap_agent->world_buffer.RawDblPtr();
+  controller_params.world_binding = agent_->world_uniform.RawDblPtr();
   controller_.BroadCastNotification(DrawableNode::ON_RENDERING,
                                     &controller_params);
 
@@ -350,11 +350,10 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
     target_color =
         (flash_color.w > composite_color.w ? flash_color : composite_color);
 
-  screen()->PostTask(
-      base::BindOnce(&GPUApplyViewportEffect, controller_params.device,
-                     base::Unretained(controller_params.screen_buffer),
-                     base::Unretained(controller_params.root_world), agent_,
-                     viewport_rect, target_color, tone_->AsNormColor()));
+  screen()->PostTask(base::BindOnce(
+      &GPUApplyViewportEffect, controller_params.device,
+      controller_params.screen_buffer, controller_params.root_world, agent_,
+      viewport_rect, target_color, tone_->AsNormColor()));
 
   screen()->WaitWorkerSynchronize();
 }
@@ -529,7 +528,7 @@ void ViewportImpl::DrawableNodeHandlerInternal(
 
   if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     // Setup viewport's world settings
-    transient_params.world_binding = agent_->world_uniform;
+    transient_params.world_binding = agent_->world_uniform.RawDblPtr();
 
     // Set new viewport
     screen()->PostTask(
@@ -548,11 +547,10 @@ void ViewportImpl::DrawableNodeHandlerInternal(
       target_color =
           (flash_color.w > composite_color.w ? flash_color : composite_color);
 
-    screen()->PostTask(
-        base::BindOnce(&GPUViewportProcessAfterRender, params->device,
-                       base::Unretained(params->root_world), params->viewport,
-                       base::Unretained(params->screen_buffer), agent_,
-                       viewport_rect, target_color, tone_->AsNormColor()));
+    screen()->PostTask(base::BindOnce(
+        &GPUViewportProcessAfterRender, params->device, params->root_world,
+        params->viewport, params->screen_buffer, agent_, viewport_rect,
+        target_color, tone_->AsNormColor()));
   }
 }
 
