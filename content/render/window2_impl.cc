@@ -67,6 +67,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
                                      device->IsUVFlip());
       renderer::MakeIdentityMatrix(world_matrix.transform);
 
+      agent->background_world.Release();
       Diligent::CreateUniformBuffer(**device, sizeof(world_matrix),
                                     "window2.world", &agent->background_world,
                                     Diligent::USAGE_IMMUTABLE,

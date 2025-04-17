@@ -436,7 +436,7 @@ void GPUMakeAtlasInternal(
     sub_res_data.pData = shadow_set->pixels;
     sub_res_data.Stride = shadow_set->pitch;
 
-    context->UpdateTexture(agent->atlas_texture, 0, 1, box, sub_res_data,
+    context->UpdateTexture(agent->atlas_texture, 0, 0, box, sub_res_data,
                            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
