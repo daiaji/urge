@@ -120,8 +120,8 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   }
 
   // Initialize graphics pipelines
-  std::unique_ptr<PipelineSet> pipelines_set = std::make_unique<PipelineSet>(
-      device, Diligent::TEXTURE_FORMAT::TEX_FORMAT_RGBA8_UNORM);
+  std::unique_ptr<PipelineSet> pipelines_set =
+      std::make_unique<PipelineSet>(device, Diligent::TEX_FORMAT_RGBA8_UNORM);
 
   // Initialize generic quad index buffer
   std::unique_ptr<QuadIndexCache> quad_index_cache =

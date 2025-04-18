@@ -12,25 +12,19 @@ void CreateTexture2D(Diligent::IRenderDevice* device,
                      const base::Vec2i& size,
                      Diligent::USAGE usage,
                      Diligent::BIND_FLAGS bind_flags,
-                     Diligent::CPU_ACCESS_FLAGS access) {
+                     Diligent::CPU_ACCESS_FLAGS access,
+                     Diligent::TEXTURE_FORMAT format) {
   Diligent::TextureDesc texture_desc;
   texture_desc.Name = name.c_str();
   texture_desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
   texture_desc.Width = size.x;
   texture_desc.Height = size.y;
-  texture_desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM;
+  texture_desc.Format = format;
   texture_desc.BindFlags = bind_flags;
   texture_desc.Usage = usage;
   texture_desc.CPUAccessFlags = access;
-  texture_desc.ClearValue.Format = texture_desc.Format;
-  std::memset(texture_desc.ClearValue.Color, 0,
-              sizeof(texture_desc.ClearValue.Color));
 
-  Diligent::TextureData texture_data;
-  texture_data.pSubResources = nullptr;
-  texture_data.NumSubresources = 0;
-
-  device->CreateTexture(texture_desc, &texture_data, texture);
+  device->CreateTexture(texture_desc, nullptr, texture);
 }
 
 void CreateTexture2D(Diligent::IRenderDevice* device,
@@ -39,19 +33,17 @@ void CreateTexture2D(Diligent::IRenderDevice* device,
                      SDL_Surface* data,
                      Diligent::USAGE usage,
                      Diligent::BIND_FLAGS bind_flags,
-                     Diligent::CPU_ACCESS_FLAGS access) {
+                     Diligent::CPU_ACCESS_FLAGS access,
+                     Diligent::TEXTURE_FORMAT format) {
   Diligent::TextureDesc texture_desc;
   texture_desc.Name = name.c_str();
   texture_desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
   texture_desc.Width = data->w;
   texture_desc.Height = data->h;
-  texture_desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM;
+  texture_desc.Format = format;
   texture_desc.BindFlags = bind_flags;
   texture_desc.Usage = usage;
   texture_desc.CPUAccessFlags = access;
-  texture_desc.ClearValue.Format = texture_desc.Format;
-  std::memset(texture_desc.ClearValue.Color, 0,
-              sizeof(texture_desc.ClearValue.Color));
 
   Diligent::TextureSubResData texture_sub_res_data;
   texture_sub_res_data.pData = data->pixels;

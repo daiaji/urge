@@ -21,7 +21,9 @@ void CreateTexture2D(
     const base::Vec2i& size,
     Diligent::USAGE usage = Diligent::USAGE_DEFAULT,
     Diligent::BIND_FLAGS bind_flags = Diligent::BIND_SHADER_RESOURCE,
-    Diligent::CPU_ACCESS_FLAGS access = Diligent::CPU_ACCESS_NONE);
+    Diligent::CPU_ACCESS_FLAGS access = Diligent::CPU_ACCESS_NONE,
+    Diligent::TEXTURE_FORMAT format =
+        Diligent::TEXTURE_FORMAT::TEX_FORMAT_RGBA8_UNORM);
 
 void CreateTexture2D(
     Diligent::IRenderDevice* device,
@@ -30,7 +32,9 @@ void CreateTexture2D(
     SDL_Surface* data,
     Diligent::USAGE usage = Diligent::USAGE_DEFAULT,
     Diligent::BIND_FLAGS bind_flags = Diligent::BIND_SHADER_RESOURCE,
-    Diligent::CPU_ACCESS_FLAGS access = Diligent::CPU_ACCESS_NONE);
+    Diligent::CPU_ACCESS_FLAGS access = Diligent::CPU_ACCESS_NONE,
+    Diligent::TEXTURE_FORMAT format =
+        Diligent::TEXTURE_FORMAT::TEX_FORMAT_RGBA8_UNORM);
 
 }  // namespace renderer
 
