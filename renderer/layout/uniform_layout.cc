@@ -46,7 +46,7 @@ void MakeProjectionMatrix(float* out,
   out[15] = 1.0f;
 
   out[12] = aa * offset.x - 1.0f;
-  out[13] = y_scale * (bb * offset.y + 1.0f);
+  out[13] = bb * offset.y + y_scale;
 }
 
 }  // namespace renderer
