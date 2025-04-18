@@ -295,11 +295,11 @@ struct VSInput {
 struct PSInput {
   float4 Pos : SV_Position;
   float2 UV : TEXCOORD0;
-  float4 Color : NORMAL;
-  float4 Tone : NORMAL;
-  float Opacity : NORMAL;
-  float BushDepth : NORMAL;
-  float BushOpacity : NORMAL;
+  float4 Color : NORMAL0;
+  float4 Tone : NORMAL1;
+  float Opacity : NORMAL2;
+  float BushDepth : NORMAL3;
+  float BushOpacity : NORMAL4;
 };
 
 void main(in VSInput VSIn, out PSInput PSIn) {
@@ -346,11 +346,11 @@ SamplerState u_Texture_sampler;
 struct PSInput {
   float4 Pos : SV_Position;
   float2 UV : TEXCOORD0;
-  float4 Color : NORMAL;
-  float4 Tone : NORMAL;
-  float Opacity : NORMAL;
-  float BushDepth : NORMAL;
-  float BushOpacity : NORMAL;
+  float4 Color : NORMAL0;
+  float4 Tone : NORMAL1;
+  float Opacity : NORMAL2;
+  float BushDepth : NORMAL3;
+  float BushOpacity : NORMAL4;
 };
 
 struct PSOutput {
@@ -748,7 +748,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 // resource:
 //   { float4x4, float4x4 }
 //   { Texture2D }
-// 
+//
 // defination:
 //   CONVERT_PS_OUTPUT_TO_GAMMA
 ///

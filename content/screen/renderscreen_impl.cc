@@ -343,7 +343,10 @@ void RenderScreenImpl::Put_Brightness(const uint32_t& value, ExceptionState&) {
 void RenderScreenImpl::CreateGraphicsDeviceInternal(
     base::WeakPtr<ui::Widget> window) {
   // Create primary device on window widget
-  agent_->device = renderer::RenderDevice::Create(window);
+  agent_->device = renderer::RenderDevice::Create(
+      window,
+      magic_enum::enum_cast<renderer::DriverType>(profile_->driver_backend)
+          .value_or(renderer::DriverType::UNDEFINED));
 
   // Create global canvas scheduler
   agent_->canvas_scheduler = CanvasScheduler::MakeInstance(

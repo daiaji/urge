@@ -16,6 +16,14 @@ using RRefPtr = Diligent::RefCntAutoPtr<Ty>;
 
 namespace renderer {
 
+enum class DriverType {
+  UNDEFINED = 0,
+  OPENGL,
+  VULKAN,
+  D3D11,
+  D3D12,
+};
+
 class RenderDevice {
  public:
   struct PipelineSet {
@@ -41,7 +49,8 @@ class RenderDevice {
   };
 
   static std::unique_ptr<RenderDevice> Create(
-      base::WeakPtr<ui::Widget> window_target);
+      base::WeakPtr<ui::Widget> window_target,
+      DriverType driver_type);
 
   ~RenderDevice();
 

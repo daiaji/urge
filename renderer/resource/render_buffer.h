@@ -84,6 +84,9 @@ class BatchBuffer {
       device_->CreateBuffer(buffer_desc, nullptr, &buffer_);
     }
 
+    if (!data)
+      return;
+
     if constexpr (Usage == Diligent::USAGE_DEFAULT) {
       context->UpdateBuffer(buffer_, 0, bytes_size, data,
                             Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);

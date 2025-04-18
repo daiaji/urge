@@ -101,7 +101,7 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   default_font_path =
       reader->Get("Engine", "DefaultFontPath", default_font_path);
   ReplaceStringWidth(default_font_path, '\\', '/');
-  wgpu_backend = reader->Get("Engine", "WGPUBackend", wgpu_backend);
+  driver_backend = reader->Get("Engine", "GraphicsAPI", driver_backend);
   i18n_xml_path = reader->Get("Engine", "I18nXMLPath", app + ".xml");
 
   if (ini_stream_)

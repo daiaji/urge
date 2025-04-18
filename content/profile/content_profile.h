@@ -43,7 +43,7 @@ class ContentProfile {
 
   APIVersion api_version = APIVersion::UNKNOWN;
   std::string default_font_path = "Fonts/Default.ttf";
-  std::string wgpu_backend;
+  std::string driver_backend;
   std::string i18n_xml_path;
 
  private:
