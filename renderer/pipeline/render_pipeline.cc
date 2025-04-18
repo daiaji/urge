@@ -88,6 +88,8 @@ void RenderPipelineBase::BuildPipeline(
     shader_desc.Desc.Name = vertex_shader.name.c_str();
     shader_desc.Source = vertex_shader.source.c_str();
     shader_desc.SourceLength = vertex_shader.source.size();
+    shader_desc.Macros.Count = vertex_shader.macros.size();
+    shader_desc.Macros.Elements = vertex_shader.macros.data();
     device_->CreateShader(shader_desc, &vertex_shader_object);
 
     shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
@@ -95,6 +97,8 @@ void RenderPipelineBase::BuildPipeline(
     shader_desc.Desc.Name = pixel_shader.name.c_str();
     shader_desc.Source = pixel_shader.source.c_str();
     shader_desc.SourceLength = pixel_shader.source.size();
+    shader_desc.Macros.Count = pixel_shader.macros.size();
+    shader_desc.Macros.Elements = pixel_shader.macros.data();
     device_->CreateShader(shader_desc, &pixel_shader_object);
   }
 
@@ -366,6 +370,39 @@ Pipeline_Tilemap2::Pipeline_Tilemap2(Diligent::IRenderDevice* device,
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_VERTEX, "Tilemap2UniformBuffer",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_Texture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
+                samplers, target_format);
+}
+
+Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
+                                   Diligent::TEXTURE_FORMAT target_format,
+                                   bool setup_gamma_convert)
+    : RenderPipelineBase(device) {
+  Diligent::ShaderMacro pixel_macro = {"CONVERT_PS_OUTPUT_TO_GAMMA",
+                                       setup_gamma_convert ? "1" : "0"};
+
+  const ShaderSource vertex_shader{kHLSL_PresentRender_VertexShader, "main",
+                                   "present.vertex"};
+  const ShaderSource pixel_shader{
+      kHLSL_PresentRender_PixelShader, "main", "present.pixel", {pixel_macro}};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 

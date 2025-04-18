@@ -350,10 +350,20 @@ void RenderScreenImpl::CreateGraphicsDeviceInternal(
   // Create global sprite batch scheduler
   agent_->sprite_batch = SpriteBatch::Make(agent_->device.get());
 
+  // Get display gamma attribute
+  const auto& swapchain_desc = agent_->device->GetSwapchain()->GetDesc();
+
+  // If the swap chain color buffer format is a non-sRGB UNORM format,
+  // we need to manually convert pixel shader output to gamma space.
+  bool convert_output_to_gamma =
+      (swapchain_desc.ColorBufferFormat == Diligent::TEX_FORMAT_RGBA8_UNORM ||
+       swapchain_desc.ColorBufferFormat == Diligent::TEX_FORMAT_BGRA8_UNORM);
+
   // Create screen present pipeline
-  agent_->present_pipeline.reset(new renderer::Pipeline_Base(
+  agent_->present_pipeline.reset(new renderer::Pipeline_Present(
       **agent_->device,
-      agent_->device->GetSwapchain()->GetDesc().ColorBufferFormat));
+      agent_->device->GetSwapchain()->GetDesc().ColorBufferFormat,
+      convert_output_to_gamma));
 
   // Create generic quads batch
   agent_->effect_quads = renderer::QuadBatch::Make(**agent_->device);

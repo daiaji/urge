@@ -734,4 +734,82 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 
 )";
 
+///
+// type:
+//   present shader
+///
+// entry:
+//   vertex: main
+//   pixel: main
+///
+// vertex:
+//   <float4, float2, float4>
+///
+// resource:
+//   { float4x4, float4x4 }
+//   { Texture2D }
+// 
+// defination:
+//   CONVERT_PS_OUTPUT_TO_GAMMA
+///
+
+const std::string kHLSL_PresentRender_VertexShader = R"(
+
+struct WorldMatrix {
+  float4x4 ProjMat;
+  float4x4 TransMat;
+};
+
+cbuffer WorldMatrixBuffer {
+  WorldMatrix u_Transform;
+};
+
+struct VSInput {
+  float4 Pos : ATTRIB0;
+  float2 UV : ATTRIB1;
+  float4 Color : ATTRIB2;
+};
+
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+  float4 Color : COLOR0;
+};
+
+void main(in VSInput VSIn, out PSInput PSIn) {
+  PSIn.Pos = mul(VSIn.Pos, u_Transform.ProjMat);
+  PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
+  PSIn.UV = VSIn.UV;
+  PSIn.Color = VSIn.Color;
+}
+
+)";
+
+const std::string kHLSL_PresentRender_PixelShader = R"(
+
+Texture2D u_Texture;
+SamplerState u_Texture_sampler;
+
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+  float4 Color : COLOR0;
+};
+
+struct PSOutput {
+  float4 Color : SV_TARGET;
+};
+
+void main(in PSInput PSIn, out PSOutput PSOut) {
+  float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
+  frag.a *= PSIn.Color.a;
+  PSOut.Color = frag;
+#if CONVERT_PS_OUTPUT_TO_GAMMA
+  // Use fast approximation for gamma correction.
+  PSOut.Color.rgb = pow(PSOut.Color.rgb, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
+#endif
+}
+
+)";
+
 }  // namespace renderer

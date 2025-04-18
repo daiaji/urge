@@ -37,7 +37,7 @@ struct RenderGraphicsAgent {
   std::unique_ptr<renderer::RenderBindingBase> transition_binding;
 
   Diligent::ITexture** present_target = nullptr;
-  std::unique_ptr<renderer::Pipeline_Base> present_pipeline;
+  std::unique_ptr<renderer::Pipeline_Present> present_pipeline;
 };
 
 class GraphicsChild {

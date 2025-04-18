@@ -155,6 +155,27 @@ extern const std::string kHLSL_TilemapRender_PixelShader;
 extern const std::string kHLSL_Tilemap2Render_VertexShader;
 extern const std::string kHLSL_Tilemap2Render_PixelShader;
 
+///
+// type:
+//   present shader
+///
+// entry:
+//   vertex: main
+//   pixel: main
+///
+// vertex:
+//   <float4, float2, float4>
+///
+// resource:
+//   { float4x4, float4x4 }
+//   { Texture2D }
+//
+// defination:
+//   CONVERT_PS_OUTPUT_TO_GAMMA
+///
+extern const std::string kHLSL_PresentRender_VertexShader;
+extern const std::string kHLSL_PresentRender_PixelShader;
+
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_BUILTIN_HLSL_H_

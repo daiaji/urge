@@ -36,6 +36,7 @@ class RenderPipelineBase {
     std::string source;
     std::string entry = "main";
     std::string name = "shader";
+    std::vector<Diligent::ShaderMacro> macros;
   };
 
   virtual ~RenderPipelineBase() = default;
@@ -116,6 +117,13 @@ class Pipeline_Tilemap2 : public RenderPipelineBase {
  public:
   Pipeline_Tilemap2(Diligent::IRenderDevice* device,
                     Diligent::TEXTURE_FORMAT target_format);
+};
+
+class Pipeline_Present : public RenderPipelineBase {
+ public:
+  Pipeline_Present(Diligent::IRenderDevice* device,
+                   Diligent::TEXTURE_FORMAT target_format,
+                   bool setup_gamma_convert);
 };
 
 }  // namespace renderer
