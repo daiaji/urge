@@ -140,6 +140,7 @@ void RenderScreenImpl::FadeOut(uint32_t duration,
 
   // Set final brightness
   brightness_ = 0;
+  Update(exception_state);
 }
 
 void RenderScreenImpl::FadeIn(uint32_t duration,
@@ -161,6 +162,7 @@ void RenderScreenImpl::FadeIn(uint32_t duration,
 
   // Set final brightness
   brightness_ = 255;
+  Update(exception_state);
 }
 
 void RenderScreenImpl::Freeze(ExceptionState& exception_state) {
