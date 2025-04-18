@@ -267,19 +267,18 @@ cbuffer WorldMatrixBuffer {
 
 struct SpriteVertex {
   float4 Pos;
-  float2 UV;
+  float4 UV;
 };
 
 struct SpriteParams {
   float4 Color;
   float4 Tone;
-  float2 Position;
-  float2 Origin;
-  float2 Scale;
-  float Rotation;
-  float Opacity;
-  float BushDepth;
-  float BushOpacity;
+  float4 Position;
+  float4 Origin;
+  float4 Scale;
+  float4 Rotation;
+  float4 Opacity;
+  float4 BushDepthAndOpacity;
 };
 
 StructuredBuffer<SpriteVertex> u_Vertices;
@@ -308,8 +307,8 @@ void main(in VSInput VSIn, out PSInput PSIn) {
   SpriteVertex vert = u_Vertices[vertex_index + 4 * instance_index];
   SpriteParams effect = u_Params[instance_index];
 
-  float sine = sin(effect.Rotation);
-  float cosine = cos(effect.Rotation);
+  float sine = sin(effect.Rotation.x);
+  float cosine = cos(effect.Rotation.x);
 
   float sxs = effect.Scale.x * sine;
   float sxc = effect.Scale.x * cosine;
@@ -328,12 +327,12 @@ void main(in VSInput VSIn, out PSInput PSIn) {
 
   PSIn.Pos = mul(transPos, u_Transform.ProjMat);
   PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
-  PSIn.UV = vert.UV;
+  PSIn.UV = vert.UV.xy;
   PSIn.Color = effect.Color;
   PSIn.Tone = effect.Tone;
-  PSIn.Opacity = effect.Opacity;
-  PSIn.BushDepth = effect.BushDepth;
-  PSIn.BushOpacity = effect.BushOpacity;
+  PSIn.Opacity = effect.Opacity.x;
+  PSIn.BushDepth = effect.BushDepthAndOpacity.x;
+  PSIn.BushOpacity = effect.BushDepthAndOpacity.y;
 }
 
 )";

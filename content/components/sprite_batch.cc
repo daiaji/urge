@@ -22,10 +22,10 @@ void SpriteQuad::SetTexCoordRect(SpriteQuad* data,
   const base::Vec2 tex_size = (texcoord.Position() + texcoord.Size()) / size;
 
   int i = 0;
-  data->vertices[i++].texcoord = tex_pos;
-  data->vertices[i++].texcoord = base::Vec2(tex_size.x, tex_pos.y);
-  data->vertices[i++].texcoord = tex_size;
-  data->vertices[i++].texcoord = base::Vec2(tex_pos.x, tex_size.y);
+  data->vertices[i++].texcoord = base::MakeVec4(tex_pos, 0);
+  data->vertices[i++].texcoord = base::Vec4(tex_size.x, tex_pos.y, 0, 0);
+  data->vertices[i++].texcoord = base::MakeVec4(tex_size, 0);
+  data->vertices[i++].texcoord = base::Vec4(tex_pos.x, tex_size.y, 0, 0);
 }
 
 SpriteBatch::SpriteBatch(renderer::RenderDevice* device,

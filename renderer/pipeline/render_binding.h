@@ -93,19 +93,18 @@ class Binding_Sprite : public RenderBindingBase {
  public:
   SHADER_RESOURCE(Vertex) {
     ALIGNMENT_TYPE(base::Vec4) position;
-    ALIGNMENT_TYPE(base::Vec2) texcoord;
+    ALIGNMENT_TYPE(base::Vec4) texcoord;
   };
 
   SHADER_RESOURCE(Params) {
     ALIGNMENT_TYPE(base::Vec4) Color;
     ALIGNMENT_TYPE(base::Vec4) Tone;
-    ALIGNMENT_TYPE(base::Vec2) Position;
-    ALIGNMENT_TYPE(base::Vec2) Origin;
-    ALIGNMENT_TYPE(base::Vec2) Scale;
-    ALIGNMENT_TYPE(float) Rotation;
-    ALIGNMENT_TYPE(float) Opacity;
-    ALIGNMENT_TYPE(float) BushDepth;
-    ALIGNMENT_TYPE(float) BushOpacity;
+    ALIGNMENT_TYPE(base::Vec4) Position;
+    ALIGNMENT_TYPE(base::Vec4) Origin;
+    ALIGNMENT_TYPE(base::Vec4) Scale;
+    ALIGNMENT_TYPE(base::Vec4) Rotation;
+    ALIGNMENT_TYPE(base::Vec4) Opacity;
+    ALIGNMENT_TYPE(base::Vec4) BushDepthAndOpacity;
   };
 
   ShaderVariable u_transform;

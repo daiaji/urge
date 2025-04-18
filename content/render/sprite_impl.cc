@@ -198,7 +198,7 @@ SpriteImpl::SpriteImpl(RenderScreenImpl* screen,
       &SpriteImpl::SrcRectChangedInternal, base::Unretained(this)));
 
   std::memset(&uniform_params_, 0, sizeof(uniform_params_));
-  uniform_params_.Scale = base::Vec2(1.0f);
+  uniform_params_.Scale = base::Vec4(1.0f);
 
   agent_ = new SpriteAgent;
   screen->PostTask(
@@ -642,10 +642,11 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     uniform_params_.Color = target_color;
     uniform_params_.Tone = tone_->AsNormColor();
     uniform_params_.Opacity = static_cast<float>(opacity_) / 255.0f;
-    uniform_params_.BushDepth =
+    uniform_params_.BushDepthAndOpacity.x =
         static_cast<float>(src_rect.y + src_rect.height - bush_.depth) /
         current_texture->size.y;
-    uniform_params_.BushOpacity = static_cast<float>(bush_.opacity) / 255.0f;
+    uniform_params_.BushDepthAndOpacity.y =
+        static_cast<float>(bush_.opacity) / 255.0f;
 
     DrawableNode* next_node = node_.GetNextNode();
     SpriteImpl* next_sprite =
