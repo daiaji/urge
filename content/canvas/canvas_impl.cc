@@ -451,15 +451,44 @@ scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,
 }
 
 scoped_refptr<Bitmap> Bitmap::Deserialize(ExecutionContext* execution_context,
-                                          const std::string&,
+                                          const std::string& data,
                                           ExceptionState& exception_state) {
-  return nullptr;
+  const uint8_t* raw_data = reinterpret_cast<const uint8_t*>(data.data());
+
+  uint32_t surface_width = 0, surface_height = 0;
+  std::memcpy(&surface_width, raw_data + sizeof(uint32_t) * 0,
+              sizeof(uint32_t));
+  std::memcpy(&surface_height, raw_data + sizeof(uint32_t) * 1,
+              sizeof(uint32_t));
+
+  SDL_Surface* surface = SDL_CreateSurface(surface_width, surface_height,
+                                           SDL_PIXELFORMAT_ABGR8888);
+  std::memcpy(surface->pixels, raw_data + sizeof(uint32_t) * 2,
+              surface->pitch * surface->h);
+
+  return CanvasImpl::Create(
+      execution_context->canvas_scheduler, execution_context->graphics,
+      execution_context->font_context, surface, "MemoryData", exception_state);
 }
 
 std::string Bitmap::Serialize(ExecutionContext* execution_context,
-                              scoped_refptr<Bitmap>,
+                              scoped_refptr<Bitmap> value,
                               ExceptionState& exception_state) {
-  return std::string();
+  scoped_refptr<CanvasImpl> bitmap = CanvasImpl::FromBitmap(value);
+  SDL_Surface* surface = bitmap->RequireMemorySurface();
+
+  std::string serialized_data(
+      sizeof(uint32_t) * 2 + surface->pitch * surface->h, 0);
+
+  uint32_t surface_width = surface->w, surface_height = surface->h;
+  std::memcpy(serialized_data.data() + sizeof(uint32_t) * 0, &surface_width,
+              sizeof(uint32_t));
+  std::memcpy(serialized_data.data() + sizeof(uint32_t) * 1, &surface_height,
+              sizeof(uint32_t));
+  std::memcpy(serialized_data.data() + sizeof(uint32_t) * 2, surface->pixels,
+              surface->pitch * surface->h);
+
+  return serialized_data;
 }
 
 scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
@@ -476,8 +505,6 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
   }
 
   auto* canvas_texture_agent = new TextureAgent;
-  canvas_texture_agent->name =
-      std::to_string(size.x) + "x" + std::to_string(size.y);
   canvas_texture_agent->size = size;
 
   base::ThreadWorker::PostTask(
@@ -519,15 +546,24 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
     return nullptr;
   }
 
+  return CanvasImpl::Create(scheduler, screen, font_data, memory_texture,
+                            filename, exception_state);
+}
+
+scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
+                                             RenderScreenImpl* screen,
+                                             ScopedFontData* font_data,
+                                             SDL_Surface* memory_texture,
+                                             const std::string& debug_name,
+                                             ExceptionState& exception_state) {
   auto* canvas_texture_agent = new TextureAgent;
-  canvas_texture_agent->name = filename;
   canvas_texture_agent->size =
       base::Vec2i(memory_texture->w, memory_texture->h);
 
   base::ThreadWorker::PostTask(
       scheduler->render_worker(),
       base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
-                     memory_texture, filename, canvas_texture_agent));
+                     memory_texture, debug_name, canvas_texture_agent));
 
   return new CanvasImpl(screen, scheduler, canvas_texture_agent,
                         new FontImpl(font_data), canvas_texture_agent->name);
@@ -984,6 +1020,15 @@ scoped_refptr<Rect> CanvasImpl::TextSize(const std::string& str,
   int w, h;
   TTF_GetStringSize(font, str.c_str(), str.size(), &w, &h);
   return new RectImpl(base::Rect(0, 0, w, h));
+}
+
+void CanvasImpl::SavePNG(const std::string& filename,
+                         ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
+  SDL_Surface* surface = RequireMemorySurface();
+  IMG_SavePNG(surface, filename.c_str());
 }
 
 void CanvasImpl::OnObjectDisposed() {

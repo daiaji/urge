@@ -185,6 +185,10 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
   virtual scoped_refptr<Rect> TextSize(const std::string& str,
                                        ExceptionState& exception_state) = 0;
 
+  /*--urge(name:save_png)--*/
+  virtual void SavePNG(const std::string& filename,
+                       ExceptionState& exception_state) = 0;
+
   /*--urge(name:font)--*/
   URGE_EXPORT_ATTRIBUTE(Font, scoped_refptr<Font>);
 };

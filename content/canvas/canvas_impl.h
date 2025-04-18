@@ -69,6 +69,13 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
                                           const std::string& filename,
                                           ExceptionState& exception_state);
 
+  static scoped_refptr<CanvasImpl> Create(CanvasScheduler* scheduler,
+                                          RenderScreenImpl* screen,
+                                          ScopedFontData* font_data,
+                                          SDL_Surface* memory_texture,
+                                          const std::string& debug_name,
+                                          ExceptionState& exception_state);
+
   static scoped_refptr<CanvasImpl> FromBitmap(scoped_refptr<Bitmap> host);
 
   std::string GetCanvasName() const { return name_; }
@@ -187,6 +194,9 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
                 ExceptionState& exception_state) override;
   scoped_refptr<Rect> TextSize(const std::string& str,
                                ExceptionState& exception_state) override;
+
+  void SavePNG(const std::string& filename,
+               ExceptionState& exception_state) override;
 
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Font, scoped_refptr<Font>);
 
