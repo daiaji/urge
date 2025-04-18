@@ -563,6 +563,12 @@ WindowImpl::~WindowImpl() {
   Dispose(exception_state);
 }
 
+void WindowImpl::SetLabel(const std::string& label,
+                          ExceptionState& exception_state) {
+  background_node_.SetDebugLabel(label);
+  control_node_.SetDebugLabel(label);
+}
+
 void WindowImpl::Dispose(ExceptionState& exception_state) {
   Disposable::Dispose(exception_state);
 }

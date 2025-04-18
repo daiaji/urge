@@ -54,6 +54,10 @@ class URGE_RUNTIME_API Window2 : public base::RefCounted<Window2> {
                                     int32_t scale,
                                     ExceptionState& exception_state);
 
+  /*--urge(name:set_label)--*/
+  virtual void SetLabel(const std::string& label,
+                        ExceptionState& exception_state) = 0;
+
   /*--urge(name:dispose)--*/
   virtual void Dispose(ExceptionState& exception_state) = 0;
 

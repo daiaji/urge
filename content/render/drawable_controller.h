@@ -157,8 +157,14 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
   DrawableNode* GetPreviousNode();
   DrawableNode* GetNextNode();
 
+  // Debug info
+  void SetDebugLabel(const std::string& label) { debug_label_ = label; }
+  std::string GetDebugLabel() const { return debug_label_; }
+
  private:
   friend class DrawNodeController;
+
+  std::string debug_label_;
 
   DrawNodeController* controller_;
   NotificationHandler handler_;

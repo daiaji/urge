@@ -161,6 +161,11 @@ PlaneImpl::~PlaneImpl() {
   Dispose(exception_state);
 }
 
+void PlaneImpl::SetLabel(const std::string& label,
+                         ExceptionState& exception_state) {
+  node_.SetDebugLabel(label);
+}
+
 void PlaneImpl::Dispose(ExceptionState& exception_state) {
   Disposable::Dispose(exception_state);
 }

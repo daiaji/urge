@@ -27,6 +27,10 @@ class URGE_RUNTIME_API Plane : public base::RefCounted<Plane> {
                                   scoped_refptr<Viewport> viewport,
                                   ExceptionState& exception_state);
 
+  /*--urge(name:set_label)--*/
+  virtual void SetLabel(const std::string& label,
+                        ExceptionState& exception_state) = 0;
+
   /*--urge(name:dispose)--*/
   virtual void Dispose(ExceptionState& exception_state) = 0;
 

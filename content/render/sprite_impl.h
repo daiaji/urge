@@ -41,6 +41,9 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
   SpriteImpl(const SpriteImpl&) = delete;
   SpriteImpl& operator=(const SpriteImpl&) = delete;
 
+  void SetLabel(const std::string& label,
+                ExceptionState& exception_state) override;
+
   void Dispose(ExceptionState& exception_state) override;
   bool IsDisposed(ExceptionState& exception_state) override;
   void Flash(scoped_refptr<Color> color,

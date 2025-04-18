@@ -92,6 +92,9 @@ class Tilemap2Impl : public Tilemap2, public GraphicsChild, public Disposable {
   Tilemap2Impl(const Tilemap2Impl&) = delete;
   Tilemap2Impl& operator=(const Tilemap2Impl&) = delete;
 
+  void SetLabel(const std::string& label,
+                ExceptionState& exception_state) override;
+
   void Dispose(ExceptionState& exception_state) override;
   bool IsDisposed(ExceptionState& exception_state) override;
   void Update(ExceptionState& exception_state) override;

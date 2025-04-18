@@ -30,6 +30,9 @@ class PlaneImpl : public Plane, public GraphicsChild, public Disposable {
   PlaneImpl(const PlaneImpl&) = delete;
   PlaneImpl& operator=(const PlaneImpl&) = delete;
 
+  void SetLabel(const std::string& label,
+                ExceptionState& exception_state) override;
+
   void Dispose(ExceptionState& exception_state) override;
   bool IsDisposed(ExceptionState& exception_state) override;
 

@@ -39,6 +39,9 @@ class WindowImpl : public Window, public GraphicsChild, public Disposable {
   WindowImpl(const WindowImpl&) = delete;
   WindowImpl& operator=(const WindowImpl&) = delete;
 
+  void SetLabel(const std::string& label,
+                ExceptionState& exception_state) override;
+
   void Dispose(ExceptionState& exception_state) override;
   bool IsDisposed(ExceptionState& exception_state) override;
   void Update(ExceptionState& exception_state) override;

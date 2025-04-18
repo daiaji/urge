@@ -18,7 +18,7 @@ void CreateTexture2D(Diligent::IRenderDevice* device,
   texture_desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
   texture_desc.Width = size.x;
   texture_desc.Height = size.y;
-  texture_desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
+  texture_desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM;
   texture_desc.BindFlags = bind_flags;
   texture_desc.Usage = usage;
   texture_desc.CPUAccessFlags = access;
@@ -45,7 +45,7 @@ void CreateTexture2D(Diligent::IRenderDevice* device,
   texture_desc.Type = Diligent::RESOURCE_DIM_TEX_2D;
   texture_desc.Width = data->w;
   texture_desc.Height = data->h;
-  texture_desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB;
+  texture_desc.Format = Diligent::TEX_FORMAT_RGBA8_UNORM;
   texture_desc.BindFlags = bind_flags;
   texture_desc.Usage = usage;
   texture_desc.CPUAccessFlags = access;

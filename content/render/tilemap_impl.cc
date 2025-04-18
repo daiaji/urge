@@ -572,6 +572,11 @@ TilemapImpl::~TilemapImpl() {
   Dispose(exception_state);
 }
 
+void TilemapImpl::SetLabel(const std::string& label,
+                           ExceptionState& exception_state) {
+  ground_node_.SetDebugLabel(label);
+}
+
 void TilemapImpl::Dispose(ExceptionState& exception_state) {
   Disposable::Dispose(exception_state);
 }

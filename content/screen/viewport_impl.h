@@ -40,6 +40,9 @@ class ViewportImpl : public Viewport, public GraphicsChild, public Disposable {
 
   static scoped_refptr<ViewportImpl> From(scoped_refptr<Viewport> host);
 
+  void SetLabel(const std::string& label,
+                ExceptionState& exception_state) override;
+
   void Dispose(ExceptionState& exception_state) override;
   bool IsDisposed(ExceptionState& exception_state) override;
   void Flash(scoped_refptr<Color> color,

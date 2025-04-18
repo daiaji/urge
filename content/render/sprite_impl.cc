@@ -210,6 +210,11 @@ SpriteImpl::~SpriteImpl() {
   Dispose(exception_state);
 }
 
+void SpriteImpl::SetLabel(const std::string& label,
+                          ExceptionState& exception_state) {
+  node_.SetDebugLabel(label);
+}
+
 void SpriteImpl::Dispose(ExceptionState& exception_state) {
   Disposable::Dispose(exception_state);
 }

@@ -59,7 +59,6 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
 
   // Initialize swapchain descriptor
   Diligent::SwapChainDesc swap_chain_desc;
-  swap_chain_desc.IsPrimary = Diligent::True;
 
   // Initialize specific graphics api
   {
@@ -76,7 +75,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
 
   // Initialize graphics pipelines
   std::unique_ptr<PipelineSet> pipelines_set = std::make_unique<PipelineSet>(
-      device, Diligent::TEXTURE_FORMAT::TEX_FORMAT_RGBA8_UNORM_SRGB);
+      device, Diligent::TEXTURE_FORMAT::TEX_FORMAT_RGBA8_UNORM);
 
   // Initialize generic quad index buffer
   std::unique_ptr<QuadIndexCache> quad_index_cache =
