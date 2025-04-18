@@ -83,8 +83,7 @@ void RenderScreenImpl::PresentScreenBuffer() {
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::PresentScreenBufferInternal,
-                     base::Unretained(this),
-                     base::Unretained(agent_->present_target)));
+                     base::Unretained(this), agent_->present_target));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
@@ -218,14 +217,17 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
   float vague_norm = vague / 255.0f;
 
   // Fetch transmapping if available
-  Diligent::ITexture* transition_mapping = nullptr;
-  if (bitmap)
-    transition_mapping = CanvasImpl::FromBitmap(bitmap)->GetAgent()->data;
+  scoped_refptr<CanvasImpl> mapping_bitmap = CanvasImpl::FromBitmap(bitmap);
+  TextureAgent* texture_agent =
+      mapping_bitmap ? mapping_bitmap->GetAgent() : nullptr;
+  Diligent::ITextureView** transition_mapping =
+      texture_agent ? texture_agent->view.RawDblPtr() : nullptr;
 
   // Get current scene snapshot for transition
   RenderFrameInternal(&controller_, agent_->transition_buffer.RawDblPtr(),
                       resolution_);
 
+  // Transition render loop
   for (int i = 0; i < duration; ++i) {
     // Norm transition progress
     float progress = i * (1.0f / duration);
@@ -236,7 +238,7 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
           render_worker_,
           base::BindOnce(&RenderScreenImpl::RenderVagueTransitionFrameInternal,
                          base::Unretained(this), progress, vague_norm,
-                         base::Unretained(transition_mapping)));
+                         transition_mapping));
     else
       base::ThreadWorker::PostTask(
           render_worker_,
@@ -350,11 +352,26 @@ void RenderScreenImpl::CreateGraphicsDeviceInternal(
   // Create global sprite batch scheduler
   agent_->sprite_batch = SpriteBatch::Make(agent_->device.get());
 
-  // Get display gamma attribute
-  const auto& swapchain_desc = agent_->device->GetSwapchain()->GetDesc();
+  // Get pipeline manager
+  auto* pipelines = agent_->device->GetPipelines();
+
+  // Create generic quads batch
+  agent_->effect_quads = renderer::QuadBatch::Make(**agent_->device);
+  agent_->effect_binding =
+      pipelines->color.CreateBinding<renderer::Binding_Color>();
+
+  // Create transition generic quads
+  agent_->transition_quads = renderer::QuadBatch::Make(**agent_->device);
+
+  // Create transition binding
+  agent_->transition_binding_alpha =
+      pipelines->alphatrans.CreateBinding<renderer::Binding_AlphaTrans>();
+  agent_->transition_binding_vague =
+      pipelines->mappedtrans.CreateBinding<renderer::Binding_VagueTrans>();
 
   // If the swap chain color buffer format is a non-sRGB UNORM format,
   // we need to manually convert pixel shader output to gamma space.
+  const auto& swapchain_desc = agent_->device->GetSwapchain()->GetDesc();
   bool convert_output_to_gamma =
       (swapchain_desc.ColorBufferFormat == Diligent::TEX_FORMAT_RGBA8_UNORM ||
        swapchain_desc.ColorBufferFormat == Diligent::TEX_FORMAT_BGRA8_UNORM);
@@ -364,14 +381,6 @@ void RenderScreenImpl::CreateGraphicsDeviceInternal(
       **agent_->device,
       agent_->device->GetSwapchain()->GetDesc().ColorBufferFormat,
       convert_output_to_gamma));
-
-  // Create generic quads batch
-  agent_->effect_quads = renderer::QuadBatch::Make(**agent_->device);
-  agent_->effect_binding = agent_->device->GetPipelines()
-                               ->color.CreateBinding<renderer::Binding_Color>();
-
-  // Create transition generic quads
-  agent_->transition_quads = renderer::QuadBatch::Make(**agent_->device);
 
   // Create screen buffer
   ResetScreenBufferInternal();
@@ -437,7 +446,7 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&RenderScreenImpl::FrameBeginRenderPassInternal,
-                     base::Unretained(this), base::Unretained(render_target)));
+                     base::Unretained(this), render_target));
 
   // 3) Notify render a frame
   controller_params.root_world = agent_->world_transform.RawDblPtr();
@@ -690,13 +699,6 @@ void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
   // Initial context
   Diligent::IDeviceContext* context = GetDevice()->GetContext();
 
-  // Create binding if need
-  if (!agent_->transition_binding)
-    agent_->transition_binding =
-        GetDevice()
-            ->GetPipelines()
-            ->alphatrans.CreateBinding<renderer::Binding_AlphaTrans>();
-
   // Target UV
   const bool flip_uv = (*GetDevice())->GetDeviceInfo().IsGLDevice();
   const base::RectF uv_rect = flip_uv ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
@@ -732,17 +734,19 @@ void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
   // Set uniform texture
-  static_cast<renderer::Binding_AlphaTrans*>(agent_->transition_binding.get())
+  static_cast<renderer::Binding_AlphaTrans*>(
+      agent_->transition_binding_alpha.get())
       ->u_current_texture->Set(agent_->transition_buffer->GetDefaultView(
           Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-  static_cast<renderer::Binding_AlphaTrans*>(agent_->transition_binding.get())
+  static_cast<renderer::Binding_AlphaTrans*>(
+      agent_->transition_binding_alpha.get())
       ->u_frozen_texture->Set(agent_->frozen_buffer->GetDefaultView(
           Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
 
   // Apply pipeline state
   context->SetPipelineState(pipeline);
   context->CommitShaderResources(
-      **agent_->transition_binding,
+      **agent_->transition_binding_alpha,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply vertex index
@@ -763,16 +767,9 @@ void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
 void RenderScreenImpl::RenderVagueTransitionFrameInternal(
     float progress,
     float vague,
-    Diligent::ITexture* trans_mapping) {
+    Diligent::ITextureView** trans_mapping) {
   // Initial context
   Diligent::IDeviceContext* context = GetDevice()->GetContext();
-
-  // Create binding if need
-  if (!agent_->transition_binding)
-    agent_->transition_binding =
-        GetDevice()
-            ->GetPipelines()
-            ->mappedtrans.CreateBinding<renderer::Binding_VagueTrans>();
 
   // Target UV
   const bool flip_uv = (*GetDevice())->GetDeviceInfo().IsGLDevice();
@@ -809,20 +806,22 @@ void RenderScreenImpl::RenderVagueTransitionFrameInternal(
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
   // Set uniform texture
-  static_cast<renderer::Binding_VagueTrans*>(agent_->transition_binding.get())
+  static_cast<renderer::Binding_VagueTrans*>(
+      agent_->transition_binding_vague.get())
       ->u_current_texture->Set(agent_->transition_buffer->GetDefaultView(
           Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-  static_cast<renderer::Binding_VagueTrans*>(agent_->transition_binding.get())
+  static_cast<renderer::Binding_VagueTrans*>(
+      agent_->transition_binding_vague.get())
       ->u_frozen_texture->Set(agent_->frozen_buffer->GetDefaultView(
           Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-  static_cast<renderer::Binding_VagueTrans*>(agent_->transition_binding.get())
-      ->u_trans_texture->Set(trans_mapping->GetDefaultView(
-          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+  static_cast<renderer::Binding_VagueTrans*>(
+      agent_->transition_binding_vague.get())
+      ->u_trans_texture->Set(*trans_mapping);
 
   // Apply pipeline state
   context->SetPipelineState(pipeline);
   context->CommitShaderResources(
-      **agent_->transition_binding,
+      **agent_->transition_binding_vague,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply vertex index

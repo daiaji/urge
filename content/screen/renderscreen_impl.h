@@ -34,7 +34,8 @@ struct RenderGraphicsAgent {
   std::unique_ptr<renderer::Binding_Color> effect_binding;
 
   std::unique_ptr<renderer::QuadBatch> transition_quads;
-  std::unique_ptr<renderer::RenderBindingBase> transition_binding;
+  std::unique_ptr<renderer::Binding_AlphaTrans> transition_binding_alpha;
+  std::unique_ptr<renderer::Binding_VagueTrans> transition_binding_vague;
 
   Diligent::ITexture** present_target = nullptr;
   std::unique_ptr<renderer::Pipeline_Present> present_pipeline;
@@ -147,9 +148,10 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void FrameEndRenderPassInternal();
 
   void RenderAlphaTransitionFrameInternal(float progress);
-  void RenderVagueTransitionFrameInternal(float progress,
-                                          float vague,
-                                          Diligent::ITexture* trans_mapping);
+  void RenderVagueTransitionFrameInternal(
+      float progress,
+      float vague,
+      Diligent::ITextureView** trans_mapping);
 
   // DisposableCollection methods:
   void AddDisposable(Disposable* disp) override;
