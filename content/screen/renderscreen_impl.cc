@@ -853,5 +853,6 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&GPUFrameEndRenderPassInternal, agent_, brightness_));
+}
 
 }  // namespace content
