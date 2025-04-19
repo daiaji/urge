@@ -9,7 +9,7 @@
 
 namespace content {
 
-class ScopedFontData;
+struct ScopedFontData;
 class CanvasScheduler;
 class RenderScreenImpl;
 class KeyboardControllerImpl;

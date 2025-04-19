@@ -12,14 +12,6 @@
 #include "content/worker/content_runner.h"
 #include "ui/widget/widget.h"
 
-#if defined(OS_WIN)
-#include <windows.h>
-extern "C" {
-__declspec(dllexport) DWORD NvOptimusEnablement = 1;
-__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
-}
-#endif  //! OS_WIN
-
 namespace {
 
 void ReplaceStringWidth(std::string& str, char before, char after) {
@@ -31,9 +23,7 @@ void ReplaceStringWidth(std::string& str, char before, char after) {
 }  // namespace
 
 int SDL_main(int argc, char* argv[]) {
-#if defined(OS_WIN)
-  ::SetConsoleOutputCP(CP_UTF8);
-#endif
+  LOG(INFO) << "[App] Running App...";
 
   std::string app(argv[0]);
   ReplaceStringWidth(app, '\\', '/');

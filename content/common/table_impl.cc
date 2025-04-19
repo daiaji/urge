@@ -117,9 +117,9 @@ void TableImpl::Resize(uint32_t xsize,
   std::vector<int16_t> new_data(xsize * ysize * zsize);
 
   // Migrate old data to new container. (Shrink)
-  for (int k = 0; k < std::min(zsize, z_size_); ++k)
-    for (int j = 0; j < std::min(ysize, y_size_); ++j)
-      for (int i = 0; i < std::min(xsize, x_size_); ++i)
+  for (uint32_t k = 0; k < std::min(zsize, z_size_); ++k)
+    for (uint32_t j = 0; j < std::min(ysize, y_size_); ++j)
+      for (uint32_t i = 0; i < std::min(xsize, x_size_); ++i)
         new_data[i + j * x_size_ + k * x_size_ * y_size_] =
             data_.at(i + x_size_ * j + x_size_ * y_size_ * k);
 

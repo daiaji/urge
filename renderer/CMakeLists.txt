@@ -28,7 +28,25 @@ add_library(engine_renderer STATIC ${ENGINE_RENDERER_SRC})
 target_link_libraries(engine_renderer PUBLIC
   engine_base
   engine_ui
-  
-  Diligent-GraphicsEngine
+  Diligent-BuildSettings
   Diligent-GraphicsTools
 )
+
+set(LIBRARY_TYPE static)
+if(ENGINE_SHARED_RENDERER)
+  set(LIBRARY_TYPE shared)
+  copy_required_dlls(engine_renderer)
+endif()
+
+if(D3D11_SUPPORTED)
+  target_link_libraries(engine_renderer PUBLIC Diligent-GraphicsEngineD3D11-${LIBRARY_TYPE})
+endif()
+if(D3D12_SUPPORTED)
+  target_link_libraries(engine_renderer PUBLIC Diligent-GraphicsEngineD3D12-${LIBRARY_TYPE})
+endif()
+if(GL_SUPPORTED)
+  target_link_libraries(engine_renderer PUBLIC Diligent-GraphicsEngineOpenGL-${LIBRARY_TYPE})
+endif()
+if(VULKAN_SUPPORTED)
+  target_link_libraries(engine_renderer PUBLIC Diligent-GraphicsEngineVk-${LIBRARY_TYPE})
+endif()

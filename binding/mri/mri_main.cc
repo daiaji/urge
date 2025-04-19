@@ -198,10 +198,10 @@ void BindingEngineMri::PreEarlyInitialization(
   MriApplyBindingPatch();
 
   if (profile->api_version < content::ContentProfile::APIVersion::RGSS3) {
-    if (sizeof(void*) == 4) {
+    if constexpr (sizeof(void*) == 4) {
       MriDefineMethod(rb_cNilClass, "id", MriReturnInt<4>);
       MriDefineMethod(rb_cTrueClass, "id", MriReturnInt<2>);
-    } else if (sizeof(void*) == 8) {
+    } else if constexpr (sizeof(void*) == 8) {
       MriDefineMethod(rb_cNilClass, "id", MriReturnInt<8>);
       MriDefineMethod(rb_cTrueClass, "id", MriReturnInt<20>);
     } else {

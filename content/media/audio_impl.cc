@@ -186,9 +186,9 @@ void AudioImpl::BGMFade(int32_t time, ExceptionState& exception_state) {
 
 int32_t AudioImpl::BGMPos(ExceptionState& exception_state) {
   if (!output_device_)
-    return 0.0;
+    return 0;
 
-  double pos = 0.0;
+  double pos = 0;
   base::ThreadWorker::PostTask(
       audio_runner_.get(), base::BindOnce(&AudioImpl::GetSlotPosInternal,
                                           base::Unretained(this), &bgm_, &pos));
@@ -231,9 +231,9 @@ void AudioImpl::BGSFade(int32_t time, ExceptionState& exception_state) {
 
 int32_t AudioImpl::BGSPos(ExceptionState& exception_state) {
   if (!output_device_)
-    return 0.0;
+    return 0;
 
-  double pos = 0.0;
+  double pos = 0;
   base::ThreadWorker::PostTask(
       audio_runner_.get(), base::BindOnce(&AudioImpl::GetSlotPosInternal,
                                           base::Unretained(this), &bgs_, &pos));
