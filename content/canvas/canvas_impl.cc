@@ -67,10 +67,13 @@ void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
   agent->name = "bitmap.texture<\"" + std::to_string(initial_size.x) + "x" +
                 std::to_string(initial_size.y) + "\">";
 
+  SDL_Surface* empty_surface = SDL_CreateSurface(initial_size.x, initial_size.y,
+                                                 SDL_PIXELFORMAT_ABGR8888);
   renderer::CreateTexture2D(
-      **device_base, &agent->data, agent->name, initial_size,
+      **device_base, &agent->data, agent->name, empty_surface,
       Diligent::USAGE_DEFAULT,
       Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
+  SDL_DestroySurface(empty_surface);
 
   agent->size = initial_size;
   agent->view =

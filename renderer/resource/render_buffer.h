@@ -75,6 +75,9 @@ class BatchBuffer {
   void QueueWrite(Diligent::IDeviceContext* context,
                   const TargetType* data,
                   uint32_t count = 1) {
+    if (!count)
+      return;
+
     size_t bytes_size = count * sizeof(TargetType);
     if (!buffer_ || buffer_->GetDesc().Size < bytes_size) {
       Diligent::BufferDesc buffer_desc;
@@ -88,8 +91,9 @@ class BatchBuffer {
       return;
 
     if constexpr (Usage == Diligent::USAGE_DEFAULT) {
-      context->UpdateBuffer(buffer_, 0, bytes_size, data,
-                            Diligent::RESOURCE_STATE_TRANSITION_MODE_NONE);
+      context->UpdateBuffer(
+          buffer_, 0, bytes_size, data,
+          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     } else {
       void* mapping_buffer = nullptr;
       context->MapBuffer(buffer_, Diligent::MAP_WRITE,
