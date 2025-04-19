@@ -293,8 +293,8 @@ return ary;
         source_body += "#include \"binding/mri/autogen_{}_binding.h\"\n".format(dep.lower())
 
     source_body += "\n"
-    idl_ref = self.class_data["dependency"]
-    idl_ref.add(self.class_data["class_name"])
+    idl_ref = list(self.class_data["dependency"])
+    idl_ref.append(self.class_data["class_name"])
     for dep in idl_ref:
       source_body += "#include \"content/public/engine_{}.h\"\n".format(dep.lower())
 

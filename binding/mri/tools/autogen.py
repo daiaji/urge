@@ -4,6 +4,7 @@
 
 import sys
 import os
+import json
 import bindgen as bgen
 
 if __name__ == "__main__":
@@ -31,7 +32,7 @@ if __name__ == "__main__":
         template_classes.append(klass)
 
       with open(os.path.join(idl_dir, os.path.splitext(filepath)[0] + ".json"), "w", encoding="utf-8") as f:
-        f.write(str(idl_parser.classes))
+        f.write(json.dumps(idl_parser.classes))
 
   for filepath in os.listdir(out_dir):
     os.remove(os.path.join(out_dir, filepath))

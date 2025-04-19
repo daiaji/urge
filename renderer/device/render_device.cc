@@ -32,8 +32,10 @@ DebugMessageOutputFunc(Diligent::DEBUG_MESSAGE_SEVERITY Severity,
                        const Diligent::Char* File,
                        int Line) {
   if (Severity >=
-      Diligent::DEBUG_MESSAGE_SEVERITY::DEBUG_MESSAGE_SEVERITY_ERROR)
-    printf("[Renderer] Function: %s, Info: %s\n", Function, Message);
+      Diligent::DEBUG_MESSAGE_SEVERITY::DEBUG_MESSAGE_SEVERITY_ERROR) {
+    printf("[Renderer] Function \"%s\":\n", Function);
+    printf("[Renderer] %s\n", Message);
+  }
 }
 
 }  // namespace

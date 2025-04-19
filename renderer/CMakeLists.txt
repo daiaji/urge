@@ -31,5 +31,4 @@ target_link_libraries(engine_renderer PUBLIC
   
   Diligent-GraphicsEngine
   Diligent-GraphicsTools
-  Diligent-GraphicsEngineOpenGL-static
 )

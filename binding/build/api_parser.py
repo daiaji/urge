@@ -106,19 +106,18 @@ class APIParser:
       "is_serializable": False,
       "is_comparable": False,
       "is_module": self.current_comment.get('is_module', False),
-      "dependency": set()  # 新增依赖集合
+      "dependency": []
     }
 
   def _extract_scoped_ref_types(self, type_str):
-    """从类型字符串中提取所有 scoped_refptr 包裹的类型"""
     pattern = r'scoped_refptr\s*<\s*([\w:]+)\s*>'
-    return set(re.findall(pattern, type_str))
+    return re.findall(pattern, type_str)
 
   def _update_class_dependency(self, type_str):
-    """更新当前类的依赖集合"""
     if not self.current_class: return
     types = self._extract_scoped_ref_types(type_str)
-    self.current_class['dependency'].update(types)
+    for dep in types:
+      self.current_class['dependency'].append(dep)
 
   def parse_method(self, decl):
     decl = re.sub(r'\s+', ' ', decl).replace(' ;', ';')
@@ -154,16 +153,13 @@ class APIParser:
         "default_value": optional_params.get(p_name.strip(), None)
       })
 
-    # 过滤排除参数
     filtered_params = [p for p in params if not any(
       excl in p['type'] for excl in ['ExceptionState', 'ExecutionContext']
     )]
 
-    # 处理返回类型
     return_type = match.group('return_type').strip()
     self._update_class_dependency(return_type)
 
-    # 处理参数类型
     for param in params:
       self._update_class_dependency(param['type'])
 
@@ -183,7 +179,6 @@ class APIParser:
       (r'URGE_EXPORT_STATIC_ATTRIBUTE\((\w+),\s*(.*?)\);?', True)
     ]:
       if match := re.match(pattern, decl):
-        # 处理属性类型
         attr_type = match.group(2).strip()
         self._update_class_dependency(attr_type)
 
@@ -198,7 +193,6 @@ class APIParser:
   def parse(self, code):
     for line in code.split('\n'): self.process_line(line)
 
-    # 最终处理依赖集合转换为列表并去重
     for cls in self.classes:
       cls['dependency'] = sorted(list(cls['dependency']))
 

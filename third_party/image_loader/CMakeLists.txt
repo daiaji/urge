@@ -30,4 +30,6 @@ target_compile_definitions(sdl_image_loader PRIVATE
   USE_STBIMAGE
   LOAD_PNG
   LOAD_JPG
+  LOAD_BMP
+  LOAD_SVG
 )
