@@ -1,26 +1,49 @@
-﻿# ![Logo](app/resources/urge_favicon_64.png) Universal Ruby Game Engine
+﻿# ![Logo](app/resources/urge_favicon_64.png) Universal Ruby Game Engine URGE
 
-## Language selection 语言选择
+## Language selection
 - [English](README_EN.md)
 - [简体中文](README.md)
 
 ## Overview
 
-- URGE is a game engine compatible with RGSS 1/2/3 series APIs, utilizing SDL3 as the cross-platform underlying library and WebGPU/Dawn as the rendering RHI, providing support for modern APIs like D3D12/Vulkan (legacy OpenGL family and pre-D3D11 APIs are no longer supported).  
-- This project is open-source under the BSD-2-Clause License.  
-- Project style follows The Chromium Project.  
-- Inspired by Chromium.  
+- URGE is a game engine compatible with the RGSS 1/2/3 API.
+- It uses SDL3 as the underlying library and supports platforms such as Windows, Linux, Android, and WASM/Emscripten.
+- It leverages DiligentCore as the rendering RHI, providing support for modern APIs like D3D12 and Vulkan.
+- This project is open-source under the BSD-2-Clause license.
+- The project style is inspired by The Chromium Project.
+- It is inspired by Chromium and RGModern.
 
-## Snapshots
+## Screenshots
 
 <img src="app/test/1.png" height="400">
+<img src="app/test/2.png" height="400">
+<img src="app/test/3.png" height="400">
+<img src="app/test/4.png" height="400">
+<img src="app/test/5.png" height="400">
+<img src="app/test/6.png" height="400">
 
 ## Features
 
-- **Multithreading**: Game logic and rendering logic run on separate independent threads, maximizing the advantages of multi-core processors.  
-- **Modern Graphics APIs**: Leveraging the WebGPU specification, the engine supports modern graphics APIs like D3D11/D3D12/Vulkan, delivering superior performance compared to the OpenGL family.  
-- **Cross-Platform**: Supports Windows, Linux, Android, and WASM/Emscripten platforms. (Official support for macOS and iOS will not be provided until we find a reason to purchase Apple products.)  
-- **High Performance**: The game script layer uses a decoupled design, allowing integration with interpreters like MRI, MRuby, and TruffleRuby to maximize scripting language processing speed.  
+- **Multithreading**: The game logic and rendering logic of the engine are separated into two independent threads, maximizing the utilization of multi-core processors.
+- **Modern Graphics APIs**: Thanks to the rendering capabilities of DiligentCore, the engine supports modern graphics APIs like D3D12 and Vulkan, offering better performance compared to the OpenGL family.
+- **Cross-platform**: The engine supports platforms such as Windows, Linux, Android, and WASM/Emscripten.
+- **High Performance**: The game script layer uses a decoupled approach, allowing integration with CRuby, MRuby, Crystal, and other language backends to maximize script language processing speed.
+
+## Build Instructions
+
+1. Ensure that your CMake version is ≥ 3.20.
+2. Execute the clone command:
+   ```
+   git clone --recursive https://github.com/Admenri/urge.git
+   ```
+3. Execute the build script:
+   ```
+   cmake -S . -B out
+   ```
+4. Execute the compilation:
+   ```
+   cmake --build out --target console_engine
+   ```
 
 ## Third-Party Libraries
 
@@ -34,17 +57,21 @@
 - inih - https://github.com/benhoyt/inih  
 - rapidxml - https://rapidxml.sourceforge.net/  
 - magic_enum - https://github.com/Neargye/magic_enum  
+- soloud - https://github.com/jarikomppa/soloud  
 
-### External Dependencies
-- dawn - https://dawn.googlesource.com/dawn  
+### External References
 - SDL3 - https://github.com/libsdl-org/SDL  
+- DiligentCore - https://github.com/DiligentGraphics/DiligentCore  
 - freetype - https://github.com/freetype/freetype  
-- zlib - https://github.com/madler/zlib  
 - physfs - https://github.com/icculus/physfs  
+- zlib - https://github.com/madler/zlib  
+- ogg - https://github.com/xiph/ogg  
+- vorbis - https://github.com/xiph/vorbis  
+- ruby - https://github.com/ruby/ruby  
 
-## Contact
+## Contact Information
 
-- Email: admenri0504@gmail.com / admenri@qq.com  
+- Email: admin@admenri.com  
 - Website: https://admenri.com/  
 
 © 2015-2025 Admenri
