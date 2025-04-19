@@ -1,9 +1,19 @@
 cmake_minimum_required(VERSION 3.20.1)
 
+#--------------------------------------------------------------------------------
+# Project Setup
+#--------------------------------------------------------------------------------
+
 project(URGE)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 include_directories("${PROJECT_SOURCE_DIR}")
+
+#--------------------------------------------------------------------------------
+# Build Options
+#--------------------------------------------------------------------------------
+
+option(URGE_SHARED_RENDERER_LIBRARY "Use Dynamic Renderer Library in Engine Building" OFF)
 
 #--------------------------------------------------------------------------------
 # Platform and compiler check

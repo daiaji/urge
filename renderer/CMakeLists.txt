@@ -33,7 +33,7 @@ target_link_libraries(engine_renderer PUBLIC
 )
 
 set(LIBRARY_TYPE static)
-if(ENGINE_SHARED_RENDERER)
+if(URGE_SHARED_RENDERER_LIBRARY)
   set(LIBRARY_TYPE shared)
   copy_required_dlls(engine_renderer)
 endif()
