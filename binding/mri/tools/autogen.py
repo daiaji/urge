@@ -9,10 +9,20 @@ import bindgen as bgen
 if __name__ == "__main__":
   in_dir = sys.argv[1]
   out_dir = sys.argv[2]
+  
+  current_directory = os.getcwd()
+  idl_dir = os.path.join(current_directory, "doc")
+  idl_dir = os.path.join(idl_dir, "api")
+
+  os.makedirs(idl_dir, exist_ok=True)
+  os.makedirs(out_dir, exist_ok=True)
+
+  for filepath in os.listdir(idl_dir):
+    os.remove(os.path.join(idl_dir, filepath))
 
   template_classes = []
   for filepath in os.listdir(in_dir):
-    with open(in_dir + filepath, 'r', encoding='utf-8') as file:
+    with open(os.path.join(in_dir, filepath), 'r', encoding='utf-8') as file:
       file_content = file.read()
 
       idl_parser = bgen.api_parser.APIParser()
@@ -20,16 +30,17 @@ if __name__ == "__main__":
       for klass in idl_parser.classes:
         template_classes.append(klass)
 
-  os.makedirs(out_dir, exist_ok=True)
+      with open(os.path.join(idl_dir, os.path.splitext(filepath)[0] + ".json"), "w", encoding="utf-8") as f:
+        f.write(str(idl_parser.classes))
 
   for filepath in os.listdir(out_dir):
-    os.remove(out_dir + filepath)
+    os.remove(os.path.join(out_dir, filepath))
 
   for klass in template_classes:
     generator = bgen.MriBindGen()
     generator.setup(klass)
 
-    with open(out_dir + generator.file_name + ".h", "w", encoding="utf-8") as f:
+    with open(os.path.join(out_dir, generator.file_name + ".h"), "w", encoding="utf-8") as f:
       f.write(generator.gen_header())
-    with open(out_dir + generator.file_name + ".cc", "w", encoding="utf-8") as f:
+    with open(os.path.join(out_dir, generator.file_name + ".cc"), "w", encoding="utf-8") as f:
       f.write(generator.gen_source())
