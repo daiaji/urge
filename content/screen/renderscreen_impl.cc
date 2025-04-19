@@ -16,6 +16,419 @@
 
 namespace content {
 
+namespace {
+
+void GPUResetScreenBufferInternal(RenderGraphicsAgent* agent,
+                                  const base::Vec2i& resolution) {
+  constexpr Diligent::BIND_FLAGS bind_flags =
+      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE;
+
+  agent->screen_buffer.Release();
+  agent->frozen_buffer.Release();
+  agent->transition_buffer.Release();
+
+  renderer::CreateTexture2D(**agent->device, &agent->screen_buffer,
+                            "screen.main.buffer", resolution,
+                            Diligent::USAGE_DEFAULT, bind_flags);
+  renderer::CreateTexture2D(**agent->device, &agent->frozen_buffer,
+                            "screen.frozen.buffer", resolution,
+                            Diligent::USAGE_DEFAULT, bind_flags);
+  renderer::CreateTexture2D(**agent->device, &agent->transition_buffer,
+                            "screen.transition.buffer", resolution,
+                            Diligent::USAGE_DEFAULT, bind_flags);
+
+  renderer::WorldTransform world_transform;
+  renderer::MakeIdentityMatrix(world_transform.transform);
+  renderer::MakeProjectionMatrix(world_transform.projection, resolution,
+                                 agent->device->IsUVFlip());
+
+  agent->world_transform.Release();
+  Diligent::CreateUniformBuffer(
+      **agent->device, sizeof(world_transform), "graphics.world.transform",
+      &agent->world_transform, Diligent::USAGE_IMMUTABLE,
+      Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
+      &world_transform);
+}
+
+void GPUCreateGraphicsHostInternal(RenderGraphicsAgent* agent,
+                                   base::WeakPtr<ui::Widget> window,
+                                   ContentProfile* profile,
+                                   base::ThreadWorker* render_worker,
+                                   filesystem::IOService* io_service,
+                                   const base::Vec2i& resolution) {
+  // Create primary device on window widget
+  agent->device = renderer::RenderDevice::Create(
+      window,
+      magic_enum::enum_cast<renderer::DriverType>(profile->driver_backend)
+          .value_or(renderer::DriverType::UNDEFINED));
+
+  // Create global canvas scheduler
+  agent->canvas_scheduler = CanvasScheduler::MakeInstance(
+      render_worker, agent->device.get(), io_service);
+
+  // Create global sprite batch scheduler
+  agent->sprite_batch = SpriteBatch::Make(agent->device.get());
+
+  // Get pipeline manager
+  auto* pipelines = agent->device->GetPipelines();
+
+  // Create generic quads batch
+  agent->transition_quads = renderer::QuadBatch::Make(**agent->device);
+  agent->effect_quads = renderer::QuadBatch::Make(**agent->device);
+
+  // Create generic shader binding
+  agent->transition_binding_alpha =
+      pipelines->alphatrans.CreateBinding<renderer::Binding_AlphaTrans>();
+  agent->transition_binding_vague =
+      pipelines->mappedtrans.CreateBinding<renderer::Binding_VagueTrans>();
+  agent->effect_binding =
+      pipelines->color.CreateBinding<renderer::Binding_Color>();
+
+  // If the swap chain color buffer format is a non-sRGB UNORM format,
+  // we need to manually convert pixel shader output to gamma space.
+  auto* swapchain = agent->device->GetSwapchain();
+  const auto& swapchain_desc = swapchain->GetDesc();
+  bool convert_gamma_to_output = (swapchain_desc.ColorBufferFormat ==
+                                      Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB ||
+                                  swapchain_desc.ColorBufferFormat ==
+                                      Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB);
+
+  // Create screen present pipeline
+  agent->present_pipeline.reset(new renderer::Pipeline_Present(
+      **agent->device, swapchain_desc.ColorBufferFormat,
+      convert_gamma_to_output));
+
+  // Create screen buffer
+  GPUResetScreenBufferInternal(agent, resolution);
+}
+
+void GPUDestroyGraphicsHostInternal(RenderGraphicsAgent* agent) {
+  delete agent;
+}
+
+void GPUPresentScreenBufferInternal(RenderGraphicsAgent* agent,
+                                    const base::Rect& display_viewport,
+                                    const base::Vec2i& resolution,
+                                    bool keep_ratio) {
+  // Initial device attribute
+  Diligent::IDeviceContext* context = agent->device->GetContext();
+  Diligent::ISwapChain* swapchain = agent->device->GetSwapchain();
+
+  // Process mouse coordinate and viewport rect
+  base::Rect target_rect;
+  base::WeakPtr<ui::Widget> window = agent->device->GetWindow();
+  window->GetMouseState().resolution = resolution;
+  if (keep_ratio) {
+    target_rect = display_viewport;
+    window->GetMouseState().screen_offset = display_viewport.Position();
+    window->GetMouseState().screen = display_viewport.Size();
+  } else {
+    target_rect = window->GetSize();
+    window->GetMouseState().screen_offset = base::Vec2i();
+    window->GetMouseState().screen = window->GetSize();
+  }
+
+  // Setup render params
+  auto* render_target_view = swapchain->GetCurrentBackBufferRTV();
+  auto& pipeline_set = *agent->present_pipeline;
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
+  std::unique_ptr<renderer::QuadBatch> present_quads =
+      renderer::QuadBatch::Make(**agent->device);
+  std::unique_ptr<renderer::Binding_Base> present_binding =
+      pipeline_set.CreateBinding<renderer::Binding_Base>();
+  RRefPtr<Diligent::IBuffer> present_uniform;
+
+  if (agent->present_target) {
+    // Update vertex
+    renderer::Quad transient_quad;
+    renderer::Quad::SetPositionRect(&transient_quad, target_rect);
+    renderer::Quad::SetTexCoordRectNorm(
+        &transient_quad, agent->device->IsUVFlip() ? base::Rect(0, 1, 1, -1)
+                                                   : base::Rect(0, 0, 1, 1));
+    present_quads->QueueWrite(context, &transient_quad);
+
+    // Update window screen transform
+    renderer::WorldTransform world_matrix;
+    renderer::MakeProjectionMatrix(world_matrix.projection, window->GetSize(),
+                                   agent->device->IsUVFlip());
+    renderer::MakeIdentityMatrix(world_matrix.transform);
+
+    Diligent::CreateUniformBuffer(**agent->device, sizeof(world_matrix),
+                                  "present.world.uniform", &present_uniform,
+                                  Diligent::USAGE_IMMUTABLE,
+                                  Diligent::BIND_UNIFORM_BUFFER,
+                                  Diligent::CPU_ACCESS_NONE, &world_matrix);
+  }
+
+  // Prepare for rendering
+  float clear_color[] = {0, 0, 0, 1};
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->ClearRenderTarget(
+      render_target_view, clear_color,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  Diligent::Rect scissor;
+  scissor.right = window->GetSize().x;
+  scissor.bottom = window->GetSize().y;
+  context->SetScissorRects(1, &scissor, 1, scissor.bottom + scissor.top);
+
+  // Start screen render
+  if (agent->present_target) {
+    // Set world transform
+    present_binding->u_transform->Set(present_uniform);
+    present_binding->u_texture->Set(
+        (*agent->present_target)
+            ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+
+    // Apply pipeline state
+    context->SetPipelineState(pipeline);
+    context->CommitShaderResources(
+        **present_binding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Apply vertex index
+    Diligent::IBuffer* const vertex_buffer = **present_quads;
+    context->SetVertexBuffers(
+        0, 1, &vertex_buffer, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->SetIndexBuffer(
+        **agent->device->GetQuadIndex(), 0,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Execute render command
+    Diligent::DrawIndexedAttribs draw_indexed_attribs;
+    draw_indexed_attribs.NumIndices = 6;
+    draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
+    context->DrawIndexed(draw_indexed_attribs);
+  }
+
+  // Flush command buffer and present GPU surface
+  swapchain->Present();
+}
+
+void GPUFrameBeginRenderPassInternal(RenderGraphicsAgent* agent,
+                                     Diligent::ITexture** render_target,
+                                     uint32_t brightness) {
+  auto* context = agent->device->GetContext();
+
+  // Setup render target
+  Diligent::ITexture* const render_target_ptr = *render_target;
+  const base::Vec2i target_size(render_target_ptr->GetDesc().Width,
+                                render_target_ptr->GetDesc().Height);
+
+  // Setup screen effect params
+  if (brightness < 255) {
+    renderer::Quad effect_quad;
+    renderer::Quad::SetPositionRect(&effect_quad, base::Rect(target_size));
+    renderer::Quad::SetColor(&effect_quad,
+                             base::Vec4(0, 0, 0, (255 - brightness) / 255.0f));
+    agent->effect_quads->QueueWrite(context, &effect_quad);
+  }
+
+  // Setup render pass
+  auto render_target_view =
+      render_target_ptr->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+  const float clear_color[] = {0, 0, 0, 1};
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->ClearRenderTarget(
+      render_target_view, clear_color,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Restore scissor region
+  Diligent::Rect render_scissor;
+  render_scissor.right = target_size.x;
+  render_scissor.bottom = target_size.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+}
+
+void GPUFrameEndRenderPassInternal(RenderGraphicsAgent* agent,
+                                   uint32_t brightness) {
+  auto* context = agent->device->GetContext();
+
+  // Render screen effect if need
+  if (brightness < 255) {
+    // Apply brightness effect
+    auto& pipeline_set = agent->device->GetPipelines()->color;
+    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
+
+    // Set world transform
+    agent->effect_binding->u_transform->Set(agent->world_transform);
+
+    // Apply pipeline state
+    context->SetPipelineState(pipeline);
+    context->CommitShaderResources(
+        **agent->effect_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Apply vertex index
+    Diligent::IBuffer* const vertex_buffer = **agent->effect_quads;
+    context->SetVertexBuffers(
+        0, 1, &vertex_buffer, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->SetIndexBuffer(
+        **agent->device->GetQuadIndex(), 0,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Execute render command
+    Diligent::DrawIndexedAttribs draw_indexed_attribs;
+    draw_indexed_attribs.NumIndices = 6;
+    draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
+    context->DrawIndexed(draw_indexed_attribs);
+  }
+}
+
+void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
+                                           float progress) {
+  // Initial context
+  Diligent::IDeviceContext* context = agent->device->GetContext();
+
+  // Target UV
+  const bool flip_uv = agent->device->IsUVFlip();
+  const base::RectF uv_rect = flip_uv ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
+                                      : base::RectF(0.0f, 0.0f, 1.0f, 1.0f);
+
+  // Update transition uniform
+  renderer::Quad transient_quad;
+  renderer::Quad::SetPositionRect(&transient_quad,
+                                  base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
+  renderer::Quad::SetTexCoordRectNorm(&transient_quad, uv_rect);
+  renderer::Quad::SetColor(&transient_quad, base::Vec4(progress));
+  agent->transition_quads->QueueWrite(context, &transient_quad);
+
+  // Composite transition frame
+  auto render_target_view = agent->screen_buffer->GetDefaultView(
+      Diligent::TEXTURE_VIEW_RENDER_TARGET);
+  const float clear_color[] = {0, 0, 0, 1};
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->ClearRenderTarget(
+      render_target_view, clear_color,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  Diligent::Rect render_scissor;
+  render_scissor.right = agent->screen_buffer->GetDesc().Width;
+  render_scissor.bottom = agent->screen_buffer->GetDesc().Height;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+
+  // Apply brightness effect
+  auto& pipeline_set = agent->device->GetPipelines()->alphatrans;
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
+
+  // Set uniform texture
+  static_cast<renderer::Binding_AlphaTrans*>(
+      agent->transition_binding_alpha.get())
+      ->u_current_texture->Set(agent->transition_buffer->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+  static_cast<renderer::Binding_AlphaTrans*>(
+      agent->transition_binding_alpha.get())
+      ->u_frozen_texture->Set(agent->frozen_buffer->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **agent->transition_binding_alpha,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **agent->transition_quads;
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**agent->device->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6;
+  draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
+}
+
+void GPURenderVagueTransitionFrameInternal(
+    RenderGraphicsAgent* agent,
+    float progress,
+    float vague,
+    Diligent::ITextureView** trans_mapping) {
+  // Initial context
+  Diligent::IDeviceContext* context = agent->device->GetContext();
+
+  // Target UV
+  const bool flip_uv = agent->device->IsUVFlip();
+  const base::RectF uv_rect = flip_uv ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
+                                      : base::RectF(0.0f, 0.0f, 1.0f, 1.0f);
+
+  // Update transition uniform
+  renderer::Quad transient_quad;
+  renderer::Quad::SetPositionRect(&transient_quad,
+                                  base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
+  renderer::Quad::SetTexCoordRectNorm(&transient_quad, uv_rect);
+  renderer::Quad::SetColor(&transient_quad, base::Vec4(vague, 0, 0, progress));
+  agent->transition_quads->QueueWrite(context, &transient_quad);
+
+  // Composite transition frame
+  auto render_target_view = agent->screen_buffer->GetDefaultView(
+      Diligent::TEXTURE_VIEW_RENDER_TARGET);
+  const float clear_color[] = {0, 0, 0, 1};
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->ClearRenderTarget(
+      render_target_view, clear_color,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  Diligent::Rect render_scissor;
+  render_scissor.right = agent->screen_buffer->GetDesc().Width;
+  render_scissor.bottom = agent->screen_buffer->GetDesc().Height;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+
+  // Apply brightness effect
+  auto& pipeline_set = agent->device->GetPipelines()->mappedtrans;
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
+
+  // Set uniform texture
+  static_cast<renderer::Binding_VagueTrans*>(
+      agent->transition_binding_vague.get())
+      ->u_current_texture->Set(agent->transition_buffer->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+  static_cast<renderer::Binding_VagueTrans*>(
+      agent->transition_binding_vague.get())
+      ->u_frozen_texture->Set(agent->frozen_buffer->GetDefaultView(
+          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+  static_cast<renderer::Binding_VagueTrans*>(
+      agent->transition_binding_vague.get())
+      ->u_trans_texture->Set(*trans_mapping);
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **agent->transition_binding_vague,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **agent->transition_quads;
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**agent->device->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6;
+  draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
+}
+
+}  // namespace
+
 RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
                                    base::ThreadWorker* render_worker,
                                    CoroutineContext* cc,
@@ -48,18 +461,17 @@ RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
       allow_background_running_(true) {
   // Setup render device on render thread if possible
   agent_ = new RenderGraphicsAgent;
+
   base::ThreadWorker::PostTask(
       render_worker,
-      base::BindOnce(&RenderScreenImpl::CreateGraphicsDeviceInternal,
-                     base::Unretained(this), window));
+      base::BindOnce(&GPUCreateGraphicsHostInternal, agent_, window, profile,
+                     render_worker, io_service, resolution));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker);
 }
 
 RenderScreenImpl::~RenderScreenImpl() {
   base::ThreadWorker::PostTask(
-      render_worker_,
-      base::BindOnce(&RenderScreenImpl::DestroyGraphicsDeviceInternal,
-                     base::Unretained(this)));
+      render_worker_, base::BindOnce(&GPUDestroyGraphicsHostInternal, agent_));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
@@ -79,11 +491,14 @@ void RenderScreenImpl::PresentScreenBuffer() {
     fiber_switch(cc_->main_loop_fiber);
   }
 
+  // Update drawing viewport
+  UpdateWindowViewportInternal();
+
   // Present to screen surface
   base::ThreadWorker::PostTask(
       render_worker_,
-      base::BindOnce(&RenderScreenImpl::PresentScreenBufferInternal,
-                     base::Unretained(this), agent_->present_target));
+      base::BindOnce(&GPUPresentScreenBufferInternal, agent_, display_viewport_,
+                     resolution_, keep_ratio_));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
@@ -236,14 +651,12 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
     if (transition_mapping)
       base::ThreadWorker::PostTask(
           render_worker_,
-          base::BindOnce(&RenderScreenImpl::RenderVagueTransitionFrameInternal,
-                         base::Unretained(this), progress, vague_norm,
-                         transition_mapping));
+          base::BindOnce(&GPURenderVagueTransitionFrameInternal, agent_,
+                         progress, vague_norm, transition_mapping));
     else
       base::ThreadWorker::PostTask(
-          render_worker_,
-          base::BindOnce(&RenderScreenImpl::RenderAlphaTransitionFrameInternal,
-                         base::Unretained(this), progress));
+          render_worker_, base::BindOnce(&GPURenderAlphaTransitionFrameInternal,
+                                         agent_, progress));
 
     // Present to screen
     FrameProcessInternal(agent_->screen_buffer.RawDblPtr());
@@ -288,8 +701,7 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
   resolution_ = base::Vec2i(width, height);
   base::ThreadWorker::PostTask(
       render_worker_,
-      base::BindOnce(&RenderScreenImpl::ResetScreenBufferInternal,
-                     base::Unretained(this)));
+      base::BindOnce(&GPUResetScreenBufferInternal, agent_, resolution_));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
@@ -340,88 +752,6 @@ void RenderScreenImpl::Put_Brightness(const uint32_t& value, ExceptionState&) {
   brightness_ = std::clamp<uint32_t>(value, 0, 255);
 }
 
-void RenderScreenImpl::CreateGraphicsDeviceInternal(
-    base::WeakPtr<ui::Widget> window) {
-  // Create primary device on window widget
-  agent_->device = renderer::RenderDevice::Create(
-      window,
-      magic_enum::enum_cast<renderer::DriverType>(profile_->driver_backend)
-          .value_or(renderer::DriverType::UNDEFINED));
-
-  // Create global canvas scheduler
-  agent_->canvas_scheduler = CanvasScheduler::MakeInstance(
-      render_worker_, agent_->device.get(), io_service_);
-
-  // Create global sprite batch scheduler
-  agent_->sprite_batch = SpriteBatch::Make(agent_->device.get());
-
-  // Get pipeline manager
-  auto* pipelines = agent_->device->GetPipelines();
-
-  // Create generic quads batch
-  agent_->effect_quads = renderer::QuadBatch::Make(**agent_->device);
-  agent_->effect_binding =
-      pipelines->color.CreateBinding<renderer::Binding_Color>();
-
-  // Create transition generic quads
-  agent_->transition_quads = renderer::QuadBatch::Make(**agent_->device);
-
-  // Create transition binding
-  agent_->transition_binding_alpha =
-      pipelines->alphatrans.CreateBinding<renderer::Binding_AlphaTrans>();
-  agent_->transition_binding_vague =
-      pipelines->mappedtrans.CreateBinding<renderer::Binding_VagueTrans>();
-
-  // If the swap chain color buffer format is a non-sRGB UNORM format,
-  // we need to manually convert pixel shader output to gamma space.
-  const auto& swapchain_desc = agent_->device->GetSwapchain()->GetDesc();
-  bool convert_gamma_to_output = (swapchain_desc.ColorBufferFormat ==
-                                      Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB ||
-                                  swapchain_desc.ColorBufferFormat ==
-                                      Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB);
-
-  // Create screen present pipeline
-  agent_->present_pipeline.reset(new renderer::Pipeline_Present(
-      **agent_->device,
-      agent_->device->GetSwapchain()->GetDesc().ColorBufferFormat,
-      convert_gamma_to_output));
-
-  // Create screen buffer
-  ResetScreenBufferInternal();
-}
-
-void RenderScreenImpl::DestroyGraphicsDeviceInternal() {
-  // Release agent resource
-  delete agent_;
-}
-
-void RenderScreenImpl::ResetScreenBufferInternal() {
-  constexpr Diligent::BIND_FLAGS bind_flags =
-      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE;
-
-  renderer::CreateTexture2D(**GetDevice(), &agent_->screen_buffer,
-                            "screen.main.buffer", resolution_,
-                            Diligent::USAGE_DEFAULT, bind_flags);
-  renderer::CreateTexture2D(**GetDevice(), &agent_->frozen_buffer,
-                            "screen.frozen.buffer", resolution_,
-                            Diligent::USAGE_DEFAULT, bind_flags);
-  renderer::CreateTexture2D(**GetDevice(), &agent_->transition_buffer,
-                            "screen.transition.buffer", resolution_,
-                            Diligent::USAGE_DEFAULT, bind_flags);
-
-  renderer::WorldTransform world_transform;
-  renderer::MakeIdentityMatrix(world_transform.transform);
-  renderer::MakeProjectionMatrix(world_transform.projection, resolution_,
-                                 GetDevice()->IsUVFlip());
-
-  agent_->world_transform.Release();
-  Diligent::CreateUniformBuffer(
-      **GetDevice(), sizeof(world_transform), "graphics.world.transform",
-      &agent_->world_transform, Diligent::USAGE_IMMUTABLE,
-      Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
-      &world_transform);
-}
-
 void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
                                            Diligent::ITexture** render_target,
                                            const base::Vec2i& target_size) {
@@ -448,9 +778,8 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
 
   // 2) Setup renderpass
   base::ThreadWorker::PostTask(
-      render_worker_,
-      base::BindOnce(&RenderScreenImpl::FrameBeginRenderPassInternal,
-                     base::Unretained(this), render_target));
+      render_worker_, base::BindOnce(&GPUFrameBeginRenderPassInternal, agent_,
+                                     render_target, brightness_));
 
   // 3) Notify render a frame
   controller_params.root_world = agent_->world_transform.RawDblPtr();
@@ -461,111 +790,7 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   // 4) End render pass and process after-render effect
   base::ThreadWorker::PostTask(
       render_worker_,
-      base::BindOnce(&RenderScreenImpl::FrameEndRenderPassInternal,
-                     base::Unretained(this)));
-}
-
-void RenderScreenImpl::PresentScreenBufferInternal(
-    Diligent::ITexture** render_target) {
-  // Initial device attribute
-  Diligent::IDeviceContext* context = GetDevice()->GetContext();
-  Diligent::ISwapChain* swapchain = GetDevice()->GetSwapchain();
-
-  // Update drawing viewport
-  UpdateWindowViewportInternal();
-
-  // Process mouse coordinate and viewport rect
-  base::Rect target_rect;
-  base::WeakPtr<ui::Widget> window = GetDevice()->GetWindow();
-  window->GetMouseState().resolution = resolution_;
-  if (keep_ratio_) {
-    target_rect = display_viewport_;
-    window->GetMouseState().screen_offset = display_viewport_.Position();
-    window->GetMouseState().screen = display_viewport_.Size();
-  } else {
-    target_rect = window_size_;
-    window->GetMouseState().screen_offset = base::Vec2i();
-    window->GetMouseState().screen = window_size_;
-  }
-
-  // Setup render params
-  auto* render_target_view = swapchain->GetCurrentBackBufferRTV();
-  auto& pipeline_set = *agent_->present_pipeline;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
-  std::unique_ptr<renderer::QuadBatch> present_quads =
-      renderer::QuadBatch::Make(**GetDevice());
-  std::unique_ptr<renderer::Binding_Base> present_binding =
-      pipeline_set.CreateBinding<renderer::Binding_Base>();
-  RRefPtr<Diligent::IBuffer> present_uniform;
-
-  if (render_target) {
-    // Update vertex
-    renderer::Quad transient_quad;
-    renderer::Quad::SetPositionRect(&transient_quad, target_rect);
-    renderer::Quad::SetTexCoordRectNorm(
-        &transient_quad, (*GetDevice())->GetDeviceInfo().IsGLDevice()
-                             ? base::Rect(0, 1, 1, -1)
-                             : base::Rect(0, 0, 1, 1));
-    present_quads->QueueWrite(context, &transient_quad);
-
-    // Update window screen transform
-    renderer::WorldTransform world_matrix;
-    renderer::MakeProjectionMatrix(world_matrix.projection, window->GetSize(),
-                                   GetDevice()->IsUVFlip());
-    renderer::MakeIdentityMatrix(world_matrix.transform);
-
-    Diligent::CreateUniformBuffer(**GetDevice(), sizeof(world_matrix),
-                                  "present.world.uniform", &present_uniform,
-                                  Diligent::USAGE_IMMUTABLE,
-                                  Diligent::BIND_UNIFORM_BUFFER,
-                                  Diligent::CPU_ACCESS_NONE, &world_matrix);
-  }
-
-  // Prepare for rendering
-  float clear_color[] = {0, 0, 0, 1};
-  context->SetRenderTargets(
-      1, &render_target_view, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->ClearRenderTarget(
-      render_target_view, clear_color,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  Diligent::Rect scissor;
-  scissor.right = window->GetSize().x;
-  scissor.bottom = window->GetSize().y;
-  context->SetScissorRects(1, &scissor, 1, scissor.bottom + scissor.top);
-
-  // Start screen render
-  if (render_target) {
-    // Set world transform
-    present_binding->u_transform->Set(present_uniform);
-    present_binding->u_texture->Set(
-        (*render_target)
-            ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-
-    // Apply pipeline state
-    context->SetPipelineState(pipeline);
-    context->CommitShaderResources(
-        **present_binding, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    // Apply vertex index
-    Diligent::IBuffer* const vertex_buffer = **present_quads;
-    context->SetVertexBuffers(
-        0, 1, &vertex_buffer, nullptr,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetIndexBuffer(
-        **GetDevice()->GetQuadIndex(), 0,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    // Execute render command
-    Diligent::DrawIndexedAttribs draw_indexed_attribs;
-    draw_indexed_attribs.NumIndices = 6;
-    draw_indexed_attribs.IndexType = GetDevice()->GetQuadIndex()->format();
-    context->DrawIndexed(draw_indexed_attribs);
-  }
-
-  // Flush command buffer and present GPU surface
-  swapchain->Present();
+      base::BindOnce(&GPUFrameEndRenderPassInternal, agent_, brightness_));
 }
 
 void RenderScreenImpl::FrameProcessInternal(
@@ -624,223 +849,6 @@ int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
   }
 
   return 0;
-}
-
-void RenderScreenImpl::FrameBeginRenderPassInternal(
-    Diligent::ITexture** render_target) {
-  // Initial context
-  Diligent::IDeviceContext* context = GetDevice()->GetContext();
-
-  // Initial render target info
-  Diligent::ITexture* const render_target_ptr = *render_target;
-  const base::Vec2i target_size(render_target_ptr->GetDesc().Width,
-                                render_target_ptr->GetDesc().Height);
-
-  // Update screen effect params
-  if (brightness_ < 255) {
-    renderer::Quad effect_quad;
-    renderer::Quad::SetPositionRect(&effect_quad, base::Rect(target_size));
-    renderer::Quad::SetColor(&effect_quad,
-                             base::Vec4(0, 0, 0, (255 - brightness_) / 255.0f));
-    agent_->effect_quads->QueueWrite(context, &effect_quad);
-  }
-
-  // Set render target in context and clear previous buffer
-  auto render_target_view =
-      render_target_ptr->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
-  const float clear_color[] = {0, 0, 0, 1};
-  context->SetRenderTargets(
-      1, &render_target_view, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->ClearRenderTarget(
-      render_target_view, clear_color,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  Diligent::Rect render_scissor;
-  render_scissor.right = target_size.x;
-  render_scissor.bottom = target_size.y;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
-}
-
-void RenderScreenImpl::FrameEndRenderPassInternal() {
-  // Initial context
-  Diligent::IDeviceContext* context = GetDevice()->GetContext();
-
-  // Render screen effect if need
-  if (brightness_ < 255) {
-    // Apply brightness effect
-    auto& pipeline_set = GetDevice()->GetPipelines()->color;
-    auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
-
-    // Set world transform
-    agent_->effect_binding->u_transform->Set(agent_->world_transform);
-
-    // Apply pipeline state
-    context->SetPipelineState(pipeline);
-    context->CommitShaderResources(
-        **agent_->effect_binding,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    // Apply vertex index
-    Diligent::IBuffer* const vertex_buffer = **agent_->effect_quads;
-    context->SetVertexBuffers(
-        0, 1, &vertex_buffer, nullptr,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetIndexBuffer(
-        **GetDevice()->GetQuadIndex(), 0,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-    // Execute render command
-    Diligent::DrawIndexedAttribs draw_indexed_attribs;
-    draw_indexed_attribs.NumIndices = 6;
-    draw_indexed_attribs.IndexType = GetDevice()->GetQuadIndex()->format();
-    context->DrawIndexed(draw_indexed_attribs);
-  }
-}
-
-void RenderScreenImpl::RenderAlphaTransitionFrameInternal(float progress) {
-  // Initial context
-  Diligent::IDeviceContext* context = GetDevice()->GetContext();
-
-  // Target UV
-  const bool flip_uv = (*GetDevice())->GetDeviceInfo().IsGLDevice();
-  const base::RectF uv_rect = flip_uv ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
-                                      : base::RectF(0.0f, 0.0f, 1.0f, 1.0f);
-
-  // Update transition uniform
-  renderer::Quad transient_quad;
-  renderer::Quad::SetPositionRect(&transient_quad,
-                                  base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
-  renderer::Quad::SetTexCoordRectNorm(&transient_quad, uv_rect);
-  renderer::Quad::SetColor(&transient_quad, base::Vec4(progress));
-  agent_->transition_quads->QueueWrite(context, &transient_quad);
-
-  // Composite transition frame
-  auto render_target_view = agent_->screen_buffer->GetDefaultView(
-      Diligent::TEXTURE_VIEW_RENDER_TARGET);
-  const float clear_color[] = {0, 0, 0, 1};
-  context->SetRenderTargets(
-      1, &render_target_view, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->ClearRenderTarget(
-      render_target_view, clear_color,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  Diligent::Rect render_scissor;
-  render_scissor.right = resolution_.x;
-  render_scissor.bottom = resolution_.y;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
-
-  // Apply brightness effect
-  auto& pipeline_set = GetDevice()->GetPipelines()->alphatrans;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
-
-  // Set uniform texture
-  static_cast<renderer::Binding_AlphaTrans*>(
-      agent_->transition_binding_alpha.get())
-      ->u_current_texture->Set(agent_->transition_buffer->GetDefaultView(
-          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-  static_cast<renderer::Binding_AlphaTrans*>(
-      agent_->transition_binding_alpha.get())
-      ->u_frozen_texture->Set(agent_->frozen_buffer->GetDefaultView(
-          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-
-  // Apply pipeline state
-  context->SetPipelineState(pipeline);
-  context->CommitShaderResources(
-      **agent_->transition_binding_alpha,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  // Apply vertex index
-  Diligent::IBuffer* const vertex_buffer = **agent_->transition_quads;
-  context->SetVertexBuffers(
-      0, 1, &vertex_buffer, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->SetIndexBuffer(**GetDevice()->GetQuadIndex(), 0,
-                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  // Execute render command
-  Diligent::DrawIndexedAttribs draw_indexed_attribs;
-  draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType = GetDevice()->GetQuadIndex()->format();
-  context->DrawIndexed(draw_indexed_attribs);
-}
-
-void RenderScreenImpl::RenderVagueTransitionFrameInternal(
-    float progress,
-    float vague,
-    Diligent::ITextureView** trans_mapping) {
-  // Initial context
-  Diligent::IDeviceContext* context = GetDevice()->GetContext();
-
-  // Target UV
-  const bool flip_uv = (*GetDevice())->GetDeviceInfo().IsGLDevice();
-  const base::RectF uv_rect = flip_uv ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
-                                      : base::RectF(0.0f, 0.0f, 1.0f, 1.0f);
-
-  // Update transition uniform
-  renderer::Quad transient_quad;
-  renderer::Quad::SetPositionRect(&transient_quad,
-                                  base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
-  renderer::Quad::SetTexCoordRectNorm(&transient_quad, uv_rect);
-  renderer::Quad::SetColor(&transient_quad, base::Vec4(vague, 0, 0, progress));
-  agent_->transition_quads->QueueWrite(context, &transient_quad);
-
-  // Composite transition frame
-  auto render_target_view = agent_->screen_buffer->GetDefaultView(
-      Diligent::TEXTURE_VIEW_RENDER_TARGET);
-  const float clear_color[] = {0, 0, 0, 1};
-  context->SetRenderTargets(
-      1, &render_target_view, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->ClearRenderTarget(
-      render_target_view, clear_color,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  Diligent::Rect render_scissor;
-  render_scissor.right = resolution_.x;
-  render_scissor.bottom = resolution_.y;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
-
-  // Apply brightness effect
-  auto& pipeline_set = GetDevice()->GetPipelines()->mappedtrans;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
-
-  // Set uniform texture
-  static_cast<renderer::Binding_VagueTrans*>(
-      agent_->transition_binding_vague.get())
-      ->u_current_texture->Set(agent_->transition_buffer->GetDefaultView(
-          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-  static_cast<renderer::Binding_VagueTrans*>(
-      agent_->transition_binding_vague.get())
-      ->u_frozen_texture->Set(agent_->frozen_buffer->GetDefaultView(
-          Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-  static_cast<renderer::Binding_VagueTrans*>(
-      agent_->transition_binding_vague.get())
-      ->u_trans_texture->Set(*trans_mapping);
-
-  // Apply pipeline state
-  context->SetPipelineState(pipeline);
-  context->CommitShaderResources(
-      **agent_->transition_binding_vague,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  // Apply vertex index
-  Diligent::IBuffer* const vertex_buffer = **agent_->transition_quads;
-  context->SetVertexBuffers(
-      0, 1, &vertex_buffer, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->SetIndexBuffer(**GetDevice()->GetQuadIndex(), 0,
-                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  // Execute render command
-  Diligent::DrawIndexedAttribs draw_indexed_attribs;
-  draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType = GetDevice()->GetQuadIndex()->format();
-  context->DrawIndexed(draw_indexed_attribs);
 }
 
 void RenderScreenImpl::AddDisposable(Disposable* disp) {

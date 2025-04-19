@@ -176,11 +176,14 @@ void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
 
 void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
                                      ViewportAgent* agent,
-                                     Diligent::ITexture* render_target,
+                                     Diligent::ITexture** render_target,
                                      const base::Vec2i& offset) {
   auto* context = device->GetContext();
-  base::Vec2i target_size(render_target->GetDesc().Width,
-                          render_target->GetDesc().Height);
+
+  // Setup render target size
+  auto* render_target_ptr = (*render_target);
+  base::Vec2i target_size(render_target_ptr->GetDesc().Width,
+                          render_target_ptr->GetDesc().Height);
 
   // Reload viewport offset based transform matrix
   renderer::WorldTransform world_matrix;
@@ -194,10 +197,11 @@ void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
 
   // Apply render target
   Diligent::ITextureView* render_target_view =
-      render_target->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+      render_target_ptr->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
 }
 
 }  // namespace
@@ -305,7 +309,7 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   if (!bitmap_agent) {
     exception_state.ThrowContentError(
         ExceptionCode::CONTENT_ERROR,
-        "Viewport.Render: Invalid bitmap as render target.");
+        "Viewport::Render: Invalid bitmap as render target.");
     return;
   }
 
@@ -315,6 +319,12 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   // Check flash status
   if (flash_emitter_.IsFlashing() && flash_emitter_.IsInvalid())
     return;
+
+  // Check viewport visible
+  const base::Rect viewport_rect =
+      base::MakeIntersect(bitmap_agent->size, rect_->AsBaseRect());
+  const base::Vec2i offset = viewport_rect.Position() - origin_;
+  agent_->region_cache = base::Rect(offset, bitmap_agent->size);
 
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
@@ -334,12 +344,9 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
       base::Unretained(screen()->GetSpriteBatch()), controller_params.device));
 
   // 2) Setup renderpass
-  base::Rect viewport_rect = rect_->AsBaseRect();
-  base::Vec2i offset = viewport_rect.Position() - origin_;
-  agent_->region_cache = base::Rect(offset, bitmap_agent->size);
-  screen()->PostTask(base::BindOnce(
-      &GPUFrameBeginRenderPassInternal, controller_params.device, agent_,
-      base::Unretained(bitmap_agent->data.RawPtr()), offset));
+  screen()->PostTask(base::BindOnce(&GPUFrameBeginRenderPassInternal,
+                                    controller_params.device, agent_,
+                                    bitmap_agent->data.RawDblPtr(), offset));
 
   // 3) Notify render a frame
   controller_params.root_world = bitmap_agent->world_buffer.RawDblPtr();

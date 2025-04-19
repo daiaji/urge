@@ -90,8 +90,12 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
     return profile_->api_version;
   }
 
+  // Add tick monitor handler
   base::CallbackListSubscription AddTickObserver(
       const base::RepeatingClosure& handler);
+
+  // DisposableCollection methods
+  void AddDisposable(Disposable* disp) override;
 
   void PostTask(base::OnceClosure task);
   void WaitWorkerSynchronize();
@@ -130,31 +134,13 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Brightness, uint32_t);
 
  private:
-  void CreateGraphicsDeviceInternal(base::WeakPtr<ui::Widget> window);
-  void DestroyGraphicsDeviceInternal();
-  void ResetScreenBufferInternal();
+  void FrameProcessInternal(Diligent::ITexture** present_target);
+  int DetermineRepeatNumberInternal(double delta_rate);
+  void UpdateWindowViewportInternal();
 
   void RenderFrameInternal(DrawNodeController* controller,
                            Diligent::ITexture** render_target,
                            const base::Vec2i& target_size);
-
-  void PresentScreenBufferInternal(Diligent::ITexture** render_target);
-  void FrameProcessInternal(Diligent::ITexture** present_target);
-
-  void UpdateWindowViewportInternal();
-  int DetermineRepeatNumberInternal(double delta_rate);
-
-  void FrameBeginRenderPassInternal(Diligent::ITexture** render_target);
-  void FrameEndRenderPassInternal();
-
-  void RenderAlphaTransitionFrameInternal(float progress);
-  void RenderVagueTransitionFrameInternal(
-      float progress,
-      float vague,
-      Diligent::ITextureView** trans_mapping);
-
-  // DisposableCollection methods:
-  void AddDisposable(Disposable* disp) override;
 
   DrawNodeController controller_;
   base::RepeatingClosureList tick_observers_;
