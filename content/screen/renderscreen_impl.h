@@ -146,6 +146,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   base::RepeatingClosureList tick_observers_;
 
   CoroutineContext* cc_;
+  base::WeakPtr<ui::Widget> window_;
   ContentProfile* profile_;
   I18NProfile* i18n_profile_;
   filesystem::IOService* io_service_;

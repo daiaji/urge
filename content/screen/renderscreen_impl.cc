@@ -427,6 +427,12 @@ void GPURenderVagueTransitionFrameInternal(
   context->DrawIndexed(draw_indexed_attribs);
 }
 
+void GPUResizeSwapchainInternal(RenderGraphicsAgent* agent,
+                                const base::Vec2i& size) {
+  auto* swapchain = agent->device->GetSwapchain();
+  swapchain->Resize(size.x, size.y);
+}
+
 }  // namespace
 
 RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
@@ -439,6 +445,7 @@ RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
                                    const base::Vec2i& resolution,
                                    int frame_rate)
     : cc_(cc),
+      window_(window),
       profile_(profile),
       i18n_profile_(i18n_profile),
       io_service_(io_service),
@@ -790,13 +797,15 @@ int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
 }
 
 void RenderScreenImpl::UpdateWindowViewportInternal() {
-  auto window_size = GetDevice()->GetWindow()->GetSize();
+  auto window_size = window_->GetSize();
 
   if (!(window_size == window_size_)) {
     window_size_ = window_size;
 
     // Resize screen surface
-    GetDevice()->GetSwapchain()->Resize(window_size_.x, window_size_.y);
+    base::ThreadWorker::PostTask(
+        render_worker_,
+        base::BindOnce(&GPUResizeSwapchainInternal, agent_, window_size_));
   }
 
   float window_ratio = static_cast<float>(window_size.x) / window_size.y;
