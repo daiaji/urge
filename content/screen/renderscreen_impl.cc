@@ -375,15 +375,16 @@ void RenderScreenImpl::CreateGraphicsDeviceInternal(
   // If the swap chain color buffer format is a non-sRGB UNORM format,
   // we need to manually convert pixel shader output to gamma space.
   const auto& swapchain_desc = agent_->device->GetSwapchain()->GetDesc();
-  bool convert_output_to_gamma =
-      (swapchain_desc.ColorBufferFormat == Diligent::TEX_FORMAT_RGBA8_UNORM ||
-       swapchain_desc.ColorBufferFormat == Diligent::TEX_FORMAT_BGRA8_UNORM);
+  bool convert_gamma_to_output = (swapchain_desc.ColorBufferFormat ==
+                                      Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB ||
+                                  swapchain_desc.ColorBufferFormat ==
+                                      Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB);
 
   // Create screen present pipeline
   agent_->present_pipeline.reset(new renderer::Pipeline_Present(
       **agent_->device,
       agent_->device->GetSwapchain()->GetDesc().ColorBufferFormat,
-      convert_output_to_gamma));
+      convert_gamma_to_output));
 
   // Create screen buffer
   ResetScreenBufferInternal();

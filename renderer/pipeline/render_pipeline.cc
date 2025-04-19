@@ -391,7 +391,7 @@ Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
                                    Diligent::TEXTURE_FORMAT target_format,
                                    bool setup_gamma_convert)
     : RenderPipelineBase(device) {
-  Diligent::ShaderMacro pixel_macro = {"CONVERT_PS_OUTPUT_TO_GAMMA",
+  Diligent::ShaderMacro pixel_macro = {"CONVERT_PS_GAMMA_TO_OUTPUT",
                                        setup_gamma_convert ? "1" : "0"};
 
   const ShaderSource vertex_shader{kHLSL_PresentRender_VertexShader, "main",

@@ -803,9 +803,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
   frag.a *= PSIn.Color.a;
   PSOut.Color = frag;
-#if CONVERT_PS_OUTPUT_TO_GAMMA
-  // Use fast approximation for gamma correction.
-  PSOut.Color.rgb = pow(PSOut.Color.rgb, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
+#if CONVERT_PS_GAMMA_TO_OUTPUT
+  PSOut.Color.rgb = pow(PSOut.Color.rgb, float3(2.2, 2.2, 2.2));
 #endif
 }
 
