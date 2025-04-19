@@ -201,7 +201,6 @@ void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
 }
 
 }  // namespace
@@ -323,7 +322,10 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   // Check viewport visible
   const base::Rect viewport_rect =
       base::MakeIntersect(bitmap_agent->size, rect_->AsBaseRect());
-  const base::Vec2i offset = viewport_rect.Position() - origin_;
+  if (viewport_rect.width <= 0 || viewport_rect.height <= 0)
+    return;
+
+  const base::Vec2i offset = base::Vec2i(-origin_.x, -origin_.y);
   agent_->region_cache = base::Rect(offset, bitmap_agent->size);
 
   // Prepare for rendering context
@@ -332,7 +334,7 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   controller_params.screen_buffer = bitmap_agent->data.RawDblPtr();
   controller_params.screen_size = bitmap_agent->size;
   controller_params.viewport = bitmap_agent->size;
-  controller_params.origin = base::Vec2i();
+  controller_params.origin = origin_;
 
   // 1) Execute pre-composite handler
   controller_.BroadCastNotification(DrawableNode::BEFORE_RENDER,
@@ -366,8 +368,6 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
       &GPUApplyViewportEffect, controller_params.device,
       controller_params.screen_buffer, controller_params.root_world, agent_,
       viewport_rect, target_color, tone_->AsNormColor()));
-
-  screen()->WaitWorkerSynchronize();
 }
 
 scoped_refptr<Viewport> ViewportImpl::Get_Viewport(

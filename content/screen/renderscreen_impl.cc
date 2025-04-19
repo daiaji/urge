@@ -507,6 +507,10 @@ base::CallbackListSubscription RenderScreenImpl::AddTickObserver(
   return tick_observers_.Add(handler);
 }
 
+void RenderScreenImpl::AddDisposable(Disposable* disp) {
+  disposable_elements_.Append(disp);
+}
+
 void RenderScreenImpl::PostTask(base::OnceClosure task) {
   base::ThreadWorker::PostTask(render_worker_, std::move(task));
 }
@@ -752,6 +756,64 @@ void RenderScreenImpl::Put_Brightness(const uint32_t& value, ExceptionState&) {
   brightness_ = std::clamp<uint32_t>(value, 0, 255);
 }
 
+void RenderScreenImpl::FrameProcessInternal(
+    Diligent::ITexture** present_target) {
+  // Setup target
+  agent_->present_target = present_target;
+
+  // Increase frame render count
+  ++frame_count_;
+
+  // Tick callback
+  tick_observers_.Notify();
+
+  // Switch to primary fiber
+  fiber_switch(cc_->primary_fiber);
+}
+
+int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
+  smooth_delta_time_ *= 0.8;
+  smooth_delta_time_ += std::fmin(delta_rate, 2) * 0.2;
+
+  if (smooth_delta_time_ >= 0.9) {
+    elapsed_time_ = 0;
+    return std::round(smooth_delta_time_);
+  } else {
+    elapsed_time_ += delta_rate;
+    if (elapsed_time_ >= 1) {
+      elapsed_time_ -= 1;
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+void RenderScreenImpl::UpdateWindowViewportInternal() {
+  auto window_size = GetDevice()->GetWindow()->GetSize();
+
+  if (!(window_size == window_size_)) {
+    window_size_ = window_size;
+
+    // Resize screen surface
+    GetDevice()->GetSwapchain()->Resize(window_size_.x, window_size_.y);
+  }
+
+  float window_ratio = static_cast<float>(window_size.x) / window_size.y;
+  float screen_ratio = static_cast<float>(resolution_.x) / resolution_.y;
+
+  display_viewport_.width = window_size.x;
+  display_viewport_.height = window_size.y;
+
+  if (screen_ratio > window_ratio)
+    display_viewport_.height = display_viewport_.width / screen_ratio;
+  else if (screen_ratio < window_ratio)
+    display_viewport_.width = display_viewport_.height * screen_ratio;
+
+  display_viewport_.x = (window_size.x - display_viewport_.width) / 2.0f;
+  display_viewport_.y = (window_size.y - display_viewport_.height) / 2.0f;
+}
+
 void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
                                            Diligent::ITexture** render_target,
                                            const base::Vec2i& target_size) {
@@ -791,68 +853,5 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&GPUFrameEndRenderPassInternal, agent_, brightness_));
-}
-
-void RenderScreenImpl::FrameProcessInternal(
-    Diligent::ITexture** present_target) {
-  // Setup target
-  agent_->present_target = present_target;
-
-  // Increase frame render count
-  ++frame_count_;
-
-  // Tick callback
-  tick_observers_.Notify();
-
-  // Switch to primary fiber
-  fiber_switch(cc_->primary_fiber);
-}
-
-void RenderScreenImpl::UpdateWindowViewportInternal() {
-  auto window_size = GetDevice()->GetWindow()->GetSize();
-
-  if (!(window_size == window_size_)) {
-    window_size_ = window_size;
-
-    // Resize screen surface
-    GetDevice()->GetSwapchain()->Resize(window_size_.x, window_size_.y);
-  }
-
-  float window_ratio = static_cast<float>(window_size.x) / window_size.y;
-  float screen_ratio = static_cast<float>(resolution_.x) / resolution_.y;
-
-  display_viewport_.width = window_size.x;
-  display_viewport_.height = window_size.y;
-
-  if (screen_ratio > window_ratio)
-    display_viewport_.height = display_viewport_.width / screen_ratio;
-  else if (screen_ratio < window_ratio)
-    display_viewport_.width = display_viewport_.height * screen_ratio;
-
-  display_viewport_.x = (window_size.x - display_viewport_.width) / 2.0f;
-  display_viewport_.y = (window_size.y - display_viewport_.height) / 2.0f;
-}
-
-int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
-  smooth_delta_time_ *= 0.8;
-  smooth_delta_time_ += std::fmin(delta_rate, 2) * 0.2;
-
-  if (smooth_delta_time_ >= 0.9) {
-    elapsed_time_ = 0;
-    return std::round(smooth_delta_time_);
-  } else {
-    elapsed_time_ += delta_rate;
-    if (elapsed_time_ >= 1) {
-      elapsed_time_ -= 1;
-      return 1;
-    }
-  }
-
-  return 0;
-}
-
-void RenderScreenImpl::AddDisposable(Disposable* disp) {
-  disposable_elements_.Append(disp);
-}
 
 }  // namespace content
