@@ -30,8 +30,8 @@ std::unique_ptr<QuadIndexCache> renderer::QuadIndexCache::Make(
   return std::unique_ptr<QuadIndexCache>(new QuadIndexCache(device));
 }
 
-void QuadIndexCache::Allocate(uint32_t quadrangle_size) {
-  uint32_t required_indices_size =
+void QuadIndexCache::Allocate(size_t quadrangle_size) {
+  size_t required_indices_size =
       quadrangle_size * kQuadrangleDrawIndices.size();
 
   // Generate

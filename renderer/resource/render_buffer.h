@@ -28,7 +28,7 @@ class QuadIndexCache {
 
   // Allocate a new capacity index buffer for drawcall using,
   // |quadrangle_size| is the count not the byte size.
-  void Allocate(uint32_t quadrangle_size);
+  void Allocate(size_t quadrangle_size);
 
   Diligent::RefCntAutoPtr<Diligent::IBuffer>& operator*() { return buffer_; }
   Diligent::VALUE_TYPE format() const { return format_; }
@@ -57,7 +57,7 @@ class BatchBuffer {
   BatchBuffer& operator=(const BatchBuffer&) = delete;
 
   static std::unique_ptr<BatchBuffer> Make(Diligent::IRenderDevice* device,
-                                           uint32_t initial_count = 0) {
+                                           size_t initial_count = 0) {
     Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer;
 
     if (initial_count > 0) {
@@ -74,7 +74,7 @@ class BatchBuffer {
 
   void QueueWrite(Diligent::IDeviceContext* context,
                   const TargetType* data,
-                  uint32_t count = 1) {
+                  size_t count = 1) {
     if (!count)
       return;
 

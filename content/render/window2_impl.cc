@@ -197,8 +197,8 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
       agent->background_batch->QueueWrite(context, quads.data(), quads.size());
 
       renderer::Binding_Flat::Params uniform;
-      uniform.color = base::Vec4();
-      uniform.tone = tone;
+      uniform.Color = base::Vec4();
+      uniform.Tone = tone;
 
       context->UpdateBuffer(
           agent->uniform_buffer, 0, sizeof(uniform), &uniform,

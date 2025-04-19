@@ -46,8 +46,8 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
   };
 
   // Calculate wrapped origin offsets
-  const float wrap_ox = value_wrap(origin.x, item_x);
-  const float wrap_oy = value_wrap(origin.y, item_y);
+  const float wrap_ox = value_wrap(static_cast<float>(origin.x), item_x);
+  const float wrap_oy = value_wrap(static_cast<float>(origin.y), item_y);
 
   // Optimized tile calculation using simplified formula
   const float total_x = static_cast<float>(viewport_size.x) + wrap_ox;
@@ -86,8 +86,8 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
   agent->batch->QueueWrite(context, agent->cache.data(), agent->cache.size());
 
   renderer::Binding_Flat::Params transient_uniform;
-  transient_uniform.color = color;
-  transient_uniform.tone = tone;
+  transient_uniform.Color = color;
+  transient_uniform.Tone = tone;
   context->UpdateBuffer(agent->uniform_buffer, 0, sizeof(transient_uniform),
                         &transient_uniform,
                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

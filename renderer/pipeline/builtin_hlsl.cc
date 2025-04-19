@@ -546,10 +546,8 @@ cbuffer WorldMatrixBuffer {
 };
 
 struct TilemapParams {
-  float2 Offset;
-  float2 TexSize;
-  float AnimateIndex;
-  float TileSize;
+  float4 OffsetAndTexSize;
+  float4 AnimateIndexAndTileSize;
 };
 
 cbuffer TilemapUniformBuffer {
@@ -575,21 +573,22 @@ void main(in VSInput VSIn, out PSInput PSIn) {
   float2 transUV = VSIn.UV;
 
   // Apply offset
-  transPos.x += u_Params.Offset.x;
-  transPos.y += u_Params.Offset.y;
+  transPos.x += u_Params.OffsetAndTexSize.x;
+  transPos.y += u_Params.OffsetAndTexSize.y;
 
   // Animated area
-  float addition = (transUV.x <= kAutotileArea.x * u_Params.TileSize &&
-                    transUV.y <= kAutotileArea.y * u_Params.TileSize)
+  float tile_size = u_Params.AnimateIndexAndTileSize.y;
+  float addition = (transUV.x <= kAutotileArea.x * tile_size &&
+                    transUV.y <= kAutotileArea.y * tile_size)
                        ? 1.0
                        : 0.0;
-  transUV.x += 3.0 * u_Params.TileSize * u_Params.AnimateIndex * addition;
+  transUV.x += 3.0 * tile_size * u_Params.AnimateIndexAndTileSize.x * addition;
 
   // Setup pixel shader params
   PSIn.Pos = mul(transPos, u_Transform.ProjMat);
   PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
-  PSIn.UV = float2(transUV.x * u_Params.TexSize.x,
-                   transUV.y * u_Params.TexSize.y);
+  PSIn.UV = float2(transUV.x * u_Params.OffsetAndTexSize.z,
+                   transUV.y * u_Params.OffsetAndTexSize.w);
   PSIn.Color = VSIn.Color;
 }
 
@@ -647,6 +646,9 @@ cbuffer WorldMatrixBuffer {
 };
 
 struct Tilemap2Params {
+  float4 OffsetAndTexSize;
+  float4 AnimationOffsetAndTileSize;
+
   float2 Offset;
   float2 TexSize;
   float2 AnimationOffset;  
@@ -685,26 +687,27 @@ void main(in VSInput VSIn, out PSInput PSIn) {
   float2 transUV = VSIn.UV;
 
   // Apply offset
-  transPos.x += u_Params.Offset.x;
-  transPos.y += u_Params.Offset.y;
+  transPos.x += u_Params.OffsetAndTexSize.x;
+  transPos.y += u_Params.OffsetAndTexSize.y;
 
   // Regular area
-	float addition1 = (transUV.x <= kRegularArea.x * u_Params.TileSize &&
-                     transUV.y <= kRegularArea.y * u_Params.TileSize)
+  float tile_size = u_Params.AnimationOffsetAndTileSize.z;
+	float addition1 = (transUV.x <= kRegularArea.x * tile_size &&
+                     transUV.y <= kRegularArea.y * tile_size)
                         ? 1.0
                         : 0.0;
-	transUV.x += u_Params.AnimationOffset.x * addition1;
+	transUV.x += u_Params.AnimationOffsetAndTileSize.x * addition1;
 
 	// Waterfall area
-	float addition2 = PosInArea(transUV, kWaterfallArea * u_Params.TileSize) -
-                    PosInArea(transUV, kWaterfallAutotileArea * u_Params.TileSize);
-	transUV.y += u_Params.AnimationOffset.y * addition2;
+	float addition2 = PosInArea(transUV, kWaterfallArea * tile_size) -
+                    PosInArea(transUV, kWaterfallAutotileArea * tile_size);
+	transUV.y += u_Params.AnimationOffsetAndTileSize.y * addition2;
 
   // Setup pixel shader params
   PSIn.Pos = mul(transPos, u_Transform.ProjMat);
   PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
-  PSIn.UV = float2(transUV.x * u_Params.TexSize.x,
-                   transUV.y * u_Params.TexSize.y);
+  PSIn.UV = float2(transUV.x * u_Params.OffsetAndTexSize.z,
+                   transUV.y * u_Params.OffsetAndTexSize.w);
   PSIn.Color = VSIn.Color;
 }
 

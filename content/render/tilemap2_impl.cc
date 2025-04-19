@@ -471,14 +471,13 @@ void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
                                      const base::Vec2& offset,
                                      const base::Vec2& anim_offset,
                                      int32_t tilesize) {
-  base::Vec2 atlas_size(agent->atlas_texture->GetDesc().Width,
-                        agent->atlas_texture->GetDesc().Height);
+  base::Vec2i atlas_size(agent->atlas_texture->GetDesc().Width,
+                         agent->atlas_texture->GetDesc().Height);
 
   renderer::Binding_Tilemap2::Params uniform;
-  uniform.tex_size = base::MakeInvert(atlas_size);
-  uniform.offset = offset;
-  uniform.animation_offset = anim_offset;
-  uniform.tile_size = tilesize;
+  uniform.OffsetAndTexSize =
+      base::MakeVec4(offset, base::MakeInvert(atlas_size));
+  uniform.AnimationOffsetAndTileSize = base::MakeVec4(anim_offset, tilesize);
 
   device->GetContext()->UpdateBuffer(
       agent->uniform_buffer, 0, sizeof(uniform), &uniform,

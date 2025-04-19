@@ -105,8 +105,8 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
   agent->effect.quads->QueueWrite(context, &transient_quad);
 
   renderer::Binding_Flat::Params transient_uniform;
-  transient_uniform.color = color;
-  transient_uniform.tone = tone;
+  transient_uniform.Color = color;
+  transient_uniform.Tone = tone;
   context->UpdateBuffer(agent->effect.uniform_buffer, 0,
                         sizeof(transient_uniform), &transient_uniform,
                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
