@@ -17,9 +17,7 @@ if __name__ == "__main__":
 
   os.makedirs(idl_dir, exist_ok=True)
   os.makedirs(out_dir, exist_ok=True)
-
-  for filepath in os.listdir(idl_dir):
-    os.remove(os.path.join(idl_dir, filepath))
+  os.remove(os.path.join(idl_dir, "export_apis.json"))
 
   template_classes = []
   for filepath in os.listdir(in_dir):
