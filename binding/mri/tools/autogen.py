@@ -31,8 +31,8 @@ if __name__ == "__main__":
       for klass in idl_parser.classes:
         template_classes.append(klass)
 
-      with open(os.path.join(idl_dir, os.path.splitext(filepath)[0] + ".json"), "w", encoding="utf-8") as f:
-        f.write(json.dumps(idl_parser.classes))
+  with open(os.path.join(idl_dir, "export_apis.json"), "w", encoding="utf-8") as f:
+    f.write(json.dumps(template_classes))
 
   for filepath in os.listdir(out_dir):
     os.remove(os.path.join(out_dir, filepath))
