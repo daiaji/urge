@@ -40,10 +40,12 @@ DebugMessageOutputFunc(Diligent::DEBUG_MESSAGE_SEVERITY Severity,
 
 }  // namespace
 
+#if !ENGINE_DLL
 using Diligent::GetEngineFactoryD3D11;
 using Diligent::GetEngineFactoryD3D12;
 using Diligent::GetEngineFactoryOpenGL;
 using Diligent::GetEngineFactoryVk;
+#endif
 
 std::unique_ptr<RenderDevice> RenderDevice::Create(
     base::WeakPtr<ui::Widget> window_target,
@@ -87,7 +89,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
                                         swap_chain_desc, &swapchain);
   } else if (driver_type == DriverType::VULKAN) {
 #if ENGINE_DLL
-    auto GetEngineFactoryVk = LoadGraphicsEngineVk();
+    auto GetEngineFactoryVk = Diligent::LoadGraphicsEngineVk();
 #endif
     auto* factory = GetEngineFactoryVk();
 
@@ -97,7 +99,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
                                &swapchain);
   } else if (driver_type == DriverType::D3D11) {
 #if ENGINE_DLL
-    auto GetEngineFactoryD3D11 = LoadGraphicsEngineD3D11();
+    auto GetEngineFactoryD3D11 = Diligent::LoadGraphicsEngineD3D11();
 #endif
     auto* pFactory = GetEngineFactoryD3D11();
 
@@ -109,7 +111,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
                                    &swapchain);
   } else if (driver_type == DriverType::D3D12) {
 #if ENGINE_DLL
-    auto GetEngineFactoryD3D12 = LoadGraphicsEngineD3D12();
+    auto GetEngineFactoryD3D12 = Diligent::LoadGraphicsEngineD3D12();
 #endif
     auto* pFactoryD3D12 = GetEngineFactoryD3D12();
 

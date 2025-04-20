@@ -42,7 +42,13 @@
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ],
-      "variables": []
+      "variables": [
+        {
+          "name": "URGE_SHARED_RENDERER_LIBRARY",
+          "value": "True",
+          "type": "BOOL"
+        }
+      ]
     }
   ]
 }
