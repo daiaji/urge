@@ -1,0 +1,18 @@
+[
+  {
+    "class_name": "Bitmap",
+    "description": "测试说明",
+    "methods": [
+      {
+        "name": "initialize",
+        "description": "测试方法说明"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "font",
+        "description": "测试属性说明"
+      }
+    ]
+  }
+]
