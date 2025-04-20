@@ -1,7 +1,7 @@
 #ifndef INCLUDE_RUBY_CONFIG_H
 #define INCLUDE_RUBY_CONFIG_H 1
-#if (_MSC_VER < 1920) || (_MSC_VER > 1942)
-#error MSC version unmatch: 1920..1939 is expected.
+#if (_MSC_VER < 1920) || (_MSC_VER > 1944)
+#error MSC version unmatch: 1920..1944 is expected.
 #endif
 #define HAVE_TYPE_STRUCT_ADDRINFO
 #define RUBY_MSVCRT_VERSION 140
