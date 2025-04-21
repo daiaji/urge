@@ -177,7 +177,8 @@ void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
 void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
                                      ViewportAgent* agent,
                                      Diligent::ITexture** render_target,
-                                     const base::Vec2i& offset) {
+                                     const base::Vec2i& offset,
+                                     const base::Rect& scissor_region) {
   auto* context = device->GetContext();
 
   // Setup render target size
@@ -204,8 +205,8 @@ void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
 
   // Setup scissor region
   Diligent::Rect render_scissor;
-  render_scissor.right = target_size.x;
-  render_scissor.bottom = target_size.y;
+  render_scissor.right = scissor_region.width;
+  render_scissor.bottom = scissor_region.height;
   context->SetScissorRects(1, &render_scissor, 1,
                            render_scissor.bottom + render_scissor.top);
 }
@@ -353,9 +354,9 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
       base::Unretained(screen()->GetSpriteBatch()), controller_params.device));
 
   // 2) Setup renderpass
-  screen()->PostTask(base::BindOnce(&GPUFrameBeginRenderPassInternal,
-                                    controller_params.device, agent_,
-                                    bitmap_agent->data.RawDblPtr(), offset));
+  screen()->PostTask(base::BindOnce(
+      &GPUFrameBeginRenderPassInternal, controller_params.device, agent_,
+      bitmap_agent->data.RawDblPtr(), offset, viewport_rect));
 
   // 3) Notify render a frame
   controller_params.root_world = bitmap_agent->world_buffer.RawDblPtr();
