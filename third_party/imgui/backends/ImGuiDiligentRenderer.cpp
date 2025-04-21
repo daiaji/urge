@@ -532,15 +532,9 @@ void ImGuiDiligentRenderer::NewFrame(Uint32            RenderSurfaceWidth,
                                      Uint32            RenderSurfaceHeight,
                                      SURFACE_TRANSFORM SurfacePreTransform)
 {
-    if (!m_pPSO)
-        CreateDeviceObjects();
     m_RenderSurfaceWidth  = RenderSurfaceWidth;
     m_RenderSurfaceHeight = RenderSurfaceHeight;
     m_SurfacePreTransform = SurfacePreTransform;
-}
-
-void ImGuiDiligentRenderer::EndFrame()
-{
 }
 
 void ImGuiDiligentRenderer::InvalidateDeviceObjects()
@@ -879,6 +873,12 @@ float4 ImGuiDiligentRenderer::TransformClipRect(const ImVec2& DisplaySize, const
             UNEXPECTED("Unknown transform");
             return rect;
     }
+}
+
+void ImGuiDiligentRenderer::CheckDeviceObjects()
+{
+    if (!m_pPSO)
+        CreateDeviceObjects();
 }
 
 void ImGuiDiligentRenderer::RenderDrawData(IDeviceContext* pCtx, ImDrawData* pDrawData)

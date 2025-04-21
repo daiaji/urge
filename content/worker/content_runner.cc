@@ -48,6 +48,9 @@ bool ContentRunner::RunMainLoop() {
     if (queued_event.type == SDL_EVENT_QUIT)
       binding_quit_flag_.store(1);
 
+    // GUI event process
+    ImGui_ImplSDL3_ProcessEvent(&queued_event);
+
     // Shortcut
     if (queued_event.type == SDL_EVENT_KEY_UP &&
         queued_event.key.windowID == window_->GetWindowID()) {
@@ -68,10 +71,11 @@ bool ContentRunner::RunMainLoop() {
   input_impl_->SetUpdateEnable(true);
   mouse_impl_->SetUpdateEnable(true);
 
-  // TODO: render GUI
+  // Render GUI if need
+  RenderGUIInternal();
 
   // Present screen buffer
-  graphics_impl_->PresentScreenBuffer();
+  graphics_impl_->PresentScreenBuffer(imgui_.get());
 
   return exit_code_.load();
 }
@@ -162,6 +166,26 @@ void ContentRunner::UpdateDisplayFPSInternal() {
     if (fps_history_.size() > 20)
       fps_history_.erase(fps_history_.begin());
   }
+}
+
+void ContentRunner::RenderGUIInternal() {
+  // Setup renderer new frame
+  const Diligent::SwapChainDesc& swapchain_desc =
+      graphics_impl_->GetDevice()->GetSwapchain()->GetDesc();
+  imgui_->NewFrame(swapchain_desc.Width, swapchain_desc.Height,
+                   swapchain_desc.PreTransform);
+
+  // Setup sdl new frame
+  ImGui_ImplSDL3_NewFrame();
+
+  // Setup imgui new frame
+  ImGui::NewFrame();
+
+  // Demo test
+  ImGui::ShowDemoWindow();
+
+  // Final gui render
+  ImGui::Render();
 }
 
 void ContentRunner::CreateIMGUIContextInternal() {

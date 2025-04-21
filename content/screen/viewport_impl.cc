@@ -312,9 +312,6 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
     return;
   }
 
-  // Submit pending canvas commands
-  screen()->GetCanvasScheduler()->SubmitPendingPaintCommands();
-
   // Check flash status
   if (flash_emitter_.IsFlashing() && flash_emitter_.IsInvalid())
     return;
@@ -325,6 +322,9 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   if (viewport_rect.width <= 0 || viewport_rect.height <= 0)
     return;
 
+  // Submit pending canvas commands
+  screen()->GetCanvasScheduler()->SubmitPendingPaintCommands();
+
   const base::Vec2i offset = base::Vec2i(-origin_.x, -origin_.y);
   agent_->region_cache = base::Rect(offset, bitmap_agent->size);
 
@@ -333,7 +333,7 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   controller_params.device = screen()->GetDevice();
   controller_params.screen_buffer = bitmap_agent->data.RawDblPtr();
   controller_params.screen_size = bitmap_agent->size;
-  controller_params.viewport = bitmap_agent->size;
+  controller_params.viewport = viewport_rect;
   controller_params.origin = origin_;
 
   // 1) Execute pre-composite handler

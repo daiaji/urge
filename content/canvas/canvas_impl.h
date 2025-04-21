@@ -210,6 +210,7 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
 
   enum class CommandID {
     NONE = 0,
+    CLEAR,
     GRADIENT_FILL_RECT,
     HUE_CHANGE,
     RADIAL_BLUR,
@@ -217,10 +218,15 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
   };
 
   struct Command {
-    CommandID id = CommandID::NONE;
-    Command* next = nullptr;
+    CommandID id;
+    Command* next;
 
+    Command(CommandID cid) : id(cid), next(nullptr) {}
     virtual ~Command() = default;
+  };
+
+  struct Command_Clear : public Command {
+    Command_Clear() : Command(CommandID::CLEAR) {}
   };
 
   struct Command_GradientFillRect : public Command {
@@ -229,13 +235,13 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
     base::Vec4 color2;
     bool vertical;
 
-    Command_GradientFillRect() { id = CommandID::GRADIENT_FILL_RECT; }
+    Command_GradientFillRect() : Command(CommandID::GRADIENT_FILL_RECT) {}
   };
 
   struct Command_HueChange : public Command {
     int32_t hue;
 
-    Command_HueChange() { id = CommandID::HUE_CHANGE; }
+    Command_HueChange() : Command(CommandID::HUE_CHANGE) {}
   };
 
   struct Command_RadialBlur : public Command {
@@ -243,7 +249,7 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
     int32_t angle;
     int32_t division;
 
-    Command_RadialBlur() { id = CommandID::RADIAL_BLUR; }
+    Command_RadialBlur() : Command(CommandID::RADIAL_BLUR) {}
   };
 
   struct Command_DrawText : public Command {
@@ -252,7 +258,7 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
     float opacity;
     int align;
 
-    Command_DrawText() { id = CommandID::DRAW_TEXT; }
+    Command_DrawText() : Command(CommandID::DRAW_TEXT) {}
   };
 
   struct CommandBlock {

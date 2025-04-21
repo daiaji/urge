@@ -58,6 +58,7 @@ class ContentRunner {
   void InitializeContentInternal();
   void TickHandlerInternal();
   void UpdateDisplayFPSInternal();
+  void RenderGUIInternal();
 
   void CreateIMGUIContextInternal();
   void DestroyIMGUIContextInternal();

@@ -106,10 +106,12 @@ void GPUDestroyGraphicsHostInternal(RenderGraphicsAgent* agent) {
   delete agent;
 }
 
-void GPUPresentScreenBufferInternal(RenderGraphicsAgent* agent,
-                                    const base::Rect& display_viewport,
-                                    const base::Vec2i& resolution,
-                                    bool keep_ratio) {
+void GPUPresentScreenBufferInternal(
+    RenderGraphicsAgent* agent,
+    const base::Rect& display_viewport,
+    const base::Vec2i& resolution,
+    bool keep_ratio,
+    Diligent::ImGuiDiligentRenderer* gui_renderer) {
   // Initial device attribute
   Diligent::IDeviceContext* context = agent->device->GetContext();
   Diligent::ISwapChain* swapchain = agent->device->GetSwapchain();
@@ -160,6 +162,11 @@ void GPUPresentScreenBufferInternal(RenderGraphicsAgent* agent,
                                   Diligent::CPU_ACCESS_NONE, &world_matrix);
   }
 
+  // Update gui device objects if need
+  if (gui_renderer) {
+    gui_renderer->CheckDeviceObjects();
+  }
+
   // Prepare for rendering
   float clear_color[] = {0, 0, 0, 1};
   context->SetRenderTargets(
@@ -201,6 +208,11 @@ void GPUPresentScreenBufferInternal(RenderGraphicsAgent* agent,
     draw_indexed_attribs.NumIndices = 6;
     draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
     context->DrawIndexed(draw_indexed_attribs);
+  }
+
+  // Render GUI if need
+  if (gui_renderer) {
+    gui_renderer->RenderDrawData(context, ImGui::GetDrawData());
   }
 
   // Flush command buffer and present GPU surface
@@ -482,7 +494,8 @@ RenderScreenImpl::~RenderScreenImpl() {
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
-void RenderScreenImpl::PresentScreenBuffer() {
+void RenderScreenImpl::PresentScreenBuffer(
+    Diligent::ImGuiDiligentRenderer* gui_renderer) {
   // Determine update repeat time
   const uint64_t now_time = SDL_GetPerformanceCounter();
   const uint64_t delta_time = now_time - last_count_time_;
@@ -493,6 +506,7 @@ void RenderScreenImpl::PresentScreenBuffer() {
       delta_time / static_cast<double>(desired_delta_time_);
   const int repeat_time = DetermineRepeatNumberInternal(delta_rate);
 
+  // Switch to runner coroutine
   for (int i = 0; i < repeat_time; ++i) {
     frame_skip_required_ = (i != 0);
     fiber_switch(cc_->main_loop_fiber);
@@ -505,7 +519,7 @@ void RenderScreenImpl::PresentScreenBuffer() {
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&GPUPresentScreenBufferInternal, agent_, display_viewport_,
-                     resolution_, keep_ratio_));
+                     resolution_, keep_ratio_, gui_renderer));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 

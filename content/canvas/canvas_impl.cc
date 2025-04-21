@@ -207,54 +207,17 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
-void GPUCanvasFillRectInternal(CanvasScheduler* scheduler,
-                               TextureAgent* agent,
-                               const base::Rect& region,
-                               const base::Vec4& color) {
+void GPUCanvasClearInternal(CanvasScheduler* scheduler, TextureAgent* agent) {
   auto* context = scheduler->GetDevice()->GetContext();
-  auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
-
-  renderer::Quad transient_quad;
-  renderer::Quad::SetPositionRect(&transient_quad, region);
-  renderer::Quad::SetColor(&transient_quad, color);
-  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
-
   Diligent::ITextureView* render_target_view = agent->target;
+  float clear_color[] = {0, 0, 0, 0};
+
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  // Set scissor region
-  Diligent::Rect render_scissor;
-  render_scissor.right = agent->size.x;
-  render_scissor.bottom = agent->size.y;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
-
-  // Setup uniform params
-  scheduler->color_binding()->u_transform->Set(agent->world_buffer);
-
-  // Apply pipeline state
-  context->SetPipelineState(pipeline);
-  context->CommitShaderResources(
-      **scheduler->color_binding(),
+  context->ClearRenderTarget(
+      render_target_view, clear_color,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  // Apply vertex index
-  Diligent::IBuffer* const vertex_buffer = **scheduler->quad_batch();
-  context->SetVertexBuffers(
-      0, 1, &vertex_buffer, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->SetIndexBuffer(**scheduler->GetDevice()->GetQuadIndex(), 0,
-                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  // Execute render command
-  Diligent::DrawIndexedAttribs draw_indexed_attribs;
-  draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType =
-      scheduler->GetDevice()->GetQuadIndex()->format();
-  context->DrawIndexed(draw_indexed_attribs);
 }
 
 void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
@@ -656,6 +619,11 @@ void CanvasImpl::SubmitQueuedCommands() {
   // encode draw command in wgpu encoder.
   while (command_sequence) {
     switch (command_sequence->id) {
+      case CommandID::CLEAR: {
+        base::ThreadWorker::PostTask(
+            scheduler_->render_worker(),
+            base::BindOnce(&GPUCanvasClearInternal, scheduler_, texture_));
+      } break;
       case CommandID::GRADIENT_FILL_RECT: {
         const auto* c =
             static_cast<Command_GradientFillRect*>(command_sequence);
@@ -837,12 +805,7 @@ void CanvasImpl::Clear(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  auto* command = AllocateCommand<Command_GradientFillRect>();
-  command->region =
-      base::Rect(0, 0, Width(exception_state), Height(exception_state));
-  command->color1 = base::Vec4(0);
-  command->color2 = command->color1;
-  command->vertical = false;
+  auto* command = AllocateCommand<Command_Clear>();
 
   InvalidateSurfaceCache();
 }

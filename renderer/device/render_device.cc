@@ -72,6 +72,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain;
 
   // Initialize driver descriptor
+  Diligent::EngineCreateInfo engine_create_info;
   Diligent::SwapChainDesc swap_chain_desc;
   Diligent::FullScreenModeDesc fullscreen_mode_desc;
 
@@ -82,7 +83,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
 #endif
     auto* factory = GetEngineFactoryOpenGL();
 
-    Diligent::EngineGLCreateInfo gl_create_info;
+    Diligent::EngineGLCreateInfo gl_create_info(engine_create_info);
     gl_create_info.Window = native_window;
     gl_create_info.ZeroToOneNDZ = Diligent::True;
     factory->CreateDeviceAndSwapChainGL(gl_create_info, &device, &context,
@@ -93,7 +94,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
 #endif
     auto* factory = GetEngineFactoryVk();
 
-    Diligent::EngineVkCreateInfo vk_create_info;
+    Diligent::EngineVkCreateInfo vk_create_info(engine_create_info);
     factory->CreateDeviceAndContextsVk(vk_create_info, &device, &context);
     factory->CreateSwapChainVk(device, context, swap_chain_desc, native_window,
                                &swapchain);
@@ -103,7 +104,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
 #endif
     auto* pFactory = GetEngineFactoryD3D11();
 
-    Diligent::EngineD3D11CreateInfo d3d11_create_info;
+    Diligent::EngineD3D11CreateInfo d3d11_create_info(engine_create_info);
     pFactory->CreateDeviceAndContextsD3D11(d3d11_create_info, &device,
                                            &context);
     pFactory->CreateSwapChainD3D11(device, context, swap_chain_desc,
@@ -115,7 +116,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
 #endif
     auto* pFactoryD3D12 = GetEngineFactoryD3D12();
 
-    Diligent::EngineD3D12CreateInfo d3d12_create_info;
+    Diligent::EngineD3D12CreateInfo d3d12_create_info(engine_create_info);
     pFactoryD3D12->CreateDeviceAndContextsD3D12(d3d12_create_info, &device,
                                                 &context);
     pFactoryD3D12->CreateSwapChainD3D12(device, context, swap_chain_desc,

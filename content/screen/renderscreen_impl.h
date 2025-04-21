@@ -5,6 +5,8 @@
 #ifndef CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 #define CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 
+#include "backends/ImGuiDiligentRenderer.hpp"
+
 #include "base/worker/thread_worker.h"
 #include "content/canvas/canvas_scheduler.h"
 #include "content/components/disposable.h"
@@ -73,7 +75,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
 
   // Present current screen buffer to window.
   // This function will wait for delta time to clamp fps.
-  void PresentScreenBuffer();
+  void PresentScreenBuffer(Diligent::ImGuiDiligentRenderer* gui_renderer);
 
   DrawNodeController* GetDrawableController() { return &controller_; }
   base::ThreadWorker* GetRenderRunner() const { return render_worker_; }

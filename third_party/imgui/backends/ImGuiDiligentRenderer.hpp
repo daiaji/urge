@@ -100,7 +100,7 @@ public:
     void NewFrame(Uint32            RenderSurfaceWidth,
                   Uint32            RenderSurfaceHeight,
                   SURFACE_TRANSFORM SurfacePreTransform);
-    void EndFrame();
+    void CheckDeviceObjects();
     void RenderDrawData(IDeviceContext* pCtx, ImDrawData* pDrawData);
     void InvalidateDeviceObjects();
     void CreateDeviceObjects();
