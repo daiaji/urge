@@ -546,8 +546,7 @@ void RenderScreenImpl::Update(ExceptionState& exception_state) {
     if (!(allow_skip_frame_ && frame_skip_required_)) {
       // Render a frame and push into render queue
       // This function only encodes the render commands
-      RenderFrameInternal(&controller_, agent_->screen_buffer.RawDblPtr(),
-                          resolution_);
+      RenderFrameInternal(agent_->screen_buffer.RawDblPtr());
     }
   }
 
@@ -607,8 +606,7 @@ void RenderScreenImpl::FadeIn(uint32_t duration,
 void RenderScreenImpl::Freeze(ExceptionState& exception_state) {
   if (!frozen_) {
     // Get frozen scene snapshot for transition
-    RenderFrameInternal(&controller_, agent_->frozen_buffer.RawDblPtr(),
-                        resolution_);
+    RenderFrameInternal(agent_->frozen_buffer.RawDblPtr());
 
     // Set forzen flag for blocking frame update
     frozen_ = true;
@@ -664,8 +662,7 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
       texture_agent ? texture_agent->view.RawDblPtr() : nullptr;
 
   // Get current scene snapshot for transition
-  RenderFrameInternal(&controller_, agent_->transition_buffer.RawDblPtr(),
-                      resolution_);
+  RenderFrameInternal(agent_->transition_buffer.RawDblPtr());
 
   // Transition render loop
   for (int i = 0; i < duration; ++i) {
@@ -697,8 +694,7 @@ scoped_refptr<Bitmap> RenderScreenImpl::SnapToBitmap(
       GetCanvasScheduler(), this, scoped_font_, resolution_, exception_state);
 
   if (target) {
-    RenderFrameInternal(&controller_, target->GetAgent()->data.RawDblPtr(),
-                        resolution_);
+    RenderFrameInternal(target->GetAgent()->data.RawDblPtr());
     base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
   }
 
@@ -837,9 +833,7 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
   display_viewport_.y = (window_size.y - display_viewport_.height) / 2.0f;
 }
 
-void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
-                                           Diligent::ITexture** render_target,
-                                           const base::Vec2i& target_size) {
+void RenderScreenImpl::RenderFrameInternal(Diligent::ITexture** render_target) {
   // Submit pending canvas commands
   GetCanvasScheduler()->SubmitPendingPaintCommands();
 
@@ -847,12 +841,12 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   DrawableNode::RenderControllerParams controller_params;
   controller_params.device = GetDevice();
   controller_params.screen_buffer = render_target;
-  controller_params.screen_size = target_size;
-  controller_params.viewport = target_size;
+  controller_params.screen_size = resolution_;
+  controller_params.viewport = resolution_;
   controller_params.origin = base::Vec2i();
 
   // 1) Execute pre-composite handler
-  controller->BroadCastNotification(DrawableNode::BEFORE_RENDER,
+  controller_.BroadCastNotification(DrawableNode::BEFORE_RENDER,
                                     &controller_params);
 
   // 1.5) Update sprite batch
@@ -869,7 +863,7 @@ void RenderScreenImpl::RenderFrameInternal(DrawNodeController* controller,
   // 3) Notify render a frame
   controller_params.root_world = agent_->world_transform.RawDblPtr();
   controller_params.world_binding = controller_params.root_world;
-  controller->BroadCastNotification(DrawableNode::ON_RENDERING,
+  controller_.BroadCastNotification(DrawableNode::ON_RENDERING,
                                     &controller_params);
 
   // 4) End render pass and process after-render effect

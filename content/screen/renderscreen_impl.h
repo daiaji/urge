@@ -140,9 +140,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   int DetermineRepeatNumberInternal(double delta_rate);
   void UpdateWindowViewportInternal();
 
-  void RenderFrameInternal(DrawNodeController* controller,
-                           Diligent::ITexture** render_target,
-                           const base::Vec2i& target_size);
+  void RenderFrameInternal(Diligent::ITexture** render_target);
 
   DrawNodeController controller_;
   base::RepeatingClosureList tick_observers_;

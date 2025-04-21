@@ -201,6 +201,13 @@ void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Setup scissor region
+  Diligent::Rect render_scissor;
+  render_scissor.right = target_size.x;
+  render_scissor.bottom = target_size.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
 }
 
 }  // namespace
