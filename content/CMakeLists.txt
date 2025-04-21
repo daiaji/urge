@@ -105,5 +105,6 @@ target_link_libraries(engine_content PUBLIC
   components_filesystem
   sdl_image_loader
   sdl_ttf_render
+  ocornut_imgui
   soloud
 )

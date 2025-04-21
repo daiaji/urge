@@ -4,6 +4,9 @@
 
 #include "content/worker/content_runner.h"
 
+#include "imgui/backends/imgui_impl_sdl3.h"
+#include "imgui/imgui.h"
+
 #include "content/context/execution_context.h"
 #include "content/profile/command_ids.h"
 
@@ -29,7 +32,13 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
       total_delta_(0),
       frame_count_(0) {}
 
-ContentRunner::~ContentRunner() = default;
+ContentRunner::~ContentRunner() {
+  base::ThreadWorker::PostTask(
+      render_worker_.get(),
+      base::BindOnce(&ContentRunner::DestroyIMGUIContextInternal,
+                     base::Unretained(this)));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_.get());
+}
 
 bool ContentRunner::RunMainLoop() {
   // Poll event queue
@@ -110,6 +119,13 @@ void ContentRunner::InitializeContentInternal() {
       new AudioImpl(profile_.get(), io_service_.get(), i18n_profile_.get()));
   mouse_impl_.reset(new MouseImpl(window_->AsWeakPtr(), profile_.get()));
 
+  // Create imgui context
+  base::ThreadWorker::PostTask(
+      render_worker_.get(),
+      base::BindOnce(&ContentRunner::CreateIMGUIContextInternal,
+                     base::Unretained(this)));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_.get());
+
   // Hook graphics event loop
   tick_observer_ = graphics_impl_->AddTickObserver(base::BindRepeating(
       &ContentRunner::TickHandlerInternal, base::Unretained(this)));
@@ -146,6 +162,53 @@ void ContentRunner::UpdateDisplayFPSInternal() {
     if (fps_history_.size() > 20)
       fps_history_.erase(fps_history_.begin());
   }
+}
+
+void ContentRunner::CreateIMGUIContextInternal() {
+  auto* render_device = graphics_impl_->GetDevice();
+
+  // Setup context
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO();
+  io.IniFilename = nullptr;
+  io.ConfigFlags |=
+      ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
+
+  // Apply DPI Settings
+  int display_w, display_h;
+  SDL_GetWindowSizeInPixels(window_->AsSDLWindow(), &display_w, &display_h);
+  io.DisplaySize =
+      ImVec2(static_cast<float>(display_w), static_cast<float>(display_h));
+  io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+  float window_scale = SDL_GetWindowDisplayScale(window_->AsSDLWindow());
+  ImGui::GetStyle().ScaleAllSizes(window_scale);
+
+  // Apply default font
+  int64_t font_data_size;
+  auto* font_data = scoped_font_->GetUIDefaultFont(&font_data_size);
+  ImFontConfig font_config;
+  font_config.FontDataOwnedByAtlas = false;
+  io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(font_data), font_data_size,
+                                 16.0f * window_scale, &font_config,
+                                 io.Fonts->GetGlyphRangesChineseFull());
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+
+  // Setup imgui platform backends
+  ImGui_ImplSDL3_InitForOther(window_->AsSDLWindow());
+
+  // Setup renderer backend
+  Diligent::ImGuiDiligentCreateInfo imgui_create_info(
+      **render_device, render_device->GetSwapchain()->GetDesc());
+  imgui_.reset(new Diligent::ImGuiDiligentRenderer(imgui_create_info));
+}
+
+void ContentRunner::DestroyIMGUIContextInternal() {
+  imgui_.reset();
+
+  ImGui_ImplSDL3_Shutdown();
+  ImGui::DestroyContext();
 }
 
 void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {

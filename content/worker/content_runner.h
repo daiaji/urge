@@ -5,6 +5,8 @@
 #ifndef CONTENT_WORKER_CONTENT_RUNNER_H_
 #define CONTENT_WORKER_CONTENT_RUNNER_H_
 
+#include "imgui/backends/ImGuiDiligentRenderer.hpp"
+
 #include "base/worker/thread_worker.h"
 #include "components/filesystem/io_service.h"
 #include "content/components/font_context.h"
@@ -56,6 +58,10 @@ class ContentRunner {
   void InitializeContentInternal();
   void TickHandlerInternal();
   void UpdateDisplayFPSInternal();
+
+  void CreateIMGUIContextInternal();
+  void DestroyIMGUIContextInternal();
+
   static void EngineEntryFunctionInternal(fiber_t* fiber);
 
   std::unique_ptr<ContentProfile> profile_;
@@ -78,6 +84,7 @@ class ContentRunner {
   std::unique_ptr<filesystem::IOService> io_service_;
   std::unique_ptr<ScopedFontData> scoped_font_;
   std::unique_ptr<I18NProfile> i18n_profile_;
+  std::unique_ptr<Diligent::ImGuiDiligentRenderer> imgui_;
 
   bool disable_gui_input_;
   bool show_settings_menu_;

@@ -80,6 +80,10 @@ include_directories(third_party/zlib)
 add_subdirectory(third_party/DiligentCore)
 include_directories(third_party/DiligentCore)
 
+## IMGUI
+add_subdirectory(third_party/imgui)
+include_directories(third_party/imgui)
+
 ## Physfs
 set(PHYSFS_BUILD_STATIC TRUE)
 set(PHYSFS_BUILD_SHARED FALSE)
