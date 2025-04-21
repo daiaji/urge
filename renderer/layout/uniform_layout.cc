@@ -26,8 +26,8 @@ void MakeProjectionMatrix(float* out, const base::Vec2& size, bool flip) {
   out[10] = cc;
   out[15] = 1.0f;
 
-  out[12] = -1.0f;
-  out[13] = y_scale;
+  out[3] = -1.0f;
+  out[7] = y_scale;
 }
 
 void MakeProjectionMatrix(float* out,
@@ -45,8 +45,8 @@ void MakeProjectionMatrix(float* out,
   out[10] = cc;
   out[15] = 1.0f;
 
-  out[12] = aa * offset.x - 1.0f;
-  out[13] = bb * offset.y + y_scale;
+  out[3] = aa * offset.x - 1.0f;
+  out[7] = bb * offset.y + y_scale;
 }
 
 }  // namespace renderer

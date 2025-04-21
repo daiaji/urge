@@ -16,7 +16,6 @@
 namespace content {
 
 struct ViewportAgent {
-  base::Rect region_cache;
   RRefPtr<Diligent::IBuffer> world_uniform;
 
   struct {
@@ -77,6 +76,9 @@ class ViewportImpl : public Viewport, public GraphicsChild, public Disposable {
   scoped_refptr<ViewportImpl> viewport_;
   scoped_refptr<RectImpl> rect_;
   base::Vec2i origin_;
+
+  base::Rect transform_cache_;
+  base::Vec2i effect_layer_cache_;
 
   scoped_refptr<ColorImpl> color_;
   scoped_refptr<ToneImpl> tone_;

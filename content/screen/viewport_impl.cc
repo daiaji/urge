@@ -32,24 +32,22 @@ void GPUDestroyViewportAgent(ViewportAgent* agent) {
   delete agent;
 }
 
-void GPUUpdateViewportAgentData(renderer::RenderDevice* device,
+void GPUUpdateViewportTransform(renderer::RenderDevice* device,
                                 ViewportAgent* agent,
-                                const base::Vec2i& screen_size,
-                                const base::Vec2i& viewport_offset,
-                                const base::Vec2i& effect_size) {
-  auto* context = device->GetContext();
-
-  // Reload viewport offset based transform matrix
+                                const base::Rect& region) {
   renderer::WorldTransform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, screen_size,
-                                 viewport_offset, device->IsUVFlip());
+  renderer::MakeProjectionMatrix(world_matrix.projection, region.Size(),
+                                 region.Position(), device->IsUVFlip());
   renderer::MakeIdentityMatrix(world_matrix.transform);
 
-  context->UpdateBuffer(agent->world_uniform, 0, sizeof(world_matrix),
-                        &world_matrix,
-                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  device->GetContext()->UpdateBuffer(
+      agent->world_uniform, 0, sizeof(world_matrix), &world_matrix,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+}
 
-  // Reset viewport effect intermediate texture layer if needed
+void GPUResetIntermediateLayer(renderer::RenderDevice* device,
+                               ViewportAgent* agent,
+                               const base::Vec2i& effect_size) {
   auto effect_layer = agent->effect.intermediate_layer;
   if (!effect_layer || effect_layer->GetDesc().Width < effect_size.x ||
       effect_layer->GetDesc().Height < effect_size.y) {
@@ -177,24 +175,10 @@ void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
 void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
                                      ViewportAgent* agent,
                                      Diligent::ITexture** render_target,
-                                     const base::Vec2i& offset,
+                                     const base::Vec2i& viewport_offset,
                                      const base::Rect& scissor_region) {
   auto* context = device->GetContext();
-
-  // Setup render target size
   auto* render_target_ptr = (*render_target);
-  base::Vec2i target_size(render_target_ptr->GetDesc().Width,
-                          render_target_ptr->GetDesc().Height);
-
-  // Reload viewport offset based transform matrix
-  renderer::WorldTransform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, target_size, offset,
-                                 device->IsUVFlip());
-  renderer::MakeIdentityMatrix(world_matrix.transform);
-
-  context->UpdateBuffer(agent->world_uniform, 0, sizeof(world_matrix),
-                        &world_matrix,
-                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply render target
   Diligent::ITextureView* render_target_view =
@@ -326,15 +310,13 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
 
   // Check viewport visible
   const base::Rect viewport_rect =
-      base::MakeIntersect(bitmap_agent->size, rect_->AsBaseRect());
+      base::MakeIntersect(bitmap_agent->size, rect_->AsBaseRect().Size());
+  const base::Vec2i offset = -origin_;
   if (viewport_rect.width <= 0 || viewport_rect.height <= 0)
     return;
 
   // Submit pending canvas commands
   screen()->GetCanvasScheduler()->SubmitPendingPaintCommands();
-
-  const base::Vec2i offset = base::Vec2i(-origin_.x, -origin_.y);
-  agent_->region_cache = base::Rect(offset, bitmap_agent->size);
 
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
@@ -343,6 +325,25 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   controller_params.screen_size = bitmap_agent->size;
   controller_params.viewport = viewport_rect;
   controller_params.origin = origin_;
+
+  // 0) Update uniform buffer if viewport region changed
+  base::Rect transform_cache_rect(offset, controller_params.screen_size);
+  if (!(transform_cache_ == transform_cache_rect)) {
+    screen()->PostTask(base::BindOnce(&GPUUpdateViewportTransform,
+                                      controller_params.device, agent_,
+                                      transform_cache_rect));
+
+    transform_cache_ = transform_cache_rect;
+  }
+
+  // 0.5) Reset intermediate layer if need
+  if (!(effect_layer_cache_ == viewport_rect.Size())) {
+    screen()->PostTask(base::BindOnce(&GPUResetIntermediateLayer,
+                                      controller_params.device, agent_,
+                                      viewport_rect.Size()));
+
+    effect_layer_cache_ = viewport_rect.Size();
+  }
 
   // 1) Execute pre-composite handler
   controller_.BroadCastNotification(DrawableNode::BEFORE_RENDER,
@@ -524,25 +525,37 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   base::Rect viewport_rect = rect_->AsBaseRect();
   viewport_rect.x += params->viewport.x;
   viewport_rect.y += params->viewport.y;
-  transient_params.viewport = viewport_rect;
-  transient_params.origin = origin_;
 
   // Check render visible
   viewport_rect = base::MakeIntersect(params->viewport, viewport_rect);
-  if (!viewport_rect.width || !viewport_rect.height)
+  if (viewport_rect.width <= 0 || viewport_rect.height <= 0)
     return;
+
+  // Set stacked viewport params
+  transient_params.viewport = viewport_rect;
+  transient_params.origin = origin_;
 
   if (stage == DrawableNode::BEFORE_RENDER) {
     // Calculate viewport offset
     base::Vec2i offset = viewport_rect.Position() - origin_;
 
     // Update uniform buffer if viewport region changed.
-    base::Rect cache_rect(offset, viewport_rect.Size());
-    if (!(agent_->region_cache == cache_rect)) {
-      agent_->region_cache = cache_rect;
-      screen()->PostTask(
-          base::BindOnce(&GPUUpdateViewportAgentData, params->device, agent_,
-                         params->screen_size, offset, viewport_rect.Size()));
+    base::Rect transform_cache_rect(offset, params->screen_size);
+    if (!(transform_cache_ == transform_cache_rect)) {
+      screen()->PostTask(base::BindOnce(&GPUUpdateViewportTransform,
+                                        params->device, agent_,
+                                        transform_cache_rect));
+
+      transform_cache_ = transform_cache_rect;
+    }
+
+    // Reset effect intermediate layer if need
+    if (!(effect_layer_cache_ == viewport_rect.Size())) {
+      screen()->PostTask(base::BindOnce(&GPUResetIntermediateLayer,
+                                        params->device, agent_,
+                                        viewport_rect.Size()));
+
+      effect_layer_cache_ = viewport_rect.Size();
     }
   }
 

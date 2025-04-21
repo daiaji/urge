@@ -46,8 +46,8 @@ struct PSInput {
 };
 
 void main(in VSInput VSIn, out PSInput PSIn) {
-  PSIn.Pos = mul(VSIn.Pos, u_Transform.ProjMat);
-  PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
+  PSIn.Pos = mul(u_Transform.ProjMat, VSIn.Pos);
+  PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
@@ -116,8 +116,8 @@ struct PSInput {
 };
 
 void main(in VSInput VSIn, out PSInput PSIn) {
-  PSIn.Pos = mul(VSIn.Pos, u_Transform.ProjMat);
-  PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
+  PSIn.Pos = mul(u_Transform.ProjMat, VSIn.Pos);
+  PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
@@ -183,8 +183,8 @@ struct PSInput {
 };
 
 void main(in VSInput VSIn, out PSInput PSIn) {
-  PSIn.Pos = mul(VSIn.Pos, u_Transform.ProjMat);
-  PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
+  PSIn.Pos = mul(u_Transform.ProjMat, VSIn.Pos);
+  PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
@@ -325,8 +325,8 @@ void main(in VSInput VSIn, out PSInput PSIn) {
     vert.Pos.w
   );
 
-  PSIn.Pos = mul(transPos, u_Transform.ProjMat);
-  PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
+  PSIn.Pos = mul(u_Transform.ProjMat, transPos);
+  PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = vert.UV.xy;
   PSIn.Color = effect.Color;
   PSIn.Tone = effect.Tone;
@@ -585,8 +585,8 @@ void main(in VSInput VSIn, out PSInput PSIn) {
   transUV.x += 3.0 * tile_size * u_Params.AnimateIndexAndTileSize.x * addition;
 
   // Setup pixel shader params
-  PSIn.Pos = mul(transPos, u_Transform.ProjMat);
-  PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
+  PSIn.Pos = mul(u_Transform.ProjMat, transPos);
+  PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = float2(transUV.x * u_Params.OffsetAndTexSize.z,
                    transUV.y * u_Params.OffsetAndTexSize.w);
   PSIn.Color = VSIn.Color;
@@ -704,8 +704,8 @@ void main(in VSInput VSIn, out PSInput PSIn) {
 	transUV.y += u_Params.AnimationOffsetAndTileSize.y * addition2;
 
   // Setup pixel shader params
-  PSIn.Pos = mul(transPos, u_Transform.ProjMat);
-  PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
+  PSIn.Pos = mul(u_Transform.ProjMat, transPos);
+  PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = float2(transUV.x * u_Params.OffsetAndTexSize.z,
                    transUV.y * u_Params.OffsetAndTexSize.w);
   PSIn.Color = VSIn.Color;
@@ -779,8 +779,8 @@ struct PSInput {
 };
 
 void main(in VSInput VSIn, out PSInput PSIn) {
-  PSIn.Pos = mul(VSIn.Pos, u_Transform.ProjMat);
-  PSIn.Pos = mul(PSIn.Pos, u_Transform.TransMat);
+  PSIn.Pos = mul(u_Transform.ProjMat, VSIn.Pos);
+  PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }

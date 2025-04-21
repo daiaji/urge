@@ -891,8 +891,7 @@ void TilemapImpl::UpdateViewportInternal(const base::Rect& viewport,
       (viewport_size.y / tilesize_) + !!(viewport_size.y % tilesize_) + 2;
 
   const base::Vec2i display_offset = tilemap_origin % base::Vec2i(tilesize_);
-  render_offset_ =
-      viewport.Position() - display_offset - base::Vec2i(0, tilesize_);
+  render_offset_ = -display_offset - base::Vec2i(0, tilesize_);
 
   if (!(new_viewport == render_viewport_)) {
     render_viewport_ = new_viewport;

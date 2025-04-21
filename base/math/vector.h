@@ -34,6 +34,8 @@ class Vec2i {
     return *this;
   }
 
+  inline Vec2i operator-() const { return Vec2i(-x, -y); }
+
   inline bool operator==(const Vec2i& other) const {
     return other.x == x && other.y == y;
   }
@@ -78,6 +80,8 @@ class Vec2 {
     return *this;
   }
 
+  inline Vec2 operator-() const { return Vec2(-x, -y); }
+
   inline bool operator==(const Vec2& other) const {
     return other.x == x && other.y == y;
   }
@@ -118,6 +122,8 @@ class Vec3i {
     z = other.z;
     return *this;
   }
+
+  inline Vec3i operator-() const { return Vec3i(-x, -y, -z); }
 
   inline bool operator==(const Vec3i& other) const {
     return other.x == x && other.y == y && other.z == z;
@@ -167,6 +173,8 @@ class Vec3 {
     return *this;
   }
 
+  inline Vec3 operator-() const { return Vec3(-x, -y, -z); }
+
   inline bool operator==(const Vec3& other) const {
     return other.x == x && other.y == y && other.z == z;
   }
@@ -209,6 +217,8 @@ class Vec4i {
     w = other.w;
     return *this;
   }
+
+  inline Vec4i operator-() const { return Vec4i(-x, -y, -z, -w); }
 
   inline bool operator==(const Vec4i& other) const {
     return other.x == x && other.y == y && other.z == z && other.w == w;
@@ -260,6 +270,8 @@ class Vec4 {
     w = other.w;
     return *this;
   }
+
+  inline Vec4 operator-() const { return Vec4(-x, -y, -z, -w); }
 
   inline bool operator==(const Vec4& other) const {
     return other.x == x && other.y == y && other.z == z && other.w == w;
