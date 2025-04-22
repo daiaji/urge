@@ -1,18 +1,199 @@
 [
   {
+    "class_name": "Audio",
+    "description": "管理引擎音频播放的模块，使用SoLoud提供音频流处理支持，目前支持MP3 WAV OGG这3种格式的数据。",
+    "methods": [],
+    "attributes": []
+  },
+  {
     "class_name": "Bitmap",
-    "description": "测试说明",
+    "description": "引擎中负责像素数据的类，主要用于离散绘制指令的处理，所有像素数据存储在显存中。",
     "methods": [
       {
-        "name": "initialize",
-        "description": "测试方法说明"
+        "name": "get_pixel",
+        "description": "※ 警告：本函数需要与GPU同步来获取数据，尽量减少该函数使用。"
+      },
+      {
+        "name": "save_png",
+        "description": "将当前Bitmap的数据保存到文件系统中。\n※ 警告：本函数需要与GPU同步获取像素数据，请勿频繁调用。"
       }
     ],
-    "attributes": [
+    "attributes": []
+  },
+  {
+    "class_name": "Color",
+    "description": "管理RGBA颜色的类，内部使用4个float存储数据。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Font",
+    "description": "管理字体加载的类，如果未设置引擎默认字体，则使用内置的一个纯英文字体替代。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Graphics",
+    "description": "管理全局图形渲染的模块，在引擎中负责管理所有可以绘制图形的类。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Input",
+    "description": "管理键盘输入的模块。\n在本引擎中，Input负责键盘控制，Mouse负责鼠标控制。",
+    "methods": [
       {
-        "name": "font",
-        "description": "测试属性说明"
+        "name": "press_key?",
+        "description": "判断按键按下的全键盘版本，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
+      },
+      {
+        "name": "trigger_key?",
+        "description": "判断按键触发的全键盘版本，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
+      },
+      {
+        "name": "repeat_key?",
+        "description": "判断按键重复的全键盘版本，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
+      },
+      {
+        "name": "get_key_name",
+        "description": "通过按键代码获取按键名称，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
+      },
+      {
+        "name": "get_keys_from_flag",
+        "description": "通过指定的绑定名获取绑定的按键代码，绑定名即“A B C X Y Z L R”一类的字符串，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
+      },
+      {
+        "name": "set_keys_from_flag",
+        "description": "通过指定的绑定名设置绑定的按键代码，绑定名即“A B C X Y Z L R”一类的字符串，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
+      },
+      {
+        "name": "recent_pressed_keys",
+        "description": "获取最近按下的按键，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
+      },
+      {
+        "name": "recent_triggered_keys",
+        "description": "获取最近触发的按键，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
+      },
+      {
+        "name": "recent_repeated_keys",
+        "description": "获取最近重复的按键，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
       }
-    ]
+    ],
+    "attributes": []
+  },
+  {
+    "class_name": "Mouse",
+    "description": "管理鼠标的模块。",
+    "methods": [
+      {
+        "name": "update",
+        "description": "每帧调用以更新鼠标状态。"
+      },
+      {
+        "name": "x",
+        "description": "获取鼠标在引擎窗口内的等比横向坐标，即按照游戏内的分辨率进行缩放，并非窗口实际分辨率缩放。"
+      },
+      {
+        "name": "y",
+        "description": "获取鼠标在引擎窗口内的等比纵向坐标，即按照游戏内的分辨率进行缩放，并非窗口实际分辨率缩放。"
+      },
+      {
+        "name": "set_pos",
+        "description": "安装游戏分辨率缩放后的坐标设置鼠标位置。"
+      },
+      {
+        "name": "down?",
+        "description": "是否按下了某个鼠标按键。"
+      },
+      {
+        "name": "up?",
+        "description": "是否松开了某个鼠标按键。"
+      },
+      {
+        "name": "double?",
+        "description": "是否双击了某个鼠标按键。"
+      },
+      {
+        "name": "press?",
+        "description": "是否正在按着某个鼠标按键。"
+      },
+      {
+        "name": "move?",
+        "description": "是否移动过鼠标。"
+      },
+      {
+        "name": "scroll_x",
+        "description": "获取鼠标上一帧滚动的横向方向。（1/-1/0）"
+      },
+      {
+        "name": "scroll_y",
+        "description": "获取鼠标上一帧滚动的纵向方向。（1/-1/0）"
+      },
+      {
+        "name": "set_cursor",
+        "description": "用一个Bitmap图像替代默认的鼠标指针，bitmap为nil时恢复。"
+      }
+    ],
+    "attributes": []
+  },
+  {
+    "class_name": "Plane",
+    "description": "平铺图形渲染的类。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Rect",
+    "description": "矩形数据。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Sprite",
+    "description": "2D精灵图形渲染类，在引擎内部使用批处理实现，两个Z轴相邻的精灵只要混合方式和Bitmap是一样的即可进行批处理，可利用此特性大幅提升渲染性能。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Table",
+    "description": "三维图标数据类。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Tilemap",
+    "description": "兼容 RPG Maker XP 图块数据的地图渲染类。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Tilemap2",
+    "description": "兼容 RPG Maker VX (Ace) 图块数据的地图渲染类。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Tone",
+    "description": "色调数据类。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Viewport",
+    "description": "渲染对象容器类，在本引擎中Viewport是可以嵌套的。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Window",
+    "description": "兼容 RPG Maker XP 窗口数据的渲染类。",
+    "methods": [],
+    "attributes": []
+  },
+  {
+    "class_name": "Window2",
+    "description": "兼容 RPG Maker VX (Ace) 窗口数据的渲染类。",
+    "methods": [],
+    "attributes": []
   }
 ]
