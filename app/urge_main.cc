@@ -112,6 +112,7 @@ int SDL_main(int argc, char* argv[]) {
     widget_params.size = profile->window_size;
     widget_params.resizable = true;
     widget_params.hpixeldensity = true;
+    widget_params.fullscreen = profile->fullscreen;
     widget_params.title =
 #if defined(OS_WIN)
         AsciiToUtf8(profile->window_title);

@@ -506,8 +506,8 @@ RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
       desired_delta_time_(SDL_GetPerformanceFrequency() / frame_rate_),
       frame_skip_required_(false),
       keep_ratio_(true),
-      smooth_scale_(false),
-      allow_skip_frame_(true) {
+      smooth_scale_(profile->smooth_scale),
+      allow_skip_frame_(profile->allow_skip_frame) {
   // Setup render device on render thread if possible
   agent_ = new RenderGraphicsAgent;
 
