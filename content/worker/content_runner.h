@@ -59,6 +59,8 @@ class ContentRunner {
   void TickHandlerInternal();
   void UpdateDisplayFPSInternal();
   void RenderGUIInternal();
+  void RenderSettingsGUIInternal();
+  void RenderFPSMonitorGUIInternal();
 
   void CreateIMGUIContextInternal();
   void DestroyIMGUIContextInternal();

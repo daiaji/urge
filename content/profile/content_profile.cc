@@ -18,6 +18,18 @@ void ReplaceStringWidth(std::string& str, char before, char after) {
       str[i] = after;
 }
 
+base::Vec2i GetVec2iFromString(std::string in,
+                               const base::Vec2i& default_value) {
+  size_t sep = in.find("|");
+  if (sep != std::string::npos) {
+    int32_t num1 = std::stoi(in.substr(0, sep));
+    int32_t num2 = std::stoi(in.substr(sep + 1));
+    return base::Vec2i(num1, num2);
+  }
+
+  return default_value;
+}
+
 char* IniStreamReader(char* str, int num, void* stream) {
   SDL_IOStream* io = static_cast<SDL_IOStream*>(stream);
 
@@ -78,11 +90,11 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   ReplaceStringWidth(script_path, '\\', '/');
 
   // Engine part
-  api_version = static_cast<ContentProfile::APIVersion>(reader->GetInteger(
+  api_version = static_cast<APIVersion>(reader->GetInteger(
       "Engine", "APIVersion", static_cast<int32_t>(api_version)));
-  if (api_version == ContentProfile::APIVersion::UNKNOWN) {
+  if (api_version == APIVersion::UNKNOWN) {
     if (!script_path.empty()) {
-      api_version = ContentProfile::APIVersion::RGSS1;
+      api_version = APIVersion::RGSS1;
 
       const char* p = &script_path[script_path.size()];
       const char* head = &script_path[0];
@@ -92,9 +104,9 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
           break;
 
       if (!strcmp(p, ".rvdata"))
-        api_version = ContentProfile::APIVersion::RGSS2;
+        api_version = APIVersion::RGSS2;
       else if (!strcmp(p, ".rvdata2"))
-        api_version = ContentProfile::APIVersion::RGSS3;
+        api_version = APIVersion::RGSS3;
     }
   }
 
@@ -103,6 +115,27 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   ReplaceStringWidth(default_font_path, '\\', '/');
   driver_backend = reader->Get("Engine", "GraphicsAPI", driver_backend);
   i18n_xml_path = reader->Get("Engine", "I18nXMLPath", app + ".xml");
+
+  disable_settings =
+      reader->GetBoolean("Engine", "DisableSettings", disable_settings);
+  disable_fps_monitor =
+      reader->GetBoolean("Engine", "DisableFPSMonitor", disable_fps_monitor);
+  disable_reset = reader->GetBoolean("Engine", "DisableReset", disable_reset);
+
+  if (api_version == APIVersion::RGSS1)
+    resolution = base::Vec2i(640, 480);
+  if (api_version >= APIVersion::RGSS2)
+    resolution = base::Vec2i(544, 416);
+
+  resolution =
+      GetVec2iFromString(reader->Get("Engine", "Resolution", ""), resolution);
+  window_size =
+      GetVec2iFromString(reader->Get("Engine", "WindowSize", ""), resolution);
+
+  smooth_scale = reader->GetBoolean("Engine", "SmoothScale", smooth_scale);
+  allow_skip_frame =
+      reader->GetBoolean("Engine", "AllowSkipFrame", allow_skip_frame);
+  fullscreen = reader->GetBoolean("Engine", "Fullscreen", fullscreen);
 
   if (ini_stream_)
     SDL_CloseIO(ini_stream_);

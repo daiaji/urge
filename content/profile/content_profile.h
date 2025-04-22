@@ -11,6 +11,8 @@
 
 #include "SDL3/SDL_iostream.h"
 
+#include "base/math/vector.h"
+
 namespace content {
 
 class ContentProfile {
@@ -45,6 +47,17 @@ class ContentProfile {
   std::string default_font_path = "Fonts/Default.ttf";
   std::string driver_backend;
   std::string i18n_xml_path;
+
+  bool disable_settings = false;
+  bool disable_fps_monitor = false;
+  bool disable_reset = false;
+
+  base::Vec2i window_size;
+  base::Vec2i resolution;
+
+  bool smooth_scale = false;
+  bool allow_skip_frame = true;
+  bool fullscreen = false;
 
  private:
   ContentProfile(SDL_IOStream* stream);

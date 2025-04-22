@@ -41,6 +41,12 @@ struct RenderGraphicsAgent {
 
   Diligent::ITexture** present_target = nullptr;
   std::unique_ptr<renderer::Pipeline_Present> present_pipeline;
+
+  struct {
+    std::string device;
+    std::string vendor;
+    std::string description;
+  } renderer_info;
 };
 
 class GraphicsChild {
@@ -76,6 +82,8 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   // Present current screen buffer to window.
   // This function will wait for delta time to clamp fps.
   void PresentScreenBuffer(Diligent::ImGuiDiligentRenderer* gui_renderer);
+
+  void CreateButtonGUISettings();
 
   DrawNodeController* GetDrawableController() { return &controller_; }
   base::ThreadWorker* GetRenderRunner() const { return render_worker_; }
@@ -173,7 +181,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   bool keep_ratio_;
   bool smooth_scale_;
   bool allow_skip_frame_;
-  bool allow_background_running_;
 };
 
 }  // namespace content

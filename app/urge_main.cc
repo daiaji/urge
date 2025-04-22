@@ -4,6 +4,7 @@
 
 #include "SDL3/SDL_main.h"
 #include "SDL3/SDL_messagebox.h"
+#include "SDL3/SDL_stdinc.h"
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
 
@@ -19,6 +20,46 @@ void ReplaceStringWidth(std::string& str, char before, char after) {
     if (str[i] == before)
       str[i] = after;
 }
+
+#if defined(OS_WIN)
+std::string AsciiToUtf8(const std::string& asciiStr) {
+  if (asciiStr.empty()) {
+    return "";
+  }
+
+  // ASCII -> UTF-16
+  int wcharsCount =
+      MultiByteToWideChar(CP_ACP, 0, asciiStr.c_str(), -1, NULL, 0);
+  if (wcharsCount == 0) {
+    throw std::runtime_error("MultiByteToWideChar failed: " +
+                             std::to_string(GetLastError()));
+  }
+
+  std::vector<wchar_t> wstr(wcharsCount);
+  if (MultiByteToWideChar(CP_ACP, 0, asciiStr.c_str(), -1, &wstr[0],
+                          wcharsCount) == 0) {
+    throw std::runtime_error("MultiByteToWideChar failed: " +
+                             std::to_string(GetLastError()));
+  }
+
+  // UTF-16 -> UTF-8
+  int utf8Count =
+      WideCharToMultiByte(CP_UTF8, 0, &wstr[0], -1, NULL, 0, NULL, NULL);
+  if (utf8Count == 0) {
+    throw std::runtime_error("WideCharToMultiByte failed: " +
+                             std::to_string(GetLastError()));
+  }
+
+  std::vector<char> utf8str(utf8Count);
+  if (WideCharToMultiByte(CP_UTF8, 0, &wstr[0], -1, &utf8str[0], utf8Count,
+                          NULL, NULL) == 0) {
+    throw std::runtime_error("WideCharToMultiByte failed: " +
+                             std::to_string(GetLastError()));
+  }
+
+  return std::string(&utf8str[0]);
+}
+#endif
 
 }  // namespace
 
@@ -68,13 +109,15 @@ int SDL_main(int argc, char* argv[]) {
   {
     std::unique_ptr<ui::Widget> widget(new ui::Widget);
     ui::Widget::InitParams widget_params;
-    widget_params.size =
-        profile->api_version == content::ContentProfile::APIVersion::RGSS1
-            ? base::Vec2i(640, 480)
-            : base::Vec2i(544, 416);
+    widget_params.size = profile->window_size;
     widget_params.resizable = true;
     widget_params.hpixeldensity = true;
-    widget_params.title = profile->window_title;
+    widget_params.title =
+#if defined(OS_WIN)
+        AsciiToUtf8(profile->window_title);
+#else
+        profile->window_title;
+#endif
     widget->Init(std::move(widget_params));
 
     content::ContentRunner::InitParams content_params;

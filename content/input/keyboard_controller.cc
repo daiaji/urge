@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "SDL3/SDL_events.h"
+#include "imgui/imgui.h"
 
 #include "content/profile/command_ids.h"
 
@@ -93,12 +94,147 @@ KeyboardControllerImpl::KeyboardControllerImpl(base::WeakPtr<ui::Widget> window,
   if (profile->api_version >= ContentProfile::APIVersion::RGSS2)
     for (int i = 0; i < kKeyboardBindings2Size; ++i)
       key_bindings_.push_back(kKeyboardBindings2[i]);
+
+  TryReadBindingsInternal();
+  setting_bindings_ = key_bindings_;
 }
 
 KeyboardControllerImpl::~KeyboardControllerImpl() = default;
 
 void KeyboardControllerImpl::ApplyKeySymBinding(const KeySymMap& keysyms) {
   key_bindings_ = keysyms;
+}
+
+bool KeyboardControllerImpl::CreateButtonGUISettings() {
+  static int selected_button = 0, selected_binding = -1;
+  disable_gui_key_input_ = (selected_binding != -1);
+
+  if (ImGui::CollapsingHeader(
+          i18n_profile_->GetI18NString(IDS_SETTINGS_BUTTON, "Button")
+              .c_str())) {
+    auto list_height = 6 * ImGui::GetTextLineHeightWithSpacing();
+    // Button name list box
+    if (ImGui::BeginListBox(
+            "##button_list",
+            ImVec2(ImGui::CalcItemWidth() / 2.0f, list_height + 64))) {
+      for (size_t i = 0; i < kButtonItems.size(); ++i) {
+        if (ImGui::Selectable(kButtonItems[i].c_str(),
+                              static_cast<int>(i) == selected_button)) {
+          selected_button = i;
+          selected_binding = -1;
+        }
+      }
+
+      ImGui::EndListBox();
+    }
+
+    ImGui::SameLine();
+    std::string button_name = kButtonItems[selected_button];
+
+    // Binding list box
+    {
+      ImGui::BeginGroup();
+      if (ImGui::BeginListBox("##binding_list",
+                              ImVec2(-FLT_MIN, list_height))) {
+        for (size_t i = 0; i < setting_bindings_.size(); ++i) {
+          auto& it = setting_bindings_[i];
+          if (it.sym == button_name) {
+            const bool is_select = (selected_binding == static_cast<int>(i));
+
+            // Generate button sign
+            std::string display_button_name = SDL_GetScancodeName(it.scancode);
+            if (it.scancode == SDL_SCANCODE_UNKNOWN)
+              display_button_name = "<x>";
+            if (is_select)
+              display_button_name = "<...>";
+            display_button_name += "##";
+            display_button_name.push_back(i);
+
+            // Find conflict bindings
+            int conflict_count = -1;
+            for (auto& item : setting_bindings_)
+              if (item == it)
+                conflict_count++;
+
+            // Draw selectable
+            const bool is_conflict = !!conflict_count;
+            if (is_conflict)
+              ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+
+            if (ImGui::Selectable(display_button_name.c_str(), is_select)) {
+              selected_binding = (is_select ? -1 : i);
+            }
+
+            if (is_conflict)
+              ImGui::PopStyleColor();
+          }
+        }
+
+        ImGui::EndListBox();
+      }
+
+      // Get any keys state for binding
+      if (disable_gui_key_input_) {
+        for (int code = 0; code < SDL_SCANCODE_COUNT; ++code) {
+          bool key_pressed =
+              window_->GetKeyState(static_cast<SDL_Scancode>(code));
+          if (key_pressed) {
+            setting_bindings_[selected_binding].scancode =
+                static_cast<SDL_Scancode>(code);
+            selected_binding = -1;
+          }
+        }
+      }
+
+      // Add binding
+      if (ImGui::Button(
+              i18n_profile_->GetI18NString(IDS_BUTTON_ADD, "Add").c_str())) {
+        selected_binding = -1;
+        setting_bindings_.push_back(
+            KeyBinding{button_name, SDL_SCANCODE_UNKNOWN});
+      }
+
+      ImGui::SameLine();
+
+      // Remove binding
+      if (selected_binding >= 0 &&
+          ImGui::Button(
+              i18n_profile_->GetI18NString(IDS_BUTTON_REMOVE, "Remove")
+                  .c_str())) {
+        auto it = setting_bindings_.begin();
+        for (int i = 0; i < selected_binding; ++i)
+          it++;
+
+        setting_bindings_.erase(it);
+        selected_binding = -1;
+      }
+
+      ImGui::EndGroup();
+    }
+
+    if (ImGui::Button(
+            i18n_profile_
+                ->GetI18NString(IDS_BUTTON_SAVE_SETTINGS, "Save Settings")
+                .c_str())) {
+      key_bindings_ = setting_bindings_;
+      selected_binding = -1;
+
+      StorageBindingsInternal();
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button(
+            i18n_profile_
+                ->GetI18NString(IDS_BUTTON_RESET_SETTINGS, "Reset Settings")
+                .c_str())) {
+      setting_bindings_ = key_bindings_;
+      selected_binding = -1;
+
+      StorageBindingsInternal();
+    }
+  }
+
+  return disable_gui_key_input_;
 }
 
 void KeyboardControllerImpl::Update(ExceptionState& exception_state) {
@@ -373,6 +509,54 @@ void KeyboardControllerImpl::UpdateDir8Internal() {
 
     dir8_state_.active = (i + 1) * 2;
     return;
+  }
+}
+
+void KeyboardControllerImpl::TryReadBindingsInternal() {
+  std::string filepath = profile_->program_name;
+  filepath += INPUT_CONFIG_SUBFIX;
+  filepath += std::to_string(static_cast<int32_t>(profile_->api_version));
+
+  std::ifstream fs(filepath, std::ios::binary);
+  if (fs.is_open()) {
+    key_bindings_.clear();
+
+    uint32_t item_size;
+    fs.read(reinterpret_cast<char*>(&item_size), sizeof(item_size));
+    for (uint32_t i = 0; i < item_size; ++i) {
+      uint32_t token_size;
+      fs.read(reinterpret_cast<char*>(&token_size), sizeof(token_size));
+      std::string token(token_size, 0);
+      fs.read(token.data(), token_size);
+      SDL_Scancode scancode;
+      fs.read(reinterpret_cast<char*>(&scancode), sizeof(scancode));
+
+      key_bindings_.push_back({token, scancode});
+    }
+
+    fs.close();
+  }
+}
+
+void KeyboardControllerImpl::StorageBindingsInternal() {
+  std::string filepath = profile_->program_name;
+  filepath += INPUT_CONFIG_SUBFIX;
+  filepath += std::to_string(static_cast<int32_t>(profile_->api_version));
+
+  std::ofstream fs(filepath, std::ios::binary);
+  if (fs.is_open()) {
+    uint32_t item_size = key_bindings_.size();
+    fs.write(reinterpret_cast<const char*>(&item_size), sizeof(item_size));
+    for (const auto& it : key_bindings_) {
+      uint32_t token_size = it.sym.size();
+      fs.write(reinterpret_cast<const char*>(&token_size), sizeof(token_size));
+      fs.write(it.sym.data(), token_size);
+
+      SDL_Scancode scancode = it.scancode;
+      fs.write(reinterpret_cast<const char*>(&scancode), sizeof(scancode));
+    }
+
+    fs.close();
   }
 }
 

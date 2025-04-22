@@ -42,6 +42,8 @@ class KeyboardControllerImpl : public Input {
   void ApplyKeySymBinding(const KeySymMap& keysyms);
   inline void SetUpdateEnable(bool enable) { enable_update_ = enable; }
 
+  bool CreateButtonGUISettings();
+
  public:
   void Update(ExceptionState& exception_state) override;
   bool IsPressed(const std::string& sym,
@@ -76,10 +78,14 @@ class KeyboardControllerImpl : public Input {
   void UpdateDir4Internal();
   void UpdateDir8Internal();
 
+  void TryReadBindingsInternal();
+  void StorageBindingsInternal();
+
   base::WeakPtr<ui::Widget> window_;
   ContentProfile* profile_;
   I18NProfile* i18n_profile_;
   KeySymMap key_bindings_;
+  KeySymMap setting_bindings_;
   bool disable_gui_key_input_;
   bool enable_update_;
 

@@ -12,6 +12,25 @@
 
 namespace content {
 
+namespace {
+
+void DrawEngineInfoGUI(I18NProfile* i18n_profile) {
+  if (ImGui::CollapsingHeader(
+          i18n_profile->GetI18NString(IDS_SETTINGS_ABOUT, "About").c_str())) {
+    ImGui::Text("Universal Ruby Game Engine (URGE) Runtime");
+    ImGui::Separator();
+    ImGui::Text("Copyright (C) 2018-2025 Admenri Adev.");
+    ImGui::TextWrapped(
+        "The URGE is licensed under the BSD-2-Clause License, see LICENSE for "
+        "more information.");
+
+    if (ImGui::Button("Github"))
+      SDL_OpenURL("https://github.com/Admenri/urge");
+  }
+}
+
+}  // namespace
+
 ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
                              std::unique_ptr<filesystem::IOService> io_service,
                              std::unique_ptr<base::ThreadWorker> render_worker,
@@ -49,7 +68,8 @@ bool ContentRunner::RunMainLoop() {
       binding_quit_flag_.store(1);
 
     // GUI event process
-    ImGui_ImplSDL3_ProcessEvent(&queued_event);
+    if (!disable_gui_input_)
+      ImGui_ImplSDL3_ProcessEvent(&queued_event);
 
     // Shortcut
     if (queued_event.type == SDL_EVENT_KEY_UP &&
@@ -64,12 +84,12 @@ bool ContentRunner::RunMainLoop() {
     }
   }
 
-  // Update fps
-  UpdateDisplayFPSInternal();
-
   // Reset input state
   input_impl_->SetUpdateEnable(true);
   mouse_impl_->SetUpdateEnable(true);
+
+  // Update fps
+  UpdateDisplayFPSInternal();
 
   // Render GUI if need
   RenderGUIInternal();
@@ -100,12 +120,9 @@ void ContentRunner::InitializeContentInternal() {
       fiber_create(cc_->primary_fiber, 0, EngineEntryFunctionInternal, this);
 
   // Graphics initialize settings
-  int frame_rate = 40;
-  base::Vec2i resolution(640, 480);
-  if (profile_->api_version >= ContentProfile::APIVersion::RGSS2) {
-    resolution = base::Vec2i(544, 416);
+  int32_t frame_rate = 40;
+  if (profile_->api_version >= ContentProfile::APIVersion::RGSS2)
     frame_rate = 60;
-  }
 
   // Create components instance
   auto* i18n_xml_stream =
@@ -115,8 +132,8 @@ void ContentRunner::InitializeContentInternal() {
       new ScopedFontData(io_service_.get(), profile_->default_font_path));
   graphics_impl_.reset(new RenderScreenImpl(
       window_, render_worker_.get(), cc_.get(), profile_.get(),
-      i18n_profile_.get(), io_service_.get(), scoped_font_.get(), resolution,
-      frame_rate));
+      i18n_profile_.get(), io_service_.get(), scoped_font_.get(),
+      profile_->resolution, frame_rate));
   input_impl_.reset(new KeyboardControllerImpl(
       window_->AsWeakPtr(), profile_.get(), i18n_profile_.get()));
   audio_impl_.reset(
@@ -181,11 +198,51 @@ void ContentRunner::RenderGUIInternal() {
   // Setup imgui new frame
   ImGui::NewFrame();
 
-  // Demo test
-  ImGui::ShowDemoWindow();
+  // Render settings menu
+  if (show_settings_menu_)
+    RenderSettingsGUIInternal();
+
+  // Render fps monitor
+  if (show_fps_monitor_)
+    RenderFPSMonitorGUIInternal();
 
   // Final gui render
   ImGui::Render();
+}
+
+void ContentRunner::RenderSettingsGUIInternal() {
+  ImGui::SetNextWindowPos(ImVec2(), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_FirstUseEver);
+
+  if (ImGui::Begin(i18n_profile_->GetI18NString(IDS_MENU_SETTINGS, "Settings")
+                       .c_str())) {
+    // Reset input state
+    input_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
+    mouse_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
+
+    // Button settings
+    disable_gui_input_ = input_impl_->CreateButtonGUISettings();
+
+    // Graphics settings
+    graphics_impl_->CreateButtonGUISettings();
+
+    // Engine Info
+    DrawEngineInfoGUI(i18n_profile_.get());
+  }
+
+  // End window create
+  ImGui::End();
+}
+
+void ContentRunner::RenderFPSMonitorGUIInternal() {
+  if (ImGui::Begin("FPS")) {
+    // Draw plot for fps monitor
+    ImGui::PlotHistogram("##FPSDisplay", fps_history_.data(),
+                         static_cast<int>(fps_history_.size()), 0, nullptr,
+                         0.0f, FLT_MAX, ImVec2(300, 80));
+  }
+
+  ImGui::End();
 }
 
 void ContentRunner::CreateIMGUIContextInternal() {

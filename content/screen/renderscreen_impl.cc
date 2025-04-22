@@ -10,6 +10,8 @@
 #include "SDL3/SDL_timer.h"
 #include "magic_enum/magic_enum.hpp"
 
+#include "Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+
 #include "content/canvas/canvas_scheduler.h"
 #include "content/profile/command_ids.h"
 #include "renderer/utils/texture_utils.h"
@@ -98,6 +100,21 @@ void GPUCreateGraphicsHostInternal(RenderGraphicsAgent* agent,
       **agent->device, swapchain_desc.ColorBufferFormat,
       convert_gamma_to_output));
 
+  // Get renderer info
+  Diligent::GraphicsAdapterInfo adapter_info =
+      (*agent->device)->GetAdapterInfo();
+  agent->renderer_info.device = Diligent::GetRenderDeviceTypeString(
+      (*agent->device)->GetDeviceInfo().Type);
+  agent->renderer_info.vendor = magic_enum::enum_name(
+      Diligent::VendorIdToAdapterVendor(adapter_info.VendorId));
+  agent->renderer_info.description = adapter_info.Description;
+
+  struct {
+    std::string device;
+    std::string vendor;
+    std::string description;
+  } renderer_info_;
+
   // Create screen buffer
   GPUResetScreenBufferInternal(agent, resolution);
 }
@@ -111,6 +128,7 @@ void GPUPresentScreenBufferInternal(
     const base::Rect& display_viewport,
     const base::Vec2i& resolution,
     bool keep_ratio,
+    bool smooth,
     Diligent::ImGuiDiligentRenderer* gui_renderer) {
   // Initial device attribute
   Diligent::IDeviceContext* context = agent->device->GetContext();
@@ -139,6 +157,7 @@ void GPUPresentScreenBufferInternal(
   std::unique_ptr<renderer::Binding_Base> present_binding =
       pipeline_set.CreateBinding<renderer::Binding_Base>();
   RRefPtr<Diligent::IBuffer> present_uniform;
+  RRefPtr<Diligent::ISampler> present_sampler;
 
   if (agent->present_target) {
     // Update vertex
@@ -160,6 +179,15 @@ void GPUPresentScreenBufferInternal(
                                   Diligent::USAGE_IMMUTABLE,
                                   Diligent::BIND_UNIFORM_BUFFER,
                                   Diligent::CPU_ACCESS_NONE, &world_matrix);
+
+    // Create sampler
+    Diligent::SamplerDesc sampler_desc;
+    sampler_desc.Name = "present.sampler";
+    sampler_desc.MinFilter =
+        smooth ? Diligent::FILTER_TYPE_LINEAR : Diligent::FILTER_TYPE_POINT;
+    sampler_desc.MagFilter = sampler_desc.MinFilter;
+    sampler_desc.MipFilter = sampler_desc.MinFilter;
+    (*agent->device)->CreateSampler(sampler_desc, &present_sampler);
   }
 
   // Update gui device objects if need
@@ -183,11 +211,14 @@ void GPUPresentScreenBufferInternal(
 
   // Start screen render
   if (agent->present_target) {
-    // Set world transform
-    present_binding->u_transform->Set(present_uniform);
-    present_binding->u_texture->Set(
+    auto* render_source =
         (*agent->present_target)
-            ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+            ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    render_source->SetSampler(present_sampler);
+
+    // Set present uniform
+    present_binding->u_transform->Set(present_uniform);
+    present_binding->u_texture->Set(render_source);
 
     // Apply pipeline state
     context->SetPipelineState(pipeline);
@@ -476,8 +507,7 @@ RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
       frame_skip_required_(false),
       keep_ratio_(true),
       smooth_scale_(false),
-      allow_skip_frame_(true),
-      allow_background_running_(true) {
+      allow_skip_frame_(true) {
   // Setup render device on render thread if possible
   agent_ = new RenderGraphicsAgent;
 
@@ -519,8 +549,59 @@ void RenderScreenImpl::PresentScreenBuffer(
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&GPUPresentScreenBufferInternal, agent_, display_viewport_,
-                     resolution_, keep_ratio_, gui_renderer));
+                     resolution_, keep_ratio_, smooth_scale_, gui_renderer));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
+}
+
+void RenderScreenImpl::CreateButtonGUISettings() {
+  if (ImGui::CollapsingHeader(
+          i18n_profile_->GetI18NString(IDS_SETTINGS_GRAPHICS, "Graphics")
+              .c_str())) {
+    ImGui::TextWrapped(
+        "%s: %s",
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_RENDERER, "Renderer").c_str(),
+        agent_->renderer_info.device.c_str());
+    ImGui::Separator();
+    ImGui::TextWrapped(
+        "%s: %s",
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_VENDOR, "Vendor").c_str(),
+        agent_->renderer_info.vendor.c_str());
+    ImGui::Separator();
+    ImGui::TextWrapped(
+        "%s: %s",
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_DESCRIPTION, "Description")
+            .c_str(),
+        agent_->renderer_info.description.c_str());
+    ImGui::Separator();
+
+    // Keep Ratio
+    ImGui::Checkbox(
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_KEEP_RATIO, "Keep Ratio")
+            .c_str(),
+        &keep_ratio_);
+
+    // Smooth Scale
+    ImGui::Checkbox(
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_SMOOTH_SCALE, "Smooth Scale")
+            .c_str(),
+        &smooth_scale_);
+
+    // Skip Frame
+    ImGui::Checkbox(
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_SKIP_FRAME, "Skip Frame")
+            .c_str(),
+        &allow_skip_frame_);
+
+    // Fullscreen
+    bool is_fullscreen = GetDevice()->GetWindow()->IsFullscreen(),
+         last_fullscreen = is_fullscreen;
+    ImGui::Checkbox(
+        i18n_profile_->GetI18NString(IDS_GRAPHICS_FULLSCREEN, "Fullscreen")
+            .c_str(),
+        &is_fullscreen);
+    if (last_fullscreen != is_fullscreen)
+      GetDevice()->GetWindow()->SetFullscreen(is_fullscreen);
+  }
 }
 
 base::CallbackListSubscription RenderScreenImpl::AddTickObserver(
