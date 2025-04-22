@@ -830,27 +830,31 @@ void RenderScreenImpl::PlayMovie(const std::string& filename,
                                     "unimplement Graphics.play_movie");
 }
 
-uint32_t RenderScreenImpl::Get_FrameRate(ExceptionState&) {
+uint32_t RenderScreenImpl::Get_FrameRate(ExceptionState& exception_state) {
   return frame_rate_;
 }
 
-void RenderScreenImpl::Put_FrameRate(const uint32_t& rate, ExceptionState&) {
+void RenderScreenImpl::Put_FrameRate(const uint32_t& rate,
+                                     ExceptionState& exception_state) {
   frame_rate_ = rate;
+  FrameReset(exception_state);
 }
 
-uint32_t RenderScreenImpl::Get_FrameCount(ExceptionState&) {
+uint32_t RenderScreenImpl::Get_FrameCount(ExceptionState& exception_state) {
   return frame_count_;
 }
 
-void RenderScreenImpl::Put_FrameCount(const uint32_t& count, ExceptionState&) {
+void RenderScreenImpl::Put_FrameCount(const uint32_t& count,
+                                      ExceptionState& exception_state) {
   frame_count_ = count;
 }
 
-uint32_t RenderScreenImpl::Get_Brightness(ExceptionState&) {
+uint32_t RenderScreenImpl::Get_Brightness(ExceptionState& exception_state) {
   return brightness_;
 }
 
-void RenderScreenImpl::Put_Brightness(const uint32_t& value, ExceptionState&) {
+void RenderScreenImpl::Put_Brightness(const uint32_t& value,
+                                      ExceptionState& exception_state) {
   brightness_ = std::clamp<uint32_t>(value, 0, 255);
 }
 
