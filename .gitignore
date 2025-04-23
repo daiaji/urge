@@ -5,3 +5,10 @@
 /.vs
 /out/build
 /.idea
+/app/android-project/.gradle
+/app/android-project/.idea
+/app/android-project/app/.cxx
+/app/android-project/app/build
+/app/android-project/build/reports/problems
+/app/android-project/local.properties
+/app/android-project/settings.gradle
