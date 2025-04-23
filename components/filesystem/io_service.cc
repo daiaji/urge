@@ -178,8 +178,8 @@ IOService::IOService(const std::string& argv0) {
 
 #ifdef __ANDROID__
   PHYSFS_AndroidInit ainit;
-  ainit.jnienv = SDL_AndroidGetJNIEnv();
-  ainit.context = SDL_AndroidGetActivity();
+  ainit.jnienv = SDL_GetAndroidJNIEnv();
+  ainit.context = SDL_GetAndroidActivity();
   init_data = (const char*)&ainit;
 #endif
 
