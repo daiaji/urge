@@ -53,7 +53,6 @@ cmake --build out --target console_engine
 - dav1d - https://github.com/videolan/dav1d  
 - imgui - https://github.com/ocornut/imgui  
 - concurrentqueue - https://github.com/cameron314/concurrentqueue  
-- fiber - https://github.com/paladin-t/fiber  
 - inih - https://github.com/benhoyt/inih  
 - rapidxml - https://rapidxml.sourceforge.net/  
 - magic_enum - https://github.com/Neargye/magic_enum  

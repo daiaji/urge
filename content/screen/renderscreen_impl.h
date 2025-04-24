@@ -8,6 +8,7 @@
 #include "backends/ImGuiDiligentRenderer.hpp"
 
 #include "base/worker/thread_worker.h"
+#include "components/fpslimiter/fpslimiter.h"
 #include "content/canvas/canvas_scheduler.h"
 #include "content/components/disposable.h"
 #include "content/components/font_context.h"
@@ -16,7 +17,6 @@
 #include "content/profile/i18n_profile.h"
 #include "content/public/engine_graphics.h"
 #include "content/render/drawable_controller.h"
-#include "content/worker/coroutine_context.h"
 #include "renderer/device/render_device.h"
 #include "renderer/layout/uniform_layout.h"
 
@@ -67,7 +67,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
  public:
   RenderScreenImpl(base::WeakPtr<ui::Widget> window,
                    base::ThreadWorker* render_worker,
-                   CoroutineContext* cc,
                    ContentProfile* profile,
                    I18NProfile* i18n_profile,
                    filesystem::IOService* io_service,
@@ -145,21 +144,19 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
 
  private:
   void FrameProcessInternal(Diligent::ITexture** present_target);
-  int DetermineRepeatNumberInternal(double delta_rate);
-  void UpdateWindowViewportInternal();
-
   void RenderFrameInternal(Diligent::ITexture** render_target);
+  void UpdateWindowViewportInternal();
 
   DrawNodeController controller_;
   base::RepeatingClosureList tick_observers_;
 
-  CoroutineContext* cc_;
   base::WeakPtr<ui::Widget> window_;
   ContentProfile* profile_;
   I18NProfile* i18n_profile_;
   filesystem::IOService* io_service_;
   base::ThreadWorker* render_worker_;
   ScopedFontData* scoped_font_;
+  fpslimiter::FPSLimiter limiter_;
 
   RenderGraphicsAgent* agent_;
   base::LinkedList<Disposable> disposable_elements_;
@@ -171,11 +168,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   int32_t brightness_;
   uint64_t frame_count_;
   uint32_t frame_rate_;
-
-  double elapsed_time_;
-  double smooth_delta_time_;
-  uint64_t last_count_time_;
-  uint64_t desired_delta_time_;
   bool frame_skip_required_;
 
   bool keep_ratio_;

@@ -82,7 +82,6 @@ set(ENGINE_CONTENT_SRC
   screen/viewport_impl.h
   worker/content_runner.cc
   worker/content_runner.h
-  worker/coroutine_context.h
   worker/engine_binding.cc
   worker/engine_binding.h
   content_config.h
@@ -103,6 +102,7 @@ target_link_libraries(engine_content PUBLIC
   engine_ui
   engine_renderer
   components_filesystem
+  components_fpslimiter
   sdl_image_loader
   sdl_ttf_render
   ocornut_imgui

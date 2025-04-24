@@ -480,30 +480,25 @@ void GPUResizeSwapchainInternal(RenderGraphicsAgent* agent,
 
 RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
                                    base::ThreadWorker* render_worker,
-                                   CoroutineContext* cc,
                                    ContentProfile* profile,
                                    I18NProfile* i18n_profile,
                                    filesystem::IOService* io_service,
                                    ScopedFontData* scoped_font,
                                    const base::Vec2i& resolution,
                                    int frame_rate)
-    : cc_(cc),
-      window_(window),
+    : window_(window),
       profile_(profile),
       i18n_profile_(i18n_profile),
       io_service_(io_service),
       render_worker_(render_worker),
       scoped_font_(scoped_font),
+      limiter_(frame_rate),
       agent_(nullptr),
       frozen_(false),
       resolution_(resolution),
       brightness_(255),
       frame_count_(0),
       frame_rate_(frame_rate),
-      elapsed_time_(0.0),
-      smooth_delta_time_(1.0),
-      last_count_time_(SDL_GetPerformanceCounter()),
-      desired_delta_time_(SDL_GetPerformanceFrequency() / frame_rate_),
       frame_skip_required_(false),
       keep_ratio_(true),
       smooth_scale_(profile->smooth_scale),
@@ -526,21 +521,8 @@ RenderScreenImpl::~RenderScreenImpl() {
 
 void RenderScreenImpl::PresentScreenBuffer(
     Diligent::ImGuiDiligentRenderer* gui_renderer) {
-  // Determine update repeat time
-  const uint64_t now_time = SDL_GetPerformanceCounter();
-  const uint64_t delta_time = now_time - last_count_time_;
-  last_count_time_ = now_time;
-
-  // Calculate smooth frame rate
-  const double delta_rate =
-      delta_time / static_cast<double>(desired_delta_time_);
-  const int repeat_time = DetermineRepeatNumberInternal(delta_rate);
-
-  // Switch to runner coroutine
-  for (int i = 0; i < repeat_time; ++i) {
-    frame_skip_required_ = (i != 0);
-    fiber_switch(cc_->main_loop_fiber);
-  }
+  // Determine wait delay time
+  limiter_.Delay();
 
   // Update drawing viewport
   UpdateWindowViewportInternal();
@@ -622,14 +604,17 @@ void RenderScreenImpl::WaitWorkerSynchronize() {
 }
 
 void RenderScreenImpl::Update(ExceptionState& exception_state) {
-  // Skip render if freeze screen or allow skip frames
-  if (!frozen_) {
-    if (!(allow_skip_frame_ && frame_skip_required_)) {
-      // Render a frame and push into render queue
-      // This function only encodes the render commands
-      RenderFrameInternal(agent_->screen_buffer.RawDblPtr());
-    }
+  const bool frozen_render = frozen_;
+  const bool need_skip_frame = limiter_.RequireFrameSkip() && allow_skip_frame_;
+
+  if (!frozen_render && !need_skip_frame) {
+    // Render a frame and push into render queue
+    // This function only encodes the render commands
+    RenderFrameInternal(agent_->screen_buffer.RawDblPtr());
   }
+
+  if (need_skip_frame)
+    limiter_.Reset();
 
   // Process frame delay
   // This calling will yield to event coroutine and present
@@ -783,10 +768,7 @@ scoped_refptr<Bitmap> RenderScreenImpl::SnapToBitmap(
 }
 
 void RenderScreenImpl::FrameReset(ExceptionState& exception_state) {
-  elapsed_time_ = 0.0;
-  smooth_delta_time_ = 1.0;
-  last_count_time_ = SDL_GetPerformanceCounter();
-  desired_delta_time_ = SDL_GetPerformanceFrequency() / frame_rate_;
+  limiter_.Reset();
 }
 
 uint32_t RenderScreenImpl::Width(ExceptionState& exception_state) {
@@ -837,7 +819,7 @@ uint32_t RenderScreenImpl::Get_FrameRate(ExceptionState& exception_state) {
 void RenderScreenImpl::Put_FrameRate(const uint32_t& rate,
                                      ExceptionState& exception_state) {
   frame_rate_ = rate;
-  FrameReset(exception_state);
+  limiter_.SetFrameRate(frame_rate_);
 }
 
 uint32_t RenderScreenImpl::Get_FrameCount(ExceptionState& exception_state) {
@@ -868,54 +850,6 @@ void RenderScreenImpl::FrameProcessInternal(
 
   // Tick callback
   tick_observers_.Notify();
-
-  // Switch to primary fiber
-  fiber_switch(cc_->primary_fiber);
-}
-
-int RenderScreenImpl::DetermineRepeatNumberInternal(double delta_rate) {
-  smooth_delta_time_ *= 0.8;
-  smooth_delta_time_ += std::fmin(delta_rate, 2) * 0.2;
-
-  if (smooth_delta_time_ >= 0.9) {
-    elapsed_time_ = 0;
-    return std::round(smooth_delta_time_);
-  } else {
-    elapsed_time_ += delta_rate;
-    if (elapsed_time_ >= 1) {
-      elapsed_time_ -= 1;
-      return 1;
-    }
-  }
-
-  return 0;
-}
-
-void RenderScreenImpl::UpdateWindowViewportInternal() {
-  auto window_size = window_->GetSize();
-
-  if (!(window_size == window_size_)) {
-    window_size_ = window_size;
-
-    // Resize screen surface
-    base::ThreadWorker::PostTask(
-        render_worker_,
-        base::BindOnce(&GPUResizeSwapchainInternal, agent_, window_size_));
-  }
-
-  float window_ratio = static_cast<float>(window_size.x) / window_size.y;
-  float screen_ratio = static_cast<float>(resolution_.x) / resolution_.y;
-
-  display_viewport_.width = window_size.x;
-  display_viewport_.height = window_size.y;
-
-  if (screen_ratio > window_ratio)
-    display_viewport_.height = display_viewport_.width / screen_ratio;
-  else if (screen_ratio < window_ratio)
-    display_viewport_.width = display_viewport_.height * screen_ratio;
-
-  display_viewport_.x = (window_size.x - display_viewport_.width) / 2.0f;
-  display_viewport_.y = (window_size.y - display_viewport_.height) / 2.0f;
 }
 
 void RenderScreenImpl::RenderFrameInternal(Diligent::ITexture** render_target) {
@@ -955,6 +889,33 @@ void RenderScreenImpl::RenderFrameInternal(Diligent::ITexture** render_target) {
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&GPUFrameEndRenderPassInternal, agent_, brightness_));
+}
+
+void RenderScreenImpl::UpdateWindowViewportInternal() {
+  auto window_size = window_->GetSize();
+
+  if (!(window_size == window_size_)) {
+    window_size_ = window_size;
+
+    // Resize screen surface
+    base::ThreadWorker::PostTask(
+        render_worker_,
+        base::BindOnce(&GPUResizeSwapchainInternal, agent_, window_size_));
+  }
+
+  float window_ratio = static_cast<float>(window_size.x) / window_size.y;
+  float screen_ratio = static_cast<float>(resolution_.x) / resolution_.y;
+
+  display_viewport_.width = window_size.x;
+  display_viewport_.height = window_size.y;
+
+  if (screen_ratio > window_ratio)
+    display_viewport_.height = display_viewport_.width / screen_ratio;
+  else if (screen_ratio < window_ratio)
+    display_viewport_.width = display_viewport_.height * screen_ratio;
+
+  display_viewport_.x = (window_size.x - display_viewport_.width) / 2.0f;
+  display_viewport_.y = (window_size.y - display_viewport_.height) / 2.0f;
 }
 
 }  // namespace content

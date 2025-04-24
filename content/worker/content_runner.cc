@@ -39,7 +39,6 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
     : profile_(std::move(profile)),
       render_worker_(std::move(render_worker)),
       window_(window),
-      exit_code_(0),
       binding_quit_flag_(0),
       binding_reset_flag_(0),
       binding_(std::move(binding)),
@@ -49,7 +48,38 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
       show_fps_monitor_(false),
       last_tick_(SDL_GetPerformanceCounter()),
       total_delta_(0),
-      frame_count_(0) {}
+      frame_count_(0) {
+  // Graphics initialize settings
+  int32_t frame_rate = 40;
+  if (profile_->api_version >= ContentProfile::APIVersion::RGSS2)
+    frame_rate = 60;
+
+  // Create components instance
+  auto* i18n_xml_stream =
+      io_service_->OpenReadRaw(profile_->i18n_xml_path, nullptr);
+  i18n_profile_ = I18NProfile::MakeForStream(i18n_xml_stream);
+  scoped_font_.reset(
+      new ScopedFontData(io_service_.get(), profile_->default_font_path));
+  graphics_impl_.reset(new RenderScreenImpl(
+      window_, render_worker_.get(), profile_.get(), i18n_profile_.get(),
+      io_service_.get(), scoped_font_.get(), profile_->resolution, frame_rate));
+  input_impl_.reset(new KeyboardControllerImpl(
+      window_->AsWeakPtr(), profile_.get(), i18n_profile_.get()));
+  audio_impl_.reset(
+      new AudioImpl(profile_.get(), io_service_.get(), i18n_profile_.get()));
+  mouse_impl_.reset(new MouseImpl(window_->AsWeakPtr(), profile_.get()));
+
+  // Create imgui context
+  base::ThreadWorker::PostTask(
+      render_worker_.get(),
+      base::BindOnce(&ContentRunner::CreateIMGUIContextInternal,
+                     base::Unretained(this)));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_.get());
+
+  // Hook graphics event loop
+  tick_observer_ = graphics_impl_->AddTickObserver(base::BindRepeating(
+      &ContentRunner::TickHandlerInternal, base::Unretained(this)));
+}
 
 ContentRunner::~ContentRunner() {
   base::ThreadWorker::PostTask(
@@ -59,7 +89,51 @@ ContentRunner::~ContentRunner() {
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_.get());
 }
 
-bool ContentRunner::RunMainLoop() {
+void ContentRunner::RunMainLoop() {
+  // Before running loop handler
+  binding_->PreEarlyInitialization(profile_.get(), io_service_.get());
+
+  // Make script binding execution context
+  // Call binding boot handler before running loop handler
+  ExecutionContext execution_context;
+  execution_context.font_context = scoped_font_.get();
+  execution_context.canvas_scheduler = graphics_impl_->GetCanvasScheduler();
+  execution_context.graphics = graphics_impl_.get();
+  execution_context.input = input_impl_.get();
+
+  // Make module context
+  EngineBindingBase::ScopedModuleContext module_context;
+  module_context.graphics = graphics_impl_.get();
+  module_context.input = input_impl_.get();
+  module_context.audio = audio_impl_.get();
+  module_context.mouse = mouse_impl_.get();
+
+  // Execute main loop
+  binding_->OnMainMessageLoopRun(&execution_context, &module_context);
+
+  // End of running
+  binding_->PostMainLoopRunning();
+
+  // Release unique refcounted resource
+  mouse_impl_.reset();
+  audio_impl_.reset();
+  input_impl_.reset();
+  graphics_impl_.reset();
+}
+
+std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
+  std::unique_ptr<base::ThreadWorker> render_worker =
+      base::ThreadWorker::Create();
+
+  auto* runner = new ContentRunner(
+      std::move(params.profile), std::move(params.io_service),
+      std::move(render_worker), std::move(params.entry), params.window);
+  return std::unique_ptr<ContentRunner>(runner);
+}
+
+void ContentRunner::TickHandlerInternal() {
+  frame_count_++;
+
   // Poll event queue
   SDL_Event queued_event;
   while (SDL_PollEvent(&queued_event)) {
@@ -97,64 +171,7 @@ bool ContentRunner::RunMainLoop() {
   // Present screen buffer
   graphics_impl_->PresentScreenBuffer(imgui_.get());
 
-  return exit_code_.load();
-}
-
-std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
-  std::unique_ptr<base::ThreadWorker> render_worker =
-      base::ThreadWorker::Create();
-
-  auto* runner = new ContentRunner(
-      std::move(params.profile), std::move(params.io_service),
-      std::move(render_worker), std::move(params.entry), params.window);
-  runner->InitializeContentInternal();
-
-  return std::unique_ptr<ContentRunner>(runner);
-}
-
-void ContentRunner::InitializeContentInternal() {
-  // Initialize CC
-  cc_.reset(new CoroutineContext);
-  cc_->primary_fiber = fiber_create(nullptr, 0, nullptr, nullptr);
-  cc_->main_loop_fiber =
-      fiber_create(cc_->primary_fiber, 0, EngineEntryFunctionInternal, this);
-
-  // Graphics initialize settings
-  int32_t frame_rate = 40;
-  if (profile_->api_version >= ContentProfile::APIVersion::RGSS2)
-    frame_rate = 60;
-
-  // Create components instance
-  auto* i18n_xml_stream =
-      io_service_->OpenReadRaw(profile_->i18n_xml_path, nullptr);
-  i18n_profile_ = I18NProfile::MakeForStream(i18n_xml_stream);
-  scoped_font_.reset(
-      new ScopedFontData(io_service_.get(), profile_->default_font_path));
-  graphics_impl_.reset(new RenderScreenImpl(
-      window_, render_worker_.get(), cc_.get(), profile_.get(),
-      i18n_profile_.get(), io_service_.get(), scoped_font_.get(),
-      profile_->resolution, frame_rate));
-  input_impl_.reset(new KeyboardControllerImpl(
-      window_->AsWeakPtr(), profile_.get(), i18n_profile_.get()));
-  audio_impl_.reset(
-      new AudioImpl(profile_.get(), io_service_.get(), i18n_profile_.get()));
-  mouse_impl_.reset(new MouseImpl(window_->AsWeakPtr(), profile_.get()));
-
-  // Create imgui context
-  base::ThreadWorker::PostTask(
-      render_worker_.get(),
-      base::BindOnce(&ContentRunner::CreateIMGUIContextInternal,
-                     base::Unretained(this)));
-  base::ThreadWorker::WaitWorkerSynchronize(render_worker_.get());
-
-  // Hook graphics event loop
-  tick_observer_ = graphics_impl_->AddTickObserver(base::BindRepeating(
-      &ContentRunner::TickHandlerInternal, base::Unretained(this)));
-}
-
-void ContentRunner::TickHandlerInternal() {
-  frame_count_++;
-
+  // Dispatch flag message
   if (binding_quit_flag_.load()) {
     binding_quit_flag_.store(0);
     binding_->ExitSignalRequired();
@@ -290,41 +307,6 @@ void ContentRunner::DestroyIMGUIContextInternal() {
 
   ImGui_ImplSDL3_Shutdown();
   ImGui::DestroyContext();
-}
-
-void ContentRunner::EngineEntryFunctionInternal(fiber_t* fiber) {
-  auto* self = static_cast<ContentRunner*>(fiber->userdata);
-
-  // Before running loop handler
-  self->binding_->PreEarlyInitialization(self->profile_.get(),
-                                         self->io_service_.get());
-
-  // Make script binding execution context
-  // Call binding boot handler before running loop handler
-  ExecutionContext execution_context;
-  execution_context.font_context = self->scoped_font_.get();
-  execution_context.canvas_scheduler =
-      self->graphics_impl_->GetCanvasScheduler();
-  execution_context.graphics = self->graphics_impl_.get();
-  execution_context.input = self->input_impl_.get();
-
-  // Make module context
-  EngineBindingBase::ScopedModuleContext module_context;
-  module_context.graphics = self->graphics_impl_.get();
-  module_context.input = self->input_impl_.get();
-  module_context.audio = self->audio_impl_.get();
-  module_context.mouse = self->mouse_impl_.get();
-
-  // Execute main loop
-  self->binding_->OnMainMessageLoopRun(&execution_context, &module_context);
-
-  // End of running
-  self->binding_->PostMainLoopRunning();
-  self->exit_code_.store(1);
-
-  // Loop switch context to primary fiber
-  for (;;)
-    fiber_switch(self->cc_->primary_fiber);
 }
 
 }  // namespace content

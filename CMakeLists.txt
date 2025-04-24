@@ -137,6 +137,7 @@ endif ()
 
 add_subdirectory(base)
 add_subdirectory(components/filesystem)
+add_subdirectory(components/fpslimiter)
 add_subdirectory(components/audioservice)
 add_subdirectory(ui)
 add_subdirectory(renderer)

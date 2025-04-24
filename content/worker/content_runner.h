@@ -16,7 +16,6 @@
 #include "content/profile/content_profile.h"
 #include "content/profile/i18n_profile.h"
 #include "content/screen/renderscreen_impl.h"
-#include "content/worker/coroutine_context.h"
 #include "content/worker/engine_binding.h"
 #include "ui/widget/widget.h"
 
@@ -47,7 +46,7 @@ class ContentRunner {
 
   static std::unique_ptr<ContentRunner> Create(InitParams params);
 
-  bool RunMainLoop();
+  void RunMainLoop();
 
  private:
   ContentRunner(std::unique_ptr<ContentProfile> profile,
@@ -55,7 +54,6 @@ class ContentRunner {
                 std::unique_ptr<base::ThreadWorker> render_worker,
                 std::unique_ptr<EngineBindingBase> binding,
                 base::WeakPtr<ui::Widget> window);
-  void InitializeContentInternal();
   void TickHandlerInternal();
   void UpdateDisplayFPSInternal();
   void RenderGUIInternal();
@@ -65,13 +63,9 @@ class ContentRunner {
   void CreateIMGUIContextInternal();
   void DestroyIMGUIContextInternal();
 
-  static void EngineEntryFunctionInternal(fiber_t* fiber);
-
   std::unique_ptr<ContentProfile> profile_;
-  std::unique_ptr<CoroutineContext> cc_;
   std::unique_ptr<base::ThreadWorker> render_worker_;
   base::WeakPtr<ui::Widget> window_;
-  std::atomic<int32_t> exit_code_;
   base::CallbackListSubscription tick_observer_;
   std::atomic<int32_t> binding_quit_flag_;
   std::atomic<int32_t> binding_reset_flag_;
