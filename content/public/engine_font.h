@@ -57,6 +57,9 @@ class URGE_RUNTIME_API Font : public base::RefCounted<Font> {
   /*--urge(name:default_outline)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultOutline, bool);
 
+  /*--urge(name:default_solid)--*/
+  URGE_EXPORT_STATIC_ATTRIBUTE(DefaultSolid, bool);
+
   /*--urge(name:default_color)--*/
   URGE_EXPORT_STATIC_ATTRIBUTE(DefaultColor, scoped_refptr<Color>);
 
@@ -80,6 +83,9 @@ class URGE_RUNTIME_API Font : public base::RefCounted<Font> {
 
   /*--urge(name:shadow)--*/
   URGE_EXPORT_ATTRIBUTE(Shadow, bool);
+
+  /*--urge(name:solid)--*/
+  URGE_EXPORT_ATTRIBUTE(Solid, bool);
 
   /*--urge(name:color)--*/
   URGE_EXPORT_ATTRIBUTE(Color, scoped_refptr<Color>);

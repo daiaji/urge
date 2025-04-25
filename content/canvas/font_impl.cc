@@ -70,7 +70,7 @@ URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultSize, uint32_t) {
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultSize, uint32_t) {
-  execution_context->font_context->default_size = value;
+  execution_context->font_context->default_size = std::max<int32_t>(6, value);
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultBold, bool) {
@@ -103,6 +103,14 @@ URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultOutline, bool) {
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultOutline, bool) {
   execution_context->font_context->default_outline = value;
+}
+
+URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultSolid, bool) {
+  return execution_context->font_context->default_solid;
+}
+
+URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultSolid, bool) {
+  execution_context->font_context->default_solid = value;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultColor, scoped_refptr<Color>) {
@@ -141,7 +149,7 @@ uint32_t FontImpl::Get_Size(ExceptionState& exception_state) {
 
 void FontImpl::Put_Size(const uint32_t& value,
                         ExceptionState& exception_state) {
-  size_ = value;
+  size_ = std::max<int32_t>(6, value);
   font_ = nullptr;
 }
 
@@ -151,7 +159,6 @@ bool FontImpl::Get_Bold(ExceptionState& exception_state) {
 
 void FontImpl::Put_Bold(const bool& value, ExceptionState& exception_state) {
   bold_ = value;
-  font_ = nullptr;
 }
 
 bool FontImpl::Get_Italic(ExceptionState& exception_state) {
@@ -160,7 +167,6 @@ bool FontImpl::Get_Italic(ExceptionState& exception_state) {
 
 void FontImpl::Put_Italic(const bool& value, ExceptionState& exception_state) {
   italic_ = value;
-  font_ = nullptr;
 }
 
 bool FontImpl::Get_Outline(ExceptionState& exception_state) {
@@ -169,7 +175,6 @@ bool FontImpl::Get_Outline(ExceptionState& exception_state) {
 
 void FontImpl::Put_Outline(const bool& value, ExceptionState& exception_state) {
   outline_ = value;
-  font_ = nullptr;
 }
 
 bool FontImpl::Get_Shadow(ExceptionState& exception_state) {
@@ -178,7 +183,14 @@ bool FontImpl::Get_Shadow(ExceptionState& exception_state) {
 
 void FontImpl::Put_Shadow(const bool& value, ExceptionState& exception_state) {
   shadow_ = value;
-  font_ = nullptr;
+}
+
+bool FontImpl::Get_Solid(ExceptionState& exception_state) {
+  return solid_;
+}
+
+void FontImpl::Put_Solid(const bool& value, ExceptionState& exception_state) {
+  solid_ = value;
 }
 
 scoped_refptr<Color> FontImpl::Get_Color(ExceptionState& exception_state) {
@@ -188,7 +200,6 @@ scoped_refptr<Color> FontImpl::Get_Color(ExceptionState& exception_state) {
 void FontImpl::Put_Color(const scoped_refptr<Color>& value,
                          ExceptionState& exception_state) {
   *color_ = *ColorImpl::From(value);
-  font_ = nullptr;
 }
 
 scoped_refptr<Color> FontImpl::Get_OutColor(ExceptionState& exception_state) {
@@ -198,7 +209,6 @@ scoped_refptr<Color> FontImpl::Get_OutColor(ExceptionState& exception_state) {
 void FontImpl::Put_OutColor(const scoped_refptr<Color>& value,
                             ExceptionState& exception_state) {
   *out_color_ = *ColorImpl::From(value);
-  font_ = nullptr;
 }
 
 FontImpl::FontImpl(ScopedFontData* parent)
@@ -208,6 +218,7 @@ FontImpl::FontImpl(ScopedFontData* parent)
       italic_(parent->default_italic),
       outline_(parent->default_outline),
       shadow_(parent->default_shadow),
+      solid_(parent->default_solid),
       color_(new ColorImpl(base::Vec4())),
       out_color_(new ColorImpl(base::Vec4())),
       parent_(parent),
@@ -226,6 +237,7 @@ FontImpl::FontImpl(const std::string& name,
       italic_(parent->default_italic),
       outline_(parent->default_outline),
       shadow_(parent->default_shadow),
+      solid_(parent->default_solid),
       color_(new ColorImpl(base::Vec4())),
       out_color_(new ColorImpl(base::Vec4())),
       parent_(parent),
@@ -242,6 +254,7 @@ FontImpl::FontImpl(const FontImpl& other)
       italic_(other.italic_),
       outline_(other.outline_),
       shadow_(other.shadow_),
+      solid_(other.solid_),
       color_(new ColorImpl(base::Vec4())),
       out_color_(new ColorImpl(base::Vec4())),
       parent_(other.parent_),
@@ -258,6 +271,7 @@ FontImpl& FontImpl::operator=(const FontImpl& other) {
   italic_ = other.italic_;
   outline_ = other.outline_;
   shadow_ = other.shadow_;
+  solid_ = other.solid_;
   color_ = new ColorImpl(base::Vec4());
   out_color_ = new ColorImpl(base::Vec4());
   font_ = nullptr;
@@ -288,6 +302,7 @@ TTF_Font* FontImpl::GetCanonicalFont(ExceptionState& exception_state) {
 SDL_Surface* FontImpl::RenderText(const std::string& text,
                                   uint8_t* font_opacity,
                                   ExceptionState& exception_state) {
+  // Get font from current attribute
   TTF_Font* font = GetCanonicalFont(exception_state);
   if (!font)
     return nullptr;
@@ -302,8 +317,13 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
   font_color.a = 255;
   outline_color.a = 255;
 
-  SDL_Surface* raw_surf =
-      TTF_RenderText_Blended(font, text.c_str(), text.size(), font_color);
+  SDL_Surface* raw_surf;
+  if (solid_)
+    raw_surf =
+        TTF_RenderText_Solid(font, text.c_str(), text.size(), font_color);
+  else
+    raw_surf =
+        TTF_RenderText_Blended(font, text.c_str(), text.size(), font_color);
   if (!raw_surf)
     return nullptr;
 
@@ -315,8 +335,12 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
   if (outline_) {
     SDL_Surface* outline = nullptr;
     TTF_SetFontOutline(font, kOutlineSize);
-    outline =
-        TTF_RenderText_Blended(font, text.c_str(), text.size(), outline_color);
+    if (solid_)
+      outline =
+          TTF_RenderText_Solid(font, text.c_str(), text.size(), outline_color);
+    else
+      outline = TTF_RenderText_Blended(font, text.c_str(), text.size(),
+                                       outline_color);
     EnsureFontSurfaceFormatInternal(outline);
     SDL_Rect outRect = {kOutlineSize, kOutlineSize, raw_surf->w, raw_surf->h};
     SDL_SetSurfaceBlendMode(raw_surf, SDL_BLENDMODE_BLEND);

@@ -26,6 +26,7 @@ struct ScopedFontData {
   bool default_italic = false;
   bool default_outline = true;
   bool default_shadow = false;
+  bool default_solid = false;
   scoped_refptr<ColorImpl> default_color = nullptr;
   scoped_refptr<ColorImpl> default_out_color = nullptr;
 

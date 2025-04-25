@@ -5,6 +5,7 @@
 #ifndef CONTENT_CANVAS_CANVAS_IMPL_H_
 #define CONTENT_CANVAS_CANVAS_IMPL_H_
 
+#include <queue>
 #include <string>
 
 #include "SDL3/SDL_surface.h"
@@ -14,8 +15,6 @@
 #include "content/components/disposable.h"
 #include "content/public/engine_bitmap.h"
 #include "content/render/drawable_controller.h"
-
-#include <queue>
 
 namespace content {
 
@@ -78,6 +77,7 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
 
   static scoped_refptr<CanvasImpl> FromBitmap(scoped_refptr<Bitmap> host);
 
+  // For debugging usage
   std::string GetCanvasName() const { return name_; }
 
   // Synchronize pending commands and fetch texture to buffer.
@@ -97,6 +97,7 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
   // Require render texture (maybe null after disposed)
   TextureAgent* GetAgent() const { return texture_; }
 
+  // Add a handler for observe bitmap content changing
   inline base::CallbackListSubscription AddCanvasObserver(
       const base::RepeatingClosure& observer) {
     return observers_.Add(observer);

@@ -43,6 +43,7 @@ class FontImpl : public Font {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Shadow, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Color, scoped_refptr<Color>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(OutColor, scoped_refptr<Color>);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Solid, bool);
 
  private:
   void LoadFontInternal(ExceptionState& exception_state);
@@ -54,6 +55,7 @@ class FontImpl : public Font {
   bool italic_;
   bool outline_;
   bool shadow_;
+  bool solid_;
   scoped_refptr<ColorImpl> color_;
   scoped_refptr<ColorImpl> out_color_;
 
