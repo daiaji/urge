@@ -59,3 +59,8 @@ if(SDL_STATIC)
 else()
   target_link_libraries(engine_base PUBLIC SDL3::SDL3-shared)
 endif()
+
+target_compile_options(engine_base PRIVATE -Werror)
+if (MSVC)
+  target_compile_options(engine_base PRIVATE /WX)
+endif ()

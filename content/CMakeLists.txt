@@ -108,3 +108,8 @@ target_link_libraries(engine_content PUBLIC
   ocornut_imgui
   soloud
 )
+
+target_compile_options(engine_content PRIVATE -Werror)
+if (MSVC)
+  target_compile_options(engine_content PRIVATE /WX)
+endif ()

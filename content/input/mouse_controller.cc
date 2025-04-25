@@ -8,8 +8,8 @@
 
 namespace content {
 
-MouseImpl::MouseImpl(base::WeakPtr<ui::Widget> window, ContentProfile* profile)
-    : window_(window), profile_(profile), enable_update_(true) {}
+MouseImpl::MouseImpl(base::WeakPtr<ui::Widget> window)
+    : window_(window), enable_update_(true) {}
 
 MouseImpl::~MouseImpl() = default;
 

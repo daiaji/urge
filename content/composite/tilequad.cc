@@ -68,8 +68,6 @@ int BuildTiles(const base::Rect& src_rect,
   if (src_rect.IsInvalid() || dest_rect.IsInvalid())
     return 0;
 
-  const int tiles_per_row =
-      CalculateQuadTileCount(src_rect.width, dest_rect.width);
   const int full_rows = dest_rect.height / src_rect.height;
   const int remaining_height = dest_rect.height % src_rect.height;
 

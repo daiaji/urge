@@ -121,7 +121,9 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   // Initialize driver descriptor
   Diligent::EngineCreateInfo engine_create_info;
   Diligent::SwapChainDesc swap_chain_desc;
+#if D3D11_SUPPORTED || D3D12_SUPPORTED
   Diligent::FullScreenModeDesc fullscreen_mode_desc;
+#endif
 
   // Setup requied features
   engine_create_info.Features.ComputeShaders =
@@ -197,7 +199,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
          adapter_info.Texture.MaxTexture2DDimension);
   if (device_info.Features.ComputeShaders ==
       Diligent::DEVICE_FEATURE_STATE_DISABLED)
-    printf("[Renderer] Detect computeShaders is disabled.\n");
+    printf("[Renderer] Detect ComputeShader feature is disabled.\n");
 
   // Initialize graphics pipelines
   std::unique_ptr<PipelineSet> pipelines_set =

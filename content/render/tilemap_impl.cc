@@ -515,7 +515,7 @@ scoped_refptr<Bitmap> TilemapAutotileImpl::Get(
     return nullptr;
 
   auto& autotiles = tilemap_->autotiles_;
-  if (index < 0 || index >= autotiles.size()) {
+  if (index < 0 || index >= static_cast<int32_t>(autotiles.size())) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                       "Out range of autotiles.");
     return nullptr;
@@ -531,7 +531,7 @@ void TilemapAutotileImpl::Put(int32_t index,
     return;
 
   auto& autotiles = tilemap_->autotiles_;
-  if (index < 0 || index >= autotiles.size())
+  if (index < 0 || index >= static_cast<int32_t>(autotiles.size()))
     return exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                              "Out range of autotiles.");
 
@@ -922,7 +922,7 @@ void TilemapImpl::ParseMapDataInternal(
   };
 
   auto get_priority = [&](int16_t tile_id) -> int32_t {
-    if (!priorities_ || tile_id >= priorities_->x_size())
+    if (!priorities_ || tile_id >= static_cast<int32_t>(priorities_->x_size()))
       return 0;
 
     int16_t value = priorities_->value(tile_id, 0, 0);
@@ -1029,7 +1029,6 @@ void TilemapImpl::ParseMapDataInternal(
     // Composite flash color
     base::Vec4 blend_color;
     if (flash_color) {
-      const float max = 0xF;
       const float blue = ((flash_color & 0x000F) >> 0) / 0xF;
       const float green = ((flash_color & 0x00F0) >> 4) / 0xF;
       const float red = ((flash_color & 0x0F00) >> 8) / 0xF;
@@ -1062,7 +1061,7 @@ void TilemapImpl::ParseMapDataInternal(
   auto process_buffer = [&]() {
     for (int32_t x = 0; x < render_viewport_.width; ++x)
       for (int32_t y = 0; y < render_viewport_.height; ++y)
-        for (int32_t z = 0; z < map_data_->z_size(); ++z)
+        for (int32_t z = 0; z < static_cast<int32_t>(map_data_->z_size()); ++z)
           process_tile(base::Vec2i(x, y), z);
   };
 
@@ -1092,7 +1091,7 @@ void TilemapImpl::SetupTilemapLayersInternal(const base::Rect& viewport) {
 }
 
 void TilemapImpl::ResetAboveLayersOrderInternal() {
-  for (int32_t i = 0; i < above_nodes_.size(); ++i) {
+  for (int32_t i = 0; i < static_cast<int32_t>(above_nodes_.size()); ++i) {
     int32_t layer_order = 32 * (i + render_viewport_.y + 1) - origin_.y;
     above_nodes_[i].SetNodeSortWeight(layer_order);
   }

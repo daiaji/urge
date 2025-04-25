@@ -30,7 +30,8 @@ scoped_refptr<Rect> Rect::Deserialize(ExecutionContext* execution_context,
                                       const std::string& data,
                                       ExceptionState& exception_state) {
   const int32_t* ptr = reinterpret_cast<const int32_t*>(data.data());
-  RectImpl* impl = new RectImpl(base::Rect(*ptr++, *ptr++, *ptr++, *ptr++));
+  RectImpl* impl =
+      new RectImpl(base::Rect(*(ptr + 0), *(ptr + 1), *(ptr + 2), *(ptr + 3)));
   return impl;
 }
 

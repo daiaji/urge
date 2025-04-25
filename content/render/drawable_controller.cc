@@ -72,7 +72,7 @@ bool DrawableNode::GetVisibility() const {
   return visible_;
 }
 
-void DrawableNode::SetNodeSortWeight(int weight1) {
+void DrawableNode::SetNodeSortWeight(int64_t weight1) {
   if (!controller_)
     return;
 
@@ -84,7 +84,7 @@ void DrawableNode::SetNodeSortWeight(int weight1) {
   controller_->InsertChildNodeInternal(this);
 }
 
-void DrawableNode::SetNodeSortWeight(int weight1, int weight2) {
+void DrawableNode::SetNodeSortWeight(int64_t weight1, int64_t weight2) {
   if (!controller_)
     return;
 
@@ -97,7 +97,9 @@ void DrawableNode::SetNodeSortWeight(int weight1, int weight2) {
   controller_->InsertChildNodeInternal(this);
 }
 
-void DrawableNode::SetNodeSortWeight(int weight1, int weight2, int weight3) {
+void DrawableNode::SetNodeSortWeight(int64_t weight1,
+                                     int64_t weight2,
+                                     int64_t weight3) {
   if (!controller_)
     return;
 

@@ -21,8 +21,6 @@ namespace content {
 
 class CanvasScheduler;
 
-constexpr int32_t kBlockMaxSize = 4096;
-
 // Pooling object texture agent,
 // used for async thread task runner.
 struct TextureAgent {
@@ -42,6 +40,8 @@ struct TextureAgent {
   base::Vec2i text_cache_size;
   RRefPtr<Diligent::ITexture> text_cache_texture;
 };
+
+constexpr int32_t kBlockMaxSize = 4096;
 
 class CanvasImpl : public base::LinkNode<CanvasImpl>,
                    public Bitmap,

@@ -576,7 +576,7 @@ scoped_refptr<Bitmap> TilemapBitmapImpl::Get(int32_t index,
     return nullptr;
 
   auto& bitmaps = tilemap_->bitmaps_;
-  if (index < 0 || index >= bitmaps.size()) {
+  if (index < 0 || index >= static_cast<int32_t>(bitmaps.size())) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                       "Out range of bitmaps.");
     return nullptr;
@@ -592,7 +592,7 @@ void TilemapBitmapImpl::Put(int32_t index,
     return;
 
   auto& bitmaps = tilemap_->bitmaps_;
-  if (index < 0 || index >= bitmaps.size())
+  if (index < 0 || index >= static_cast<int32_t>(bitmaps.size()))
     return exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                              "Out range of bitmaps.");
 
@@ -941,7 +941,7 @@ void Tilemap2Impl::ParseMapDataInternal(
     if (!t)
       return 0;
 
-    if (x < 0 || x >= t->x_size())
+    if (x < 0 || x >= static_cast<int32_t>(t->x_size()))
       return 0;
 
     return t->value(x, 0, 0);
@@ -1292,7 +1292,6 @@ void Tilemap2Impl::ParseMapDataInternal(
         // Process tile flash
         base::Vec4 blend_color;
         if (flash_color) {
-          const float max = 0xF;
           const float blue = ((flash_color & 0x000F) >> 0) / 0xF;
           const float green = ((flash_color & 0x00F0) >> 4) / 0xF;
           const float red = ((flash_color & 0x0F00) >> 8) / 0xF;

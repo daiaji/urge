@@ -4,6 +4,10 @@
 
 #include "content/media/audio_impl.h"
 
+#include "imgui/imgui.h"
+
+#include "content/profile/command_ids.h"
+
 namespace content {
 
 namespace {
@@ -124,10 +128,9 @@ SoLoud::result soloud_sdlbackend_init(SoLoud::Soloud* aSoloud,
 
 }  // namespace
 
-AudioImpl::AudioImpl(ContentProfile* profile,
-                     filesystem::IOService* io_service,
+AudioImpl::AudioImpl(filesystem::IOService* io_service,
                      I18NProfile* i18n_profile)
-    : profile_(profile), io_service_(io_service), i18n_profile_(i18n_profile) {
+    : io_service_(io_service), i18n_profile_(i18n_profile) {
   audio_runner_ = base::ThreadWorker::Create();
 
   base::ThreadWorker::PostTask(
@@ -145,6 +148,17 @@ AudioImpl::~AudioImpl() {
       base::BindOnce(&AudioImpl::DestroyAudioDeviceInternal,
                      base::Unretained(this)));
   base::ThreadWorker::WaitWorkerSynchronize(audio_runner_.get());
+}
+
+void AudioImpl::CreateButtonGUISettings() {
+  if (ImGui::CollapsingHeader(
+          i18n_profile_->GetI18NString(IDS_SETTINGS_AUDIO, "Audio").c_str())) {
+    float volume = core_.getGlobalVolume();
+    ImGui::SliderFloat(
+        i18n_profile_->GetI18NString(IDS_AUDIO_VOLUME, "Volume").c_str(),
+        &volume, 0, 1);
+    core_.setGlobalVolume(volume);
+  }
 }
 
 void AudioImpl::SetupMIDI(ExceptionState& exception_state) {

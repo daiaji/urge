@@ -23,7 +23,7 @@ class MouseImpl : public Mouse {
     X2 = SDL_BUTTON_X2,
   };
 
-  MouseImpl(base::WeakPtr<ui::Widget> window, ContentProfile* profile);
+  MouseImpl(base::WeakPtr<ui::Widget> window);
   ~MouseImpl() override;
 
   MouseImpl(const MouseImpl&) = delete;
@@ -72,7 +72,6 @@ class MouseImpl : public Mouse {
   } entity_state_;
 
   base::WeakPtr<ui::Widget> window_;
-  ContentProfile* profile_;
   bool enable_update_;
 
   std::array<BindingState, sizeof(ui::Widget::MouseState::states)> states_;

@@ -54,8 +54,10 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
   // Create texture if need
   if (windowskin) {
     if (!agent->background_texture ||
-        agent->background_texture->GetDesc().Width != bound.width ||
-        agent->background_texture->GetDesc().Height != bound.height) {
+        static_cast<int32_t>(agent->background_texture->GetDesc().Width) !=
+            bound.width ||
+        static_cast<int32_t>(agent->background_texture->GetDesc().Height) !=
+            bound.height) {
       agent->background_texture.Release();
       renderer::CreateTexture2D(
           **device, &agent->background_texture, "window2.background",

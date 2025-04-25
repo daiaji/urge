@@ -49,8 +49,9 @@ void GPUResetIntermediateLayer(renderer::RenderDevice* device,
                                ViewportAgent* agent,
                                const base::Vec2i& effect_size) {
   auto effect_layer = agent->effect.intermediate_layer;
-  if (!effect_layer || effect_layer->GetDesc().Width < effect_size.x ||
-      effect_layer->GetDesc().Height < effect_size.y) {
+  if (!effect_layer ||
+      static_cast<int32_t>(effect_layer->GetDesc().Width) < effect_size.x ||
+      static_cast<int32_t>(effect_layer->GetDesc().Height) < effect_size.y) {
     agent->effect.layer_size.x = std::max<int32_t>(
         effect_size.x, effect_layer ? effect_layer->GetDesc().Width : 0);
     agent->effect.layer_size.y = std::max<int32_t>(

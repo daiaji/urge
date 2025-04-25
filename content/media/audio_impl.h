@@ -24,9 +24,7 @@ namespace content {
 
 class AudioImpl : public Audio {
  public:
-  AudioImpl(ContentProfile* profile,
-            filesystem::IOService* io_service,
-            I18NProfile* i18n_profile);
+  AudioImpl(filesystem::IOService* io_service, I18NProfile* i18n_profile);
   ~AudioImpl() override;
 
   AudioImpl(const AudioImpl&) = delete;
@@ -36,6 +34,9 @@ class AudioImpl : public Audio {
   SDL_AudioStream*& soloud_stream() { return soloud_stream_; }
   SDL_AudioSpec& soloud_spec() { return soloud_spec_; }
 
+  void CreateButtonGUISettings();
+
+ public:
   void SetupMIDI(ExceptionState& exception_state) override;
 
   void BGMPlay(const std::string& filename,
@@ -99,7 +100,6 @@ class AudioImpl : public Audio {
 
   void ResetInternal();
 
-  ContentProfile* profile_;
   filesystem::IOService* io_service_;
   I18NProfile* i18n_profile_;
 

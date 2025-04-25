@@ -65,9 +65,8 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
       io_service_.get(), scoped_font_.get(), profile_->resolution, frame_rate));
   input_impl_.reset(new KeyboardControllerImpl(
       window_->AsWeakPtr(), profile_.get(), i18n_profile_.get()));
-  audio_impl_.reset(
-      new AudioImpl(profile_.get(), io_service_.get(), i18n_profile_.get()));
-  mouse_impl_.reset(new MouseImpl(window_->AsWeakPtr(), profile_.get()));
+  audio_impl_.reset(new AudioImpl(io_service_.get(), i18n_profile_.get()));
+  mouse_impl_.reset(new MouseImpl(window_->AsWeakPtr()));
 
   // Create imgui context
   base::ThreadWorker::PostTask(
@@ -244,6 +243,9 @@ void ContentRunner::RenderSettingsGUIInternal() {
 
     // Graphics settings
     graphics_impl_->CreateButtonGUISettings();
+
+    // Audio settings
+    audio_impl_->CreateButtonGUISettings();
 
     // Engine Info
     DrawEngineInfoGUI(i18n_profile_.get());

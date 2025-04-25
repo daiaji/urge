@@ -61,7 +61,7 @@ struct SortKey {
 
   // Compare self with other for displaying under other object.
   inline bool operator<(const SortKey& other) const {
-    for (int i = 0; i < 3; ++i)
+    for (int32_t i = 0; i < 3; ++i)
       if (weight[i] != other.weight[i])
         return weight[i] < other.weight[i];
 
@@ -129,9 +129,9 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
   // For the same weight scene, it can set multi weight value for sort.
   // Current support 3 weights for map sort.
   // No sort action after setting the weight.
-  void SetNodeSortWeight(int weight1);
-  void SetNodeSortWeight(int weight1, int weight2);
-  void SetNodeSortWeight(int weight1, int weight2, int weight3);
+  void SetNodeSortWeight(int64_t weight1);
+  void SetNodeSortWeight(int64_t weight1, int64_t weight2);
+  void SetNodeSortWeight(int64_t weight1, int64_t weight2, int64_t weight3);
 
   // Get sort key
   SortKey* GetSortKeys() { return &key_; }

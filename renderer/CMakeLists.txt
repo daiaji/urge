@@ -50,3 +50,8 @@ endif ()
 if (VULKAN_SUPPORTED)
   target_link_libraries(engine_renderer PUBLIC Diligent-GraphicsEngineVk-${LIBRARY_TYPE})
 endif ()
+
+target_compile_options(engine_renderer PRIVATE -Werror)
+if (MSVC)
+  target_compile_options(engine_renderer PRIVATE /WX)
+endif ()

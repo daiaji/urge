@@ -86,7 +86,7 @@ URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultItalic, bool) {
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_WRITE(Font, DefaultItalic, bool) {
-  execution_context->font_context->default_italic;
+  execution_context->font_context->default_italic = value;
 }
 
 URGE_DECLARE_STATIC_ATTRIBUTE_READ(Font, DefaultShadow, bool) {

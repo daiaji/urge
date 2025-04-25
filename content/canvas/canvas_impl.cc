@@ -183,7 +183,7 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
 
   uint8_t* dst_data = static_cast<uint8_t*>(surface_cache->pixels);
   uint8_t* src_data = static_cast<uint8_t*>(MappedData.pData);
-  for (size_t i = 0; i < surface_cache->h; ++i) {
+  for (int32_t i = 0; i < surface_cache->h; ++i) {
     memcpy(dst_data, src_data, surface_cache->pitch);
     dst_data += surface_cache->pitch;
     src_data += MappedData.Stride;
@@ -598,7 +598,7 @@ void CanvasImpl::UpdateVideoMemory() {
     std::vector<uint8_t> pixels;
     pixels.assign(aligned_bytes_per_row * canvas_cache_->h, 0);
 
-    for (size_t y = 0; y < canvas_cache_->h; ++y)
+    for (int32_t y = 0; y < canvas_cache_->h; ++y)
       std::memcpy(pixels.data() + y * aligned_bytes_per_row,
                   static_cast<uint8_t*>(canvas_cache_->pixels) +
                       y * canvas_cache_->pitch,
@@ -635,11 +635,13 @@ void CanvasImpl::SubmitQueuedCommands() {
       } break;
       case CommandID::HUE_CHANGE: {
         const auto* c = static_cast<Command_HueChange*>(command_sequence);
-
+        // TODO:
+        std::ignore = c;
       } break;
       case CommandID::RADIAL_BLUR: {
         const auto* c = static_cast<Command_RadialBlur*>(command_sequence);
-
+        // TODO:
+        std::ignore = c;
       } break;
       case CommandID::DRAW_TEXT: {
         const auto* c = static_cast<Command_DrawText*>(command_sequence);
@@ -805,8 +807,7 @@ void CanvasImpl::Clear(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  auto* command = AllocateCommand<Command_Clear>();
-
+  AllocateCommand<Command_Clear>();
   InvalidateSurfaceCache();
 }
 

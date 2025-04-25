@@ -33,7 +33,7 @@ GlobalModules* MriGetGlobalModules();
 content::ExecutionContext* MriGetCurrentContext();
 
 #define MRI_DEFINE_DATATYPE(Klass, Name, Free) \
-  const rb_data_type_t k##Klass##DataType = {Name, {0, Free, 0, 0, 0}, 0, 0, 0}
+  const rb_data_type_t k##Klass##DataType = {Name, {0, Free, 0, 0, {}}, 0, 0, 0}
 
 #define MRI_DECLARE_DATATYPE(Klass) \
   extern const rb_data_type_t k##Klass##DataType;
