@@ -30,12 +30,12 @@ base::Vec2i GetVec2iFromString(std::string in,
   return default_value;
 }
 
-char* IniStreamReader(char* str, int num, void* stream) {
+char* IniStreamReader(char* str, int32_t num, void* stream) {
   SDL_IOStream* io = static_cast<SDL_IOStream*>(stream);
 
   memset(str, 0, num);
   char c;
-  int i = 0;
+  int32_t i = 0;
 
   while (i < num - 1 && SDL_ReadIO(io, &c, 1)) {
     str[i++] = c;
@@ -57,11 +57,11 @@ std::unique_ptr<ContentProfile> ContentProfile::MakeFrom(SDL_IOStream* stream) {
   return std::unique_ptr<ContentProfile>(new ContentProfile(stream));
 }
 
-void ContentProfile::LoadCommandLine(int argc, char** argv) {
-  for (int i = 0; i < argc; ++i)
+void ContentProfile::LoadCommandLine(int32_t argc, char** argv) {
+  for (int32_t i = 0; i < argc; ++i)
     args.push_back(argv[i]);
 
-  for (int i = 0; i < argc; i++) {
+  for (int32_t i = 0; i < argc; i++) {
     if (std::string(argv[i]) == "test" || std::string(argv[i]) == "debug")
       game_debug = true;
     if (std::string(argv[i]) == "btest")

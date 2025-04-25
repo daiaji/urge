@@ -21,13 +21,13 @@ class I18NProfile {
 
   static std::unique_ptr<I18NProfile> MakeForStream(SDL_IOStream* xml_stream);
 
-  std::string GetI18NString(int ids, const std::string& default_value);
+  std::string GetI18NString(int32_t ids, const std::string& default_value);
 
  private:
   I18NProfile(SDL_IOStream* xml_stream);
 
   std::string i18n_xml_path_;
-  std::unordered_map<int, std::string> i18n_translation_;
+  std::unordered_map<int32_t, std::string> i18n_translation_;
 };
 
 }  // namespace content

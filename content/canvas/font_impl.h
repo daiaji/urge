@@ -49,7 +49,7 @@ class FontImpl : public Font {
   void EnsureFontSurfaceFormatInternal(SDL_Surface*& surf);
 
   std::vector<std::string> name_;
-  int size_;
+  int32_t size_;
   bool bold_;
   bool italic_;
   bool outline_;

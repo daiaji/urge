@@ -5,6 +5,8 @@
 #ifndef BASE_MATH_RECTANGLE_H_
 #define BASE_MATH_RECTANGLE_H_
 
+#include <stdint.h>
+
 #include "base/math/vector.h"
 
 #include "SDL3/SDL_rect.h"
@@ -18,7 +20,8 @@ class Rect {
  public:
   Rect() : x(0), y(0), width(0), height(0) {}
   Rect(const Vec2i& size) : x(0), y(0), width(size.x), height(size.y) {}
-  Rect(int ix, int iy, int iw, int ih) : x(ix), y(iy), width(iw), height(ih) {}
+  Rect(int32_t ix, int32_t iy, int32_t iw, int32_t ih)
+      : x(ix), y(iy), width(iw), height(ih) {}
   Rect(const Vec2i& pos, const Vec2i& size)
       : x(pos.x), y(pos.y), width(size.x), height(size.y) {}
 
@@ -76,7 +79,7 @@ class Rect {
   friend std::ostream& operator<<(std::ostream& os, const Rect& value);
 
  public:
-  int x, y, width, height;
+  int32_t x, y, width, height;
 };
 
 class RectF {

@@ -85,17 +85,17 @@ class AudioImpl : public Audio {
 
   void PlaySlotInternal(SlotInfo* slot,
                         const std::string& filename,
-                        int volume = 100,
-                        int pitch = 100,
+                        int32_t volume = 100,
+                        int32_t pitch = 100,
                         double pos = 0,
                         bool loop = true);
   void StopSlotInternal(SlotInfo* slot);
-  void FadeSlotInternal(SlotInfo* slot, int time);
+  void FadeSlotInternal(SlotInfo* slot, int32_t time);
   void GetSlotPosInternal(SlotInfo* slot, double* out);
 
   void EmitSoundInternal(const std::string& filename,
-                         int volume = 100,
-                         int pitch = 100);
+                         int32_t volume = 100,
+                         int32_t pitch = 100);
   void StopEmitInternal();
 
   void ResetInternal();

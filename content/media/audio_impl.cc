@@ -13,7 +13,7 @@ namespace content {
 namespace {
 
 void* read_mem_file(SDL_IOStream* src, size_t* datasize, bool freesrc) {
-  const int FILE_CHUNK_SIZE = 1024;
+  const int32_t FILE_CHUNK_SIZE = 1024;
   Sint64 size, size_total;
   size_t size_read;
   char *data = NULL, *newdata;
@@ -83,15 +83,15 @@ done:
 
 void soloud_sdl_audiomixer(void* userdata,
                            SDL_AudioStream* stream,
-                           int additional_amount,
-                           int total_amount) {
+                           int32_t additional_amount,
+                           int32_t total_amount) {
   Uint8* data = static_cast<Uint8*>(SDL_malloc(additional_amount));
   SoLoud::Soloud* soloud = (SoLoud::Soloud*)userdata;
   AudioImpl* manager = static_cast<AudioImpl*>(soloud->mUserData);
 
-  int len = additional_amount;
+  int32_t len = additional_amount;
   short* buf = (short*)data;
-  int samples = len / (manager->soloud_spec().channels * sizeof(float));
+  int32_t samples = len / (manager->soloud_spec().channels * sizeof(float));
   soloud->mix((float*)buf, samples);
 
   SDL_PutAudioStreamData(stream, data, additional_amount);
@@ -372,8 +372,8 @@ void AudioImpl::MeMonitorInternal() {
 
 void AudioImpl::PlaySlotInternal(SlotInfo* slot,
                                  const std::string& filename,
-                                 int volume,
-                                 int pitch,
+                                 int32_t volume,
+                                 int32_t pitch,
                                  double pos,
                                  bool loop) {
   if (!core_.isValidVoiceHandle(slot->play_handle) || !slot->source ||
@@ -414,7 +414,7 @@ void AudioImpl::StopSlotInternal(SlotInfo* slot) {
   slot->play_handle = 0;
 }
 
-void AudioImpl::FadeSlotInternal(SlotInfo* slot, int time) {
+void AudioImpl::FadeSlotInternal(SlotInfo* slot, int32_t time) {
   core_.fadeVolume(slot->play_handle, 0, time * 0.001);
   core_.scheduleStop(slot->play_handle, time * 0.001);
 }
@@ -424,8 +424,8 @@ void AudioImpl::GetSlotPosInternal(SlotInfo* slot, double* out) {
 }
 
 void AudioImpl::EmitSoundInternal(const std::string& filename,
-                                  int volume,
-                                  int pitch) {
+                                  int32_t volume,
+                                  int32_t pitch) {
   auto cache = se_cache_.find(filename);
   if (cache != se_cache_.end()) {
     if (se_queue_.size() >= MAX_CHANNELS / 2 - 4) {

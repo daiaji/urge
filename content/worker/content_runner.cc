@@ -259,7 +259,7 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
   if (ImGui::Begin("FPS")) {
     // Draw plot for fps monitor
     ImGui::PlotHistogram("##FPSDisplay", fps_history_.data(),
-                         static_cast<int>(fps_history_.size()), 0, nullptr,
+                         static_cast<int32_t>(fps_history_.size()), 0, nullptr,
                          0.0f, FLT_MAX, ImVec2(300, 80));
   }
 
@@ -277,7 +277,7 @@ void ContentRunner::CreateIMGUIContextInternal() {
       ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
 
   // Apply DPI Settings
-  int display_w, display_h;
+  int32_t display_w, display_h;
   SDL_GetWindowSizeInPixels(window_->AsSDLWindow(), &display_w, &display_h);
   io.DisplaySize =
       ImVec2(static_cast<float>(display_w), static_cast<float>(display_h));

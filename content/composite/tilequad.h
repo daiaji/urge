@@ -13,7 +13,7 @@ namespace content {
 using TileAxis = enum { HORIZONTAL, VERTICAL };
 
 // Get required quadangle's tile count.
-int CalculateQuadTileCount(int32_t tile, int32_t dest);
+int32_t CalculateQuadTileCount(int32_t tile, int32_t dest);
 
 // Axis direction repeat tile generator:
 // (main_pos, cross_pos) -> o|---- main_size ----|
@@ -23,21 +23,21 @@ int CalculateQuadTileCount(int32_t tile, int32_t dest);
 //   | main_size
 //   |
 //  ---
-int BuildTilesAlongAxis(TileAxis axis,
-                        const base::Rect& src_rect,
-                        const base::Vec2i& dest_pos,
-                        const base::Vec4& color,
-                        int32_t main_axis_size,
-                        const base::Vec2i& texture_size,
-                        renderer::Quad* quads);
+int32_t BuildTilesAlongAxis(TileAxis axis,
+                            const base::Rect& src_rect,
+                            const base::Vec2i& dest_pos,
+                            const base::Vec4& color,
+                            int32_t main_axis_size,
+                            const base::Vec2i& texture_size,
+                            renderer::Quad* quads);
 
 // Region tile generator:
 //  Fill size|src_rect| tiles in target|dest_rect|.
-int BuildTiles(const base::Rect& src_rect,
-               const base::Rect& dest_rect,
-               const base::Vec4& color,
-               const base::Vec2i& texture_size,
-               renderer::Quad* quads);
+int32_t BuildTiles(const base::Rect& src_rect,
+                   const base::Rect& dest_rect,
+                   const base::Vec4& color,
+                   const base::Vec2i& texture_size,
+                   renderer::Quad* quads);
 
 }  // namespace content
 

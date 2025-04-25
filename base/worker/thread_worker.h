@@ -32,7 +32,7 @@ class Semaphore {
  private:
   std::mutex mutex_;
   std::condition_variable cv_;
-  int count_;
+  int32_t count_;
 };
 
 // Template helpers which use function indirection to erase T from the

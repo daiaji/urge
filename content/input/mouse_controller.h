@@ -60,15 +60,15 @@ class MouseImpl : public Mouse {
   struct BindingState {
     bool up = false;
     bool down = false;
-    int click_count = 0;
+    int32_t click_count = 0;
     bool pressed = false;
   };
 
   struct MouseState {
     float last_x = 0, last_y = 0;
     bool moved = false;
-    int scroll_x = 0, scroll_y = 0;
-    int last_scroll_x = 0, last_scroll_y = 0;
+    int32_t scroll_x = 0, scroll_y = 0;
+    int32_t last_scroll_x = 0, last_scroll_y = 0;
   } entity_state_;
 
   base::WeakPtr<ui::Widget> window_;

@@ -31,7 +31,7 @@ class ContentProfile {
 
   static std::unique_ptr<ContentProfile> MakeFrom(SDL_IOStream* stream);
 
-  void LoadCommandLine(int argc, char** argv);
+  void LoadCommandLine(int32_t argc, char** argv);
   bool LoadConfigure(const std::string& app);
 
   std::vector<std::string> args;

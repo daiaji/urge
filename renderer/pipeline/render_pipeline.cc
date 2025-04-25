@@ -118,7 +118,7 @@ void RenderPipelineBase::BuildPipeline(
   pipeline_state_desc.PSODesc.ResourceLayout.NumImmutableSamplers =
       samplers.size();
 
-  for (int i = 0; i < BlendType::TYPE_NUMS; ++i) {
+  for (int32_t i = 0; i < BlendType::TYPE_NUMS; ++i) {
     pipeline_state_desc.GraphicsPipeline.BlendDesc.RenderTargets[0] =
         GetBlendState(static_cast<BlendType>(i));
 

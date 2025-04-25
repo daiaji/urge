@@ -256,7 +256,7 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
     base::Rect region;
     SDL_Surface* text;
     float opacity;
-    int align;
+    int32_t align;
 
     Command_DrawText() : Command(CommandID::DRAW_TEXT) {}
   };

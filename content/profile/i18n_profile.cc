@@ -56,7 +56,7 @@ std::unique_ptr<I18NProfile> I18NProfile::MakeForStream(
   return std::unique_ptr<I18NProfile>(new I18NProfile(xml_stream));
 }
 
-std::string I18NProfile::GetI18NString(int ids,
+std::string I18NProfile::GetI18NString(int32_t ids,
                                        const std::string& default_value) {
   auto iter = i18n_translation_.find(ids);
   if (iter != i18n_translation_.end())

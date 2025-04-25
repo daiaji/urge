@@ -21,7 +21,7 @@ namespace content {
 struct ScopedFontData {
   std::string default_font;
   std::vector<std::string> default_name;
-  int default_size = 24;
+  int32_t default_size = 24;
   bool default_bold = false;
   bool default_italic = false;
   bool default_outline = true;
@@ -29,7 +29,7 @@ struct ScopedFontData {
   scoped_refptr<ColorImpl> default_color = nullptr;
   scoped_refptr<ColorImpl> default_out_color = nullptr;
 
-  std::map<std::pair<std::string, int>, TTF_Font*> font_cache;
+  std::map<std::pair<std::string, int32_t>, TTF_Font*> font_cache;
   std::map<std::string, std::pair<int64_t, void*>> data_cache;
   TTF_Font* internal_font = nullptr;
 

@@ -7,7 +7,7 @@
 namespace content {
 
 void SpriteQuad::SetPositionRect(SpriteQuad* data, const base::RectF& pos) {
-  int i = 0;
+  int32_t i = 0;
   data->vertices[i++].position = base::Vec4(pos.x, pos.y, 0, 1);
   data->vertices[i++].position = base::Vec4(pos.x + pos.width, pos.y, 0, 1);
   data->vertices[i++].position =
@@ -21,7 +21,7 @@ void SpriteQuad::SetTexCoordRect(SpriteQuad* data,
   const base::Vec2 tex_pos = texcoord.Position() / size;
   const base::Vec2 tex_size = (texcoord.Position() + texcoord.Size()) / size;
 
-  int i = 0;
+  int32_t i = 0;
   data->vertices[i++].texcoord = base::MakeVec4(tex_pos, 0);
   data->vertices[i++].texcoord = base::Vec4(tex_size.x, tex_pos.y, 0, 0);
   data->vertices[i++].texcoord = base::MakeVec4(tex_size, 0);

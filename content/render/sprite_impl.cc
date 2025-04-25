@@ -67,7 +67,7 @@ void GPUUpdateWaveSpriteInternal(
   agent->wave_cache.resize(block_count);
   SpriteQuad* quad = agent->wave_cache.data();
 
-  auto emit_wave_block = [&](int block_y, int block_size) {
+  auto emit_wave_block = [&](int32_t block_y, int32_t block_size) {
     float wave_offset =
         wave_phase + (static_cast<float>(block_y) / wave.length) * kPi;
     float block_x = std::sin(wave_offset) * (wave.amp + 1.0f);
@@ -86,7 +86,7 @@ void GPUUpdateWaveSpriteInternal(
     ++quad;
   };
 
-  for (int i = 0; i < loop_block; ++i)
+  for (int32_t i = 0; i < loop_block; ++i)
     emit_wave_block(i * kWaveBlockAlign, kWaveBlockAlign);
 
   if (last_block_aligned_size)

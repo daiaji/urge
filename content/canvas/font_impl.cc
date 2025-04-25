@@ -10,7 +10,7 @@
 
 namespace content {
 
-constexpr int kOutlineSize = 1;
+constexpr int32_t kOutlineSize = 1;
 constexpr float kFontRealScale = 0.9f;
 
 namespace {
@@ -22,7 +22,7 @@ void RenderShadowSurface(SDL_Surface*& in, const SDL_Color& color) {
 TTF_Font* ReadFontFromMemory(
     const std::map<std::string, std::pair<int64_t, void*>>& mem_fonts,
     const std::string& path,
-    int size) {
+    int32_t size) {
   auto it = mem_fonts.find(path);
   if (it != mem_fonts.end()) {
     SDL_IOStream* io = SDL_IOFromConstMem(it->second.second, it->second.first);
@@ -275,7 +275,7 @@ TTF_Font* FontImpl::GetCanonicalFont(ExceptionState& exception_state) {
   if (exception_state.HadException())
     return nullptr;
 
-  int font_style = TTF_STYLE_NORMAL;
+  int32_t font_style = TTF_STYLE_NORMAL;
   if (bold_)
     font_style |= TTF_STYLE_BOLD;
   if (italic_)

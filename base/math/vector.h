@@ -5,6 +5,7 @@
 #ifndef BASE_MATH_VECTOR_H_
 #define BASE_MATH_VECTOR_H_
 
+#include <stdint.h>
 #include <sstream>
 
 namespace base {
@@ -20,8 +21,8 @@ class Vec4i;
 class Vec2i {
  public:
   Vec2i() : x(0), y(0) {}
-  Vec2i(int t) : x(t), y(t) {}
-  Vec2i(int ix, int iy) : x(ix), y(iy) {}
+  Vec2i(int32_t t) : x(t), y(t) {}
+  Vec2i(int32_t ix, int32_t iy) : x(ix), y(iy) {}
 
   Vec2i(const Vec2i& other) {
     x = other.x;
@@ -58,7 +59,7 @@ class Vec2i {
   friend std::ostream& operator<<(std::ostream& os, const Vec2i& value);
 
  public:
-  int x, y;
+  int32_t x, y;
 };
 
 class Vec2 {
@@ -107,8 +108,8 @@ class Vec2 {
 class Vec3i {
  public:
   Vec3i() : x(0), y(0), z(0) {}
-  Vec3i(int t) : x(t), y(t), z(t) {}
-  Vec3i(int ix, int iy, int iz) : x(ix), y(iy), z(iz) {}
+  Vec3i(int32_t t) : x(t), y(t), z(t) {}
+  Vec3i(int32_t ix, int32_t iy, int32_t iz) : x(ix), y(iy), z(iz) {}
 
   Vec3i(const Vec3i& other) {
     x = other.x;
@@ -147,7 +148,7 @@ class Vec3i {
   friend std::ostream& operator<<(std::ostream& os, const Vec3i& value);
 
  public:
-  int x, y, z;
+  int32_t x, y, z;
 };
 
 class Vec3 {
@@ -200,8 +201,9 @@ class Vec3 {
 class Vec4i {
  public:
   Vec4i() : x(0), y(0), z(0), w(0) {}
-  Vec4i(int t) : x(t), y(t), z(t), w(t) {}
-  Vec4i(int ix, int iy, int iz, int iw) : x(ix), y(iy), z(iz), w(iw) {}
+  Vec4i(int32_t t) : x(t), y(t), z(t), w(t) {}
+  Vec4i(int32_t ix, int32_t iy, int32_t iz, int32_t iw)
+      : x(ix), y(iy), z(iz), w(iw) {}
 
   Vec4i(const Vec4i& other) {
     x = other.x;
@@ -242,7 +244,7 @@ class Vec4i {
   friend std::ostream& operator<<(std::ostream& os, const Vec4i& value);
 
  public:
-  int x, y, z, w;
+  int32_t x, y, z, w;
 };
 
 class Vec4 {

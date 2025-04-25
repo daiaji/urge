@@ -6,19 +6,19 @@
 
 namespace content {
 
-int CalculateQuadTileCount(int32_t tile, int32_t dest) {
+int32_t CalculateQuadTileCount(int32_t tile, int32_t dest) {
   if (tile && dest)
     return (dest + tile - 1) / tile;
   return 0;
 }
 
-int BuildTilesAlongAxis(TileAxis axis,
-                        const base::Rect& src_rect,
-                        const base::Vec2i& dest_pos,
-                        const base::Vec4& color,
-                        int32_t main_axis_size,
-                        const base::Vec2i& texture_size,
-                        renderer::Quad* quads) {
+int32_t BuildTilesAlongAxis(TileAxis axis,
+                            const base::Rect& src_rect,
+                            const base::Vec2i& dest_pos,
+                            const base::Vec4& color,
+                            int32_t main_axis_size,
+                            const base::Vec2i& texture_size,
+                            renderer::Quad* quads) {
   if (main_axis_size <= 0)
     return 0;
 
@@ -60,24 +60,24 @@ int BuildTilesAlongAxis(TileAxis axis,
   return full_blocks + (partial_size > 0 ? 1 : 0);
 }
 
-int BuildTiles(const base::Rect& src_rect,
-               const base::Rect& dest_rect,
-               const base::Vec4& color,
-               const base::Vec2i& texture_size,
-               renderer::Quad* quads) {
+int32_t BuildTiles(const base::Rect& src_rect,
+                   const base::Rect& dest_rect,
+                   const base::Vec4& color,
+                   const base::Vec2i& texture_size,
+                   renderer::Quad* quads) {
   if (src_rect.IsInvalid() || dest_rect.IsInvalid())
     return 0;
 
-  const int full_rows = dest_rect.height / src_rect.height;
-  const int remaining_height = dest_rect.height % src_rect.height;
+  const int32_t full_rows = dest_rect.height / src_rect.height;
+  const int32_t remaining_height = dest_rect.height % src_rect.height;
 
-  int quad_count = 0;
-  int offset = 0;
-  int current_y = dest_rect.y;
+  int32_t quad_count = 0;
+  int32_t offset = 0;
+  int32_t current_y = dest_rect.y;
 
   // Process full-height rows
-  for (int row = 0; row < full_rows; ++row) {
-    const int row_quads = BuildTilesAlongAxis(
+  for (int32_t row = 0; row < full_rows; ++row) {
+    const int32_t row_quads = BuildTilesAlongAxis(
         TileAxis::HORIZONTAL, src_rect, base::Vec2i(dest_rect.x, current_y),
         color, dest_rect.width, texture_size, quads + offset);
 
@@ -91,7 +91,7 @@ int BuildTiles(const base::Rect& src_rect,
     base::Rect partial_src = src_rect;
     partial_src.height = remaining_height;
 
-    const int row_quads = BuildTilesAlongAxis(
+    const int32_t row_quads = BuildTilesAlongAxis(
         TileAxis::HORIZONTAL, partial_src, base::Vec2i(dest_rect.x, current_y),
         color, dest_rect.width, texture_size, quads + offset);
 

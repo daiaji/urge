@@ -28,7 +28,7 @@ class KeyboardControllerImpl : public Input {
     bool pressed;
     bool trigger;
     bool repeat;
-    int repeat_count;
+    int32_t repeat_count;
   };
 
   KeyboardControllerImpl(base::WeakPtr<ui::Widget> window,
@@ -93,12 +93,12 @@ class KeyboardControllerImpl : public Input {
   std::array<KeyState, SDL_SCANCODE_COUNT> recent_key_states_;
 
   struct {
-    int active = 0;
-    int previous = 0;
+    int32_t active = 0;
+    int32_t previous = 0;
   } dir4_state_;
 
   struct {
-    int active = 0;
+    int32_t active = 0;
   } dir8_state_;
 };
 

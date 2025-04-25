@@ -287,7 +287,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
                                       const base::Rect& region,
                                       SDL_Surface* text,
                                       float opacity,
-                                      int align) {
+                                      int32_t align) {
   auto* context = scheduler->GetDevice()->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
@@ -318,7 +318,8 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   base::Vec4 blend_alpha;
   blend_alpha.w = opacity / 255.0f;
 
-  int align_x = region.x, align_y = region.y + (region.height - text->h) / 2;
+  int32_t align_x = region.x,
+          align_y = region.y + (region.height - text->h) / 2;
   switch (align) {
     default:
     case 0:  // Left
@@ -846,7 +847,7 @@ scoped_refptr<Color> CanvasImpl::GetPixel(int32_t x,
 
   SDL_Surface* surface = RequireMemorySurface();
   auto* pixel_detail = SDL_GetPixelFormatDetails(surface->format);
-  int bpp = pixel_detail->bytes_per_pixel;
+  int32_t bpp = pixel_detail->bytes_per_pixel;
   uint8_t* pixel = static_cast<uint8_t*>(surface->pixels) +
                    static_cast<size_t>(y) * surface->pitch +
                    static_cast<size_t>(x) * bpp;
@@ -984,7 +985,7 @@ scoped_refptr<Rect> CanvasImpl::TextSize(const std::string& str,
   if (!font)
     return nullptr;
 
-  int w, h;
+  int32_t w, h;
   TTF_GetStringSize(font, str.c_str(), str.size(), &w, &h);
   return new RectImpl(base::Rect(0, 0, w, h));
 }
@@ -1009,10 +1010,7 @@ void CanvasImpl::OnObjectDisposed() {
   texture_ = nullptr;
 
   // Free memory surface cache
-  if (canvas_cache_) {
-    SDL_DestroySurface(canvas_cache_);
-    canvas_cache_ = nullptr;
-  }
+  InvalidateSurfaceCache();
 }
 
 void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,
@@ -1037,6 +1035,7 @@ void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,
 scoped_refptr<Font> CanvasImpl::Get_Font(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return nullptr;
+
   return font_;
 }
 
@@ -1044,6 +1043,7 @@ void CanvasImpl::Put_Font(const scoped_refptr<Font>& value,
                           ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
+
   *font_ = *FontImpl::From(value);
 }
 

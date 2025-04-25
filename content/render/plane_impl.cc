@@ -52,20 +52,20 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
   // Optimized tile calculation using simplified formula
   const float total_x = static_cast<float>(viewport_size.x) + wrap_ox;
   const float total_y = static_cast<float>(viewport_size.y) + wrap_oy;
-  const int tile_x = static_cast<int>(std::ceil(total_x / item_x));
-  const int tile_y = static_cast<int>(std::ceil(total_y / item_y));
+  const int32_t tile_x = static_cast<int32_t>(std::ceil(total_x / item_x));
+  const int32_t tile_y = static_cast<int32_t>(std::ceil(total_y / item_y));
 
   // Prepare vertex buffer
-  const int quad_size = tile_x * tile_y;
+  const int32_t quad_size = tile_x * tile_y;
   agent->cache.resize(quad_size);
   const base::Vec4 opacity_norm(static_cast<float>(opacity) / 255.0f);
 
   // Pointer-based vertex writing with accumulative positioning
   renderer::Quad* quad_ptr = agent->cache.data();
   float current_y = -wrap_oy;
-  for (int y = 0; y < tile_y; ++y) {
+  for (int32_t y = 0; y < tile_y; ++y) {
     float current_x = -wrap_ox;
-    for (int x = 0; x < tile_x; ++x) {
+    for (int32_t x = 0; x < tile_x; ++x) {
       // Set vertex properties directly through pointer
       const base::RectF pos(current_x, current_y, item_x, item_y);
       renderer::Quad::SetPositionRect(quad_ptr, pos);

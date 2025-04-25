@@ -20,7 +20,7 @@ std::vector<Diligent::LayoutElement> Vertex::GetLayout() {
 }
 
 void Quad::SetPositionRect(Quad* data, const base::RectF& pos) {
-  int i = 0;
+  int32_t i = 0;
   data->vertices[i++].position = base::Vec4(pos.x, pos.y, 0, 1);
   data->vertices[i++].position = base::Vec4(pos.x + pos.width, pos.y, 0, 1);
   data->vertices[i++].position =
@@ -29,7 +29,7 @@ void Quad::SetPositionRect(Quad* data, const base::RectF& pos) {
 }
 
 void Quad::SetTexCoordRectNorm(Quad* data, const base::RectF& texcoord) {
-  int i = 0;
+  int32_t i = 0;
   data->vertices[i++].texcoord = texcoord.Position();
   data->vertices[i++].texcoord =
       base::Vec2(texcoord.x + texcoord.width, texcoord.y);
@@ -44,7 +44,7 @@ void Quad::SetTexCoordRect(Quad* data,
   const base::Vec2 tex_pos = texcoord.Position() / size;
   const base::Vec2 tex_size = (texcoord.Position() + texcoord.Size()) / size;
 
-  int i = 0;
+  int32_t i = 0;
   data->vertices[i++].texcoord = tex_pos;
   data->vertices[i++].texcoord = base::Vec2(tex_size.x, tex_pos.y);
   data->vertices[i++].texcoord = tex_size;
@@ -52,7 +52,7 @@ void Quad::SetTexCoordRect(Quad* data,
 }
 
 void Quad::SetColor(Quad* data, const base::Vec4& color) {
-  int i = 0;
+  int32_t i = 0;
   data->vertices[i++].color = color;
   data->vertices[i++].color = color;
   data->vertices[i++].color = color;

@@ -4,6 +4,8 @@
 
 #include "base/math/rectangle.h"
 
+#include <stdint.h>
+
 namespace base {
 
 std::ostream& operator<<(std::ostream& os, const Rect& value) {
@@ -19,7 +21,7 @@ std::ostream& operator<<(std::ostream& os, const RectF& value) {
 }
 
 base::Rect MakeIntersect(const base::Rect& A, const base::Rect& B) {
-  int Amin, Amax, Bmin, Bmax;
+  int32_t Amin, Amax, Bmin, Bmax;
   base::Rect result;
 
   // Horizontal intersection
