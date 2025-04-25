@@ -105,7 +105,7 @@ const MouseButtonSet kMouseButtonSets[] = {
 void ApplyMousePatch() {
   VALUE klass = rb_const_get(rb_cObject, rb_intern("Mouse"));
 
-  for (int i = 0; i < _countof(kMouseButtonSets); ++i)
+  for (size_t i = 0; i < std::size(kMouseButtonSets); ++i)
     rb_const_set(klass, rb_intern(kMouseButtonSets[i].name.c_str()),
                  INT2FIX(kMouseButtonSets[i].button_id));
 }

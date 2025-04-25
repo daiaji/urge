@@ -4,6 +4,8 @@
 
 #include "renderer/device/render_device.h"
 
+#include "SDL3/SDL_hints.h"
+#include "SDL3/SDL_loadso.h"
 #include "SDL3/SDL_video.h"
 #include "magic_enum/magic_enum.hpp"
 
@@ -16,6 +18,19 @@
 
 #include "base/debug/logging.h"
 #include "ui/widget/widget.h"
+
+#if defined(OS_LINUX)
+using PFN_XGetXCBConnection = void* (*)(void*);
+
+#ifdef SDL_PLATFORM_OPENBSD
+#define DEFAULT_VULKAN "libvulkan.so"
+#define DEFAULT_X11_XCB "libX11-xcb.so"
+#else
+#define DEFAULT_VULKAN "libvulkan.so.1"
+#define DEFAULT_X11_XCB "libX11-xcb.so.1"
+#endif
+
+#endif  // OS_LINUX
 
 namespace renderer {
 
@@ -59,12 +74,44 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
       SDL_GetWindowProperties(window_target->AsSDLWindow());
 
   // Setup specific platform window handle
+  SDL_GLContext glcontext = nullptr;
 #if defined(OS_WIN)
   if (driver_type == DriverType::UNDEFINED)
     driver_type = DriverType::D3D11;
 
   native_window.hWnd = SDL_GetPointerProperty(
       window_properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+#elif defined(OS_LINUX)
+  if (driver_type == DriverType::UNDEFINED)
+    driver_type = DriverType::OPENGL;
+
+  {
+    // Xlib Display
+    void* xdisplay = SDL_GetPointerProperty(
+        window_properties, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
+    int64_t xwindow = SDL_GetNumberProperty(
+        window_properties, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
+
+    glcontext = SDL_GL_CreateContext(window_target->AsSDLWindow());
+    SDL_GL_MakeCurrent(window_target->AsSDLWindow(), glcontext);
+
+    // Get XCBConnect from Xlib
+    const char* xcb_library_name = SDL_GetHint(SDL_HINT_X11_XCB_LIBRARY);
+    if (!xcb_library_name || !*xcb_library_name)
+      xcb_library_name = DEFAULT_X11_XCB;
+
+    SDL_SharedObject* xlib_xcb_library = SDL_LoadObject(xcb_library_name);
+    PFN_XGetXCBConnection xgetxcb_func = nullptr;
+    if (xlib_xcb_library)
+      xgetxcb_func = (PFN_XGetXCBConnection)SDL_LoadFunction(
+          xlib_xcb_library, "XGetXCBConnection");
+
+    // Setup native window
+    native_window.WindowId = static_cast<uint32_t>(xwindow);
+    native_window.pDisplay = xdisplay;
+    native_window.pXCBConnection =
+        xgetxcb_func ? xgetxcb_func(xdisplay) : nullptr;
+  }
 #endif
 
   Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
@@ -76,7 +123,12 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   Diligent::SwapChainDesc swap_chain_desc;
   Diligent::FullScreenModeDesc fullscreen_mode_desc;
 
-  // Initialize specific graphics api
+  // Setup requied features
+  engine_create_info.Features.ComputeShaders =
+      Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+
+// Initialize specific graphics api
+#if GL_SUPPORTED
   if (driver_type == DriverType::OPENGL) {
 #if ENGINE_DLL
     auto GetEngineFactoryOpenGL = Diligent::LoadGraphicsEngineOpenGL();
@@ -88,7 +140,10 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
     gl_create_info.ZeroToOneNDZ = Diligent::True;
     factory->CreateDeviceAndSwapChainGL(gl_create_info, &device, &context,
                                         swap_chain_desc, &swapchain);
-  } else if (driver_type == DriverType::VULKAN) {
+  }
+#endif  // OPENGL_SUPPORT
+#if VULKAN_SUPPORTED
+  if (driver_type == DriverType::VULKAN) {
 #if ENGINE_DLL
     auto GetEngineFactoryVk = Diligent::LoadGraphicsEngineVk();
 #endif
@@ -98,7 +153,10 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
     factory->CreateDeviceAndContextsVk(vk_create_info, &device, &context);
     factory->CreateSwapChainVk(device, context, swap_chain_desc, native_window,
                                &swapchain);
-  } else if (driver_type == DriverType::D3D11) {
+  }
+#endif  // VULKAN_SUPPORT
+#if D3D11_SUPPORTED
+  if (driver_type == DriverType::D3D11) {
 #if ENGINE_DLL
     auto GetEngineFactoryD3D11 = Diligent::LoadGraphicsEngineD3D11();
 #endif
@@ -110,7 +168,10 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
     pFactory->CreateSwapChainD3D11(device, context, swap_chain_desc,
                                    fullscreen_mode_desc, native_window,
                                    &swapchain);
-  } else if (driver_type == DriverType::D3D12) {
+  }
+#endif  // D3D11_SUPPORT
+#if D3D12_SUPPORTED
+  if (driver_type == DriverType::D3D12) {
 #if ENGINE_DLL
     auto GetEngineFactoryD3D12 = Diligent::LoadGraphicsEngineD3D12();
 #endif
@@ -123,6 +184,20 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
                                         fullscreen_mode_desc, native_window,
                                         &swapchain);
   }
+#endif  // D3D12_SUPPORT
+
+  // etc
+  const auto& device_info = device->GetDeviceInfo();
+  const auto& adapter_info = device->GetAdapterInfo();
+  printf("[Renderer] DeviceType: %s (version %d.%d)\n",
+         GetRenderDeviceTypeString(device_info.Type),
+         device_info.APIVersion.Major, device_info.APIVersion.Minor);
+  printf("[Renderer] Adapter: %s\n", adapter_info.Description);
+  printf("[Renderer] MaxTexture Size: %d\n",
+         adapter_info.Texture.MaxTexture2DDimension);
+  if (device_info.Features.ComputeShaders ==
+      Diligent::DEVICE_FEATURE_STATE_DISABLED)
+    printf("[Renderer] Detect computeShaders is disabled.\n");
 
   // Initialize graphics pipelines
   std::unique_ptr<PipelineSet> pipelines_set =
@@ -133,20 +208,13 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
       QuadIndexCache::Make(device);
   quad_index_cache->Allocate(1 << 10);
 
-  // etc
-  printf("[Renderer] Device: %s\n",
-         GetRenderDeviceTypeString(device->GetDeviceInfo().Type));
-  printf("[Renderer] Adapter: %s\n", device->GetAdapterInfo().Description);
-  printf("[Renderer] MaxTexture Size: %d\n",
-         device->GetAdapterInfo().Texture.MaxTexture2DDimension);
-
   // Wait for creating
   context->WaitForIdle();
 
   // Create new instance
-  return std::unique_ptr<RenderDevice>(
-      new RenderDevice(window_target, device, context, swapchain,
-                       std::move(pipelines_set), std::move(quad_index_cache)));
+  return std::unique_ptr<RenderDevice>(new RenderDevice(
+      window_target, device, context, swapchain, std::move(pipelines_set),
+      std::move(quad_index_cache), glcontext));
 }
 
 RenderDevice::RenderDevice(
@@ -155,14 +223,19 @@ RenderDevice::RenderDevice(
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context,
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain,
     std::unique_ptr<PipelineSet> pipelines,
-    std::unique_ptr<QuadIndexCache> quad_index)
+    std::unique_ptr<QuadIndexCache> quad_index,
+    SDL_GLContext gl_context)
     : window_(std::move(window)),
       device_(device),
       context_(context),
       swapchain_(swapchain),
       pipelines_(std::move(pipelines)),
-      quad_index_(std::move(quad_index)) {}
+      quad_index_(std::move(quad_index)),
+      gl_context_(gl_context) {}
 
-RenderDevice::~RenderDevice() = default;
+RenderDevice::~RenderDevice() {
+  if (gl_context_)
+    SDL_GL_DestroyContext(gl_context_);
+}
 
 }  // namespace renderer

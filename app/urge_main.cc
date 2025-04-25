@@ -63,7 +63,7 @@ std::string AsciiToUtf8(const std::string& asciiStr) {
 
 }  // namespace
 
-int SDL_main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
   LOG(INFO) << "[App] Running App...";
 
   std::string app(argv[0]);
@@ -109,6 +109,7 @@ int SDL_main(int argc, char* argv[]) {
   {
     std::unique_ptr<ui::Widget> widget(new ui::Widget);
     ui::Widget::InitParams widget_params;
+    widget_params.opengl = true;
     widget_params.size = profile->window_size;
     widget_params.resizable = true;
     widget_params.hpixeldensity = true;

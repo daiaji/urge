@@ -31,6 +31,8 @@ Widget::~Widget() {
 void Widget::Init(InitParams params) {
   auto property_id = SDL_CreateProperties();
 
+  SDL_SetBooleanProperty(property_id, SDL_PROP_WINDOW_CREATE_OPENGL_BOOLEAN,
+                         params.opengl);
   SDL_SetBooleanProperty(property_id, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN,
                          params.fullscreen);
   SDL_SetBooleanProperty(property_id, SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN,
@@ -224,7 +226,8 @@ bool Widget::UIEventDispatcher(void* userdata, SDL_Event* event) {
         if (i < MAX_FINGERS)
           self->finger_states_[i].down = true;
       }
-    }  // fallthrough
+    }
+      [[fallthrough]];
     case SDL_EVENT_FINGER_MOTION: {
       if (event->tfinger.windowID == self->window_id_) {
         int w, h;

@@ -5,6 +5,9 @@
 #ifndef RENDERER_RESOURCE_RENDER_BUFFER_H_
 #define RENDERER_RESOURCE_RENDER_BUFFER_H_
 
+#include <cstring>
+#include <memory>
+
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Graphics/GraphicsEngine/interface/Buffer.h"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"

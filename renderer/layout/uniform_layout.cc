@@ -4,6 +4,8 @@
 
 #include "renderer/layout/uniform_layout.h"
 
+#include <cstring>
+
 namespace renderer {
 
 void MakeIdentityMatrix(float* out) {

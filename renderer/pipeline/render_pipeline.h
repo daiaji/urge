@@ -93,6 +93,8 @@ class Pipeline_Sprite : public RenderPipelineBase {
  public:
   Pipeline_Sprite(Diligent::IRenderDevice* device,
                   Diligent::TEXTURE_FORMAT target_format);
+
+  Diligent::Bool storage_buffer_support = Diligent::False;
 };
 
 class Pipeline_AlphaTransition : public RenderPipelineBase {

@@ -5,6 +5,7 @@
 #include "renderer/resource/render_buffer.h"
 
 #include <array>
+#include <cstring>
 
 namespace renderer {
 
@@ -38,9 +39,9 @@ void QuadIndexCache::Allocate(size_t quadrangle_size) {
   if (cache_.size() < required_indices_size) {
     cache_.clear();
     cache_.reserve(required_indices_size);
-    for (int32_t i = 0; i < quadrangle_size; ++i)
+    for (size_t i = 0; i < quadrangle_size; ++i)
       for (const auto& it : kQuadrangleDrawIndices)
-        cache_.push_back(i * 4 + it);
+        cache_.push_back(static_cast<uint16_t>(i * 4 + it));
 
     // Reset old buffer
     buffer_.Release();

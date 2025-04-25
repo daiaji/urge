@@ -39,6 +39,8 @@ Binding_Sprite::Binding_Sprite(ShaderBinding binding)
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "u_Vertices");
   u_params =
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX, "u_Params");
+  u_param = RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_VERTEX,
+                                        "SpriteUniformParam");
   u_texture =
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
 }

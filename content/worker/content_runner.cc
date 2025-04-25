@@ -81,13 +81,7 @@ ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
       &ContentRunner::TickHandlerInternal, base::Unretained(this)));
 }
 
-ContentRunner::~ContentRunner() {
-  base::ThreadWorker::PostTask(
-      render_worker_.get(),
-      base::BindOnce(&ContentRunner::DestroyIMGUIContextInternal,
-                     base::Unretained(this)));
-  base::ThreadWorker::WaitWorkerSynchronize(render_worker_.get());
-}
+ContentRunner::~ContentRunner() = default;
 
 void ContentRunner::RunMainLoop() {
   // Before running loop handler
@@ -114,11 +108,19 @@ void ContentRunner::RunMainLoop() {
   // End of running
   binding_->PostMainLoopRunning();
 
+  // Destory GUI context
+  base::ThreadWorker::PostTask(
+      render_worker_.get(),
+      base::BindOnce(&ContentRunner::DestroyIMGUIContextInternal,
+                     base::Unretained(this)));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_.get());
+
   // Release unique refcounted resource
   mouse_impl_.reset();
   audio_impl_.reset();
   input_impl_.reset();
   graphics_impl_.reset();
+  scoped_font_.reset();
 }
 
 std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
@@ -188,7 +190,7 @@ void ContentRunner::UpdateDisplayFPSInternal() {
 
   total_delta_ += delta_tick;
   const uint64_t timer_freq = SDL_GetPerformanceFrequency();
-  if (total_delta_ >= timer_freq) {
+  if (total_delta_ >= static_cast<int64_t>(timer_freq)) {
     const float fps_scale = static_cast<float>(
         SDL_GetPerformanceFrequency() / static_cast<float>(total_delta_));
     const float current_fps = static_cast<float>(frame_count_) * fps_scale;

@@ -55,7 +55,7 @@ VALUE EvalString(VALUE string, VALUE filename, int32_t* state) {
   auto evaluate = [](VALUE parameter) -> VALUE {
     EvaluteContext* context = reinterpret_cast<EvaluteContext*>(parameter);
     VALUE argv[] = {context->string, Qnil, context->filename};
-    return rb_funcall2(Qnil, rb_intern("eval"), _countof(argv), argv);
+    return rb_funcall2(Qnil, rb_intern("eval"), std::size(argv), argv);
   };
 
   EvaluteContext context = {string, filename};

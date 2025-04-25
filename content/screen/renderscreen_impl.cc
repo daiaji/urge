@@ -69,7 +69,8 @@ void GPUCreateGraphicsHostInternal(RenderGraphicsAgent* agent,
       render_worker, agent->device.get(), io_service);
 
   // Create global sprite batch scheduler
-  agent->sprite_batch = SpriteBatch::Make(agent->device.get());
+  if (agent->device->GetPipelines()->sprite.storage_buffer_support)
+    agent->sprite_batch = SpriteBatch::Make(agent->device.get());
 
   // Get pipeline manager
   auto* pipelines = agent->device->GetPipelines();
@@ -485,11 +486,10 @@ RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
                                    filesystem::IOService* io_service,
                                    ScopedFontData* scoped_font,
                                    const base::Vec2i& resolution,
-                                   int frame_rate)
+                                   uint32_t frame_rate)
     : window_(window),
       profile_(profile),
       i18n_profile_(i18n_profile),
-      io_service_(io_service),
       render_worker_(render_worker),
       scoped_font_(scoped_font),
       limiter_(frame_rate),
@@ -499,7 +499,6 @@ RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
       brightness_(255),
       frame_count_(0),
       frame_rate_(frame_rate),
-      frame_skip_required_(false),
       keep_ratio_(true),
       smooth_scale_(profile->smooth_scale),
       allow_skip_frame_(profile->allow_skip_frame) {
@@ -623,7 +622,7 @@ void RenderScreenImpl::Update(ExceptionState& exception_state) {
 
 void RenderScreenImpl::Wait(uint32_t duration,
                             ExceptionState& exception_state) {
-  for (int32_t i = 0; i < duration; ++i)
+  for (uint32_t i = 0; i < duration; ++i)
     Update(exception_state);
 }
 
@@ -632,7 +631,7 @@ void RenderScreenImpl::FadeOut(uint32_t duration,
   duration = std::max(duration, 1u);
 
   float current_brightness = static_cast<float>(brightness_);
-  for (int i = 0; i < duration; ++i) {
+  for (uint32_t i = 0; i < duration; ++i) {
     brightness_ = current_brightness -
                   current_brightness * (i / static_cast<float>(duration));
     if (frozen_) {
@@ -653,7 +652,7 @@ void RenderScreenImpl::FadeIn(uint32_t duration,
 
   float current_brightness = static_cast<float>(brightness_);
   float diff = 255.0f - current_brightness;
-  for (int i = 0; i < duration; ++i) {
+  for (uint32_t i = 0; i < duration; ++i) {
     brightness_ =
         current_brightness + diff * (i / static_cast<float>(duration));
 
@@ -717,7 +716,7 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
 
   // Fetch screen attribute
   Put_Brightness(255, exception_state);
-  vague = std::clamp<int>(vague, 1, 256);
+  vague = std::clamp<uint32_t>(vague, 1, 256);
   float vague_norm = vague / 255.0f;
 
   // Fetch transmapping if available
@@ -731,7 +730,7 @@ void RenderScreenImpl::TransitionWithBitmap(uint32_t duration,
   RenderFrameInternal(agent_->transition_buffer.RawDblPtr());
 
   // Transition render loop
-  for (int i = 0; i < duration; ++i) {
+  for (uint32_t i = 0; i < duration; ++i) {
     // Norm transition progress
     float progress = i * (1.0f / duration);
 
@@ -868,11 +867,13 @@ void RenderScreenImpl::RenderFrameInternal(Diligent::ITexture** render_target) {
   controller_.BroadCastNotification(DrawableNode::BEFORE_RENDER,
                                     &controller_params);
 
-  // 1.5) Update sprite batch
-  base::ThreadWorker::PostTask(
-      render_worker_, base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
-                                     base::Unretained(GetSpriteBatch()),
-                                     controller_params.device));
+  // 1.5) Update sprite batch if need
+  if (GetSpriteBatch())
+    base::ThreadWorker::PostTask(
+        render_worker_,
+        base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
+                       base::Unretained(GetSpriteBatch()),
+                       controller_params.device));
 
   // 2) Setup renderpass
   base::ThreadWorker::PostTask(

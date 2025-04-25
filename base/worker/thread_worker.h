@@ -5,6 +5,7 @@
 #ifndef BASE_WORKER_THREAD_WORKER_H_
 #define BASE_WORKER_THREAD_WORKER_H_
 
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 

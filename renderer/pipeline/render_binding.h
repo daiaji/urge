@@ -5,6 +5,8 @@
 #ifndef RENDERER_PIPELINE_RENDER_BINDING_H_
 #define RENDERER_PIPELINE_RENDER_BINDING_H_
 
+#include <memory>
+
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
@@ -107,6 +109,7 @@ class Binding_Sprite : public RenderBindingBase {
   ShaderVariable u_transform;
   ShaderVariable u_vertices;
   ShaderVariable u_params;
+  ShaderVariable u_param;
   ShaderVariable u_texture;
 
  private:

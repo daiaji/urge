@@ -72,7 +72,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
                    filesystem::IOService* io_service,
                    ScopedFontData* scoped_font,
                    const base::Vec2i& resolution,
-                   int frame_rate);
+                   uint32_t frame_rate);
   ~RenderScreenImpl() override;
 
   RenderScreenImpl(const RenderScreenImpl&) = delete;
@@ -153,7 +153,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   base::WeakPtr<ui::Widget> window_;
   ContentProfile* profile_;
   I18NProfile* i18n_profile_;
-  filesystem::IOService* io_service_;
   base::ThreadWorker* render_worker_;
   ScopedFontData* scoped_font_;
   fpslimiter::FPSLimiter limiter_;
@@ -168,7 +167,6 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   int32_t brightness_;
   uint64_t frame_count_;
   uint32_t frame_rate_;
-  bool frame_skip_required_;
 
   bool keep_ratio_;
   bool smooth_scale_;

@@ -135,10 +135,10 @@ void RenderPipelineBase::BuildPipeline(
 Pipeline_Base::Pipeline_Base(Diligent::IRenderDevice* device,
                              Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{kHLSL_BaseRender_VertexShader, "main",
-                                   "base.vertex"};
-  const ShaderSource pixel_shader{kHLSL_BaseRender_PixelShader, "main",
-                                  "base.pixel"};
+  const ShaderSource vertex_shader{
+      kHLSL_BaseRender_VertexShader, "main", "base.vertex", {}};
+  const ShaderSource pixel_shader{
+      kHLSL_BaseRender_PixelShader, "main", "base.pixel", {}};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -164,10 +164,10 @@ Pipeline_Base::Pipeline_Base(Diligent::IRenderDevice* device,
 Pipeline_Color::Pipeline_Color(Diligent::IRenderDevice* device,
                                Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{kHLSL_ColorRender_VertexShader, "main",
-                                   "color.vertex"};
-  const ShaderSource pixel_shader{kHLSL_ColorRender_PixelShader, "main",
-                                  "color.pixel"};
+  const ShaderSource vertex_shader{
+      kHLSL_ColorRender_VertexShader, "main", "color.vertex", {}};
+  const ShaderSource pixel_shader{
+      kHLSL_ColorRender_PixelShader, "main", "color.pixel", {}};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -181,10 +181,10 @@ Pipeline_Color::Pipeline_Color(Diligent::IRenderDevice* device,
 Pipeline_Flat::Pipeline_Flat(Diligent::IRenderDevice* device,
                              Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{kHLSL_FlatRender_VertexShader, "main",
-                                   "flat.vertex"};
-  const ShaderSource pixel_shader{kHLSL_FlatRender_PixelShader, "main",
-                                  "flat.pixel"};
+  const ShaderSource vertex_shader{
+      kHLSL_FlatRender_VertexShader, "main", "flat.vertex", {}};
+  const ShaderSource pixel_shader{
+      kHLSL_FlatRender_PixelShader, "main", "flat.pixel", {}};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -212,10 +212,16 @@ Pipeline_Flat::Pipeline_Flat(Diligent::IRenderDevice* device,
 Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
                                  Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{kHLSL_SpriteRender_VertexShader, "main",
-                                   "sprite.vertex"};
-  const ShaderSource pixel_shader{kHLSL_SpriteRender_PixelShader, "main",
-                                  "sprite.pixel"};
+  storage_buffer_support = device->GetAdapterInfo().Features.ComputeShaders ==
+                           Diligent::DEVICE_FEATURE_STATE_ENABLED;
+
+  Diligent::ShaderMacro vertex_macro = {"STORAGE_BUFFER_SUPPORT",
+                                        storage_buffer_support ? "1" : "0"};
+
+  const ShaderSource vertex_shader{
+      kHLSL_SpriteRender_VertexShader, "main", "sprite.vertex", {vertex_macro}};
+  const ShaderSource pixel_shader{
+      kHLSL_SpriteRender_PixelShader, "main", "sprite.pixel", {}};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -224,7 +230,8 @@ Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_VERTEX, "u_Vertices",
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-      {Diligent::SHADER_TYPE_VERTEX, "u_Params",
+      {Diligent::SHADER_TYPE_VERTEX,
+       storage_buffer_support ? "u_Params" : "SpriteUniformParam",
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -247,9 +254,11 @@ Pipeline_AlphaTransition::Pipeline_AlphaTransition(
     Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
   const ShaderSource vertex_shader{kHLSL_AlphaTransitionRender_VertexShader,
-                                   "main", "alphatrans.vertex"};
-  const ShaderSource pixel_shader{kHLSL_AlphaTransitionRender_PixelShader,
-                                  "main", "alphatrans.pixel"};
+                                   "main",
+                                   "alphatrans.vertex",
+                                   {}};
+  const ShaderSource pixel_shader{
+      kHLSL_AlphaTransitionRender_PixelShader, "main", "alphatrans.pixel", {}};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_PIXEL, "u_FrozenTexture",
@@ -284,9 +293,13 @@ Pipeline_VagueTransition::Pipeline_VagueTransition(
     Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
   const ShaderSource vertex_shader{kHLSL_MappingTransitionRender_VertexShader,
-                                   "main", "vaguetrans.vertex"};
+                                   "main",
+                                   "vaguetrans.vertex",
+                                   {}};
   const ShaderSource pixel_shader{kHLSL_MappingTransitionRender_PixelShader,
-                                  "main", "vaguetrans.pixel"};
+                                  "main",
+                                  "vaguetrans.pixel",
+                                  {}};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_PIXEL, "u_FrozenTexture",
@@ -328,10 +341,10 @@ Pipeline_VagueTransition::Pipeline_VagueTransition(
 Pipeline_Tilemap::Pipeline_Tilemap(Diligent::IRenderDevice* device,
                                    Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{kHLSL_TilemapRender_VertexShader, "main",
-                                   "tilemap.vertex"};
-  const ShaderSource pixel_shader{kHLSL_TilemapRender_PixelShader, "main",
-                                  "tilemap.pixel"};
+  const ShaderSource vertex_shader{
+      kHLSL_TilemapRender_VertexShader, "main", "tilemap.vertex", {}};
+  const ShaderSource pixel_shader{
+      kHLSL_TilemapRender_PixelShader, "main", "tilemap.pixel", {}};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -359,10 +372,10 @@ Pipeline_Tilemap::Pipeline_Tilemap(Diligent::IRenderDevice* device,
 Pipeline_Tilemap2::Pipeline_Tilemap2(Diligent::IRenderDevice* device,
                                      Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{kHLSL_Tilemap2Render_VertexShader, "main",
-                                   "tilemap2.vertex"};
-  const ShaderSource pixel_shader{kHLSL_Tilemap2Render_PixelShader, "main",
-                                  "tilemap2.pixel"};
+  const ShaderSource vertex_shader{
+      kHLSL_Tilemap2Render_VertexShader, "main", "tilemap2.vertex", {}};
+  const ShaderSource pixel_shader{
+      kHLSL_Tilemap2Render_PixelShader, "main", "tilemap2.pixel", {}};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -394,8 +407,8 @@ Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
   Diligent::ShaderMacro pixel_macro = {"CONVERT_PS_GAMMA_TO_OUTPUT",
                                        setup_gamma_convert ? "1" : "0"};
 
-  const ShaderSource vertex_shader{kHLSL_PresentRender_VertexShader, "main",
-                                   "present.vertex"};
+  const ShaderSource vertex_shader{
+      kHLSL_PresentRender_VertexShader, "main", "present.vertex", {}};
   const ShaderSource pixel_shader{
       kHLSL_PresentRender_PixelShader, "main", "present.pixel", {pixel_macro}};
 

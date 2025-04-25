@@ -270,7 +270,7 @@ struct SpriteVertex {
   float4 UV;
 };
 
-struct SpriteParams {
+struct SpriteParam {
   float4 Color;
   float4 Tone;
   float4 Position;
@@ -281,8 +281,14 @@ struct SpriteParams {
   float4 BushDepthAndOpacity;
 };
 
+#if STORAGE_BUFFER_SUPPORT
 StructuredBuffer<SpriteVertex> u_Vertices;
-StructuredBuffer<SpriteParams> u_Params;
+StructuredBuffer<SpriteParam> u_Params;
+#else
+cbuffer SpriteUniformParam {
+  SpriteParam u_Param;
+};
+#endif // STORAGE_BUFFER_SUPPORT
 
 struct VSInput {
   float4 Pos : ATTRIB0;
@@ -302,28 +308,32 @@ struct PSInput {
 };
 
 void main(in VSInput VSIn, out PSInput PSIn) {
+#if STORAGE_BUFFER_SUPPORT
   uint instance_index = VSIn.VertexIdx / 4;
   uint vertex_index = VSIn.VertexIdx % 4;
   SpriteVertex vert = u_Vertices[vertex_index + 4 * instance_index];
-  SpriteParams effect = u_Params[instance_index];
+  SpriteParam effect = u_Params[instance_index];
+#else
+  SpriteVertex vert;
+  vert.Pos = VSIn.Pos;
+  vert.UV = float4(VSIn.UV.x, VSIn.UV.y, 0, 0);
+  SpriteParam effect = u_Param;
+#endif // STORAGE_BUFFER_SUPPORT
 
   float sine = sin(effect.Rotation.x);
   float cosine = cos(effect.Rotation.x);
-
   float sxs = effect.Scale.x * sine;
   float sxc = effect.Scale.x * cosine;
   float sys = effect.Scale.y * sine;
   float syc = effect.Scale.y * cosine;
-  
   float tx = -effect.Origin.x * sxc - effect.Origin.y * sys + effect.Position.x;
   float ty = effect.Origin.x * sxs - effect.Origin.y * syc + effect.Position.y;
 
-  float4 transPos = float4(
-    vert.Pos.x * sxc + vert.Pos.y * sys + tx,
-    -vert.Pos.x * sxs + vert.Pos.y * syc + ty,
-    vert.Pos.z,
-    vert.Pos.w
-  );
+  float4 transPos;
+  transPos.x = vert.Pos.x * sxc + vert.Pos.y * sys + tx;
+  transPos.y = -vert.Pos.x * sxs + vert.Pos.y * syc + ty;
+  transPos.z = vert.Pos.z;
+  transPos.w = vert.Pos.w;
 
   PSIn.Pos = mul(u_Transform.ProjMat, transPos);
   PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);

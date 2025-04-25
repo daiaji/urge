@@ -81,7 +81,8 @@ class RenderDevice {
                Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context,
                Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain,
                std::unique_ptr<PipelineSet> pipelines,
-               std::unique_ptr<QuadIndexCache> quad_index);
+               std::unique_ptr<QuadIndexCache> quad_index,
+               SDL_GLContext gl_context);
 
   base::WeakPtr<ui::Widget> window_;
 
@@ -91,6 +92,8 @@ class RenderDevice {
 
   std::unique_ptr<PipelineSet> pipelines_;
   std::unique_ptr<QuadIndexCache> quad_index_;
+
+  SDL_GLContext gl_context_;
 };
 
 }  // namespace renderer

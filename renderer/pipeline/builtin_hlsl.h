@@ -79,6 +79,9 @@ extern const std::string kHLSL_FlatRender_PixelShader;
 //   { Texture2D }
 //   < { float4, float2 } >
 //   < { float4, float4, float2, float2, float2, float, float, float, float } >
+// 
+// defination:
+//   STORAGE_BUFFER_SUPPORT
 ///
 extern const std::string kHLSL_SpriteRender_VertexShader;
 extern const std::string kHLSL_SpriteRender_PixelShader;
