@@ -83,7 +83,7 @@
   },
   {
     "class_name": "Mouse",
-    "description": "管理鼠标的模块。",
+    "description": "管理鼠标的模块。\n支持的按键：Mouse::LEFT, Mouse::MIDDLE, Mouse::RIGHT, Mouse::X1, Mouse::X2",
     "methods": [
       {
         "name": "update",
@@ -181,7 +181,12 @@
   {
     "class_name": "Viewport",
     "description": "渲染对象容器类，在本引擎中Viewport是可以嵌套的。",
-    "methods": [],
+    "methods": [
+      {
+        "name": "render",
+        "description": "将当前Viewport的内容渲染到一张Bitmap上。\n注意：\n 1. 本函数不会清空原有位图内容。\n2. 视口的XY偏移会变为0\n 3. 无视视口是否可视\n 4. 本函数不等待渲染完成"
+      }
+    ],
     "attributes": []
   },
   {
