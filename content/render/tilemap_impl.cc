@@ -337,6 +337,8 @@ void GPUMakeAtlasInternal(
 
     copy_attribs.pSrcTexture = it.texture->data;
     copy_attribs.pSrcBox = &box;
+    copy_attribs.SrcTextureTransitionMode =
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
 
     box.MinX = it.src_rect.x;
     box.MinY = it.src_rect.y;
@@ -350,6 +352,8 @@ void GPUMakeAtlasInternal(
     copy_attribs.pDstTexture = agent->atlas_texture;
     copy_attribs.DstX = it.dst_pos.x;
     copy_attribs.DstY = it.dst_pos.y;
+    copy_attribs.DstTextureTransitionMode =
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
 
     if (it.dst_pos.x + it.src_rect.width > atlas_size.x ||
         it.dst_pos.y + it.src_rect.height > atlas_size.y)

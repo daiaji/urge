@@ -179,6 +179,23 @@ extern const std::string kHLSL_Tilemap2Render_PixelShader;
 extern const std::string kHLSL_PresentRender_VertexShader;
 extern const std::string kHLSL_PresentRender_PixelShader;
 
+///
+// type:
+//   bitmap hue shader
+///
+// entry:
+//   vertex: main
+//   pixel: main
+///
+// vertex:
+//   <float4, float2, float4>
+///
+// resource:
+//   { Texture2D }
+///
+extern const std::string kHLSL_BitmapHueRender_VertexShader;
+extern const std::string kHLSL_BitmapHueRender_PixelShader;
+
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_BUILTIN_HLSL_H_

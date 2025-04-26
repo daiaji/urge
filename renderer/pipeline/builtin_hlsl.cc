@@ -823,4 +823,88 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 
 )";
 
+///
+// type:
+//   bitmap hue shader
+///
+// entry:
+//   vertex: main
+//   pixel: main
+///
+// vertex:
+//   <float4, float2, float4>
+///
+// resource:
+//   { Texture2D }
+///
+
+const std::string kHLSL_BitmapHueRender_VertexShader = R"(
+
+struct VSInput {
+  float4 Pos : ATTRIB0;
+  float2 UV : ATTRIB1;
+  float4 Color : ATTRIB2;
+};
+
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+  float4 Color : COLOR0;
+};
+
+void main(in VSInput VSIn, out PSInput PSIn) {
+  PSIn.Pos = VSIn.Pos;
+  PSIn.UV = VSIn.UV;
+  PSIn.Color = VSIn.Color;
+}
+
+)";
+
+const std::string kHLSL_BitmapHueRender_PixelShader = R"(
+
+Texture2D u_Texture;
+SamplerState u_Texture_sampler;
+
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+  float4 Color : COLOR0;
+};
+
+struct PSOutput {
+  float4 Color : SV_TARGET;
+};
+
+float3 rgb2hsv(float3 c) {
+  float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+  float4 p = lerp(float4(c.b, c.g, K.w, K.z), float4(c.g, c.b, K.x, K.y), step(c.b, c.g));
+  float4 q = lerp(float4(p.x, p.y, p.w, c.r), float4(c.r, p.y, p.z, p.x), step(p.x, c.r));
+
+  float d = q.x - min(q.w, q.y);
+  float e = 1e-10;
+
+  float h = abs(q.z + (q.w - q.y) / (6.0 * d + e));
+  float s = d / (q.x + e);
+  float v = q.x;
+
+  return float3(h, s, v);
+}
+
+float3 hsv2rgb(float3 c) {
+  float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+  float3 t = float3(c.x, c.x, c.x) + K.xyz;
+  float3 p = abs(frac(t) * 6.0 - float3(K.w, K.w, K.w));
+
+  return c.z * lerp(float3(K.x, K.x, K.x), clamp(p - float3(K.x, K.x, K.x), 0.0, 1.0), c.y);
+}
+
+void main(in PSInput PSIn, out PSOutput PSOut) {
+  float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
+  float3 hsv = rgb2hsv(frag.rgb);
+  hsv.x += PSIn.Color.a;
+  PSOut.Color = float4(hsv2rgb(hsv), frag.a);
+}
+
+)";
+
 }  // namespace renderer

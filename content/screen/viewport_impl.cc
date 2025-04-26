@@ -94,7 +94,11 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
   Diligent::CopyTextureAttribs copy_texture_attribs;
   copy_texture_attribs.pSrcTexture = *screen_buffer;
   copy_texture_attribs.pSrcBox = &box;
+  copy_texture_attribs.SrcTextureTransitionMode =
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
   copy_texture_attribs.pDstTexture = agent->effect.intermediate_layer;
+  copy_texture_attribs.DstTextureTransitionMode =
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
   context->CopyTexture(copy_texture_attribs);
 
   renderer::Quad transient_quad;

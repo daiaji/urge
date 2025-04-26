@@ -32,6 +32,13 @@ void MakeTextureWorldInternal(renderer::RenderDevice* device,
       Diligent::CPU_ACCESS_WRITE, &world_matrix);
 }
 
+void ResetEffectLayerIfNeed(renderer::RenderDevice* device,
+                            TextureAgent* agent) {
+  if (!agent->effect_layer)
+    renderer::CreateTexture2D(**device, &agent->effect_layer,
+                              "bitmap.filter.intermediate", agent->size);
+}
+
 void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
                                       SDL_Surface* initial_data,
                                       const std::string& name,
@@ -89,13 +96,15 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                  const base::Rect& dst_region,
                                  TextureAgent* src_texture,
                                  const base::Rect& src_region,
-                                 float blit_alpha) {
+                                 int32_t blend_type,
+                                 uint32_t blit_alpha) {
   auto* context = scheduler->GetDevice()->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
-  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
+  auto* pipeline =
+      pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
   base::Vec4 blend_alpha;
-  blend_alpha.w = blit_alpha / 255.0f;
+  blend_alpha.w = static_cast<float>(blit_alpha) / 255.0f;
 
   renderer::Quad transient_quad;
   renderer::Quad::SetTexCoordRect(&transient_quad, src_region,
@@ -385,6 +394,71 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   context->DrawIndexed(draw_indexed_attribs);
 }
 
+void GPUCanvasHueChange(CanvasScheduler* scheduler,
+                        TextureAgent* agent,
+                        int32_t hue) {
+  auto* context = scheduler->GetDevice()->GetContext();
+  auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
+  auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
+
+  if (!agent->hue_binding)
+    agent->hue_binding =
+        pipeline_set.CreateBinding<renderer::Binding_BitmapHue>();
+
+  ResetEffectLayerIfNeed(scheduler->GetDevice(), agent);
+
+  Diligent::CopyTextureAttribs copy_texture_attribs(
+      agent->data, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+      agent->effect_layer, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->CopyTexture(copy_texture_attribs);
+
+  renderer::Quad transient_quad;
+  renderer::Quad::SetPositionRect(&transient_quad,
+                                  base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
+  renderer::Quad::SetTexCoordRectNorm(
+      &transient_quad, scheduler->GetDevice()->IsUVFlip()
+                           ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
+                           : base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
+  renderer::Quad::SetColor(&transient_quad, base::Vec4(hue / 360.0f));
+  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
+
+  Diligent::ITextureView* render_target_view = agent->target;
+  context->SetRenderTargets(
+      1, &render_target_view, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Set scissor region
+  Diligent::Rect render_scissor;
+  render_scissor.right = agent->size.x;
+  render_scissor.bottom = agent->size.y;
+  context->SetScissorRects(1, &render_scissor, 1,
+                           render_scissor.bottom + render_scissor.top);
+
+  // Setup uniform params
+  agent->hue_binding->u_texture->Set(agent->effect_layer);
+
+  // Apply pipeline state
+  context->SetPipelineState(pipeline);
+  context->CommitShaderResources(
+      **agent->hue_binding,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply vertex index
+  Diligent::IBuffer* const vertex_buffer = **scheduler->quad_batch();
+  context->SetVertexBuffers(
+      0, 1, &vertex_buffer, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  context->SetIndexBuffer(**scheduler->GetDevice()->GetQuadIndex(), 0,
+                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Execute render command
+  Diligent::DrawIndexedAttribs draw_indexed_attribs;
+  draw_indexed_attribs.NumIndices = 6;
+  draw_indexed_attribs.IndexType =
+      scheduler->GetDevice()->GetQuadIndex()->format();
+  context->DrawIndexed(draw_indexed_attribs);
+}
+
 }  // namespace
 
 scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
@@ -411,7 +485,7 @@ scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,
   scoped_refptr<Bitmap> duplicate_bitmap =
       Bitmap::New(execution_context, other->Width(exception_state),
                   other->Height(exception_state), exception_state);
-  duplicate_bitmap->Blt(0, 0, other, other->GetRect(exception_state), 255,
+  duplicate_bitmap->Blt(0, 0, other, other->GetRect(exception_state), 255, 0,
                         exception_state);
 
   return duplicate_bitmap;
@@ -636,8 +710,10 @@ void CanvasImpl::SubmitQueuedCommands() {
       } break;
       case CommandID::HUE_CHANGE: {
         const auto* c = static_cast<Command_HueChange*>(command_sequence);
-        // TODO:
-        std::ignore = c;
+
+        base::ThreadWorker::PostTask(
+            scheduler_->render_worker(),
+            base::BindOnce(&GPUCanvasHueChange, scheduler_, texture_, c->hue));
       } break;
       case CommandID::RADIAL_BLUR: {
         const auto* c = static_cast<Command_RadialBlur*>(command_sequence);
@@ -703,6 +779,7 @@ void CanvasImpl::Blt(int32_t x,
                      scoped_refptr<Bitmap> src_bitmap,
                      scoped_refptr<Rect> src_rect,
                      uint32_t opacity,
+                     int32_t blend_type,
                      ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
@@ -711,20 +788,22 @@ void CanvasImpl::Blt(int32_t x,
   BlitTextureInternal(base::Rect(x, y, src_rect->Get_Width(exception_state),
                                  src_rect->Get_Height(exception_state)),
                       src_canvas, RectImpl::From(src_rect)->AsBaseRect(),
-                      opacity);
+                      blend_type, opacity);
 }
 
 void CanvasImpl::StretchBlt(scoped_refptr<Rect> dest_rect,
                             scoped_refptr<Bitmap> src_bitmap,
                             scoped_refptr<Rect> src_rect,
                             uint32_t opacity,
+                            int32_t blend_type,
                             ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
   CanvasImpl* src_canvas = static_cast<CanvasImpl*>(src_bitmap.get());
   BlitTextureInternal(RectImpl::From(dest_rect)->AsBaseRect(), src_canvas,
-                      RectImpl::From(src_rect)->AsBaseRect(), opacity);
+                      RectImpl::From(src_rect)->AsBaseRect(), blend_type,
+                      opacity);
 }
 
 void CanvasImpl::FillRect(int32_t x,
@@ -1016,7 +1095,8 @@ void CanvasImpl::OnObjectDisposed() {
 void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,
                                      CanvasImpl* src_texture,
                                      const base::Rect& src_rect,
-                                     float alpha) {
+                                     int32_t blend_type,
+                                     uint32_t alpha) {
   // Synchronize pending queue immediately,
   // blit the sourcetexture to destination texture immediately.
   src_texture->SubmitQueuedCommands();
@@ -1026,7 +1106,8 @@ void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,
   base::ThreadWorker::PostTask(
       scheduler_->render_worker(),
       base::BindOnce(&GPUBlendBlitTextureInternal, scheduler_, texture_,
-                     dst_rect, src_texture->texture_, src_rect, alpha));
+                     dst_rect, src_texture->texture_, src_rect, blend_type,
+                     alpha));
 
   // Invalidate memory cache
   InvalidateSurfaceCache();

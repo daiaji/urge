@@ -35,6 +35,7 @@ class RenderDevice {
     Pipeline_VagueTransition mappedtrans;
     Pipeline_Tilemap tilemap;
     Pipeline_Tilemap2 tilemap2;
+    Pipeline_BitmapHue bitmaphue;
 
     PipelineSet(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
                 Diligent::TEXTURE_FORMAT target_format)
@@ -45,7 +46,8 @@ class RenderDevice {
           alphatrans(device, target_format),
           mappedtrans(device, target_format),
           tilemap(device, target_format),
-          tilemap2(device, target_format) {}
+          tilemap2(device, target_format),
+          bitmaphue(device, target_format) {}
   };
 
   static std::unique_ptr<RenderDevice> Create(

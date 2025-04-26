@@ -400,6 +400,33 @@ Pipeline_Tilemap2::Pipeline_Tilemap2(Diligent::IRenderDevice* device,
                 samplers, target_format);
 }
 
+Pipeline_BitmapHue::Pipeline_BitmapHue(Diligent::IRenderDevice* device,
+                                       Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource vertex_shader{
+      kHLSL_BitmapHueRender_VertexShader, "main", "bitmap.hue.vertex", {}};
+  const ShaderSource pixel_shader{
+      kHLSL_BitmapHueRender_PixelShader, "main", "bitmap.hue.pixel", {}};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_Texture",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
+  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
+                samplers, target_format);
+}
+
 Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
                                    Diligent::TEXTURE_FORMAT target_format,
                                    bool setup_gamma_convert)

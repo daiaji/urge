@@ -38,6 +38,10 @@ struct TextureAgent {
   // Text drawing cache texture
   base::Vec2i text_cache_size;
   RRefPtr<Diligent::ITexture> text_cache_texture;
+
+  // Filter effect intermediate layer
+  RRefPtr<Diligent::ITexture> effect_layer;
+  std::unique_ptr<renderer::Binding_BitmapHue> hue_binding;
 };
 
 constexpr int32_t kBlockMaxSize = 4096;
@@ -114,11 +118,13 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
            scoped_refptr<Bitmap> src_bitmap,
            scoped_refptr<Rect> src_rect,
            uint32_t opacity,
+           int32_t blend_type,
            ExceptionState& exception_state) override;
   void StretchBlt(scoped_refptr<Rect> dest_rect,
                   scoped_refptr<Bitmap> src_bitmap,
                   scoped_refptr<Rect> src_rect,
                   uint32_t opacity,
+                  int32_t blend_type,
                   ExceptionState& exception_state) override;
   void FillRect(int32_t x,
                 int32_t y,
@@ -207,7 +213,8 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
   void BlitTextureInternal(const base::Rect& dst_rect,
                            CanvasImpl* src_texture,
                            const base::Rect& src_rect,
-                           float alpha);
+                           int32_t blend_type,
+                           uint32_t alpha);
 
   enum class CommandID {
     NONE = 0,

@@ -121,6 +121,12 @@ class Pipeline_Tilemap2 : public RenderPipelineBase {
                     Diligent::TEXTURE_FORMAT target_format);
 };
 
+class Pipeline_BitmapHue : public RenderPipelineBase {
+ public:
+  Pipeline_BitmapHue(Diligent::IRenderDevice* device,
+                     Diligent::TEXTURE_FORMAT target_format);
+};
+
 class Pipeline_Present : public RenderPipelineBase {
  public:
   Pipeline_Present(Diligent::IRenderDevice* device,

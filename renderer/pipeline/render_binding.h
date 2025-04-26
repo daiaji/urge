@@ -170,6 +170,15 @@ class Binding_Tilemap2 : public RenderBindingBase {
   Binding_Tilemap2(ShaderBinding binding);
 };
 
+class Binding_BitmapHue : public RenderBindingBase {
+ public:
+  ShaderVariable u_texture;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_BitmapHue(ShaderBinding binding);
+};
+
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_RENDER_BINDING_H_
