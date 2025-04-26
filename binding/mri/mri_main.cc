@@ -97,16 +97,16 @@ void MriProcessReset() {
   MriProcessException(exception_state);
 }
 
+static VALUE RescueCallBlock(VALUE block) {
+  return rb_funcall2(block, rb_intern("call"), 0, nullptr);
+};
+
+static VALUE RescueException(VALUE param, VALUE exception) {
+  return *reinterpret_cast<VALUE*>(param) = exception;
+};
+
 MRI_METHOD(MRI_RGSSMain) {
   bool gc_required = false;
-
-  auto call_block = [](VALUE block) -> VALUE {
-    return rb_funcall2(block, rb_intern("call"), 0, nullptr);
-  };
-
-  auto rescue_exception = [](VALUE param, VALUE exception) -> VALUE {
-    return *reinterpret_cast<VALUE*>(param) = exception;
-  };
 
   while (true) {
     VALUE exception = Qnil;
@@ -115,8 +115,10 @@ MRI_METHOD(MRI_RGSSMain) {
       gc_required = false;
     }
 
-    rb_rescue2(call_block, rb_block_proc(), rescue_exception, (VALUE)&exception,
-               rb_eException, nullptr);
+    rb_rescue2(reinterpret_cast<VALUE (*)(ANYARGS)>(RescueCallBlock),
+               rb_block_proc(),
+               reinterpret_cast<VALUE (*)(ANYARGS)>(RescueException),
+               (VALUE)&exception, rb_eException, nullptr);
 
     if (NIL_P(exception))
       break;
@@ -163,7 +165,11 @@ void BindingEngineMri::PreEarlyInitialization(
   RUBY_INIT_STACK;
   ruby_init();
   ruby_init_loadpath();
+
+// Must static link ruby library (>= 3.0)
+#if RAPI_FULL >= 300
   rb_call_builtin_inits();
+#endif  //! RAPI_FULL >= 300
 
   rb_enc_set_default_internal(rb_enc_from_encoding(rb_utf8_encoding()));
   rb_enc_set_default_external(rb_enc_from_encoding(rb_utf8_encoding()));

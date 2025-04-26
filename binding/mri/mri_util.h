@@ -32,8 +32,32 @@ struct GlobalModules {
 GlobalModules* MriGetGlobalModules();
 content::ExecutionContext* MriGetCurrentContext();
 
+#ifdef RUBY_API_VERSION_MAJOR
+#define RAPI_MAJOR RUBY_API_VERSION_MAJOR
+#define RAPI_MINOR RUBY_API_VERSION_MINOR
+#define RAPI_TEENY RUBY_API_VERSION_TEENY
+#else
+#define RAPI_MAJOR RUBY_VERSION_MAJOR
+#define RAPI_MINOR RUBY_VERSION_MINOR
+#define RAPI_TEENY RUBY_VERSION_TEENY
+#endif
+#define RAPI_FULL ((RAPI_MAJOR * 100) + (RAPI_MINOR * 10) + RAPI_TEENY)
+
+#if RAPI_FULL >= 270
+#define DEF_TYPE_RESERVED 0,
+#else
+#define DEF_TYPE_RESERVED
+#endif
+
+#if RAPI_FULL >= 210
+#define DEF_TYPE_FLAGS 0
+#else
+#define DEF_TYPE_FLAGS
+#endif
+
 #define MRI_DEFINE_DATATYPE(Klass, Name, Free) \
-  const rb_data_type_t k##Klass##DataType = {Name, {0, Free, 0, 0, {}}, 0, 0, 0}
+  const rb_data_type_t k##Klass##DataType = {  \
+      Name, {0, Free, 0, DEF_TYPE_RESERVED{}}, 0, 0, DEF_TYPE_FLAGS}
 
 #define MRI_DECLARE_DATATYPE(Klass) \
   extern const rb_data_type_t k##Klass##DataType;
@@ -56,7 +80,11 @@ void MriFreeInstanceRef(void* ptr) {
 
 template <const rb_data_type_t* DataType>
 VALUE MriClassAllocate(VALUE klass) {
+#if RAPI_FULL >= 230
   return rb_data_typed_object_wrap(klass, nullptr, DataType);
+#else
+  return rb_data_typed_object_alloc(klass, nullptr, DataType);
+#endif
 }
 
 /// <summary>
@@ -90,7 +118,7 @@ Ty* MriGetStructData(VALUE obj) {
 
 template <typename Ty>
 Ty* MriCheckStructData(VALUE obj, const rb_data_type_t& type) {
-  if (RB_NIL_P(obj))
+  if (obj == Qnil)
     return nullptr;
   return static_cast<Ty*>(Check_TypedStruct(obj, &type));
 }

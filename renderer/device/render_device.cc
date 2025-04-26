@@ -112,6 +112,12 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
     native_window.pXCBConnection =
         xgetxcb_func ? xgetxcb_func(xdisplay) : nullptr;
   }
+#elif defined(OS_ANDROID)
+  if (driver_type == DriverType::UNDEFINED)
+    driver_type = DriverType::OPENGL;
+
+  native_window.pAWindow = SDL_GetPointerProperty(
+      window_properties, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
 #endif
 
   Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
