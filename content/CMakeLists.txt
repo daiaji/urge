@@ -109,7 +109,8 @@ target_link_libraries(engine_content PUBLIC
   soloud
 )
 
-target_compile_options(engine_content PRIVATE -Werror)
 if (MSVC)
-  target_compile_options(engine_content PRIVATE /WX)
+  target_compile_options(engine_content PRIVATE /WX /wd4267 /wd4244)
+else ()
+  target_compile_options(engine_content PRIVATE -Werror)
 endif ()

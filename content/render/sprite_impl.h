@@ -21,7 +21,7 @@ struct SpriteAgent {
   SpriteQuad quad;
   std::vector<SpriteQuad> wave_cache;
 
-  uint32_t instance_offset = -1;
+  uint32_t instance_offset = 0;
   uint32_t instance_count = 0;
 
   // Enable if storage buffer is not supported
