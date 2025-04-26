@@ -13,9 +13,7 @@ namespace {
 std::pair<int64_t, void*> ReadFontToMemory(SDL_IOStream* io) {
   int64_t font_size = SDL_GetIOSize(io);
   void* font_ptr = SDL_malloc(font_size);
-  if (font_ptr)
-    SDL_ReadIO(io, font_ptr, font_size);
-
+  SDL_ReadIO(io, font_ptr, font_size);
   return std::make_pair(font_size, font_ptr);
 }
 
@@ -26,7 +24,7 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
     : default_color(new ColorImpl(base::Vec4(255.0f, 255.0f, 255.0f, 255.0f))),
       default_out_color(new ColorImpl(base::Vec4(0, 0, 0, 255.0f))) {
   // Get font load dir and default font
-  std::string filename(default_font_name);
+  std::string filename = default_font_name;
   std::string dir("."), file;
 
   size_t last_slash_pos = filename.find_last_of('/');
@@ -65,7 +63,7 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
     LOG(INFO) << "[Font] Default font missing, use internal font for instead.";
 
     void* internal_duplicate_data = SDL_malloc(embed_ttf_len);
-    memcpy(internal_duplicate_data, embed_ttf, embed_ttf_len);
+    std::memcpy(internal_duplicate_data, embed_ttf, embed_ttf_len);
 
     std::pair<int64_t, void*> cache_pair =
         std::make_pair(embed_ttf_len, internal_duplicate_data);
@@ -74,6 +72,8 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
 }
 
 ScopedFontData::~ScopedFontData() {
+  for (auto& it : font_cache)
+    TTF_CloseFont(it.second);
   for (auto& it : data_cache)
     SDL_free(it.second.second);
 }

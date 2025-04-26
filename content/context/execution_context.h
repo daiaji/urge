@@ -17,9 +17,7 @@ class KeyboardControllerImpl;
 struct ExecutionContext {
   ScopedFontData* font_context = nullptr;
   CanvasScheduler* canvas_scheduler = nullptr;
-
   RenderScreenImpl* graphics = nullptr;
-  KeyboardControllerImpl* input = nullptr;
 
   ExecutionContext();
   ~ExecutionContext();

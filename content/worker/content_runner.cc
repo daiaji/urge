@@ -24,6 +24,8 @@ void DrawEngineInfoGUI(I18NProfile* i18n_profile) {
         "The URGE is licensed under the BSD-2-Clause License, see LICENSE for "
         "more information.");
 
+    if (ImGui::Button("Website"))
+      SDL_OpenURL("https://urge.admenri.com/");
     if (ImGui::Button("Github"))
       SDL_OpenURL("https://github.com/Admenri/urge");
   }
@@ -31,73 +33,71 @@ void DrawEngineInfoGUI(I18NProfile* i18n_profile) {
 
 }  // namespace
 
-ContentRunner::ContentRunner(std::unique_ptr<ContentProfile> profile,
-                             std::unique_ptr<filesystem::IOService> io_service,
-                             std::unique_ptr<base::ThreadWorker> render_worker,
-                             std::unique_ptr<EngineBindingBase> binding,
-                             base::WeakPtr<ui::Widget> window)
-    : profile_(std::move(profile)),
-      render_worker_(std::move(render_worker)),
+ContentRunner::ContentRunner(ContentProfile* profile,
+                             filesystem::IOService* io_service,
+                             ScopedFontData* font_context,
+                             I18NProfile* i18n_profile,
+                             base::WeakPtr<ui::Widget> window,
+                             base::ThreadWorker* render_worker,
+                             std::unique_ptr<EngineBindingBase> binding)
+    : profile_(profile),
+      io_service_(io_service),
+      font_context_(font_context),
+      i18n_profile_(i18n_profile),
       window_(window),
+      render_worker_(render_worker),
+      binding_(std::move(binding)),
       binding_quit_flag_(0),
       binding_reset_flag_(0),
-      binding_(std::move(binding)),
-      io_service_(std::move(io_service)),
       disable_gui_input_(false),
       show_settings_menu_(false),
       show_fps_monitor_(false),
       last_tick_(SDL_GetPerformanceCounter()),
       total_delta_(0),
       frame_count_(0) {
-  // Graphics initialize settings
-  int32_t frame_rate = 40;
-  if (profile_->api_version >= ContentProfile::APIVersion::RGSS2)
-    frame_rate = 60;
-
-  // Create components instance
-  auto* i18n_xml_stream =
-      io_service_->OpenReadRaw(profile_->i18n_xml_path, nullptr);
-  i18n_profile_ = I18NProfile::MakeForStream(i18n_xml_stream);
-  scoped_font_.reset(
-      new ScopedFontData(io_service_.get(), profile_->default_font_path));
-  graphics_impl_.reset(new RenderScreenImpl(
-      window_, render_worker_.get(), profile_.get(), i18n_profile_.get(),
-      io_service_.get(), scoped_font_.get(), profile_->resolution, frame_rate));
-  input_impl_.reset(new KeyboardControllerImpl(
-      window_->AsWeakPtr(), profile_.get(), i18n_profile_.get()));
-  audio_impl_.reset(new AudioImpl(io_service_.get(), i18n_profile_.get()));
-  mouse_impl_.reset(new MouseImpl(window_->AsWeakPtr()));
+  // Create engine objects
+  graphics_impl_ = new RenderScreenImpl(
+      window, render_worker, profile, i18n_profile, io_service, font_context,
+      profile->resolution, profile->frame_rate);
+  keyboard_impl_ = new KeyboardControllerImpl(window, profile, i18n_profile);
+  audio_impl_ = new AudioImpl(io_service, i18n_profile);
+  mouse_impl_ = new MouseImpl(window);
 
   // Create imgui context
   base::ThreadWorker::PostTask(
-      render_worker_.get(),
-      base::BindOnce(&ContentRunner::CreateIMGUIContextInternal,
-                     base::Unretained(this)));
-  base::ThreadWorker::WaitWorkerSynchronize(render_worker_.get());
+      render_worker_, base::BindOnce(&ContentRunner::CreateIMGUIContextInternal,
+                                     base::Unretained(this)));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 
   // Hook graphics event loop
   tick_observer_ = graphics_impl_->AddTickObserver(base::BindRepeating(
       &ContentRunner::TickHandlerInternal, base::Unretained(this)));
 }
 
-ContentRunner::~ContentRunner() = default;
+ContentRunner::~ContentRunner() {
+  // Destory GUI context
+  base::ThreadWorker::PostTask(
+      render_worker_,
+      base::BindOnce(&ContentRunner::DestroyIMGUIContextInternal,
+                     base::Unretained(this)));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
+}
 
 void ContentRunner::RunMainLoop() {
   // Before running loop handler
-  binding_->PreEarlyInitialization(profile_.get(), io_service_.get());
+  binding_->PreEarlyInitialization(profile_, io_service_);
 
   // Make script binding execution context
   // Call binding boot handler before running loop handler
   ExecutionContext execution_context;
-  execution_context.font_context = scoped_font_.get();
+  execution_context.font_context = font_context_;
   execution_context.canvas_scheduler = graphics_impl_->GetCanvasScheduler();
   execution_context.graphics = graphics_impl_.get();
-  execution_context.input = input_impl_.get();
 
   // Make module context
   EngineBindingBase::ScopedModuleContext module_context;
   module_context.graphics = graphics_impl_.get();
-  module_context.input = input_impl_.get();
+  module_context.input = keyboard_impl_.get();
   module_context.audio = audio_impl_.get();
   module_context.mouse = mouse_impl_.get();
 
@@ -106,29 +106,13 @@ void ContentRunner::RunMainLoop() {
 
   // End of running
   binding_->PostMainLoopRunning();
-
-  // Destory GUI context
-  base::ThreadWorker::PostTask(
-      render_worker_.get(),
-      base::BindOnce(&ContentRunner::DestroyIMGUIContextInternal,
-                     base::Unretained(this)));
-  base::ThreadWorker::WaitWorkerSynchronize(render_worker_.get());
-
-  // Release unique refcounted resource
-  mouse_impl_.reset();
-  audio_impl_.reset();
-  input_impl_.reset();
-  graphics_impl_.reset();
-  scoped_font_.reset();
 }
 
 std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
-  std::unique_ptr<base::ThreadWorker> render_worker =
-      base::ThreadWorker::Create();
-
-  auto* runner = new ContentRunner(
-      std::move(params.profile), std::move(params.io_service),
-      std::move(render_worker), std::move(params.entry), params.window);
+  auto* runner =
+      new ContentRunner(params.profile, params.io_service, params.font_context,
+                        params.i18n_profile, params.window,
+                        params.render_worker, std::move(params.entry));
   return std::unique_ptr<ContentRunner>(runner);
 }
 
@@ -160,7 +144,7 @@ void ContentRunner::TickHandlerInternal() {
   }
 
   // Reset input state
-  input_impl_->SetUpdateEnable(true);
+  keyboard_impl_->SetUpdateEnable(true);
   mouse_impl_->SetUpdateEnable(true);
 
   // Update fps
@@ -235,11 +219,11 @@ void ContentRunner::RenderSettingsGUIInternal() {
   if (ImGui::Begin(i18n_profile_->GetI18NString(IDS_MENU_SETTINGS, "Settings")
                        .c_str())) {
     // Reset input state
-    input_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
+    keyboard_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
     mouse_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
 
     // Button settings
-    disable_gui_input_ = input_impl_->CreateButtonGUISettings();
+    disable_gui_input_ = keyboard_impl_->CreateButtonGUISettings();
 
     // Graphics settings
     graphics_impl_->CreateButtonGUISettings();
@@ -248,7 +232,7 @@ void ContentRunner::RenderSettingsGUIInternal() {
     audio_impl_->CreateButtonGUISettings();
 
     // Engine Info
-    DrawEngineInfoGUI(i18n_profile_.get());
+    DrawEngineInfoGUI(i18n_profile_);
   }
 
   // End window create
@@ -287,7 +271,8 @@ void ContentRunner::CreateIMGUIContextInternal() {
 
   // Apply default font
   int64_t font_data_size;
-  auto* font_data = scoped_font_->GetUIDefaultFont(&font_data_size);
+  auto* font_data = font_context_->GetUIDefaultFont(&font_data_size);
+
   ImFontConfig font_config;
   font_config.FontDataOwnedByAtlas = false;
   io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(font_data), font_data_size,

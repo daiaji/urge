@@ -29,7 +29,8 @@ class ContentProfile {
   ContentProfile(const ContentProfile&) = delete;
   ContentProfile& operator=(const ContentProfile&) = delete;
 
-  static std::unique_ptr<ContentProfile> MakeFrom(SDL_IOStream* stream);
+  static std::unique_ptr<ContentProfile> MakeFrom(const std::string& app,
+                                                  SDL_IOStream* stream);
 
   void LoadCommandLine(int32_t argc, char** argv);
   bool LoadConfigure(const std::string& app);
@@ -55,12 +56,14 @@ class ContentProfile {
   base::Vec2i window_size;
   base::Vec2i resolution;
 
+  int32_t frame_rate = 60;
+
   bool smooth_scale = false;
   bool allow_skip_frame = true;
   bool fullscreen = false;
 
  private:
-  ContentProfile(SDL_IOStream* stream);
+  ContentProfile(const std::string& app, SDL_IOStream* stream);
 
   SDL_IOStream* ini_stream_;
 };

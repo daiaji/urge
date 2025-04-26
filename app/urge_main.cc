@@ -10,6 +10,8 @@
 
 #include "binding/mri/mri_main.h"
 #include "components/filesystem/io_service.h"
+#include "content/components/font_context.h"
+#include "content/profile/i18n_profile.h"
 #include "content/worker/content_runner.h"
 #include "ui/widget/widget.h"
 
@@ -64,8 +66,6 @@ std::string AsciiToUtf8(const std::string& asciiStr) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
-  LOG(INFO) << "[App] Running App...";
-
   std::string app(argv[0]);
   ReplaceStringWidth(app, '\\', '/');
   auto last_sep = app.find_last_of('/');
@@ -84,53 +84,82 @@ int main(int argc, char* argv[]) {
   SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   TTF_Init();
 
-  std::unique_ptr<filesystem::IOService> iosystem =
-      std::make_unique<filesystem::IOService>(argv[0]);
-  iosystem->AddLoadPath(".");
-
-  filesystem::IOState io_state;
-  SDL_IOStream* inifile = iosystem->OpenReadRaw(ini, &io_state);
-  if (io_state.error_count) {
-    LOG(INFO) << "[App] Warning: " << io_state.error_message;
-  }
-
-  std::unique_ptr<content::ContentProfile> profile =
-      content::ContentProfile::MakeFrom(inifile);
-  profile->program_name = app;
-
-  profile->LoadCommandLine(argc, argv);
-
-  if (!profile->LoadConfigure(app)) {
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Engine",
-                             "Error when parse configure file.", nullptr);
-    return 1;
-  }
-
   {
-    std::unique_ptr<ui::Widget> widget(new ui::Widget);
-    ui::Widget::InitParams widget_params;
-    widget_params.opengl = true;
-    widget_params.size = profile->window_size;
-    widget_params.resizable = true;
-    widget_params.hpixeldensity = true;
-    widget_params.fullscreen = profile->fullscreen;
-    widget_params.title =
+    // Initialize filesystem
+    std::unique_ptr<filesystem::IOService> io_service =
+        std::make_unique<filesystem::IOService>(argv[0]);
+    io_service->AddLoadPath(".");
+
+    filesystem::IOState io_state;
+    SDL_IOStream* inifile = io_service->OpenReadRaw(ini, &io_state);
+    if (io_state.error_count) {
+      LOG(INFO) << "[App] Warning: " << io_state.error_message;
+    }
+
+    // Initialize profile
+    std::unique_ptr<content::ContentProfile> profile =
+        content::ContentProfile::MakeFrom(app, inifile);
+    profile->LoadCommandLine(argc, argv);
+
+    if (!profile->LoadConfigure(app)) {
+      SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Engine",
+                               "Error when parse configure file.", nullptr);
+      return 1;
+    }
+
+    // Initialize i18n profile
+    auto* i18n_xml_stream =
+        io_service->OpenReadRaw(profile->i18n_xml_path, nullptr);
+    auto i18n_profile = content::I18NProfile::MakeForStream(i18n_xml_stream);
+
+    // Initialize font context
+    auto font_context = std::make_unique<content::ScopedFontData>(
+        io_service.get(), profile->default_font_path);
+
+    {
+      // Initialize engine main widget
+      std::unique_ptr<ui::Widget> widget(new ui::Widget);
+      ui::Widget::InitParams widget_params;
+      widget_params.opengl = true;
+      widget_params.size = profile->window_size;
+      widget_params.resizable = true;
+      widget_params.hpixeldensity = true;
+      widget_params.fullscreen = profile->fullscreen;
+      widget_params.title =
 #if defined(OS_WIN)
-        AsciiToUtf8(profile->window_title);
+          AsciiToUtf8(profile->window_title);
 #else
-        profile->window_title;
+          profile->window_title;
 #endif
-    widget->Init(std::move(widget_params));
+      widget->Init(std::move(widget_params));
 
-    content::ContentRunner::InitParams content_params;
-    content_params.profile = std::move(profile);
-    content_params.window = widget->AsWeakPtr();
-    content_params.entry = std::make_unique<binding::BindingEngineMri>();
-    content_params.io_service = std::move(iosystem);
+      // Create worker thread
+      auto render_worker = base::ThreadWorker::Create();
 
-    std::unique_ptr<content::ContentRunner> runner =
-        content::ContentRunner::Create(std::move(content_params));
-    runner->RunMainLoop();
+      // Setup content runner module
+      content::ContentRunner::InitParams content_params;
+      content_params.profile = profile.get();
+      content_params.io_service = io_service.get();
+      content_params.font_context = font_context.get();
+      content_params.i18n_profile = i18n_profile.get();
+      content_params.window = widget->AsWeakPtr();
+      content_params.render_worker = render_worker.get();
+      content_params.entry = std::make_unique<binding::BindingEngineMri>();
+
+      std::unique_ptr<content::ContentRunner> runner =
+          content::ContentRunner::Create(std::move(content_params));
+      runner->RunMainLoop();
+
+      // Finalize modules at end
+      render_worker.reset();
+      widget.reset();
+    }
+
+    // Release resources
+    font_context.reset();
+    i18n_profile.reset();
+    profile.reset();
+    io_service.reset();
   }
 
   TTF_Quit();

@@ -49,12 +49,14 @@ char* IniStreamReader(char* str, int32_t num, void* stream) {
 
 }  // namespace
 
-ContentProfile::ContentProfile(SDL_IOStream* stream) : ini_stream_(stream) {}
+ContentProfile::ContentProfile(const std::string& app, SDL_IOStream* stream)
+    : program_name(app), ini_stream_(stream) {}
 
 ContentProfile::~ContentProfile() = default;
 
-std::unique_ptr<ContentProfile> ContentProfile::MakeFrom(SDL_IOStream* stream) {
-  return std::unique_ptr<ContentProfile>(new ContentProfile(stream));
+std::unique_ptr<ContentProfile> ContentProfile::MakeFrom(const std::string& app,
+                                                         SDL_IOStream* stream) {
+  return std::unique_ptr<ContentProfile>(new ContentProfile(app, stream));
 }
 
 void ContentProfile::LoadCommandLine(int32_t argc, char** argv) {
@@ -131,6 +133,9 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       GetVec2iFromString(reader->Get("Engine", "Resolution", ""), resolution);
   window_size =
       GetVec2iFromString(reader->Get("Engine", "WindowSize", ""), resolution);
+
+  frame_rate = (api_version == APIVersion::RGSS1) ? 40 : 60;
+  frame_rate = reader->GetInteger("Engine", "FrameRate", frame_rate);
 
   smooth_scale = reader->GetBoolean("Engine", "SmoothScale", smooth_scale);
   allow_skip_frame =

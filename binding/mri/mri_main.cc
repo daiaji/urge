@@ -244,15 +244,20 @@ void BindingEngineMri::OnMainMessageLoopRun(
 }
 
 void BindingEngineMri::PostMainLoopRunning() {
+  // Show exception info
   VALUE exception = rb_errinfo();
   if (!NIL_P(exception) && !rb_obj_is_kind_of(exception, rb_eSystemExit))
     ParseExeceptionInfo(exception);
 
-  ruby_cleanup(0);
-  g_current_execution_context = nullptr;
-  *MriGetGlobalModules() = GlobalModules();
+  // Clean up ruby vm
+  ruby_stop(0);
 
-  LOG(INFO) << "[Binding] Quit mri binding engine.";
+  // Release binding reference
+  g_current_execution_context = nullptr;
+  GlobalModules empty_modules;
+  std::swap(*MriGetGlobalModules(), empty_modules);
+
+  LOG(INFO) << "[Binding] Quit CRuby binding engine.";
 }
 
 void BindingEngineMri::ExitSignalRequired() {

@@ -26,17 +26,26 @@ class ContentRunner {
   struct InitParams {
     // Engine profile configure,
     // require a configure unique object.
-    std::unique_ptr<ContentProfile> profile;
+    ContentProfile* profile;
 
-    // Binding boot entry,
-    // require an unique one.
-    std::unique_ptr<EngineBindingBase> entry;
+    // Runner filesystem service.
+    filesystem::IOService* io_service;
+
+    // Global font context
+    ScopedFontData* font_context;
+
+    // i18n profile data set
+    I18NProfile* i18n_profile;
 
     // Graphics renderer target.
     base::WeakPtr<ui::Widget> window;
 
-    // Runner filesystem service.
-    std::unique_ptr<filesystem::IOService> io_service;
+    // Render thread setup
+    base::ThreadWorker* render_worker;
+
+    // Binding boot entry,
+    // require an unique one.
+    std::unique_ptr<EngineBindingBase> entry;
   };
 
   ~ContentRunner();
@@ -49,11 +58,13 @@ class ContentRunner {
   void RunMainLoop();
 
  private:
-  ContentRunner(std::unique_ptr<ContentProfile> profile,
-                std::unique_ptr<filesystem::IOService> io_service,
-                std::unique_ptr<base::ThreadWorker> render_worker,
-                std::unique_ptr<EngineBindingBase> binding,
-                base::WeakPtr<ui::Widget> window);
+  ContentRunner(ContentProfile* profile,
+                filesystem::IOService* io_service,
+                ScopedFontData* font_context,
+                I18NProfile* i18n_profile,
+                base::WeakPtr<ui::Widget> window,
+                base::ThreadWorker* render_worker,
+                std::unique_ptr<EngineBindingBase> binding);
   void TickHandlerInternal();
   void UpdateDisplayFPSInternal();
   void RenderGUIInternal();
@@ -63,24 +74,25 @@ class ContentRunner {
   void CreateIMGUIContextInternal();
   void DestroyIMGUIContextInternal();
 
-  std::unique_ptr<ContentProfile> profile_;
-  std::unique_ptr<base::ThreadWorker> render_worker_;
+  ContentProfile* profile_;
+  filesystem::IOService* io_service_;
+  ScopedFontData* font_context_;
+  I18NProfile* i18n_profile_;
   base::WeakPtr<ui::Widget> window_;
-  base::CallbackListSubscription tick_observer_;
-  std::atomic<int32_t> binding_quit_flag_;
-  std::atomic<int32_t> binding_reset_flag_;
+  base::ThreadWorker* render_worker_;
+
+  scoped_refptr<RenderScreenImpl> graphics_impl_;
+  scoped_refptr<KeyboardControllerImpl> keyboard_impl_;
+  scoped_refptr<AudioImpl> audio_impl_;
+  scoped_refptr<MouseImpl> mouse_impl_;
 
   std::unique_ptr<EngineBindingBase> binding_;
   std::unique_ptr<ExecutionContext> execution_context_;
 
-  std::unique_ptr<RenderScreenImpl> graphics_impl_;
-  std::unique_ptr<KeyboardControllerImpl> input_impl_;
-  std::unique_ptr<AudioImpl> audio_impl_;
-  std::unique_ptr<MouseImpl> mouse_impl_;
+  base::CallbackListSubscription tick_observer_;
+  std::atomic<int32_t> binding_quit_flag_;
+  std::atomic<int32_t> binding_reset_flag_;
 
-  std::unique_ptr<filesystem::IOService> io_service_;
-  std::unique_ptr<ScopedFontData> scoped_font_;
-  std::unique_ptr<I18NProfile> i18n_profile_;
   std::unique_ptr<Diligent::ImGuiDiligentRenderer> imgui_;
 
   bool disable_gui_input_;
