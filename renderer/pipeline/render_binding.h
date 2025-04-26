@@ -170,13 +170,13 @@ class Binding_Tilemap2 : public RenderBindingBase {
   Binding_Tilemap2(ShaderBinding binding);
 };
 
-class Binding_BitmapHue : public RenderBindingBase {
+class Binding_BitmapFilter : public RenderBindingBase {
  public:
   ShaderVariable u_texture;
 
  private:
   friend class RenderBindingBase;
-  Binding_BitmapHue(ShaderBinding binding);
+  Binding_BitmapFilter(ShaderBinding binding);
 };
 
 }  // namespace renderer

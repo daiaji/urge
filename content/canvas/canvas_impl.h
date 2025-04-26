@@ -41,7 +41,7 @@ struct TextureAgent {
 
   // Filter effect intermediate layer
   RRefPtr<Diligent::ITexture> effect_layer;
-  std::unique_ptr<renderer::Binding_BitmapHue> hue_binding;
+  std::unique_ptr<renderer::Binding_BitmapFilter> hue_binding;
 };
 
 constexpr int32_t kBlockMaxSize = 4096;

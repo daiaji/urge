@@ -151,6 +151,7 @@ int main(int argc, char* argv[]) {
       runner->RunMainLoop();
 
       // Finalize modules at end
+      runner.reset();
       render_worker.reset();
       widget.reset();
     }

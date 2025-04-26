@@ -83,7 +83,7 @@ Binding_Tilemap2::Binding_Tilemap2(ShaderBinding binding)
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
 }
 
-Binding_BitmapHue::Binding_BitmapHue(ShaderBinding binding)
+Binding_BitmapFilter::Binding_BitmapFilter(ShaderBinding binding)
     : RenderBindingBase(binding) {
   u_texture =
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");

@@ -250,7 +250,7 @@ void BindingEngineMri::PostMainLoopRunning() {
     ParseExeceptionInfo(exception);
 
   // Clean up ruby vm
-  ruby_stop(0);
+  ruby_cleanup(0);
 
   // Release binding reference
   g_current_execution_context = nullptr;

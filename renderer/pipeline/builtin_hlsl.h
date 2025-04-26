@@ -79,7 +79,7 @@ extern const std::string kHLSL_FlatRender_PixelShader;
 //   { Texture2D }
 //   < { float4, float2 } >
 //   < { float4, float4, float2, float2, float2, float, float, float, float } >
-// 
+//
 // defination:
 //   STORAGE_BUFFER_SUPPORT
 ///
@@ -160,6 +160,23 @@ extern const std::string kHLSL_Tilemap2Render_PixelShader;
 
 ///
 // type:
+//   bitmap hue shader
+///
+// entry:
+//   vertex: main
+//   pixel: main
+///
+// vertex:
+//   <float4, float2, float4>
+///
+// resource:
+//   { Texture2D }
+///
+extern const std::string kHLSL_BitmapHueRender_VertexShader;
+extern const std::string kHLSL_BitmapHueRender_PixelShader;
+
+///
+// type:
 //   present shader
 ///
 // entry:
@@ -178,23 +195,6 @@ extern const std::string kHLSL_Tilemap2Render_PixelShader;
 ///
 extern const std::string kHLSL_PresentRender_VertexShader;
 extern const std::string kHLSL_PresentRender_PixelShader;
-
-///
-// type:
-//   bitmap hue shader
-///
-// entry:
-//   vertex: main
-//   pixel: main
-///
-// vertex:
-//   <float4, float2, float4>
-///
-// resource:
-//   { Texture2D }
-///
-extern const std::string kHLSL_BitmapHueRender_VertexShader;
-extern const std::string kHLSL_BitmapHueRender_PixelShader;
 
 }  // namespace renderer
 

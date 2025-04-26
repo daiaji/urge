@@ -398,12 +398,12 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
                         TextureAgent* agent,
                         int32_t hue) {
   auto* context = scheduler->GetDevice()->GetContext();
-  auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
+  auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->bitmaphue;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
   if (!agent->hue_binding)
     agent->hue_binding =
-        pipeline_set.CreateBinding<renderer::Binding_BitmapHue>();
+        pipeline_set.CreateBinding<renderer::Binding_BitmapFilter>();
 
   ResetEffectLayerIfNeed(scheduler->GetDevice(), agent);
 
@@ -435,7 +435,8 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
                            render_scissor.bottom + render_scissor.top);
 
   // Setup uniform params
-  agent->hue_binding->u_texture->Set(agent->effect_layer);
+  agent->hue_binding->u_texture->Set(agent->effect_layer->GetDefaultView(
+      Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
 
   // Apply pipeline state
   context->SetPipelineState(pipeline);
@@ -1075,7 +1076,9 @@ void CanvasImpl::SavePNG(const std::string& filename,
     return;
 
   SDL_Surface* surface = RequireMemorySurface();
-  IMG_SavePNG(surface, filename.c_str());
+  if (!IMG_SavePNG(surface, filename.c_str()))
+    exception_state.ThrowContentError(content::ExceptionCode::CONTENT_ERROR,
+                                      SDL_GetError());
 }
 
 void CanvasImpl::OnObjectDisposed() {
@@ -1101,6 +1104,10 @@ void CanvasImpl::BlitTextureInternal(const base::Rect& dst_rect,
   // blit the sourcetexture to destination texture immediately.
   src_texture->SubmitQueuedCommands();
   SubmitQueuedCommands();
+
+  // Clamp blend type
+  blend_type =
+      std::clamp<int32_t>(blend_type, 0, renderer::BlendType::TYPE_NUMS - 1);
 
   // Execute blit immediately.
   base::ThreadWorker::PostTask(
