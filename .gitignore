@@ -1,13 +1,11 @@
-﻿################################################################################
-# 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
-################################################################################
-
-/.vs
+﻿/.vs
+/.idea
 /build
 /out/build
-/.idea
 /app/android-project/.gradle
 /app/android-project/.idea
-/app/android-project/build/*
+/app/android-project/build
 /app/android-project/local.properties
 /app/android-project/settings.gradle
+/app/android-project/app/build
+/app/android-project/app/.cxx
