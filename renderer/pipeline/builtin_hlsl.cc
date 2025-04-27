@@ -309,10 +309,13 @@ struct PSInput {
 
 void main(in VSInput VSIn, out PSInput PSIn) {
 #if STORAGE_BUFFER_SUPPORT
-  uint instance_index = VSIn.VertexIdx / 4;
-  uint vertex_index = VSIn.VertexIdx % 4;
-  SpriteVertex vert = u_Vertices[vertex_index + 4 * instance_index];
-  SpriteParam effect = u_Params[instance_index];
+#if defined(GLSL)
+  int vertex_id = int(VSIn.VertexIdx);
+#else
+  uint vertex_id = VSIn.VertexIdx;
+#endif // GLSL
+  SpriteVertex vert = u_Vertices[vertex_id];
+  SpriteParam effect = u_Params[vertex_id / 4];
 #else
   SpriteVertex vert;
   vert.Pos = VSIn.Pos;
