@@ -10,6 +10,7 @@
 #include "base/worker/thread_worker.h"
 #include "components/filesystem/io_service.h"
 #include "content/components/font_context.h"
+#include "content/components/misc_system.h"
 #include "content/input/keyboard_controller.h"
 #include "content/input/mouse_controller.h"
 #include "content/media/audio_impl.h"
@@ -85,6 +86,7 @@ class ContentRunner {
   scoped_refptr<KeyboardControllerImpl> keyboard_impl_;
   scoped_refptr<AudioImpl> audio_impl_;
   scoped_refptr<MouseImpl> mouse_impl_;
+  scoped_refptr<MiscSystem> engine_impl_;
 
   std::unique_ptr<EngineBindingBase> binding_;
   std::unique_ptr<ExecutionContext> execution_context_;

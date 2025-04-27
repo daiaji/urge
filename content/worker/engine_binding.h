@@ -13,6 +13,7 @@
 #include "content/public/engine_graphics.h"
 #include "content/public/engine_input.h"
 #include "content/public/engine_mouse.h"
+#include "content/public/engine_urge.h"
 
 namespace content {
 
@@ -27,6 +28,7 @@ class EngineBindingBase {
     scoped_refptr<Input> input;
     scoped_refptr<Audio> audio;
     scoped_refptr<Mouse> mouse;
+    scoped_refptr<URGE> engine;
   };
 
   // Raised before engine running, after engine other module initialized,

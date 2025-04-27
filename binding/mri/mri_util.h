@@ -19,6 +19,7 @@
 #include "content/public/engine_graphics.h"
 #include "content/public/engine_input.h"
 #include "content/public/engine_mouse.h"
+#include "content/public/engine_urge.h"
 
 namespace binding {
 
@@ -27,6 +28,7 @@ struct GlobalModules {
   scoped_refptr<content::Input> Input;
   scoped_refptr<content::Audio> Audio;
   scoped_refptr<content::Mouse> Mouse;
+  scoped_refptr<content::URGE> URGE;
 };
 
 GlobalModules* MriGetGlobalModules();

@@ -22,13 +22,22 @@ class MriBindGen:
     template = self.class_data
     kname = template["class_name"]
     is_module = template["is_module"]
+    parent_klass = template["parent"]
 
     func_body = "void Init{}Binding() {{\n".format(kname)
 
-    if is_module:
-      func_body += "VALUE klass = rb_define_module(\"{}\");\n".format(kname)
+    if parent_klass != '':
+      if is_module:
+        func_body += "VALUE klass = rb_define_module_under(rb_const_get(rb_cObject, rb_intern(\"{}\")), \"{}\");\n".format(parent_klass, kname)
+      else:
+        func_body += "VALUE klass = rb_define_class_under(rb_const_get(rb_cObject, rb_intern(\"{}\")), \"{}\", rb_cObject);\n".format(parent_klass, kname)
     else:
-      func_body += "VALUE klass = rb_define_class(\"{}\", rb_cObject);\n".format(kname)
+      if is_module:
+        func_body += "VALUE klass = rb_define_module(\"{}\");\n".format(kname)
+      else:
+        func_body += "VALUE klass = rb_define_class(\"{}\", rb_cObject);\n".format(kname)
+
+    if not is_module:
       func_body += "rb_define_alloc_func(klass, MriClassAllocate<&k{}DataType>);\n".format(kname)
       func_body += "MriDefineMethod(klass, \"engine_id\", MriGetEngineID);\n"
       func_body += "MRI_DECLARE_OBJECT_COMPARE({});\n".format(kname)

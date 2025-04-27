@@ -62,6 +62,7 @@ ContentRunner::ContentRunner(ContentProfile* profile,
   keyboard_impl_ = new KeyboardControllerImpl(window, profile, i18n_profile);
   audio_impl_ = new AudioImpl(io_service, i18n_profile);
   mouse_impl_ = new MouseImpl(window);
+  engine_impl_ = new MiscSystem(window);
 
   // Create imgui context
   base::ThreadWorker::PostTask(
@@ -100,6 +101,7 @@ void ContentRunner::RunMainLoop() {
   module_context.input = keyboard_impl_.get();
   module_context.audio = audio_impl_.get();
   module_context.mouse = mouse_impl_.get();
+  module_context.engine = engine_impl_.get();
 
   // Execute main loop
   binding_->OnMainMessageLoopRun(&execution_context, &module_context);

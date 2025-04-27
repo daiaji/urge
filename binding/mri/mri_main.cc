@@ -12,7 +12,6 @@
 
 #include "binding/mri/binding_patch.h"
 #include "binding/mri/mri_file.h"
-#include "binding/mri/urge_binding.h"
 
 #include "binding/mri/autogen_audio_binding.h"
 #include "binding/mri/autogen_bitmap_binding.h"
@@ -30,6 +29,7 @@
 #include "binding/mri/autogen_tilemapautotile_binding.h"
 #include "binding/mri/autogen_tilemapbitmap_binding.h"
 #include "binding/mri/autogen_tone_binding.h"
+#include "binding/mri/autogen_urge_binding.h"
 #include "binding/mri/autogen_viewport_binding.h"
 #include "binding/mri/autogen_window2_binding.h"
 #include "binding/mri/autogen_window_binding.h"
@@ -148,7 +148,7 @@ MRI_METHOD(MRI_RGSSStop) {
 
 }  // namespace
 
-BindingEngineMri::BindingEngineMri() = default;
+BindingEngineMri::BindingEngineMri() : profile_(nullptr) {}
 
 BindingEngineMri::~BindingEngineMri() = default;
 
@@ -178,7 +178,6 @@ void BindingEngineMri::PreEarlyInitialization(
                    content::ContentProfile::APIVersion::RGSS3);
 
   Init_zlib();
-  InitURGEBinding();
   InitCoreFileBinding();
 
   InitAudioBinding();
@@ -200,6 +199,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitViewportBinding();
   InitWindowBinding();
   InitWindow2Binding();
+  InitURGEBinding();
 
   MriApplyBindingPatch();
 
@@ -237,6 +237,7 @@ void BindingEngineMri::OnMainMessageLoopRun(
   MriGetGlobalModules()->Input = module_context->input;
   MriGetGlobalModules()->Audio = module_context->audio;
   MriGetGlobalModules()->Mouse = module_context->mouse;
+  MriGetGlobalModules()->URGE = module_context->engine;
 
   // Run packed scripts
   content::ExceptionState exception_state;

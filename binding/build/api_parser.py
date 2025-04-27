@@ -103,6 +103,7 @@ class APIParser:
       "class_name": self.current_comment.get('name', match.group(1)),
       "methods": [],
       "attributes": [],
+      "parent": self.current_comment.get('parent', ''),
       "is_serializable": False,
       "is_comparable": False,
       "is_module": self.current_comment.get('is_module', False),

@@ -29,8 +29,6 @@ set(BINDING_MRI_SRC
   mri_main.h
   mri_util.cc
   mri_util.h
-  urge_binding.cc
-  urge_binding.h
 
   ${GENERATED_SOURCES}
   ${GENERATED_HEADERS}
