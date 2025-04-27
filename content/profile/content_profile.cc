@@ -145,6 +145,14 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   disable_ime = reader->GetBoolean("Platform", "DisableIME", disable_ime);
   orientation = reader->Get("Platform", "Orientations", orientation);
 
+  int32_t packages_count = reader->GetInteger("Packages", "Count", 0);
+  for (int32_t i = 0; i < packages_count; ++i) {
+    std::string item_name = "Item" + std::to_string(i + 1);
+    std::string package_path = reader->Get("Packages", item_name.c_str(), "");
+    if (!package_path.empty())
+      packages.push_back(package_path);
+  }
+
   if (ini_stream_)
     SDL_CloseIO(ini_stream_);
 

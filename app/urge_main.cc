@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
       env->GetStaticFieldID(activity_klass, "GAME_PATH", "Ljava/lang/String;");
   jstring java_string_game_path =
       (jstring)env->GetStaticObjectField(activity_klass, field_game_path);
-  const char* game_data_dir = env->GetStringUTFChars(java_string_game_path, 0);
+  std::string game_data_dir = env->GetStringUTFChars(java_string_game_path, 0);
 
   // Set and ensure current directory
   std::filesystem::path std_path(game_data_dir);
@@ -144,6 +144,13 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  // Setup resource packages
+  for (auto& it : profile->packages) {
+    io_service->AddLoadPath(it.c_str());
+    LOG(INFO) << "[Packages] Add package: " << it;
+  }
+
+  // Disable IME on Windows
 #if defined(OS_WIN)
   if (profile->disable_ime) {
     LOG(INFO) << "[Windows] Disable process IME.";

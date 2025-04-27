@@ -7,9 +7,9 @@
 #include "SDL3/SDL_system.h"
 #include "physfs.h"
 
-#ifdef __ANDROID__
+#if defined(OS_ANDROID)
 #include <jni.h>
-#endif  // __ANDROID__
+#endif
 
 namespace filesystem {
 
@@ -176,7 +176,7 @@ PHYSFS_EnumerateCallbackResult OpenReadEnumCallback(void* data,
 IOService::IOService(const std::string& argv0) {
   const char* init_data = argv0.c_str();
 
-#ifdef __ANDROID__
+#if defined(OS_ANDROID)
   PHYSFS_AndroidInit ainit;
   ainit.jnienv = SDL_GetAndroidJNIEnv();
   ainit.context = SDL_GetAndroidActivity();
@@ -189,7 +189,7 @@ IOService::IOService(const std::string& argv0) {
     LOG(INFO) << "[IOService] BasePath: " << PHYSFS_getBaseDir();
   }
 
-#ifdef __ANDROID__
+#if defined(OS_ANDROID)
   PHYSFS_mount(PHYSFS_getBaseDir(), nullptr, 1);
   PHYSFS_setRoot(PHYSFS_getBaseDir(), "/assets");
 #endif

@@ -65,6 +65,8 @@ class ContentProfile {
   bool disable_ime = false;
   std::string orientation = "LandscapeLeft LandscapeRight";
 
+  std::vector<std::string> packages;
+
  private:
   ContentProfile(const std::string& app, SDL_IOStream* stream);
 
