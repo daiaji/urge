@@ -219,9 +219,17 @@ Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
     : RenderPipelineBase(device) {
   const auto& device_info = device->GetDeviceInfo();
   storage_buffer_support =
-      device_info.IsD3DDevice() ||
       device_info.Features.VertexPipelineUAVWritesAndAtomics ==
-          Diligent::DEVICE_FEATURE_STATE_ENABLED;
+      Diligent::DEVICE_FEATURE_STATE_ENABLED;
+
+  if (device_info.Type == Diligent::RENDER_DEVICE_TYPE_D3D11)
+    storage_buffer_support = true;
+
+  if (device_info.Type == Diligent::RENDER_DEVICE_TYPE_GLES)
+    storage_buffer_support = false;
+
+  if (!storage_buffer_support)
+    LOG(INFO) << "[Pipeline] Disable Sprite batch process.";
 
   Diligent::ShaderMacro vertex_macro = {"STORAGE_BUFFER_SUPPORT",
                                         storage_buffer_support ? "1" : "0"};

@@ -202,15 +202,6 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   LOG(INFO) << "[Renderer] MaxTexture Size: "
             << std::to_string(adapter_info.Texture.MaxTexture2DDimension);
 
-  if (device_info.Features.ComputeShaders ==
-      Diligent::DEVICE_FEATURE_STATE_DISABLED)
-    LOG(INFO) << "[Renderer] Detect ComputeShader is unsupport.";
-
-  if (!device_info.IsD3DDevice() &&
-      device_info.Features.VertexPipelineUAVWritesAndAtomics ==
-          Diligent::DEVICE_FEATURE_STATE_DISABLED)
-    LOG(INFO) << "[Renderer] Detect VertexShaderSSBO is unsupport.";
-
   // Initialize graphics pipelines
   std::unique_ptr<PipelineSet> pipelines_set =
       std::make_unique<PipelineSet>(device, Diligent::TEX_FORMAT_RGBA8_UNORM);
