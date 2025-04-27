@@ -15,6 +15,13 @@
 #include "content/worker/content_runner.h"
 #include "ui/widget/widget.h"
 
+#if defined(OS_ANDROID)
+#include <jni.h>
+#include <sys/system_properties.h>
+#include <unistd.h>
+#include <filesystem>
+#endif
+
 namespace {
 
 void ReplaceStringWidth(std::string& str, char before, char after) {
@@ -66,6 +73,39 @@ std::string AsciiToUtf8(const std::string& asciiStr) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
+#if defined(OS_WIN)
+  ::SetConsoleOutputCP(CP_UTF8);
+#endif  //! defined(OS_WIN)
+
+#if defined(OS_ANDROID)
+  // Get GAME_PATH string field from JNI (MainActivity.java)
+  JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();
+  jobject activity = (jobject)SDL_GetAndroidActivity();
+  jclass activity_klass = env->GetObjectClass(activity);
+  jfieldID field_game_path =
+      env->GetStaticFieldID(activity_klass, "GAME_PATH", "Ljava/lang/String;");
+  jstring java_string_game_path =
+      (jstring)env->GetStaticObjectField(activity_klass, field_game_path);
+  const char* game_data_dir = env->GetStringUTFChars(java_string_game_path, 0);
+
+  // Set and ensure current directory
+  std::filesystem::path std_path(game_data_dir);
+  if (!std::filesystem::exists(std_path) ||
+      !std::filesystem::is_directory(std_path))
+    std::filesystem::create_directories(std_path);
+
+  std::filesystem::current_path(std_path);
+  if (std::filesystem::equivalent(std::filesystem::current_path(), std_path))
+    LOG(INFO) << "[Android] Base directory: " << game_data_dir;
+
+  env->ReleaseStringUTFChars(java_string_game_path, game_data_dir);
+  env->DeleteLocalRef(java_string_game_path);
+  env->DeleteLocalRef(activity_klass);
+
+  // Fixed configure file
+  std::string app = "Game";
+  std::string ini = app + ".ini";
+#else
   std::string app(argv[0]);
   ReplaceStringWidth(app, '\\', '/');
   auto last_sep = app.find_last_of('/');
@@ -78,35 +118,49 @@ int main(int argc, char* argv[]) {
   if (last_sep != std::string::npos)
     app = app.substr(0, last_sep);
   std::string ini = app + ".ini";
+#endif  //! defined(OS_ANDROID)
 
   LOG(INFO) << "[App] Configure: " << ini;
+
+  // Initialize filesystem
+  std::unique_ptr<filesystem::IOService> io_service =
+      std::make_unique<filesystem::IOService>(argv[0]);
+  io_service->AddLoadPath(".");
+
+  filesystem::IOState io_state;
+  SDL_IOStream* inifile = io_service->OpenReadRaw(ini, &io_state);
+  if (io_state.error_count) {
+    LOG(INFO) << "[App] Warning: " << io_state.error_message;
+  }
+
+  // Initialize profile
+  std::unique_ptr<content::ContentProfile> profile =
+      content::ContentProfile::MakeFrom(app, inifile);
+  profile->LoadCommandLine(argc, argv);
+
+  if (!profile->LoadConfigure(app)) {
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE",
+                             "Error when parse configure file.", nullptr);
+    return 1;
+  }
+
+#if defined(OS_WIN)
+  if (profile->disable_ime) {
+    LOG(INFO) << "[Windows] Disable process IME.";
+    ::ImmDisableIME(-1);
+  }
+#endif
+
+  // Setup SDL init params
+  SDL_SetHint(SDL_HINT_ORIENTATIONS, profile->orientation.c_str());
+  SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
+  SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
+  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "1");
 
   SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO);
   TTF_Init();
 
   {
-    // Initialize filesystem
-    std::unique_ptr<filesystem::IOService> io_service =
-        std::make_unique<filesystem::IOService>(argv[0]);
-    io_service->AddLoadPath(".");
-
-    filesystem::IOState io_state;
-    SDL_IOStream* inifile = io_service->OpenReadRaw(ini, &io_state);
-    if (io_state.error_count) {
-      LOG(INFO) << "[App] Warning: " << io_state.error_message;
-    }
-
-    // Initialize profile
-    std::unique_ptr<content::ContentProfile> profile =
-        content::ContentProfile::MakeFrom(app, inifile);
-    profile->LoadCommandLine(argc, argv);
-
-    if (!profile->LoadConfigure(app)) {
-      SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Engine",
-                               "Error when parse configure file.", nullptr);
-      return 1;
-    }
-
     // Initialize i18n profile
     auto* i18n_xml_stream =
         io_service->OpenReadRaw(profile->i18n_xml_path, nullptr);
@@ -126,7 +180,12 @@ int main(int argc, char* argv[]) {
       widget_params.size = profile->window_size;
       widget_params.resizable = true;
       widget_params.hpixeldensity = true;
-      widget_params.fullscreen = profile->fullscreen;
+      widget_params.fullscreen =
+#if defined(OS_ANDROID)
+          true;
+#else
+          profile->fullscreen;
+#endif
       widget_params.title =
 #if defined(OS_WIN)
           AsciiToUtf8(profile->window_title);
@@ -161,9 +220,11 @@ int main(int argc, char* argv[]) {
     // Release resources
     font_context.reset();
     i18n_profile.reset();
-    profile.reset();
-    io_service.reset();
   }
+
+  // Release objects
+  profile.reset();
+  io_service.reset();
 
   TTF_Quit();
   SDL_Quit();

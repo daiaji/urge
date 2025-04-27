@@ -62,6 +62,9 @@ class ContentProfile {
   bool allow_skip_frame = true;
   bool fullscreen = false;
 
+  bool disable_ime = false;
+  std::string orientation = "LandscapeLeft LandscapeRight";
+
  private:
   ContentProfile(const std::string& app, SDL_IOStream* stream);
 

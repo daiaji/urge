@@ -14,14 +14,17 @@ import org.libsdl.app.SDLActivity;
 
 public class URGEMain extends SDLActivity {
 private static final String TAG = "URGEActivity";
-    private static String GAME_PATH;
+    public static String GAME_PATH;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         // External storage dirs
-        GAME_PATH = getContext().getExternalFilesDir("").toString();
-        Log.i(TAG, GAME_PATH);
+        java.io.File data_dir = getContext().getExternalFilesDir("");
+        if (data_dir != null) {
+            GAME_PATH = data_dir.toString();
+            Log.i(TAG, GAME_PATH);
+        }
     }
 }
