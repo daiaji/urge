@@ -132,10 +132,6 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   Diligent::FullScreenModeDesc fullscreen_mode_desc;
 #endif
 
-  // Setup requied features
-  engine_create_info.Features.ComputeShaders =
-      Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
-
 // Initialize specific graphics api
 #if GL_SUPPORTED || GLES_SUPPORTED
   if (driver_type == DriverType::OPENGL) {
@@ -210,8 +206,9 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
       Diligent::DEVICE_FEATURE_STATE_DISABLED)
     LOG(INFO) << "[Renderer] Detect ComputeShader is unsupport.";
 
-  if (device_info.Features.VertexPipelineUAVWritesAndAtomics ==
-      Diligent::DEVICE_FEATURE_STATE_DISABLED)
+  if (!device_info.IsD3DDevice() &&
+      device_info.Features.VertexPipelineUAVWritesAndAtomics ==
+          Diligent::DEVICE_FEATURE_STATE_DISABLED)
     LOG(INFO) << "[Renderer] Detect VertexShaderSSBO is unsupport.";
 
   // Initialize graphics pipelines

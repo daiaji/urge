@@ -217,9 +217,11 @@ Pipeline_Flat::Pipeline_Flat(Diligent::IRenderDevice* device,
 Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
                                  Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
+  const auto& device_info = device->GetDeviceInfo();
   storage_buffer_support =
-      device->GetDeviceInfo().Features.VertexPipelineUAVWritesAndAtomics ==
-      Diligent::DEVICE_FEATURE_STATE_ENABLED;
+      device_info.IsD3DDevice() ||
+      device_info.Features.VertexPipelineUAVWritesAndAtomics ==
+          Diligent::DEVICE_FEATURE_STATE_ENABLED;
 
   Diligent::ShaderMacro vertex_macro = {"STORAGE_BUFFER_SUPPORT",
                                         storage_buffer_support ? "1" : "0"};

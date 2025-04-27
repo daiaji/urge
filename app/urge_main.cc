@@ -141,11 +141,9 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // Setup resource packages
-  for (auto& it : profile->packages) {
-    io_service->AddLoadPath(it.c_str());
-    LOG(INFO) << "[Packages] Add package: " << it;
-  }
+  // Setup encryption resource package
+  std::string app_package = app + ".ack";
+  io_service->AddLoadPath(app_package);
 
   // Disable IME on Windows
 #if defined(OS_WIN)
