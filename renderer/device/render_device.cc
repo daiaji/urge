@@ -48,8 +48,9 @@ DebugMessageOutputFunc(Diligent::DEBUG_MESSAGE_SEVERITY Severity,
                        int Line) {
   if (Severity >=
       Diligent::DEBUG_MESSAGE_SEVERITY::DEBUG_MESSAGE_SEVERITY_ERROR) {
-    printf("[Renderer] Function \"%s\":\n", Function);
-    printf("[Renderer] %s\n", Message);
+    if (Function)
+      LOG(INFO) << "[Renderer] Function " << Function << ":";
+    LOG(INFO) << "[Renderer] " << Message;
   }
 }
 
@@ -136,7 +137,7 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
       Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
 
 // Initialize specific graphics api
-#if GL_SUPPORTED
+#if GL_SUPPORTED || GLES_SUPPORTED
   if (driver_type == DriverType::OPENGL) {
 #if ENGINE_DLL
     auto GetEngineFactoryOpenGL = Diligent::LoadGraphicsEngineOpenGL();
@@ -197,15 +198,16 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   // etc
   const auto& device_info = device->GetDeviceInfo();
   const auto& adapter_info = device->GetAdapterInfo();
-  printf("[Renderer] DeviceType: %s (version %d.%d)\n",
-         GetRenderDeviceTypeString(device_info.Type),
-         device_info.APIVersion.Major, device_info.APIVersion.Minor);
-  printf("[Renderer] Adapter: %s\n", adapter_info.Description);
-  printf("[Renderer] MaxTexture Size: %d\n",
-         adapter_info.Texture.MaxTexture2DDimension);
+  LOG(INFO) << "[Renderer] DeviceType: " +
+                   std::string(GetRenderDeviceTypeString(device_info.Type)) +
+                   " (version " + std::to_string(device_info.APIVersion.Major) +
+                   "." + std::to_string(device_info.APIVersion.Minor) + ")";
+  LOG(INFO) << "[Renderer] Adapter: " << adapter_info.Description;
+  LOG(INFO) << "[Renderer] MaxTexture Size: "
+            << std::to_string(adapter_info.Texture.MaxTexture2DDimension);
   if (device_info.Features.ComputeShaders ==
       Diligent::DEVICE_FEATURE_STATE_DISABLED)
-    printf("[Renderer] Detect ComputeShader feature is disabled.\n");
+    LOG(INFO) << "[Renderer] Detect ComputeShader feature is disabled.";
 
   // Initialize graphics pipelines
   std::unique_ptr<PipelineSet> pipelines_set =

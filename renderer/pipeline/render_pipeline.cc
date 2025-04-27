@@ -59,8 +59,13 @@ void RenderPipelineBase::BuildPipeline(
     const std::vector<Diligent::ShaderResourceVariableDesc>& variables,
     const std::vector<Diligent::ImmutableSamplerDesc>& samplers,
     Diligent::TEXTURE_FORMAT target_format) {
+  std::stringstream pipeline_debug_name;
+  pipeline_debug_name << "pipeline<" << vertex_shader.name << ", "
+                      << pixel_shader.name << ">";
+  pipeline_name_ = pipeline_debug_name.str();
+
   Diligent::GraphicsPipelineStateCreateInfo pipeline_state_desc;
-  pipeline_state_desc.PSODesc.Name = "pipeline.builtin";
+  pipeline_state_desc.PSODesc.Name = pipeline_name_.c_str();
   pipeline_state_desc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
 
   pipeline_state_desc.GraphicsPipeline.NumRenderTargets = 1;

@@ -196,7 +196,7 @@ LogMessage::~LogMessage() {
   }
 
 #ifdef __ANDROID__
-  __android_log_write(ANDROID_LOG_DEBUG, "rgucore", str_newline.c_str());
+  __android_log_write(ANDROID_LOG_DEBUG, "urgecore", str_newline.c_str());
 #else
   printf("[LOG] %s\n", str_newline.c_str());
 #endif

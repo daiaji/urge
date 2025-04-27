@@ -120,7 +120,9 @@ int main(int argc, char* argv[]) {
       // Initialize engine main widget
       std::unique_ptr<ui::Widget> widget(new ui::Widget);
       ui::Widget::InitParams widget_params;
-      widget_params.opengl = true;
+#if defined(OS_LINUX)
+      widget_params.opengl = profile->driver_backend == "OPENGL";
+#endif
       widget_params.size = profile->window_size;
       widget_params.resizable = true;
       widget_params.hpixeldensity = true;

@@ -67,6 +67,7 @@ class RenderPipelineBase {
       Diligent::TEXTURE_FORMAT target_format);
 
  private:
+  std::string pipeline_name_;
   Diligent::IRenderDevice* device_;
   std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pipelines_;
 };

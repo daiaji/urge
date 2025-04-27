@@ -8,7 +8,7 @@
           "name": "(gdb) Launch",
           "type": "cppdbg",
           "request": "launch",
-          "program": "${workspaceFolder}/build/app/console_engine",
+          "program": "${workspaceFolder}/build/app/urge_engine",
           "args": [],
           "stopAtEntry": false,
           "cwd": "${workspaceFolder}/build/app",
