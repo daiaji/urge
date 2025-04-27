@@ -17,7 +17,6 @@ import org.libsdl.app.SDLActivity;
 public class URGEMain extends SDLActivity {
     private static final String TAG = "URGEActivity";
     public static String GAME_PATH;
-    public static String APP_MD5;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,8 +29,8 @@ public class URGEMain extends SDLActivity {
             Log.i(TAG, GAME_PATH);
         }
 
-        // Setup apk md5
-        APP_MD5 = getApkMd5(getContext());
+        // Setup packages
+
     }
 
     public static String getApkMd5(Context context) {

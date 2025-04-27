@@ -24,12 +24,6 @@
 
 namespace {
 
-void ReplaceStringWidth(std::string& str, char before, char after) {
-  for (size_t i = 0; i < str.size(); ++i)
-    if (str[i] == before)
-      str[i] = after;
-}
-
 #if defined(OS_WIN)
 std::string AsciiToUtf8(const std::string& asciiStr) {
   if (asciiStr.empty()) {
@@ -86,7 +80,7 @@ int main(int argc, char* argv[]) {
       env->GetStaticFieldID(activity_klass, "GAME_PATH", "Ljava/lang/String;");
   jstring java_string_game_path =
       (jstring)env->GetStaticObjectField(activity_klass, field_game_path);
-  std::string game_data_dir = env->GetStringUTFChars(java_string_game_path, 0);
+  const char* game_data_dir = env->GetStringUTFChars(java_string_game_path, 0);
 
   // Set and ensure current directory
   std::filesystem::path std_path(game_data_dir);
@@ -107,7 +101,10 @@ int main(int argc, char* argv[]) {
   std::string ini = app + ".ini";
 #else
   std::string app(argv[0]);
-  ReplaceStringWidth(app, '\\', '/');
+  for (size_t i = 0; i < app.size(); ++i)
+    if (app[i] == '\\')
+      app[i] = '/';
+
   auto last_sep = app.find_last_of('/');
   if (last_sep != std::string::npos)
     app = app.substr(last_sep + 1);
