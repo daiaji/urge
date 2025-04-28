@@ -320,20 +320,18 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   // 0) Update uniform buffer if viewport region changed
   base::Rect transform_cache_rect(offset, controller_params.screen_size);
   if (!(transform_cache_ == transform_cache_rect)) {
+    transform_cache_ = transform_cache_rect;
     screen()->PostTask(base::BindOnce(&GPUUpdateViewportTransform,
                                       controller_params.device, agent_,
                                       transform_cache_rect));
-
-    transform_cache_ = transform_cache_rect;
   }
 
   // 0.5) Reset intermediate layer if need
   if (!(effect_layer_cache_ == viewport_rect.Size())) {
+    effect_layer_cache_ = viewport_rect.Size();
     screen()->PostTask(base::BindOnce(&GPUResetIntermediateLayer,
                                       controller_params.device, agent_,
                                       viewport_rect.Size()));
-
-    effect_layer_cache_ = viewport_rect.Size();
   }
 
   // 1) Execute pre-composite handler

@@ -27,7 +27,7 @@ void MakeTransformMatrix(float* out,
   out[15] = 1.0f;
 
   out[3] = (2.0f * offset.x) / size.x;
-  out[7] = (2.0f * offset.y) / size.y;
+  out[7] = out[5] * ((2.0f * offset.y) / size.y);
 }
 
 void MakeProjectionMatrix(float* out, const base::Vec2& size) {

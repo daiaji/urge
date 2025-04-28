@@ -796,7 +796,7 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
   resolution_ = base::Vec2i(width, height);
   base::ThreadWorker::PostTask(
       render_worker_, base::BindOnce(&GPUResetScreenBufferInternal, agent_,
-                                     resolution_, origin_));
+                                     resolution_, -origin_));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
@@ -860,7 +860,7 @@ void RenderScreenImpl::Put_Ox(const int32_t& value,
   origin_.x = value;
   base::ThreadWorker::PostTask(
       render_worker_, base::BindOnce(&GPUUpdateScreenWorldInternal, agent_,
-                                     resolution_, origin_));
+                                     resolution_, -origin_));
 }
 
 int32_t RenderScreenImpl::Get_Oy(ExceptionState& exception_state) {
@@ -872,7 +872,7 @@ void RenderScreenImpl::Put_Oy(const int32_t& value,
   origin_.y = value;
   base::ThreadWorker::PostTask(
       render_worker_, base::BindOnce(&GPUUpdateScreenWorldInternal, agent_,
-                                     resolution_, origin_));
+                                     resolution_, -origin_));
 }
 
 void RenderScreenImpl::FrameProcessInternal(
