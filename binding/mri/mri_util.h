@@ -191,6 +191,12 @@ MRI_METHOD(MriReturnInt) {
   return rb_fix_new(id);
 }
 
+#define MRI_FROM_BOOL(v) (v != Qfalse)
+#define MRI_FROM_STRING(v) std::string(RSTRING_PTR(v))
+
+#define MRI_BOOL_VALUE(v) ((v) ? Qtrue : Qfalse)
+#define MRI_STRING_VALUE(v) rb_utf8_str_new(v.c_str(), v.size())
+
 ///
 /// Method Define Template
 ///

@@ -20,8 +20,25 @@ namespace content {
 
 namespace {
 
+void GPUUpdateScreenWorldInternal(RenderGraphicsAgent* agent,
+                                  const base::Vec2i& resolution,
+                                  const base::Vec2i& offset) {
+  renderer::WorldTransform world_transform;
+  renderer::MakeTransformMatrix(world_transform.transform, resolution, offset);
+  renderer::MakeProjectionMatrix(world_transform.projection, resolution,
+                                 agent->device->IsUVFlip());
+
+  agent->world_transform.Release();
+  Diligent::CreateUniformBuffer(
+      **agent->device, sizeof(world_transform), "graphics.world.transform",
+      &agent->world_transform, Diligent::USAGE_IMMUTABLE,
+      Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
+      &world_transform);
+}
+
 void GPUResetScreenBufferInternal(RenderGraphicsAgent* agent,
-                                  const base::Vec2i& resolution) {
+                                  const base::Vec2i& resolution,
+                                  const base::Vec2i& offset) {
   constexpr Diligent::BIND_FLAGS bind_flags =
       Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE;
 
@@ -39,17 +56,7 @@ void GPUResetScreenBufferInternal(RenderGraphicsAgent* agent,
                             "screen.transition.buffer", resolution,
                             Diligent::USAGE_DEFAULT, bind_flags);
 
-  renderer::WorldTransform world_transform;
-  renderer::MakeIdentityMatrix(world_transform.transform);
-  renderer::MakeProjectionMatrix(world_transform.projection, resolution,
-                                 agent->device->IsUVFlip());
-
-  agent->world_transform.Release();
-  Diligent::CreateUniformBuffer(
-      **agent->device, sizeof(world_transform), "graphics.world.transform",
-      &agent->world_transform, Diligent::USAGE_IMMUTABLE,
-      Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
-      &world_transform);
+  GPUUpdateScreenWorldInternal(agent, resolution, offset);
 }
 
 void GPUCreateGraphicsHostInternal(RenderGraphicsAgent* agent,
@@ -117,7 +124,7 @@ void GPUCreateGraphicsHostInternal(RenderGraphicsAgent* agent,
   } renderer_info_;
 
   // Create screen buffer
-  GPUResetScreenBufferInternal(agent, resolution);
+  GPUResetScreenBufferInternal(agent, resolution, base::Vec2i());
 }
 
 void GPUDestroyGraphicsHostInternal(RenderGraphicsAgent* agent) {
@@ -783,8 +790,8 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
                                     ExceptionState& exception_state) {
   resolution_ = base::Vec2i(width, height);
   base::ThreadWorker::PostTask(
-      render_worker_,
-      base::BindOnce(&GPUResetScreenBufferInternal, agent_, resolution_));
+      render_worker_, base::BindOnce(&GPUResetScreenBufferInternal, agent_,
+                                     resolution_, origin_));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
@@ -837,6 +844,30 @@ uint32_t RenderScreenImpl::Get_Brightness(ExceptionState& exception_state) {
 void RenderScreenImpl::Put_Brightness(const uint32_t& value,
                                       ExceptionState& exception_state) {
   brightness_ = std::clamp<uint32_t>(value, 0, 255);
+}
+
+int32_t RenderScreenImpl::Get_Ox(ExceptionState& exception_state) {
+  return origin_.x;
+}
+
+void RenderScreenImpl::Put_Ox(const int32_t& value,
+                              ExceptionState& exception_state) {
+  origin_.x = value;
+  base::ThreadWorker::PostTask(
+      render_worker_, base::BindOnce(&GPUUpdateScreenWorldInternal, agent_,
+                                     resolution_, origin_));
+}
+
+int32_t RenderScreenImpl::Get_Oy(ExceptionState& exception_state) {
+  return origin_.y;
+}
+
+void RenderScreenImpl::Put_Oy(const int32_t& value,
+                              ExceptionState& exception_state) {
+  origin_.y = value;
+  base::ThreadWorker::PostTask(
+      render_worker_, base::BindOnce(&GPUUpdateScreenWorldInternal, agent_,
+                                     resolution_, origin_));
 }
 
 void RenderScreenImpl::FrameProcessInternal(

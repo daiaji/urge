@@ -141,6 +141,8 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(FrameRate, uint32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(FrameCount, uint32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Brightness, uint32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Ox, int32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Oy, int32_t);
 
  private:
   void FrameProcessInternal(Diligent::ITexture** present_target);
@@ -167,6 +169,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   int32_t brightness_;
   uint64_t frame_count_;
   uint32_t frame_rate_;
+  base::Vec2i origin_;
 
   bool keep_ratio_;
   bool smooth_scale_;

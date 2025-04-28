@@ -533,6 +533,8 @@ void ViewportImpl::DrawableNodeHandlerInternal(
   base::Rect viewport_rect = rect_->AsBaseRect();
   viewport_rect.x += params->viewport.x;
   viewport_rect.y += params->viewport.y;
+  viewport_rect.x -= params->origin.x;
+  viewport_rect.y -= params->origin.y;
 
   // Check render visible
   viewport_rect = base::MakeIntersect(params->viewport, viewport_rect);
