@@ -86,19 +86,27 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
     renderer::RenderDevice* device = nullptr;
 
     // [Stage: all]
-    // Abstract "screen" render buffer,
-    // maybe graphics or viewport snapshot buffer.
+    // Abstract "screen" render buffer.
     Diligent::ITexture** screen_buffer = nullptr;
+
+    // [Stage: all]
+    // Screen buffer size.
     base::Vec2i screen_size;
 
     // [Stage: all]
-    // Current viewport region, origin offset.
+    // Render scissor region.
     base::Rect viewport;
+
+    // [Stage: all]
+    // Current display origin offset
     base::Vec2i origin;
 
     // [Stage: on rendering]
-    // World transform matrix.
+    // World transform matrix with offset.
     Diligent::IBuffer** root_world = nullptr;
+
+    // [Stage: on rendering]
+    // Root transform matrix without any offset.
     Diligent::IBuffer** world_binding = nullptr;
   };
 

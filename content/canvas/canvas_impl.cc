@@ -18,22 +18,25 @@ namespace content {
 
 namespace {
 
-void MakeTextureWorldInternal(renderer::RenderDevice* device,
-                              const base::Vec2& bitmap_size,
-                              Diligent::IBuffer** out) {
+void GPUMakeTextureWorldInternal(renderer::RenderDevice* device,
+                                 const base::Vec2& bitmap_size,
+                                 Diligent::IBuffer** out) {
+  // Make transform matrix uniform for discrete draw command
   renderer::WorldTransform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, bitmap_size,
-                                 device->IsUVFlip());
-  renderer::MakeIdentityMatrix(world_matrix.transform);
+  renderer::MakeProjectionMatrix(world_matrix.projection, bitmap_size);
+  renderer::MakeIdentityMatrix(world_matrix.transform, device->IsUVFlip());
 
+  // Per bitmap create uniform once
   Diligent::CreateUniformBuffer(
       **device, sizeof(world_matrix), "bitmap.binding.world", out,
       Diligent::USAGE_IMMUTABLE, Diligent::BIND_UNIFORM_BUFFER,
       Diligent::CPU_ACCESS_WRITE, &world_matrix);
 }
 
-void ResetEffectLayerIfNeed(renderer::RenderDevice* device,
-                            TextureAgent* agent) {
+void GPUResetEffectLayerIfNeed(renderer::RenderDevice* device,
+                               TextureAgent* agent) {
+  // Create an intermediate layer if bitmap need filter effect,
+  // the bitmap is fixed size, it is unnecessary to reset effect layer.
   if (!agent->effect_layer)
     renderer::CreateTexture2D(**device, &agent->effect_layer,
                               "bitmap.filter.intermediate", agent->size);
@@ -43,6 +46,7 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
                                       SDL_Surface* initial_data,
                                       const std::string& name,
                                       TextureAgent* agent) {
+  // Make sure correct texture format
   if (initial_data->format != SDL_PIXELFORMAT_ABGR8888) {
     SDL_Surface* conv =
         SDL_ConvertSurface(initial_data, SDL_PIXELFORMAT_ABGR8888);
@@ -50,30 +54,35 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
     initial_data = conv;
   }
 
+  // Setup GPU texture
   agent->name = "bitmap.texture<\"" + name + "\">";
-
   renderer::CreateTexture2D(
       **device_base, &agent->data, agent->name, initial_data,
       Diligent::USAGE_DEFAULT,
       Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
 
-  agent->size = base::Vec2i(initial_data->w, initial_data->h);
+  // Setup access texture view
   agent->view =
       agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
   agent->target =
       agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
 
-  MakeTextureWorldInternal(device_base, agent->size, &agent->world_buffer);
+  // Make bitmap draw transform
+  GPUMakeTextureWorldInternal(device_base, agent->size, &agent->world_buffer);
 
+  // Release temp memory surface
   SDL_DestroySurface(initial_data);
 }
 
 void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
                                       const base::Vec2i& initial_size,
                                       TextureAgent* agent) {
-  agent->name = "bitmap.texture<\"" + std::to_string(initial_size.x) + "x" +
-                std::to_string(initial_size.y) + "\">";
+  // Texture's debug name
+  agent->name = "bitmap.texture<" + std::to_string(initial_size.x) + "x" +
+                std::to_string(initial_size.y) + ">";
 
+  // Create an empty textrue: the driver will not clear the initial
+  // texture, we need to clear it by ourselves.
   SDL_Surface* empty_surface = SDL_CreateSurface(initial_size.x, initial_size.y,
                                                  SDL_PIXELFORMAT_ABGR8888);
   renderer::CreateTexture2D(
@@ -82,13 +91,14 @@ void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
       Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
   SDL_DestroySurface(empty_surface);
 
-  agent->size = initial_size;
+  // Setup access view
   agent->view =
       agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
   agent->target =
       agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
 
-  MakeTextureWorldInternal(device_base, agent->size, &agent->world_buffer);
+  // Make bitmap draw transform
+  GPUMakeTextureWorldInternal(device_base, agent->size, &agent->world_buffer);
 }
 
 void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
@@ -98,14 +108,17 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                  const base::Rect& src_region,
                                  int32_t blend_type,
                                  uint32_t blit_alpha) {
+  // Custom blend blit pipeline
   auto* context = scheduler->GetDevice()->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
   auto* pipeline =
       pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
 
+  // Norm opacity value
   base::Vec4 blend_alpha;
   blend_alpha.w = static_cast<float>(blit_alpha) / 255.0f;
 
+  // Make drawing vertices
   renderer::Quad transient_quad;
   renderer::Quad::SetTexCoordRect(&transient_quad, src_region,
                                   src_texture->size);
@@ -119,12 +132,8 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  // Set scissor region
-  Diligent::Rect render_scissor;
-  render_scissor.right = dst_texture->size.x;
-  render_scissor.bottom = dst_texture->size.y;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
+  // Push scissor
+  scheduler->GetDevice()->Scissor()->Push(dst_texture->size);
 
   // Setup uniform params
   scheduler->base_binding()->u_transform->Set(dst_texture->world_buffer);
@@ -150,6 +159,9 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   draw_indexed_attribs.IndexType =
       scheduler->GetDevice()->GetQuadIndex()->format();
   context->DrawIndexed(draw_indexed_attribs);
+
+  // Pop scissor region
+  scheduler->GetDevice()->Scissor()->Pop();
 }
 
 void GPUDestroyTextureInternal(TextureAgent* agent) {
@@ -162,9 +174,9 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
   auto* context = scheduler->GetDevice()->GetContext();
   auto& device = *scheduler->GetDevice();
 
-  // Create temp surface buffer
+  // Create transient read stage texture
   Diligent::TextureDesc stage_buffer_desc = agent->data->GetDesc();
-  stage_buffer_desc.Name = "bitmap.read.stagebuffer";
+  stage_buffer_desc.Name = "bitmap.readstage.buffer";
   stage_buffer_desc.Usage = Diligent::USAGE_STAGING;
   stage_buffer_desc.BindFlags = Diligent::BIND_NONE;
   stage_buffer_desc.CPUAccessFlags = Diligent::CPU_ACCESS_READ;
@@ -184,12 +196,13 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
   context->CopyTexture(copy_texture_attribs);
   context->WaitForIdle();
 
-  // Read buffer data from mapping
+  // Read buffer data from mapping buffer
   Diligent::MappedTextureSubresource MappedData;
   context->MapTextureSubresource(stage_read_buffer, 0, 0, Diligent::MAP_READ,
                                  Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr,
                                  MappedData);
 
+  // Fill in memory surface
   uint8_t* dst_data = static_cast<uint8_t*>(surface_cache->pixels);
   uint8_t* src_data = static_cast<uint8_t*>(MappedData.pData);
   for (int32_t i = 0; i < surface_cache->h; ++i) {
@@ -198,6 +211,7 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
     src_data += MappedData.Stride;
   }
 
+  // End of mapping
   context->UnmapTextureSubresource(stage_read_buffer, 0, 0);
 }
 
@@ -207,6 +221,7 @@ void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
                                         const base::Vec2i& surface_size) {
   auto* context = scheduler->GetDevice()->GetContext();
 
+  // Update memory surface to video memory
   Diligent::TextureSubResData texture_sub_res_data(pixels.data(),
                                                    surface_size.x * 4);
   Diligent::Box box(0, surface_size.x, 0, surface_size.y);
@@ -221,6 +236,7 @@ void GPUCanvasClearInternal(CanvasScheduler* scheduler, TextureAgent* agent) {
   Diligent::ITextureView* render_target_view = agent->target;
   float clear_color[] = {0, 0, 0, 0};
 
+  // Clear all data in texture
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -239,6 +255,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
+  // Make transient vertices data
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad, region);
   if (vertical) {
@@ -254,17 +271,14 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   }
   scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
+  // Setup render target
   Diligent::ITextureView* render_target_view = agent->target;
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  // Set scissor region
-  Diligent::Rect render_scissor;
-  render_scissor.right = agent->size.x;
-  render_scissor.bottom = agent->size.y;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
+  // Push scissor
+  scheduler->GetDevice()->Scissor()->Push(agent->size);
 
   // Setup uniform params
   scheduler->color_binding()->u_transform->Set(agent->world_buffer);
@@ -289,6 +303,9 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   draw_indexed_attribs.IndexType =
       scheduler->GetDevice()->GetQuadIndex()->format();
   context->DrawIndexed(draw_indexed_attribs);
+
+  // Pop scissor
+  scheduler->GetDevice()->Scissor()->Pop();
 }
 
 void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
@@ -301,6 +318,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
+  // Reset text upload stage buffer if need
   if (!agent->text_cache_texture || agent->text_cache_size.x < text->w ||
       agent->text_cache_size.y < text->h) {
     agent->text_cache_size.x =
@@ -323,7 +341,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  // Render to self texture
+  // Render text stage data to current texture
   base::Vec4 blend_alpha;
   blend_alpha.w = opacity / 255.0f;
 
@@ -346,6 +364,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   zoom_x = std::min(zoom_x, 1.0f);
   base::Rect compose_position(align_x, align_y, text->w * zoom_x, text->h);
 
+  // Make render vertices
   renderer::Quad transient_quad;
   renderer::Quad::SetTexCoordRect(&transient_quad, base::Vec2(text->w, text->h),
                                   agent->text_cache_size);
@@ -359,12 +378,8 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  // Set scissor region
-  Diligent::Rect render_scissor;
-  render_scissor.right = agent->size.x;
-  render_scissor.bottom = agent->size.y;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
+  // Push scissor
+  scheduler->GetDevice()->Scissor()->Push(agent->size);
 
   // Setup uniform params
   scheduler->base_binding()->u_transform->Set(agent->world_buffer);
@@ -392,6 +407,9 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   draw_indexed_attribs.IndexType =
       scheduler->GetDevice()->GetQuadIndex()->format();
   context->DrawIndexed(draw_indexed_attribs);
+
+  // Pop scissor
+  scheduler->GetDevice()->Scissor()->Pop();
 }
 
 void GPUCanvasHueChange(CanvasScheduler* scheduler,
@@ -405,8 +423,9 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
     agent->hue_binding =
         pipeline_set.CreateBinding<renderer::Binding_BitmapFilter>();
 
-  ResetEffectLayerIfNeed(scheduler->GetDevice(), agent);
+  GPUResetEffectLayerIfNeed(scheduler->GetDevice(), agent);
 
+  // Copy current texture to stage intermediate texture
   context->SetRenderTargets(
       0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -415,6 +434,7 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
       agent->effect_layer, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
   context->CopyTexture(copy_texture_attribs);
 
+  // Make transient vertices
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad,
                                   base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
@@ -425,17 +445,14 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
   renderer::Quad::SetColor(&transient_quad, base::Vec4(hue / 360.0f));
   scheduler->quad_batch()->QueueWrite(context, &transient_quad);
 
+  // Setup render target
   Diligent::ITextureView* render_target_view = agent->target;
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  // Set scissor region
-  Diligent::Rect render_scissor;
-  render_scissor.right = agent->size.x;
-  render_scissor.bottom = agent->size.y;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
+  // Push scissor
+  scheduler->GetDevice()->Scissor()->Push(agent->size);
 
   // Setup uniform params
   agent->hue_binding->u_texture->Set(agent->effect_layer->GetDefaultView(
@@ -461,6 +478,9 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
   draw_indexed_attribs.IndexType =
       scheduler->GetDevice()->GetQuadIndex()->format();
   context->DrawIndexed(draw_indexed_attribs);
+
+  // Pop scissor
+  scheduler->GetDevice()->Scissor()->Pop();
 }
 
 }  // namespace

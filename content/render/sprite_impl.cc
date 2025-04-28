@@ -723,6 +723,7 @@ void SpriteImpl::DrawableNodeHandlerInternal(
       target_color =
           (flash_color.w > composite_color.w ? flash_color : composite_color);
 
+    // Make sprite uniform params
     base::Rect src_rect = src_rect_->AsBaseRect();
     uniform_params_.Color = target_color;
     uniform_params_.Tone = tone_->AsNormColor();
@@ -733,6 +734,7 @@ void SpriteImpl::DrawableNodeHandlerInternal(
     uniform_params_.BushDepthAndOpacity.y =
         static_cast<float>(bush_.opacity) / 255.0f;
 
+    // Sprite batch test
     DrawableNode* next_node = node_.GetNextNode();
     SpriteImpl* next_sprite =
         next_node ? next_node->CastToNode<SpriteImpl>() : nullptr;

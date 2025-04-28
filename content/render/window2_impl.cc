@@ -65,9 +65,8 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
           Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
 
       renderer::WorldTransform world_matrix;
-      renderer::MakeProjectionMatrix(world_matrix.projection, bound.Size(),
-                                     device->IsUVFlip());
-      renderer::MakeIdentityMatrix(world_matrix.transform);
+      renderer::MakeProjectionMatrix(world_matrix.projection, bound.Size());
+      renderer::MakeIdentityMatrix(world_matrix.transform, device->IsUVFlip());
 
       agent->background_world.Release();
       Diligent::CreateUniformBuffer(**device, sizeof(world_matrix),
@@ -571,15 +570,7 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
   if (!scissor_region.width || !scissor_region.height)
     return;
 
-  {
-    Diligent::Rect render_scissor;
-    render_scissor.left = scissor_region.x;
-    render_scissor.top = scissor_region.y;
-    render_scissor.right = scissor_region.x + scissor_region.width;
-    render_scissor.bottom = scissor_region.y + scissor_region.height;
-    context->SetScissorRects(1, &render_scissor, 1,
-                             render_scissor.bottom + render_scissor.top);
-  }
+  device->Scissor()->Push(scissor_region);
 
   if (agent->cursor_draw_count > 0) {
     // Setup texture
@@ -613,15 +604,7 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
     context->DrawIndexed(draw_indexed_attribs);
   }
 
-  {
-    Diligent::Rect render_scissor;
-    render_scissor.left = last_viewport.x;
-    render_scissor.top = last_viewport.y;
-    render_scissor.right = last_viewport.x + last_viewport.width;
-    render_scissor.bottom = last_viewport.y + last_viewport.height;
-    context->SetScissorRects(1, &render_scissor, 1,
-                             render_scissor.bottom + render_scissor.top);
-  }
+  device->Scissor()->Pop();
 }
 
 }  // namespace

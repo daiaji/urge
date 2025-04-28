@@ -8,20 +8,21 @@
 
 namespace renderer {
 
-void MakeIdentityMatrix(float* out) {
+void MakeIdentityMatrix(float* out, bool flip) {
   std::memset(out, 0, sizeof(float) * 16);
   out[0] = 1.0f;
-  out[5] = 1.0f;
+  out[5] = flip ? 1.0f : -1.0f;
   out[10] = 1.0f;
   out[15] = 1.0f;
 }
 
 void MakeTransformMatrix(float* out,
                          const base::Vec2& size,
-                         const base::Vec2& offset) {
+                         const base::Vec2& offset,
+                         bool flip) {
   std::memset(out, 0, sizeof(float) * 16);
   out[0] = 1.0f;
-  out[5] = 1.0f;
+  out[5] = flip ? 1.0f : -1.0f;
   out[10] = 1.0f;
   out[15] = 1.0f;
 
@@ -29,10 +30,9 @@ void MakeTransformMatrix(float* out,
   out[7] = (2.0f * offset.y) / size.y;
 }
 
-void MakeProjectionMatrix(float* out, const base::Vec2& size, bool flip) {
-  const float y_scale = flip ? -1.0f : 1.0f;
+void MakeProjectionMatrix(float* out, const base::Vec2& size) {
   const float aa = 2.0f / size.x;
-  const float bb = y_scale * (-2.0f / size.y);
+  const float bb = 2.0f / size.y;
   const float cc = 1.0f;
 
   std::memset(out, 0, sizeof(float) * 16);
@@ -42,7 +42,7 @@ void MakeProjectionMatrix(float* out, const base::Vec2& size, bool flip) {
   out[15] = 1.0f;
 
   out[3] = -1.0f;
-  out[7] = y_scale;
+  out[7] = -1.0f;
 }
 
 }  // namespace renderer

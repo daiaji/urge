@@ -24,9 +24,9 @@ void GPUUpdateScreenWorldInternal(RenderGraphicsAgent* agent,
                                   const base::Vec2i& resolution,
                                   const base::Vec2i& offset) {
   renderer::WorldTransform world_transform;
-  renderer::MakeTransformMatrix(world_transform.transform, resolution, offset);
-  renderer::MakeProjectionMatrix(world_transform.projection, resolution,
-                                 agent->device->IsUVFlip());
+  renderer::MakeProjectionMatrix(world_transform.projection, resolution);
+  renderer::MakeTransformMatrix(world_transform.transform, resolution, offset,
+                                agent->device->IsUVFlip());
 
   agent->world_transform.Release();
   Diligent::CreateUniformBuffer(
@@ -55,6 +55,18 @@ void GPUResetScreenBufferInternal(RenderGraphicsAgent* agent,
   renderer::CreateTexture2D(**agent->device, &agent->transition_buffer,
                             "screen.transition.buffer", resolution,
                             Diligent::USAGE_DEFAULT, bind_flags);
+
+  renderer::WorldTransform world_transform;
+  renderer::MakeProjectionMatrix(world_transform.projection, resolution);
+  renderer::MakeIdentityMatrix(world_transform.transform,
+                               agent->device->IsUVFlip());
+
+  agent->root_transform.Release();
+  Diligent::CreateUniformBuffer(
+      **agent->device, sizeof(world_transform), "graphics.root.transform",
+      &agent->root_transform, Diligent::USAGE_IMMUTABLE,
+      Diligent::BIND_UNIFORM_BUFFER, Diligent::CPU_ACCESS_NONE,
+      &world_transform);
 
   GPUUpdateScreenWorldInternal(agent, resolution, offset);
 }
@@ -178,9 +190,9 @@ void GPUPresentScreenBufferInternal(
 
     // Update window screen transform
     renderer::WorldTransform world_matrix;
-    renderer::MakeProjectionMatrix(world_matrix.projection, window->GetSize(),
-                                   agent->device->IsUVFlip());
-    renderer::MakeIdentityMatrix(world_matrix.transform);
+    renderer::MakeProjectionMatrix(world_matrix.projection, window->GetSize());
+    renderer::MakeIdentityMatrix(world_matrix.transform,
+                                 agent->device->IsUVFlip());
 
     Diligent::CreateUniformBuffer(**agent->device, sizeof(world_matrix),
                                   "present.world.uniform", &present_uniform,
@@ -212,10 +224,8 @@ void GPUPresentScreenBufferInternal(
       render_target_view, clear_color,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  Diligent::Rect scissor;
-  scissor.right = window->GetSize().x;
-  scissor.bottom = window->GetSize().y;
-  context->SetScissorRects(1, &scissor, 1, scissor.bottom + scissor.top);
+  // Apply present scissor
+  agent->device->Scissor()->Apply(window->GetSize());
 
   // Start screen render
   if (agent->present_target) {
@@ -260,18 +270,14 @@ void GPUPresentScreenBufferInternal(
 
 void GPUFrameBeginRenderPassInternal(RenderGraphicsAgent* agent,
                                      Diligent::ITexture** render_target,
+                                     const base::Vec2i& resolution,
                                      uint32_t brightness) {
   auto* context = agent->device->GetContext();
-
-  // Setup render target
-  Diligent::ITexture* const render_target_ptr = *render_target;
-  const base::Vec2i target_size(render_target_ptr->GetDesc().Width,
-                                render_target_ptr->GetDesc().Height);
 
   // Setup screen effect params
   if (brightness < 255) {
     renderer::Quad effect_quad;
-    renderer::Quad::SetPositionRect(&effect_quad, base::Rect(target_size));
+    renderer::Quad::SetPositionRect(&effect_quad, base::Rect(resolution));
     renderer::Quad::SetColor(&effect_quad,
                              base::Vec4(0, 0, 0, (255 - brightness) / 255.0f));
     agent->effect_quads->QueueWrite(context, &effect_quad);
@@ -279,7 +285,7 @@ void GPUFrameBeginRenderPassInternal(RenderGraphicsAgent* agent,
 
   // Setup render pass
   auto render_target_view =
-      render_target_ptr->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+      (*render_target)->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
   const float clear_color[] = {0, 0, 0, 1};
   context->SetRenderTargets(
       1, &render_target_view, nullptr,
@@ -288,12 +294,8 @@ void GPUFrameBeginRenderPassInternal(RenderGraphicsAgent* agent,
       render_target_view, clear_color,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  // Restore scissor region
-  Diligent::Rect render_scissor;
-  render_scissor.right = target_size.x;
-  render_scissor.bottom = target_size.y;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
+  // Push scissor
+  agent->device->Scissor()->Push(resolution);
 }
 
 void GPUFrameEndRenderPassInternal(RenderGraphicsAgent* agent,
@@ -330,6 +332,9 @@ void GPUFrameEndRenderPassInternal(RenderGraphicsAgent* agent,
     draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
     context->DrawIndexed(draw_indexed_attribs);
   }
+
+  // Pop scissor
+  agent->device->Scissor()->Pop();
 }
 
 void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
@@ -361,11 +366,9 @@ void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
       render_target_view, clear_color,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  Diligent::Rect render_scissor;
-  render_scissor.right = agent->screen_buffer->GetDesc().Width;
-  render_scissor.bottom = agent->screen_buffer->GetDesc().Height;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
+  base::Vec2i resolution(agent->screen_buffer->GetDesc().Width,
+                         agent->screen_buffer->GetDesc().Height);
+  agent->device->Scissor()->Push(resolution);
 
   // Apply brightness effect
   auto& pipeline_set = agent->device->GetPipelines()->alphatrans;
@@ -400,6 +403,8 @@ void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
   draw_indexed_attribs.NumIndices = 6;
   draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
   context->DrawIndexed(draw_indexed_attribs);
+
+  agent->device->Scissor()->Pop();
 }
 
 void GPURenderVagueTransitionFrameInternal(
@@ -434,11 +439,9 @@ void GPURenderVagueTransitionFrameInternal(
       render_target_view, clear_color,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  Diligent::Rect render_scissor;
-  render_scissor.right = agent->screen_buffer->GetDesc().Width;
-  render_scissor.bottom = agent->screen_buffer->GetDesc().Height;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
+  base::Vec2i resolution(agent->screen_buffer->GetDesc().Width,
+                         agent->screen_buffer->GetDesc().Height);
+  agent->device->Scissor()->Push(resolution);
 
   // Apply brightness effect
   auto& pipeline_set = agent->device->GetPipelines()->mappedtrans;
@@ -476,6 +479,8 @@ void GPURenderVagueTransitionFrameInternal(
   draw_indexed_attribs.NumIndices = 6;
   draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
   context->DrawIndexed(draw_indexed_attribs);
+
+  agent->device->Scissor()->Pop();
 }
 
 void GPUResizeSwapchainInternal(RenderGraphicsAgent* agent,
@@ -892,7 +897,7 @@ void RenderScreenImpl::RenderFrameInternal(Diligent::ITexture** render_target) {
   controller_params.screen_buffer = render_target;
   controller_params.screen_size = resolution_;
   controller_params.viewport = resolution_;
-  controller_params.origin = base::Vec2i();
+  controller_params.origin = origin_;
 
   // 1) Execute pre-composite handler
   controller_.BroadCastNotification(DrawableNode::BEFORE_RENDER,
@@ -909,11 +914,11 @@ void RenderScreenImpl::RenderFrameInternal(Diligent::ITexture** render_target) {
   // 2) Setup renderpass
   base::ThreadWorker::PostTask(
       render_worker_, base::BindOnce(&GPUFrameBeginRenderPassInternal, agent_,
-                                     render_target, brightness_));
+                                     render_target, resolution_, brightness_));
 
   // 3) Notify render a frame
-  controller_params.root_world = agent_->world_transform.RawDblPtr();
-  controller_params.world_binding = controller_params.root_world;
+  controller_params.root_world = agent_->root_transform.RawDblPtr();
+  controller_params.world_binding = agent_->world_transform.RawDblPtr();
   controller_.BroadCastNotification(DrawableNode::ON_RENDERING,
                                     &controller_params);
 

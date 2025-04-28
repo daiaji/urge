@@ -365,18 +365,17 @@ void PlaneImpl::OnObjectDisposed() {
 void PlaneImpl::DrawableNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
-  if (!bitmap_)
+  if (!bitmap_ || !bitmap_->GetAgent())
     return;
 
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     if (quad_array_dirty_) {
+      quad_array_dirty_ = false;
       screen()->PostTask(base::BindOnce(
           &GPUUpdatePlaneQuadArrayInternal, params->device, agent_,
           bitmap_->GetAgent(), params->viewport.Size(), scale_,
           origin_ + params->origin, color_->AsNormColor(), tone_->AsNormColor(),
           opacity_));
-
-      quad_array_dirty_ = false;
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(base::BindOnce(

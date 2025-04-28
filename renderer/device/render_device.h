@@ -5,6 +5,7 @@
 #ifndef RENDERER_DEVICE_RENDER_DEVICE_H_
 #define RENDERER_DEVICE_RENDER_DEVICE_H_
 
+#include "renderer/context/scissor_controller.h"
 #include "renderer/pipeline/render_pipeline.h"
 #include "renderer/resource/render_buffer.h"
 #include "ui/widget/widget.h"
@@ -73,6 +74,7 @@ class RenderDevice {
   // Pre-compile shaders set storage
   PipelineSet* GetPipelines() const { return pipelines_.get(); }
   QuadIndexCache* GetQuadIndex() const { return quad_index_.get(); }
+  ScissorController* Scissor() const { return scissor_.get(); }
 
   // Platform specific
   inline bool IsUVFlip() const { return device_->GetDeviceInfo().IsGLDevice(); }
@@ -84,6 +86,7 @@ class RenderDevice {
                Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain,
                std::unique_ptr<PipelineSet> pipelines,
                std::unique_ptr<QuadIndexCache> quad_index,
+               std::unique_ptr<ScissorController> scissor,
                SDL_GLContext gl_context);
 
   base::WeakPtr<ui::Widget> window_;
@@ -94,6 +97,7 @@ class RenderDevice {
 
   std::unique_ptr<PipelineSet> pipelines_;
   std::unique_ptr<QuadIndexCache> quad_index_;
+  std::unique_ptr<ScissorController> scissor_;
 
   SDL_GLContext gl_context_;
 };

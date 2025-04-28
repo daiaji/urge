@@ -36,10 +36,9 @@ void GPUUpdateViewportTransform(renderer::RenderDevice* device,
                                 ViewportAgent* agent,
                                 const base::Rect& region) {
   renderer::WorldTransform world_matrix;
-  renderer::MakeProjectionMatrix(world_matrix.projection, region.Size(),
-                                 device->IsUVFlip());
+  renderer::MakeProjectionMatrix(world_matrix.projection, region.Size());
   renderer::MakeTransformMatrix(world_matrix.transform, region.Size(),
-                                region.Position());
+                                region.Position(), device->IsUVFlip());
 
   device->GetContext()->UpdateBuffer(
       agent->world_uniform, 0, sizeof(world_matrix), &world_matrix,
@@ -67,13 +66,7 @@ void GPUResetIntermediateLayer(renderer::RenderDevice* device,
 
 void GPUResetViewportRegion(renderer::RenderDevice* device,
                             const base::Rect& region) {
-  Diligent::Rect render_scissor;
-  render_scissor.left = region.x;
-  render_scissor.top = region.y;
-  render_scissor.right = region.x + region.width;
-  render_scissor.bottom = region.y + region.height;
-  device->GetContext()->SetScissorRects(
-      1, &render_scissor, 1, render_scissor.bottom + render_scissor.top);
+  device->Scissor()->Push(region);
 }
 
 void GPUApplyViewportEffect(renderer::RenderDevice* device,
@@ -85,6 +78,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
                             const base::Vec4& tone) {
   auto* context = device->GetContext();
 
+  // Copy "screen" buffer desired region data to stage intermediate texture
   Diligent::Box box;
   box.MinX = effect_region.x;
   box.MinY = effect_region.y;
@@ -101,6 +95,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
   context->CopyTexture(copy_texture_attribs);
 
+  // Make effect transient vertices
   renderer::Quad transient_quad;
   renderer::Quad::SetPositionRect(&transient_quad, effect_region);
   renderer::Quad::SetTexCoordRect(&transient_quad,
@@ -108,6 +103,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
                                   agent->effect.layer_size);
   agent->effect.quads->QueueWrite(context, &transient_quad);
 
+  // Update uniform data
   renderer::Binding_Flat::Params transient_uniform;
   transient_uniform.Color = color;
   transient_uniform.Tone = tone;
@@ -115,6 +111,7 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
                         sizeof(transient_uniform), &transient_uniform,
                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
+  // Derive effect pipeline
   auto& pipeline_set = device->GetPipelines()->viewport;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
@@ -155,7 +152,6 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
 
 void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
                                    Diligent::IBuffer** root_world,
-                                   const base::Rect& last_viewport,
                                    Diligent::ITexture** screen_buffer,
                                    ViewportAgent* agent,
                                    const base::Rect& effect_region,
@@ -163,19 +159,12 @@ void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
                                    const base::Vec4& tone) {
   const bool is_effect_valid =
       color.w != 0 || tone.x != 0 || tone.y != 0 || tone.z != 0 || tone.w != 0;
-
   if (is_effect_valid)
     GPUApplyViewportEffect(device, screen_buffer, root_world, agent,
                            effect_region, color, tone);
 
   // Restore viewport region
-  Diligent::Rect render_scissor;
-  render_scissor.left = last_viewport.x;
-  render_scissor.top = last_viewport.y;
-  render_scissor.right = last_viewport.x + last_viewport.width;
-  render_scissor.bottom = last_viewport.y + last_viewport.height;
-  device->GetContext()->SetScissorRects(
-      1, &render_scissor, 1, render_scissor.bottom + render_scissor.top);
+  device->Scissor()->Pop();
 }
 
 void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
@@ -194,11 +183,7 @@ void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Setup scissor region
-  Diligent::Rect render_scissor;
-  render_scissor.right = scissor_region.width;
-  render_scissor.bottom = scissor_region.height;
-  context->SetScissorRects(1, &render_scissor, 1,
-                           render_scissor.bottom + render_scissor.top);
+  device->Scissor()->Apply(scissor_region.Size());
 }
 
 }  // namespace
@@ -522,67 +507,66 @@ void ViewportImpl::OnObjectDisposed() {
 void ViewportImpl::DrawableNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
-  // Check flash status
+  // Check flash state
   if (flash_emitter_.IsFlashing() && flash_emitter_.IsInvalid())
     return;
 
-  // Stack storage last render state
-  DrawableNode::RenderControllerParams transient_params = *params;
-
-  // Stack of viewport region rect
+  // Current viewport region
   base::Rect viewport_rect = rect_->AsBaseRect();
-  viewport_rect.x += params->viewport.x;
-  viewport_rect.y += params->viewport.y;
-  viewport_rect.x -= params->origin.x;
-  viewport_rect.y -= params->origin.y;
 
-  // Check render visible
+  // Apply parent offset
+  viewport_rect.x += params->viewport.x - params->origin.x;
+  viewport_rect.y += params->viewport.y - params->origin.y;
+
+  // Real scissor region on "screen" buffer
   viewport_rect = base::MakeIntersect(params->viewport, viewport_rect);
-  if (viewport_rect.width <= 0 || viewport_rect.height <= 0)
+
+  // Skip render if no interaction
+  if (!viewport_rect.width || !viewport_rect.height)
     return;
 
-  // Set stacked viewport params
+  // Setup new render params at current node
+  DrawableNode::RenderControllerParams transient_params = *params;
   transient_params.viewport = viewport_rect;
   transient_params.origin = origin_;
 
   if (stage == DrawableNode::BEFORE_RENDER) {
-    // Calculate viewport offset
-    base::Vec2i offset = viewport_rect.Position() - origin_;
+    // Calculate viewport real offset
+    base::Vec2i real_offset = viewport_rect.Position() - origin_;
 
-    // Update uniform buffer if viewport region changed.
-    base::Rect transform_cache_rect(offset, params->screen_size);
+    // Update self transform world uniform
+    base::Rect transform_cache_rect(real_offset, params->screen_size);
     if (!(transform_cache_ == transform_cache_rect)) {
+      transform_cache_ = transform_cache_rect;
       screen()->PostTask(base::BindOnce(&GPUUpdateViewportTransform,
                                         params->device, agent_,
                                         transform_cache_rect));
-
-      transform_cache_ = transform_cache_rect;
     }
 
-    // Reset effect intermediate layer if need
+    // Update effect texture size if need
     if (!(effect_layer_cache_ == viewport_rect.Size())) {
+      effect_layer_cache_ = viewport_rect.Size();
       screen()->PostTask(base::BindOnce(&GPUResetIntermediateLayer,
                                         params->device, agent_,
                                         viewport_rect.Size()));
-
-      effect_layer_cache_ = viewport_rect.Size();
     }
-  }
 
-  if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    // Setup viewport's world settings
+    // Notify children for preparing rendering
+    controller_.BroadCastNotification(DrawableNode::BEFORE_RENDER,
+                                      &transient_params);
+  } else if (stage == DrawableNode::ON_RENDERING) {
+    // Setup viewport world uniform
     transient_params.world_binding = agent_->world_uniform.RawDblPtr();
 
-    // Set new viewport
+    // Setup current viewport scissor
     screen()->PostTask(
         base::BindOnce(&GPUResetViewportRegion, params->device, viewport_rect));
-  }
 
-  // Notify children drawable node
-  controller_.BroadCastNotification(stage, &transient_params);
+    // Notify children for executing rendering commands
+    controller_.BroadCastNotification(DrawableNode::ON_RENDERING,
+                                      &transient_params);
 
-  // Restore last viewport settings and apply effect
-  if (stage == DrawableNode::RenderStage::ON_RENDERING) {
+    // Restore scissor and apply viewport effect
     base::Vec4 composite_color = color_->AsNormColor();
     base::Vec4 flash_color = flash_emitter_.GetColor();
     base::Vec4 target_color = composite_color;
@@ -590,10 +574,10 @@ void ViewportImpl::DrawableNodeHandlerInternal(
       target_color =
           (flash_color.w > composite_color.w ? flash_color : composite_color);
 
-    screen()->PostTask(base::BindOnce(
-        &GPUViewportProcessAfterRender, params->device, params->root_world,
-        params->viewport, params->screen_buffer, agent_, viewport_rect,
-        target_color, tone_->AsNormColor()));
+    screen()->PostTask(
+        base::BindOnce(&GPUViewportProcessAfterRender, params->device,
+                       params->root_world, params->screen_buffer, agent_,
+                       viewport_rect, target_color, tone_->AsNormColor()));
   }
 }
 

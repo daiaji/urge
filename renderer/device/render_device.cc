@@ -211,13 +211,17 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
       QuadIndexCache::Make(device);
   quad_index_cache->Allocate(1 << 10);
 
+  // Initialize scissor stack
+  std::unique_ptr<ScissorController> scissor =
+      ScissorController::Create(context);
+
   // Wait for creating
   context->WaitForIdle();
 
   // Create new instance
   return std::unique_ptr<RenderDevice>(new RenderDevice(
       window_target, device, context, swapchain, std::move(pipelines_set),
-      std::move(quad_index_cache), glcontext));
+      std::move(quad_index_cache), std::move(scissor), glcontext));
 }
 
 RenderDevice::RenderDevice(
@@ -227,6 +231,7 @@ RenderDevice::RenderDevice(
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain,
     std::unique_ptr<PipelineSet> pipelines,
     std::unique_ptr<QuadIndexCache> quad_index,
+    std::unique_ptr<ScissorController> scissor,
     SDL_GLContext gl_context)
     : window_(std::move(window)),
       device_(device),
@@ -234,6 +239,7 @@ RenderDevice::RenderDevice(
       swapchain_(swapchain),
       pipelines_(std::move(pipelines)),
       quad_index_(std::move(quad_index)),
+      scissor_(std::move(scissor)),
       gl_context_(gl_context) {}
 
 RenderDevice::~RenderDevice() {

@@ -363,15 +363,7 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
     if (!interact_region.width || !interact_region.height)
       return;
 
-    {
-      Diligent::Rect render_scissor;
-      render_scissor.left = interact_region.x;
-      render_scissor.top = interact_region.y;
-      render_scissor.right = interact_region.x + interact_region.width;
-      render_scissor.bottom = interact_region.y + interact_region.height;
-      context->SetScissorRects(1, &render_scissor, 1,
-                               render_scissor.bottom + render_scissor.top);
-    }
+    device->Scissor()->Push(interact_region);
 
     // Setup uniform params
     agent->shader_binding->u_transform->Set(*world_binding);
@@ -398,15 +390,7 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
     draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
     context->DrawIndexed(draw_indexed_attribs);
 
-    {
-      Diligent::Rect render_scissor;
-      render_scissor.left = last_viewport.x;
-      render_scissor.top = last_viewport.y;
-      render_scissor.right = last_viewport.x + last_viewport.width;
-      render_scissor.bottom = last_viewport.y + last_viewport.height;
-      context->SetScissorRects(1, &render_scissor, 1,
-                               render_scissor.bottom + render_scissor.top);
-    }
+    device->Scissor()->Pop();
   }
 }
 

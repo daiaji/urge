@@ -30,6 +30,7 @@ struct RenderGraphicsAgent {
   RRefPtr<Diligent::ITexture> screen_buffer;
   RRefPtr<Diligent::ITexture> frozen_buffer;
   RRefPtr<Diligent::ITexture> transition_buffer;
+  RRefPtr<Diligent::IBuffer> root_transform;
   RRefPtr<Diligent::IBuffer> world_transform;
 
   std::unique_ptr<renderer::QuadBatch> effect_quads;
