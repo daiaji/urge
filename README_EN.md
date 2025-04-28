@@ -42,7 +42,7 @@
    ```
 4. Execute the compilation:
    ```
-   cmake --build out --target console_engine
+   cmake --build out --target urge_engine
    ```
 
 ## Third-Party Libraries

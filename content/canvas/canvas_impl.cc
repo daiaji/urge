@@ -407,6 +407,9 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
 
   ResetEffectLayerIfNeed(scheduler->GetDevice(), agent);
 
+  context->SetRenderTargets(
+      0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
   Diligent::CopyTextureAttribs copy_texture_attribs(
       agent->data, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
       agent->effect_layer, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
