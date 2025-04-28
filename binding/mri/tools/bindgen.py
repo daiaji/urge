@@ -218,8 +218,16 @@ class MriBindGen:
           elif a_type.startswith("const std::vector") or a_type.startswith("std::vector"):
             parse_template += "o"
             call_parameters += a_name + "_list"
-            match = re.search(r'std::vector<([^>]+)>', a_type)
+            match = re.search(r'std::vector<(.*?)>(?![^<>]*>)', a_type)
             vector_type = match.group(1)
+
+            scoped_refptr_object = ""
+            match = re.search(r'scoped_refptr<(\w+)>', vector_type)
+            if match:
+              scoped_refptr_object = match.group(1)
+
+            if vector_type.startswith("scoped_refptr"):
+              vector_type = "scoped_refptr"
 
             conv_func = {
               "int32_t": "NUM2INT",
@@ -227,6 +235,7 @@ class MriBindGen:
               "float": "RFLOAT_VALUE",
               "bool": "MRI_FROM_BOOL",
               "std::string": "MRI_FROM_STRING",
+              "scoped_refptr": "MriObjectFromValue<content::{}, k{}DataType>".format(scoped_refptr_object, scoped_refptr_object),
             }
 
             object_convertion += """
@@ -303,8 +312,16 @@ for (int i = 0; i < RARRAY_LEN({}); ++i)
           elif return_type.startswith("std::string"):
             func_body += "return rb_utf8_str_new(result_value.c_str(), result_value.size());\n"
           elif return_type.startswith("std::vector"):
-            match = re.search(r'std::vector<([^>]+)>', return_type)
+            match = re.search(r'std::vector<(.*?)>(?![^<>]*>)', return_type)
             vector_type = match.group(1)
+
+            scoped_refptr_object = ""
+            match = re.search(r'scoped_refptr<(\w+)>', vector_type)
+            if match:
+              scoped_refptr_object = match.group(1)
+
+            if vector_type.startswith("scoped_refptr"):
+              vector_type = "scoped_refptr"
 
             conv_func = {
               "int32_t": "INT2NUM",
@@ -312,6 +329,7 @@ for (int i = 0; i < RARRAY_LEN({}); ++i)
               "float": "rb_float_new",
               "bool": "MRI_BOOL_VALUE",
               "std::string": "MRI_STRING_VALUE",
+              "scoped_refptr": "MriValueToObject<content::{}, k{}DataType>".format(scoped_refptr_object, scoped_refptr_object),
             }
 
             func_body += """
