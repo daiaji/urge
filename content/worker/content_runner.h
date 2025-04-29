@@ -97,6 +97,7 @@ class ContentRunner {
 
   std::unique_ptr<Diligent::ImGuiDiligentRenderer> imgui_;
 
+  bool handle_event_;
   bool disable_gui_input_;
   bool show_settings_menu_;
   bool show_fps_monitor_;

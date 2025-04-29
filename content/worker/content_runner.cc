@@ -49,6 +49,7 @@ ContentRunner::ContentRunner(ContentProfile* profile,
       binding_(std::move(binding)),
       binding_quit_flag_(0),
       binding_reset_flag_(0),
+      handle_event_(true),
       disable_gui_input_(false),
       show_settings_menu_(false),
       show_fps_monitor_(false),
@@ -124,35 +125,28 @@ void ContentRunner::TickHandlerInternal() {
   // Poll event queue
   SDL_Event queued_event;
   while (SDL_PollEvent(&queued_event)) {
-    bool handled_event = false;
-
     // Quit event
-    if (queued_event.type == SDL_EVENT_QUIT) {
+    if (queued_event.type == SDL_EVENT_QUIT)
       binding_quit_flag_.store(1);
-      handled_event = true;
-    }
 
     // GUI event process
     if (!disable_gui_input_)
-      handled_event = ImGui_ImplSDL3_ProcessEvent(&queued_event);
+      ImGui_ImplSDL3_ProcessEvent(&queued_event);
 
     // Shortcut
     if (queued_event.type == SDL_EVENT_KEY_UP &&
         queued_event.key.windowID == window_->GetWindowID()) {
       if (queued_event.key.scancode == SDL_SCANCODE_F1) {
         show_settings_menu_ = !show_settings_menu_;
-        handled_event = true;
       } else if (queued_event.key.scancode == SDL_SCANCODE_F2) {
         show_fps_monitor_ = !show_fps_monitor_;
-        handled_event = true;
       } else if (queued_event.key.scancode == SDL_SCANCODE_F12) {
         binding_reset_flag_.store(1);
-        handled_event = true;
       }
     }
 
     // Widget event
-    if (!handled_event)
+    if (handle_event_)
       window_->DispatchEvent(&queued_event);
   }
 
@@ -198,6 +192,7 @@ void ContentRunner::UpdateDisplayFPSInternal() {
 
 void ContentRunner::RenderGUIInternal() {
   // Setup renderer new frame
+  handle_event_ = true;
   const Diligent::SwapChainDesc& swapchain_desc =
       graphics_impl_->GetDevice()->GetSwapchain()->GetDesc();
   imgui_->NewFrame(swapchain_desc.Width, swapchain_desc.Height,
@@ -227,6 +222,8 @@ void ContentRunner::RenderSettingsGUIInternal() {
 
   if (ImGui::Begin(i18n_profile_->GetI18NString(IDS_MENU_SETTINGS, "Settings")
                        .c_str())) {
+    handle_event_ = !ImGui::IsWindowFocused();
+
     // Button settings
     disable_gui_input_ = keyboard_impl_->CreateButtonGUISettings();
 
