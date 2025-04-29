@@ -851,6 +851,42 @@ void RenderScreenImpl::Put_Brightness(const uint32_t& value,
   brightness_ = std::clamp<uint32_t>(value, 0, 255);
 }
 
+bool RenderScreenImpl::Get_Fullscreen(ExceptionState& exception_state) {
+  return window_->IsFullscreen();
+}
+
+void RenderScreenImpl::Put_Fullscreen(const bool& value,
+                                      ExceptionState& exception_state) {
+  window_->SetFullscreen(value);
+}
+
+bool RenderScreenImpl::Get_Skipframe(ExceptionState& exception_state) {
+  return allow_skip_frame_;
+}
+
+void RenderScreenImpl::Put_Skipframe(const bool& value,
+                                     ExceptionState& exception_state) {
+  allow_skip_frame_ = value;
+}
+
+bool RenderScreenImpl::Get_KeepRatio(ExceptionState& exception_state) {
+  return keep_ratio_;
+}
+
+void RenderScreenImpl::Put_KeepRatio(const bool& value,
+                                     ExceptionState& exception_state) {
+  keep_ratio_ = value;
+}
+
+bool RenderScreenImpl::Get_SmoothScale(ExceptionState& exception_state) {
+  return smooth_scale_;
+}
+
+void RenderScreenImpl::Put_SmoothScale(const bool& value,
+                                       ExceptionState& exception_state) {
+  smooth_scale_ = value;
+}
+
 int32_t RenderScreenImpl::Get_Ox(ExceptionState& exception_state) {
   return origin_.x;
 }

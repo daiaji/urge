@@ -40,8 +40,6 @@ class KeyboardControllerImpl : public Input {
   KeyboardControllerImpl& operator=(const KeyboardControllerImpl&) = delete;
 
   void ApplyKeySymBinding(const KeySymMap& keysyms);
-  inline void SetUpdateEnable(bool enable) { enable_update_ = enable; }
-
   bool CreateButtonGUISettings();
 
  public:
@@ -87,7 +85,6 @@ class KeyboardControllerImpl : public Input {
   KeySymMap key_bindings_;
   KeySymMap setting_bindings_;
   bool disable_gui_key_input_;
-  bool enable_update_;
 
   std::array<KeyState, SDL_SCANCODE_COUNT> key_states_;
   std::array<KeyState, SDL_SCANCODE_COUNT> recent_key_states_;

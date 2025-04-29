@@ -22,7 +22,7 @@ class URGE_RUNTIME_API MouseEvent : public base::RefCounted<MouseEvent> {
   /*--urge(name:update)--*/
   static std::vector<scoped_refptr<MouseEvent>> Update(
       ExecutionContext* execution_context,
-      ExceptionState& exception_state) = 0;
+      ExceptionState& exception_state);
 
   /*--urge(name:type)--*/
   virtual int32_t GetType(ExceptionState& exception_state) = 0;
@@ -55,13 +55,13 @@ class URGE_RUNTIME_API MouseEvent : public base::RefCounted<MouseEvent> {
   virtual int32_t GetMotionY(ExceptionState& exception_state) = 0;
 
   /*--urge(name:wheel)--*/
-  virtual int32_t GetMotion(ExceptionState& exception_state) = 0;
+  virtual int32_t GetWheel(ExceptionState& exception_state) = 0;
 
   /*--urge(name:wheel_x)--*/
-  virtual int32_t GetMotionX(ExceptionState& exception_state) = 0;
+  virtual int32_t GetWheelX(ExceptionState& exception_state) = 0;
 
   /*--urge(name:wheel_y)--*/
-  virtual int32_t GetMotionY(ExceptionState& exception_state) = 0;
+  virtual int32_t GetWheelY(ExceptionState& exception_state) = 0;
 };
 
 }  // namespace content

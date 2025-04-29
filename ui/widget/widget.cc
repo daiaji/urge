@@ -19,8 +19,10 @@ Widget* Widget::FromWindowID(SDL_WindowID window_id) {
       SDL_GetWindowProperties(sdl_window), kNativeWidgetKey, nullptr));
 }
 
-Widget::Widget() : window_(nullptr), window_id_(SDL_WindowID()) {
-  SDL_AddEventWatch(&Widget::UIEventDispatcher, this);
+Widget::Widget(bool disable_dispatcher)
+    : window_(nullptr), window_id_(SDL_WindowID()) {
+  if (!disable_dispatcher)
+    SDL_AddEventWatch(&Widget::UIEventDispatcher, this);
 }
 
 Widget::~Widget() {
@@ -158,6 +160,10 @@ std::string Widget::FetchInputText() {
   return output;
 }
 
+bool Widget::DispatchEvent(SDL_Event* event) {
+  return UIEventDispatcher(this, event);
+}
+
 bool Widget::UIEventDispatcher(void* userdata, SDL_Event* event) {
   Widget* self = static_cast<Widget*>(userdata);
 
@@ -218,41 +224,6 @@ bool Widget::UIEventDispatcher(void* userdata, SDL_Event* event) {
         int flip = (event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -1 : 1);
         self->mouse_state_.scroll_x += event->wheel.x * flip;
         self->mouse_state_.scroll_y += event->wheel.y * flip;
-      }
-    } break;
-    case SDL_EVENT_FINGER_DOWN: {
-      if (event->tfinger.windowID == self->window_id_) {
-        int i = event->tfinger.fingerID;
-        if (i < MAX_FINGERS)
-          self->finger_states_[i].down = true;
-      }
-    }
-      [[fallthrough]];
-    case SDL_EVENT_FINGER_MOTION: {
-      if (event->tfinger.windowID == self->window_id_) {
-        int w, h;
-        SDL_GetWindowSize(self->window_, &w, &h);
-        int i = event->tfinger.fingerID;
-        if (i < MAX_FINGERS) {
-          float scale_x =
-              self->mouse_state_.resolution.x / self->mouse_state_.screen.x;
-          float scale_y =
-              self->mouse_state_.resolution.y / self->mouse_state_.screen.y;
-          float origin_x =
-              event->tfinger.x * w - self->mouse_state_.screen_offset.x;
-          float origin_y =
-              event->tfinger.y * h - self->mouse_state_.screen_offset.y;
-
-          self->finger_states_[i].x = origin_x * scale_x;
-          self->finger_states_[i].y = origin_y * scale_y;
-        }
-      }
-    } break;
-    case SDL_EVENT_FINGER_UP: {
-      if (event->tfinger.windowID == self->window_id_) {
-        int i = event->tfinger.fingerID;
-        if (i < MAX_FINGERS)
-          memset(&self->finger_states_[i], 0, sizeof(finger_states_[0]));
       }
     } break;
     case SDL_EVENT_WINDOW_MOUSE_ENTER: {

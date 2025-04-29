@@ -29,8 +29,6 @@ class MouseImpl : public Mouse {
   MouseImpl(const MouseImpl&) = delete;
   MouseImpl& operator=(const MouseImpl&) = delete;
 
-  void SetUpdateEnable(bool enable) { enable_update_ = enable; }
-
   void Update(ExceptionState& exception_state) override;
 
   int32_t GetX(ExceptionState& exception_state) override;
@@ -72,7 +70,6 @@ class MouseImpl : public Mouse {
   } entity_state_;
 
   base::WeakPtr<ui::Widget> window_;
-  bool enable_update_;
 
   std::array<BindingState, sizeof(ui::Widget::MouseState::states)> states_;
 };

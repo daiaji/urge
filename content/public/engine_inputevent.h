@@ -22,7 +22,7 @@ class URGE_RUNTIME_API InputEvent : public base::RefCounted<InputEvent> {
   /*--urge(name:update)--*/
   static std::vector<scoped_refptr<InputEvent>> Update(
       ExecutionContext* execution_context,
-      ExceptionState& exception_state) = 0;
+      ExceptionState& exception_state);
 
   /*--urge(name:keyboard_id)--*/
   virtual int32_t GetKeyboardID(ExceptionState& exception_state) = 0;

@@ -149,7 +149,7 @@ int main(int argc, char* argv[]) {
 #if defined(OS_WIN)
   if (profile->disable_ime) {
     LOG(INFO) << "[Windows] Disable process IME.";
-    ::ImmDisableIME(-1);
+    ::ImmDisableIME(TRUE);
   }
 #endif
 
@@ -174,7 +174,7 @@ int main(int argc, char* argv[]) {
 
     {
       // Initialize engine main widget
-      std::unique_ptr<ui::Widget> widget(new ui::Widget);
+      std::unique_ptr<ui::Widget> widget(new ui::Widget(true));
       ui::Widget::InitParams widget_params;
 #if defined(OS_LINUX)
       widget_params.opengl = profile->driver_backend == "OPENGL";

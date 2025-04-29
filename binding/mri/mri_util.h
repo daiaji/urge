@@ -197,18 +197,6 @@ MRI_METHOD(MriReturnInt) {
 #define MRI_BOOL_VALUE(v) ((v) ? Qtrue : Qfalse)
 #define MRI_STRING_VALUE(v) rb_utf8_str_new(v.c_str(), v.size())
 
-template <typename Ty, const rb_data_type_t& type>
-Ty* MriObjectFromValue(VALUE obj) {
-  if (obj == Qnil)
-    return nullptr;
-  return static_cast<Ty*>(Check_TypedStruct(obj, &type));
-}
-
-template <typename Ty, const rb_data_type_t& type, VALUE super = rb_cObject>
-VALUE MriValueToObject(scoped_refptr<Ty> ptr) {
-  return MriWrapObject<Ty>(ptr, type, super);
-}
-
 ///
 /// Method Define Template
 ///

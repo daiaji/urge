@@ -8,15 +8,11 @@
 
 namespace content {
 
-MouseImpl::MouseImpl(base::WeakPtr<ui::Widget> window)
-    : window_(window), enable_update_(true) {}
+MouseImpl::MouseImpl(base::WeakPtr<ui::Widget> window) : window_(window) {}
 
 MouseImpl::~MouseImpl() = default;
 
 void MouseImpl::Update(ExceptionState& exception_state) {
-  if (!enable_update_)
-    return;
-
   auto& mouse_state = window_->GetMouseState();
   for (size_t i = 0; i < states_.size(); ++i) {
     bool press_state = mouse_state.states[i];

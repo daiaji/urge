@@ -229,13 +229,15 @@ class MriBindGen:
             if vector_type.startswith("scoped_refptr"):
               vector_type = "scoped_refptr"
 
+            it_suffix = "rb_ary_entry({}, i)".format(a_name)
+
             conv_func = {
-              "int32_t": "NUM2INT",
-              "uint32_t": "NUM2INT",
-              "float": "RFLOAT_VALUE",
-              "bool": "MRI_FROM_BOOL",
-              "std::string": "MRI_FROM_STRING",
-              "scoped_refptr": "MriObjectFromValue<content::{}, k{}DataType>".format(scoped_refptr_object, scoped_refptr_object),
+              "int32_t": "NUM2INT({})".format(it_suffix),
+              "uint32_t": "NUM2INT({})".format(it_suffix),
+              "float": "RFLOAT_VALUE({})".format(it_suffix),
+              "bool": "MRI_FROM_BOOL({})".format(it_suffix),
+              "std::string": "MRI_FROM_STRING({})".format(it_suffix),
+              "scoped_refptr": "MriCheckStructData<content::{}>({}, k{}DataType)".format(scoped_refptr_object, it_suffix, scoped_refptr_object),
             }
 
             object_convertion += """
@@ -243,8 +245,8 @@ std::vector<{}> {}_list;
 if (rb_type({}) != RUBY_T_ARRAY)
   rb_raise(rb_eArgError, "Argument {}: Expected array");
 for (int i = 0; i < RARRAY_LEN({}); ++i)
-  {}_list.push_back({}(rb_ary_entry({}, i)));
-            """.format(vector_type, a_name, a_name, a_name, a_name, a_name, conv_func[vector_type], a_name)
+  {}_list.push_back({});
+            """.format(vector_type, a_name, a_name, a_name, a_name, a_name, conv_func[vector_type])
             a_type = "VALUE"
           else:
             parse_template += "i"
@@ -276,6 +278,10 @@ for (int i = 0; i < RARRAY_LEN({}); ++i)
         if return_type != "void":
           if return_type.startswith("scoped_refptr"):
             caller_prefix += "scoped_refptr result_value = "
+          elif return_type.startswith("std::vector<scoped_refptr<"):
+            tmp = return_type.replace("std::vector<scoped_refptr<", "")
+            tmp = tmp.replace(">>", "")
+            caller_prefix += "std::vector<scoped_refptr<content::{}>> result_value = ".format(tmp)
           else:
             caller_prefix += return_type + " result_value = "
 
@@ -324,18 +330,18 @@ for (int i = 0; i < RARRAY_LEN({}); ++i)
               vector_type = "scoped_refptr"
 
             conv_func = {
-              "int32_t": "INT2NUM",
-              "uint32_t": "INT2NUM",
-              "float": "rb_float_new",
-              "bool": "MRI_BOOL_VALUE",
-              "std::string": "MRI_STRING_VALUE",
-              "scoped_refptr": "MriValueToObject<content::{}, k{}DataType>".format(scoped_refptr_object, scoped_refptr_object),
+              "int32_t": "INT2NUM(it)",
+              "uint32_t": "INT2NUM(it)",
+              "float": "rb_float_new(it)",
+              "bool": "MRI_BOOL_VALUE(it)",
+              "std::string": "MRI_STRING_VALUE(it)",
+              "scoped_refptr": "MriWrapObject<content::{}>(it, k{}DataType)".format(scoped_refptr_object, scoped_refptr_object),
             }
 
             func_body += """
 VALUE ary = rb_ary_new();
 for (auto& it : result_value)
-  rb_ary_push(ary, {}(it));
+  rb_ary_push(ary, {});
 return ary;
             """.format(conv_func[vector_type])
           else:

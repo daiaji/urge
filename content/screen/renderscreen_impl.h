@@ -142,6 +142,10 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(FrameRate, uint32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(FrameCount, uint32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Brightness, uint32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Fullscreen, bool);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Skipframe, bool);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(KeepRatio, bool);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(SmoothScale, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Ox, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Oy, int32_t);
 

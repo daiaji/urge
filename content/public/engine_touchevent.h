@@ -22,7 +22,7 @@ class URGE_RUNTIME_API TouchEvent : public base::RefCounted<TouchEvent> {
   /*--urge(name:update)--*/
   static std::vector<scoped_refptr<TouchEvent>> Update(
       ExecutionContext* execution_context,
-      ExceptionState& exception_state) = 0;
+      ExceptionState& exception_state);
 
   /*--urge(name:device_id)--*/
   virtual int32_t GetDeviceID(ExceptionState& exception_state) = 0;

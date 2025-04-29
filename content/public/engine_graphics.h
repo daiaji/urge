@@ -94,6 +94,18 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
   /*--urge(name:brightness)--*/
   URGE_EXPORT_ATTRIBUTE(Brightness, uint32_t);
 
+  /*--urge(name:fullscreen)--*/
+  URGE_EXPORT_ATTRIBUTE(Fullscreen, bool);
+
+  /*--urge(name:skip_frame)--*/
+  URGE_EXPORT_ATTRIBUTE(Skipframe, bool);
+
+  /*--urge(name:keep_ratio)--*/
+  URGE_EXPORT_ATTRIBUTE(KeepRatio, bool);
+
+  /*--urge(name:smooth_scale)--*/
+  URGE_EXPORT_ATTRIBUTE(SmoothScale, bool);
+
   /*--urge(name:ox)--*/
   URGE_EXPORT_ATTRIBUTE(Ox, int32_t);
 

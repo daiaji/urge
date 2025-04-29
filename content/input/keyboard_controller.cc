@@ -77,8 +77,7 @@ KeyboardControllerImpl::KeyboardControllerImpl(base::WeakPtr<ui::Widget> window,
     : window_(window),
       profile_(profile),
       i18n_profile_(i18n_profile),
-      disable_gui_key_input_(false),
-      enable_update_(true) {
+      disable_gui_key_input_(false) {
   memset(key_states_.data(), 0, key_states_.size() * sizeof(KeyState));
   memset(recent_key_states_.data(), 0,
          recent_key_states_.size() * sizeof(KeyState));
@@ -239,9 +238,6 @@ bool KeyboardControllerImpl::CreateButtonGUISettings() {
 }
 
 void KeyboardControllerImpl::Update(ExceptionState& exception_state) {
-  if (!enable_update_)
-    return;
-
   for (int32_t i = 0; i < SDL_SCANCODE_COUNT; ++i) {
     bool key_pressed = window_->GetKeyState(static_cast<SDL_Scancode>(i));
 

@@ -124,30 +124,37 @@ void ContentRunner::TickHandlerInternal() {
   // Poll event queue
   SDL_Event queued_event;
   while (SDL_PollEvent(&queued_event)) {
+    bool handled_event = false;
+
     // Quit event
-    if (queued_event.type == SDL_EVENT_QUIT)
+    if (queued_event.type == SDL_EVENT_QUIT) {
       binding_quit_flag_.store(1);
+      handled_event = true;
+    }
 
     // GUI event process
     if (!disable_gui_input_)
-      ImGui_ImplSDL3_ProcessEvent(&queued_event);
+      handled_event = ImGui_ImplSDL3_ProcessEvent(&queued_event);
 
     // Shortcut
     if (queued_event.type == SDL_EVENT_KEY_UP &&
         queued_event.key.windowID == window_->GetWindowID()) {
       if (queued_event.key.scancode == SDL_SCANCODE_F1) {
         show_settings_menu_ = !show_settings_menu_;
+        handled_event = true;
       } else if (queued_event.key.scancode == SDL_SCANCODE_F2) {
         show_fps_monitor_ = !show_fps_monitor_;
+        handled_event = true;
       } else if (queued_event.key.scancode == SDL_SCANCODE_F12) {
         binding_reset_flag_.store(1);
+        handled_event = true;
       }
     }
-  }
 
-  // Reset input state
-  keyboard_impl_->SetUpdateEnable(true);
-  mouse_impl_->SetUpdateEnable(true);
+    // Widget event
+    if (!handled_event)
+      window_->DispatchEvent(&queued_event);
+  }
 
   // Update fps
   UpdateDisplayFPSInternal();
@@ -220,10 +227,6 @@ void ContentRunner::RenderSettingsGUIInternal() {
 
   if (ImGui::Begin(i18n_profile_->GetI18NString(IDS_MENU_SETTINGS, "Settings")
                        .c_str())) {
-    // Reset input state
-    keyboard_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
-    mouse_impl_->SetUpdateEnable(!ImGui::IsWindowFocused());
-
     // Button settings
     disable_gui_input_ = keyboard_impl_->CreateButtonGUISettings();
 

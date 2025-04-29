@@ -110,7 +110,7 @@ class Widget {
     WindowPlacement window_state = WindowPlacement::Show;
   };
 
-  Widget();
+  Widget(bool disable_dispatcher);
   virtual ~Widget();
 
   Widget(const Widget&) = delete;
@@ -136,11 +136,10 @@ class Widget {
   bool GetKeyState(::SDL_Scancode scancode) const;
   void EmulateKeyState(::SDL_Scancode scancode, bool pressed);
   MouseState& GetMouseState() { return mouse_state_; }
-  inline std::array<FingerState, MAX_FINGERS>& GetTouchState() {
-    return finger_states_;
-  }
 
   std::string FetchInputText();
+
+  bool DispatchEvent(SDL_Event* event);
 
  private:
   static bool SDLCALL UIEventDispatcher(void* userdata, SDL_Event* event);
@@ -151,7 +150,6 @@ class Widget {
 
   bool key_states_[SDL_SCANCODE_COUNT]{0};
   MouseState mouse_state_;
-  std::array<FingerState, MAX_FINGERS> finger_states_;
 
   std::mutex text_lock_;
   std::string text_buffer_;
