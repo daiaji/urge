@@ -5,6 +5,8 @@ cmake_minimum_required(VERSION 3.20.1)
 # components source
 #--------------------------------------------------------------------------------
 
+file(GLOB RUNTIMEAPI_HEADERS "${PROJECT_SOURCE_DIR}/content/public/*.h")
+
 set(ENGINE_CONTENT_SRC
   canvas/canvas_impl.cc
   canvas/canvas_impl.h
@@ -37,8 +39,14 @@ set(ENGINE_CONTENT_SRC
   context/execution_context.h
   input/keyboard_controller.cc
   input/keyboard_controller.h
+  input/key_event.cc
+  input/key_event.h
   input/mouse_controller.cc
   input/mouse_controller.h
+  input/mouse_event.cc
+  input/mouse_event.h
+  input/touch_event.cc
+  input/touch_event.h
   media/audio_impl.cc
   media/audio_impl.h
   profile/command_ids.h
@@ -46,24 +54,6 @@ set(ENGINE_CONTENT_SRC
   profile/content_profile.h
   profile/i18n_profile.cc
   profile/i18n_profile.h
-  public/engine_audio.h
-  public/engine_bitmap.h
-  public/engine_color.h
-  public/engine_font.h
-  public/engine_graphics.h
-  public/engine_input.h
-  public/engine_plane.h
-  public/engine_rect.h
-  public/engine_sprite.h
-  public/engine_table.h
-  public/engine_tilemap.h
-  public/engine_tilemapautotile.h
-  public/engine_tilemapbitmap.h
-  public/engine_tilemap2.h
-  public/engine_tone.h
-  public/engine_viewport.h
-  public/engine_window.h
-  public/engine_window2.h
   render/drawable_controller.cc
   render/drawable_controller.h
   render/plane_impl.cc
@@ -86,7 +76,11 @@ set(ENGINE_CONTENT_SRC
   worker/content_runner.h
   worker/engine_binding.cc
   worker/engine_binding.h
+  worker/event_controller.cc
+  worker/event_controller.h
   content_config.h
+
+  ${RUNTIMEAPI_HEADERS}
 )
 
 #--------------------------------------------------------------------------------

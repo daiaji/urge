@@ -24,6 +24,9 @@ class URGE_RUNTIME_API TouchEvent : public base::RefCounted<TouchEvent> {
       ExecutionContext* execution_context,
       ExceptionState& exception_state);
 
+  /*--urge(name:type)--*/
+  virtual int32_t GetType(ExceptionState& exception_state) = 0;
+
   /*--urge(name:device_id)--*/
   virtual int32_t GetDeviceID(ExceptionState& exception_state) = 0;
 

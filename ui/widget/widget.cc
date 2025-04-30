@@ -201,15 +201,11 @@ bool Widget::UIEventDispatcher(void* userdata, SDL_Event* event) {
     } break;
     case SDL_EVENT_MOUSE_MOTION: {
       if (event->motion.windowID == self->window_id_) {
-        float scale_x =
-            self->mouse_state_.resolution.x / self->mouse_state_.screen.x;
-        float scale_y =
-            self->mouse_state_.resolution.y / self->mouse_state_.screen.y;
-        float origin_x = event->motion.x - self->mouse_state_.screen_offset.x;
-        float origin_y = event->motion.y - self->mouse_state_.screen_offset.y;
+        float origin_x = event->motion.x - self->display_state_.viewport.x;
+        float origin_y = event->motion.y - self->display_state_.viewport.y;
 
-        self->mouse_state_.x = origin_x * scale_x;
-        self->mouse_state_.y = origin_y * scale_y;
+        self->mouse_state_.x = origin_x / self->display_state_.scale.x;
+        self->mouse_state_.y = origin_y / self->display_state_.scale.y;
 
         if (self->mouse_state_.in_window && self->mouse_state_.focused) {
           if (self->mouse_state_.visible)

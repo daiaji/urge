@@ -18,6 +18,7 @@
 #include "content/profile/i18n_profile.h"
 #include "content/screen/renderscreen_impl.h"
 #include "content/worker/engine_binding.h"
+#include "content/worker/event_controller.h"
 #include "ui/widget/widget.h"
 
 namespace content {
@@ -95,6 +96,7 @@ class ContentRunner {
   std::atomic<int32_t> binding_quit_flag_;
   std::atomic<int32_t> binding_reset_flag_;
 
+  std::unique_ptr<EventController> event_controller_;
   std::unique_ptr<Diligent::ImGuiDiligentRenderer> imgui_;
 
   bool handle_event_;

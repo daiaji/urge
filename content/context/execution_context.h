@@ -10,12 +10,13 @@
 namespace content {
 
 struct ScopedFontData;
+class EventController;
 class CanvasScheduler;
 class RenderScreenImpl;
-class KeyboardControllerImpl;
 
 struct ExecutionContext {
   ScopedFontData* font_context = nullptr;
+  EventController* event_controller = nullptr;
   CanvasScheduler* canvas_scheduler = nullptr;
   RenderScreenImpl* graphics = nullptr;
 

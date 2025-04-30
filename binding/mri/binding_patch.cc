@@ -27,16 +27,13 @@ const BindingSet kKeyboardBindings[] = {
     {"F5", 25},    {"F6", 26},   {"F7", 27},   {"F8", 28}, {"F9", 29},
 };
 
-const int kKeyboardBindingsSize =
-    sizeof(kKeyboardBindings) / sizeof(kKeyboardBindings[0]);
-
 std::string GetButtonSymbol(int argc, VALUE* argv) {
   MriCheckArgc(argc, 1);
 
   std::string sym;
   if (FIXNUM_P(*argv)) {
     int key_id = FIX2INT(*argv);
-    for (int i = 0; i < kKeyboardBindingsSize; ++i)
+    for (int i = 0; i < std::size(kKeyboardBindings); ++i)
       if (kKeyboardBindings[i].key_id == key_id)
         return kKeyboardBindings[i].name;
   } else if (SYMBOL_P(*argv)) {
@@ -82,7 +79,7 @@ void ApplyInputPatch() {
   MriDefineModuleFunction(klass, "trigger?", input_is_triggered);
   MriDefineModuleFunction(klass, "repeat?", input_is_repeated);
 
-  for (int i = 0; i < kKeyboardBindingsSize; ++i) {
+  for (int i = 0; i < std::size(kKeyboardBindings); ++i) {
     auto& binding_set = kKeyboardBindings[i];
     ID key = rb_intern(binding_set.name.c_str());
     rb_const_set(klass, key, INT2FIX(binding_set.key_id));

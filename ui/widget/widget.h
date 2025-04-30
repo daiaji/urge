@@ -16,7 +16,7 @@
 #include <string>
 
 #include "base/bind/callback_list.h"
-#include "base/math/vector.h"
+#include "base/math/rectangle.h"
 #include "base/memory/weak_ptr.h"
 
 union SDL_Event;
@@ -37,10 +37,6 @@ class Widget {
     bool states[MOUSE_BUTTON_COUNT];
     uint8_t clicks[MOUSE_BUTTON_COUNT];
     bool visible;
-
-    base::Vec2i screen_offset;
-    base::Vec2 screen, resolution;
-
     bool in_window;
     bool focused;
 
@@ -52,16 +48,13 @@ class Widget {
           states{0},
           clicks{0},
           visible(true),
-          screen_offset(0),
-          screen(0),
-          resolution(0),
           in_window(false),
           focused(false) {}
   };
 
-  struct FingerState {
-    bool down;
-    int x, y;
+  struct DisplayState {
+    base::Vec2 scale;
+    base::Rect viewport;
   };
 
   enum class WindowPlacement {
@@ -133,6 +126,7 @@ class Widget {
   static Widget* FromWindowID(SDL_WindowID window_id);
   SDL_WindowID GetWindowID() const { return window_id_; }
 
+  DisplayState& GetDisplayState() { return display_state_; }
   bool GetKeyState(::SDL_Scancode scancode) const;
   void EmulateKeyState(::SDL_Scancode scancode, bool pressed);
   MouseState& GetMouseState() { return mouse_state_; }
@@ -148,6 +142,7 @@ class Widget {
   SDL_WindowID window_id_;
   base::CallbackListSubscription ui_dispatcher_binding_;
 
+  DisplayState display_state_;
   bool key_states_[SDL_SCANCODE_COUNT]{0};
   MouseState mouse_state_;
 

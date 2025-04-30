@@ -14,18 +14,21 @@ namespace content {
 
 // IDL generator format:
 // Inhert: refcounted only.
-/*--urge(name:InputEvent)--*/
-class URGE_RUNTIME_API InputEvent : public base::RefCounted<InputEvent> {
+/*--urge(name:KeyEvent)--*/
+class URGE_RUNTIME_API KeyEvent : public base::RefCounted<KeyEvent> {
  public:
-  virtual ~InputEvent() = default;
+  virtual ~KeyEvent() = default;
 
   /*--urge(name:update)--*/
-  static std::vector<scoped_refptr<InputEvent>> Update(
+  static std::vector<scoped_refptr<KeyEvent>> Update(
       ExecutionContext* execution_context,
       ExceptionState& exception_state);
 
-  /*--urge(name:keyboard_id)--*/
-  virtual int32_t GetKeyboardID(ExceptionState& exception_state) = 0;
+  /*--urge(name:type)--*/
+  virtual int32_t GetType(ExceptionState& exception_state) = 0;
+
+  /*--urge(name:device_id)--*/
+  virtual int32_t GetDeviceID(ExceptionState& exception_state) = 0;
 
   /*--urge(name:scancode)--*/
   virtual int32_t GetScancode(ExceptionState& exception_state) = 0;

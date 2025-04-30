@@ -65,6 +65,9 @@ ContentRunner::ContentRunner(ContentProfile* profile,
   mouse_impl_ = new MouseImpl(window);
   engine_impl_ = new MiscSystem(window);
 
+  // Create event router
+  event_controller_.reset(new EventController(window));
+
   // Create imgui context
   base::ThreadWorker::PostTask(
       render_worker_, base::BindOnce(&ContentRunner::CreateIMGUIContextInternal,
@@ -93,6 +96,7 @@ void ContentRunner::RunMainLoop() {
   // Call binding boot handler before running loop handler
   ExecutionContext execution_context;
   execution_context.font_context = font_context_;
+  execution_context.event_controller = event_controller_.get();
   execution_context.canvas_scheduler = graphics_impl_->GetCanvasScheduler();
   execution_context.graphics = graphics_impl_.get();
 

@@ -55,10 +55,12 @@ int32_t MouseImpl::GetY(ExceptionState& exception_state) {
 void MouseImpl::SetPosition(int32_t x,
                             int32_t y,
                             ExceptionState& exception_state) {
+  auto& display_state = window_->GetDisplayState();
+
   base::Vec2 origin(x, y);
-  auto& mouse_state = window_->GetMouseState();
-  base::Vec2 scale = mouse_state.resolution / mouse_state.screen;
-  base::Vec2 pos = base::Vec2(mouse_state.screen_offset) + origin / scale;
+  base::Vec2 pos = base::Vec2(display_state.viewport.Position()) +
+                   origin / display_state.scale;
+
   SDL_WarpMouseInWindow(window_->AsSDLWindow(), pos.x, pos.y);
 }
 

@@ -147,29 +147,17 @@ void GPUPresentScreenBufferInternal(
     RenderGraphicsAgent* agent,
     const base::Rect& display_viewport,
     const base::Vec2i& resolution,
-    bool keep_ratio,
-    bool smooth,
-    Diligent::ImGuiDiligentRenderer* gui_renderer) {
+    Diligent::ImGuiDiligentRenderer* gui_renderer,
+    bool smooth) {
   // Initial device attribute
   Diligent::IDeviceContext* context = agent->device->GetContext();
   Diligent::ISwapChain* swapchain = agent->device->GetSwapchain();
 
-  // Process mouse coordinate and viewport rect
-  base::Rect target_rect;
-  base::WeakPtr<ui::Widget> window = agent->device->GetWindow();
-  window->GetMouseState().resolution = resolution;
-  if (keep_ratio) {
-    target_rect = display_viewport;
-    window->GetMouseState().screen_offset = display_viewport.Position();
-    window->GetMouseState().screen = display_viewport.Size();
-  } else {
-    target_rect = window->GetSize();
-    window->GetMouseState().screen_offset = base::Vec2i();
-    window->GetMouseState().screen = window->GetSize();
-  }
-
   // Setup render params
   auto* render_target_view = swapchain->GetCurrentBackBufferRTV();
+  base::Vec2i screen_size(swapchain->GetDesc().Width,
+                          swapchain->GetDesc().Height);
+
   auto& pipeline_set = *agent->present_pipeline;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
   std::unique_ptr<renderer::QuadBatch> present_quads =
@@ -182,7 +170,7 @@ void GPUPresentScreenBufferInternal(
   if (agent->present_target) {
     // Update vertex
     renderer::Quad transient_quad;
-    renderer::Quad::SetPositionRect(&transient_quad, target_rect);
+    renderer::Quad::SetPositionRect(&transient_quad, display_viewport);
     renderer::Quad::SetTexCoordRectNorm(
         &transient_quad, agent->device->IsUVFlip() ? base::Rect(0, 1, 1, -1)
                                                    : base::Rect(0, 0, 1, 1));
@@ -190,7 +178,7 @@ void GPUPresentScreenBufferInternal(
 
     // Update window screen transform
     renderer::WorldTransform world_matrix;
-    renderer::MakeProjectionMatrix(world_matrix.projection, window->GetSize());
+    renderer::MakeProjectionMatrix(world_matrix.projection, screen_size);
     renderer::MakeIdentityMatrix(world_matrix.transform,
                                  agent->device->IsUVFlip());
 
@@ -225,7 +213,7 @@ void GPUPresentScreenBufferInternal(
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply present scissor
-  agent->device->Scissor()->Apply(window->GetSize());
+  agent->device->Scissor()->Apply(screen_size);
 
   // Start screen render
   if (agent->present_target) {
@@ -542,7 +530,7 @@ void RenderScreenImpl::PresentScreenBuffer(
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(&GPUPresentScreenBufferInternal, agent_, display_viewport_,
-                     resolution_, keep_ratio_, smooth_scale_, gui_renderer));
+                     resolution_, gui_renderer, smooth_scale_));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
@@ -976,6 +964,7 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
         base::BindOnce(&GPUResizeSwapchainInternal, agent_, window_size_));
   }
 
+  // Update real display viewport
   float window_ratio = static_cast<float>(window_size.x) / window_size.y;
   float screen_ratio = static_cast<float>(resolution_.x) / resolution_.y;
 
@@ -989,6 +978,12 @@ void RenderScreenImpl::UpdateWindowViewportInternal() {
 
   display_viewport_.x = (window_size.x - display_viewport_.width) / 2.0f;
   display_viewport_.y = (window_size.y - display_viewport_.height) / 2.0f;
+
+  // Process mouse coordinate and viewport rect
+  base::WeakPtr<ui::Widget> window = agent_->device->GetWindow();
+  window->GetDisplayState().scale =
+      base::Vec2(display_viewport_.Size()) / base::Vec2(resolution_);
+  window->GetDisplayState().viewport = display_viewport_;
 }
 
 }  // namespace content

@@ -19,7 +19,9 @@
 #include "binding/mri/autogen_font_binding.h"
 #include "binding/mri/autogen_graphics_binding.h"
 #include "binding/mri/autogen_input_binding.h"
+#include "binding/mri/autogen_keyevent_binding.h"
 #include "binding/mri/autogen_mouse_binding.h"
+#include "binding/mri/autogen_mouseevent_binding.h"
 #include "binding/mri/autogen_plane_binding.h"
 #include "binding/mri/autogen_rect_binding.h"
 #include "binding/mri/autogen_sprite_binding.h"
@@ -29,6 +31,7 @@
 #include "binding/mri/autogen_tilemapautotile_binding.h"
 #include "binding/mri/autogen_tilemapbitmap_binding.h"
 #include "binding/mri/autogen_tone_binding.h"
+#include "binding/mri/autogen_touchevent_binding.h"
 #include "binding/mri/autogen_urge_binding.h"
 #include "binding/mri/autogen_viewport_binding.h"
 #include "binding/mri/autogen_window2_binding.h"
@@ -186,7 +189,9 @@ void BindingEngineMri::PreEarlyInitialization(
   InitFontBinding();
   InitGraphicsBinding();
   InitInputBinding();
+  InitKeyEventBinding();
   InitMouseBinding();
+  InitMouseEventBinding();
   InitPlaneBinding();
   InitRectBinding();
   InitSpriteBinding();
@@ -196,6 +201,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitTilemapBitmapBinding();
   InitTilemap2Binding();
   InitToneBinding();
+  InitTouchEventBinding();
   InitViewportBinding();
   InitWindowBinding();
   InitWindow2Binding();
