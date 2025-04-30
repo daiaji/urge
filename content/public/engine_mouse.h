@@ -63,10 +63,7 @@ class URGE_RUNTIME_API Mouse : public base::RefCounted<Mouse> {
                          ExceptionState& exception_state) = 0;
 
   /*--urge(name:visible)--*/
-  virtual bool Get_Visible(ExceptionState& exception_state) = 0;
-  /*--urge(name:visible=)--*/
-  virtual void Put_Visible(const bool& value,
-                           ExceptionState& exception_state) = 0;
+  URGE_EXPORT_ATTRIBUTE(Visible, bool);
 };
 
 }  // namespace content

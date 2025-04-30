@@ -51,8 +51,7 @@ class MouseImpl : public Mouse {
                  int32_t hot_y,
                  ExceptionState& exception_state) override;
 
-  bool Get_Visible(ExceptionState& exception_state) override;
-  void Put_Visible(const bool& value, ExceptionState& exception_state) override;
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Visible, bool);
 
  private:
   struct BindingState {
