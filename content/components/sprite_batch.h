@@ -13,23 +13,6 @@
 
 namespace content {
 
-struct SpriteQuad {
-  renderer::Binding_Sprite::Vertex vertices[4];
-
-  static void SetPositionRect(SpriteQuad* data, const base::RectF& pos);
-  static void SetTexCoordRect(SpriteQuad* data,
-                              const base::RectF& texcoord,
-                              const base::Vec2i& size);
-};
-
-using SpriteQuadBuffer =
-    renderer::BatchBuffer<SpriteQuad,
-                          Diligent::BIND_FLAGS::BIND_SHADER_RESOURCE,
-                          Diligent::BUFFER_MODE::BUFFER_MODE_STRUCTURED,
-                          Diligent::CPU_ACCESS_WRITE,
-                          Diligent::USAGE_DYNAMIC,
-                          4>;
-
 using SpriteBatchBuffer =
     renderer::BatchBuffer<renderer::Binding_Sprite::Params,
                           Diligent::BIND_FLAGS::BIND_SHADER_RESOURCE,
@@ -50,12 +33,11 @@ class SpriteBatch {
 
   renderer::Binding_Sprite* GetShaderBinding() { return binding_.get(); }
   Diligent::IBuffer* GetVertexBuffer() { return **vertex_batch_; }
-  Diligent::IBufferView* GetQuadBinding() { return quad_binding_; }
   Diligent::IBufferView* GetUniformBinding() { return uniform_binding_; }
 
   void BeginBatch(TextureAgent* texture);
 
-  void PushSprite(const SpriteQuad& quad,
+  void PushSprite(const renderer::Quad& quad,
                   const renderer::Binding_Sprite::Params& uniform);
 
   void EndBatch(uint32_t* instance_offset, uint32_t* instance_count);
@@ -66,19 +48,16 @@ class SpriteBatch {
   SpriteBatch(renderer::RenderDevice* device,
               std::unique_ptr<renderer::Binding_Sprite> binding,
               std::unique_ptr<renderer::QuadBatch> vertex_batch,
-              std::unique_ptr<SpriteQuadBuffer> quad_batch,
               std::unique_ptr<SpriteBatchBuffer> uniform_batch);
   renderer::RenderDevice* device_;
   TextureAgent* current_texture_;
   int32_t last_batch_index_;
 
-  std::vector<SpriteQuad> quad_cache_;
+  std::vector<renderer::Quad> quad_cache_;
   std::vector<renderer::Binding_Sprite::Params> uniform_cache_;
 
   std::unique_ptr<renderer::Binding_Sprite> binding_;
   std::unique_ptr<renderer::QuadBatch> vertex_batch_;
-  std::unique_ptr<SpriteQuadBuffer> quad_batch_;
-  RRefPtr<Diligent::IBufferView> quad_binding_;
   std::unique_ptr<SpriteBatchBuffer> uniform_batch_;
   RRefPtr<Diligent::IBufferView> uniform_binding_;
 };

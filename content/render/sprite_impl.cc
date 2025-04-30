@@ -18,19 +18,6 @@ inline float DegreesToRadians(float degrees) {
   return degrees * (kPi / 180.0f);
 }
 
-renderer::Quad SpriteQuadToStandard(SpriteQuad quad) {
-  renderer::Quad standard_quad;
-  for (size_t i = 0; i < std::size(quad.vertices); ++i) {
-    const base::Vec4& pos = quad.vertices[i].position;
-    const base::Vec4& tex = quad.vertices[i].texcoord;
-
-    standard_quad.vertices[i].position = pos;
-    standard_quad.vertices[i].texcoord = base::Vec2(tex.x, tex.y);
-  }
-
-  return standard_quad;
-}
-
 void GPUCreateSpriteInternal(renderer::RenderDevice* device,
                              SpriteAgent* agent) {
   agent->wave_cache.reserve(1 << 3);
@@ -65,7 +52,7 @@ void GPUUpdateWaveSpriteInternal(
   float wave_phase = DegreesToRadians(wave.phase);
 
   agent->wave_cache.resize(block_count);
-  SpriteQuad* quad = agent->wave_cache.data();
+  renderer::Quad* quad = agent->wave_cache.data();
 
   auto emit_wave_block = [&](int32_t block_y, int32_t block_size) {
     float wave_offset =
@@ -81,8 +68,8 @@ void GPUUpdateWaveSpriteInternal(
       tex.width = -tex.width;
     }
 
-    SpriteQuad::SetPositionRect(quad, pos);
-    SpriteQuad::SetTexCoordRect(quad, tex, texture->size);
+    renderer::Quad::SetPositionRect(quad, pos);
+    renderer::Quad::SetTexCoordRect(quad, tex, texture->size);
     ++quad;
   };
 
@@ -120,8 +107,8 @@ void GPUUpdateBatchSpriteInternal(
       texcoord =
           base::Rect(rect.x + rect.width, rect.y, -rect.width, rect.height);
 
-    SpriteQuad::SetPositionRect(&agent->quad, base::Vec2(rect.Size()));
-    SpriteQuad::SetTexCoordRect(&agent->quad, texcoord, texture->size);
+    renderer::Quad::SetPositionRect(&agent->quad, base::Vec2(rect.Size()));
+    renderer::Quad::SetTexCoordRect(&agent->quad, texcoord, texture->size);
   }
 
   if (!agent->single_binding) {
@@ -152,20 +139,14 @@ void GPUUpdateBatchSpriteInternal(
     auto* context = device->GetContext();
 
     if (wave.amp) {
-      std::vector<renderer::Quad> wave_quads(agent->wave_cache.size());
-      agent->single_wave_quad_count = wave_quads.size();
+      agent->single_wave_quad_count = agent->wave_cache.size();
       device->GetQuadIndex()->Allocate(agent->single_wave_quad_count);
 
-      for (size_t i = 0; i < agent->wave_cache.size(); ++i)
-        wave_quads[i] = SpriteQuadToStandard(agent->wave_cache[i]);
-
-      agent->single_vertex->QueueWrite(context, wave_quads.data(),
-                                       wave_quads.size());
+      agent->single_vertex->QueueWrite(context, agent->wave_cache.data(),
+                                       agent->wave_cache.size());
     } else {
-      renderer::Quad quad = SpriteQuadToStandard(agent->quad);
       agent->single_wave_quad_count = 1;
-
-      agent->single_vertex->QueueWrite(context, &quad);
+      agent->single_vertex->QueueWrite(context, &agent->quad);
     }
 
     context->UpdateBuffer(agent->single_uniform, 0, sizeof(uniform), &uniform,
@@ -226,8 +207,6 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
     // Setup uniform params
     batch_scheduler->GetShaderBinding()->u_transform->Set(*world_binding);
     batch_scheduler->GetShaderBinding()->u_texture->Set(texture->view);
-    batch_scheduler->GetShaderBinding()->u_vertices->Set(
-        batch_scheduler->GetQuadBinding());
     batch_scheduler->GetShaderBinding()->u_params->Set(
         batch_scheduler->GetUniformBinding());
 

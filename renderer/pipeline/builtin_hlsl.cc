@@ -265,11 +265,6 @@ cbuffer WorldMatrixBuffer {
   WorldMatrix u_Transform;
 };
 
-struct SpriteVertex {
-  float4 Pos;
-  float4 UV;
-};
-
 struct SpriteParam {
   float4 Color;
   float4 Tone;
@@ -282,7 +277,6 @@ struct SpriteParam {
 };
 
 #if STORAGE_BUFFER_SUPPORT
-StructuredBuffer<SpriteVertex> u_Vertices;
 StructuredBuffer<SpriteParam> u_Params;
 #else
 cbuffer SpriteUniformParam {
@@ -314,12 +308,8 @@ void main(in VSInput VSIn, out PSInput PSIn) {
 #else
   uint vertex_id = VSIn.VertexIdx;
 #endif // GLSL
-  SpriteVertex vert = u_Vertices[vertex_id];
   SpriteParam effect = u_Params[vertex_id / 4];
 #else
-  SpriteVertex vert;
-  vert.Pos = VSIn.Pos;
-  vert.UV = float4(VSIn.UV.x, VSIn.UV.y, 0, 0);
   SpriteParam effect = u_Param;
 #endif // STORAGE_BUFFER_SUPPORT
 
@@ -333,14 +323,14 @@ void main(in VSInput VSIn, out PSInput PSIn) {
   float ty = effect.Origin.x * sxs - effect.Origin.y * syc + effect.Position.y;
 
   float4 transPos;
-  transPos.x = vert.Pos.x * sxc + vert.Pos.y * sys + tx;
-  transPos.y = -vert.Pos.x * sxs + vert.Pos.y * syc + ty;
-  transPos.z = vert.Pos.z;
-  transPos.w = vert.Pos.w;
+  transPos.x = VSIn.Pos.x * sxc + VSIn.Pos.y * sys + tx;
+  transPos.y = -VSIn.Pos.x * sxs + VSIn.Pos.y * syc + ty;
+  transPos.z = VSIn.Pos.z;
+  transPos.w = VSIn.Pos.w;
 
   PSIn.Pos = mul(u_Transform.ProjMat, transPos);
   PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
-  PSIn.UV = vert.UV.xy;
+  PSIn.UV = VSIn.UV;
   PSIn.Color = effect.Color;
   PSIn.Tone = effect.Tone;
   PSIn.Opacity = effect.Opacity.x;

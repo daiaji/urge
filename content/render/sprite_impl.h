@@ -18,8 +18,8 @@
 namespace content {
 
 struct SpriteAgent {
-  SpriteQuad quad;
-  std::vector<SpriteQuad> wave_cache;
+  renderer::Quad quad;
+  std::vector<renderer::Quad> wave_cache;
 
   uint32_t instance_offset = 0;
   uint32_t instance_count = 0;

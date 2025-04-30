@@ -90,11 +90,6 @@ class Binding_Flat : public RenderBindingBase {
 
 class Binding_Sprite : public RenderBindingBase {
  public:
-  struct Vertex {
-    base::Vec4 position;
-    base::Vec4 texcoord;
-  };
-
   struct Params {
     base::Vec4 Color;
     base::Vec4 Tone;
@@ -107,7 +102,6 @@ class Binding_Sprite : public RenderBindingBase {
   };
 
   ShaderVariable u_transform;
-  ShaderVariable u_vertices;
   ShaderVariable u_params;
   ShaderVariable u_param;
   ShaderVariable u_texture;
