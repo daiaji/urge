@@ -37,7 +37,6 @@ target_link_libraries(engine_renderer PUBLIC
 set(LIBRARY_TYPE static)
 if (URGE_SHARED_RENDERER_LIBRARY)
   set(LIBRARY_TYPE shared)
-  copy_required_dlls(engine_renderer)
 endif ()
 
 if (D3D11_SUPPORTED)
