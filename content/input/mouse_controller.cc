@@ -4,11 +4,24 @@
 
 #include "content/input/mouse_controller.h"
 
+#include "SDL3/SDL_events.h"
+
 #include "content/canvas/canvas_impl.h"
 
 namespace content {
 
-MouseImpl::MouseImpl(base::WeakPtr<ui::Widget> window) : window_(window) {}
+MouseImpl::MouseImpl(base::WeakPtr<ui::Widget> window) : window_(window) {
+  // Initial mouse state
+  auto& display_state = window_->GetDisplayState();
+
+  base::Vec2 initial_position;
+  SDL_GetMouseState(&initial_position.x, &initial_position.y);
+
+  window_->GetMouseState().x =
+      (initial_position.x - display_state.viewport.x) / display_state.scale.x;
+  window_->GetMouseState().y =
+      (initial_position.y - display_state.viewport.y) / display_state.scale.y;
+}
 
 MouseImpl::~MouseImpl() = default;
 

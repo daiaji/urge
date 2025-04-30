@@ -510,6 +510,9 @@ RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
       base::BindOnce(&GPUCreateGraphicsHostInternal, agent_, window, profile,
                      render_worker, io_service, resolution));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker);
+
+  // Initialize viewport
+  UpdateWindowViewportInternal();
 }
 
 RenderScreenImpl::~RenderScreenImpl() {

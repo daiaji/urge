@@ -126,6 +126,9 @@ std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
 void ContentRunner::TickHandlerInternal() {
   frame_count_++;
 
+  // Reset event controller
+  event_controller_->DispatchEvent(nullptr);
+
   // Poll event queue
   SDL_Event queued_event;
   while (SDL_PollEvent(&queued_event)) {
@@ -150,8 +153,10 @@ void ContentRunner::TickHandlerInternal() {
     }
 
     // Widget event
-    if (handle_event_)
+    if (handle_event_) {
       window_->DispatchEvent(&queued_event);
+      event_controller_->DispatchEvent(&queued_event);
+    }
   }
 
   // Update fps
