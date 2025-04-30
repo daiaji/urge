@@ -200,5 +200,50 @@
     "description": "兼容 RPG Maker VX (Ace) 窗口数据的渲染类。",
     "methods": [],
     "attributes": []
+  },
+  {
+    "class_name": "KeyEvent",
+    "description": "按键事件数据类，引擎内部每帧更新。",
+    "methods": [
+      {
+        "name": "type",
+        "description": "返回值：<0 - 按键按下> <1 - 按键弹起>"
+      }
+    ],
+    "attributes": []
+  },
+  {
+    "class_name": "MouseEvent",
+    "description": "鼠标事件数据类，引擎内部每帧更新，所有坐标均为游戏内等比变换后的坐标。",
+    "methods": [
+      {
+        "name": "type",
+        "description": "返回值：<0 - 移动鼠标> <1 - 鼠标按键按下> <2 - 鼠标按键弹起> <3 - 鼠标滚轮更新>"
+      },
+      {
+        "name": "button",
+        "description": "返回值：<1 - 鼠标左键> <2 - 鼠标中键> <3 - 鼠标右键> <4 - X1> <5 - X2>"
+      },
+      {
+        "name": "motion",
+        "description": "返回值：1 << (x-1) ，其中x取值：<1 - 鼠标左键> <2 - 鼠标中键> <3 - 鼠标右键> <4 - X1> <5 - X2>"
+      },
+      {
+        "name": "wheel",
+        "description": "返回值：<0 - 正常方向滚动> <0 - 翻转滚动>"
+      }
+    ],
+    "attributes": []
+  },
+  {
+    "class_name": "TouchEvent",
+    "description": "触控事件数据类，引擎内部每帧更新，所有坐标均为游戏内等比变换后的坐标。",
+    "methods": [
+      {
+        "name": "type",
+        "description": "返回值：<0 - 触控按下> <1 - 触控抬起> <2 - 触控移动> <3 - 触控取消>"
+      }
+    ],
+    "attributes": []
   }
 ]
