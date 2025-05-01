@@ -29,7 +29,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_KEY_UP:
       if (event->key.windowID == window_->GetWindowID()) {
         auto& raw_event = event->key;
-        KeyEvent out_event = {0};
+        KeyEvent out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.keyboard_id = raw_event.which;
         out_event.type = static_cast<decltype(out_event.type)>(
@@ -45,7 +45,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_MOUSE_MOTION:
       if (event->motion.windowID == window_->GetWindowID()) {
         auto& raw_event = event->motion;
-        MouseEvent out_event = {0};
+        MouseEvent out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.mouse_id = raw_event.which;
         out_event.type = static_cast<decltype(out_event.type)>(
@@ -63,7 +63,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_MOUSE_BUTTON_UP:
       if (event->button.windowID == window_->GetWindowID()) {
         auto& raw_event = event->button;
-        MouseEvent out_event = {0};
+        MouseEvent out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.mouse_id = raw_event.which;
         out_event.type = static_cast<decltype(out_event.type)>(
@@ -80,7 +80,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_MOUSE_WHEEL:
       if (event->wheel.windowID == window_->GetWindowID()) {
         auto& raw_event = event->wheel;
-        MouseEvent out_event = {0};
+        MouseEvent out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.mouse_id = raw_event.which;
         out_event.type = static_cast<decltype(out_event.type)>(
@@ -100,7 +100,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_FINGER_CANCELED:
       if (event->tfinger.windowID == window_->GetWindowID()) {
         auto& raw_event = event->tfinger;
-        TouchEvent out_event = {0};
+        TouchEvent out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.touch_id = raw_event.touchID;
         out_event.type = static_cast<decltype(out_event.type)>(
