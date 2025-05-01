@@ -110,15 +110,13 @@ void GPUCreateGraphicsHostInternal(RenderGraphicsAgent* agent,
   // we need to manually convert pixel shader output to gamma space.
   auto* swapchain = agent->device->GetSwapchain();
   const auto& swapchain_desc = swapchain->GetDesc();
-  bool convert_gamma_to_output = (swapchain_desc.ColorBufferFormat ==
-                                      Diligent::TEX_FORMAT_RGBA8_UNORM_SRGB ||
-                                  swapchain_desc.ColorBufferFormat ==
-                                      Diligent::TEX_FORMAT_BGRA8_UNORM_SRGB);
+  const auto srgb_framebuffer =
+      Diligent::GetTextureFormatAttribs(swapchain_desc.ColorBufferFormat)
+          .ComponentType == Diligent::COMPONENT_TYPE_UNORM_SRGB;
 
   // Create screen present pipeline
   agent->present_pipeline.reset(new renderer::Pipeline_Present(
-      **agent->device, swapchain_desc.ColorBufferFormat,
-      convert_gamma_to_output));
+      **agent->device, swapchain_desc.ColorBufferFormat, srgb_framebuffer));
 
   // Get renderer info
   Diligent::GraphicsAdapterInfo adapter_info =

@@ -132,7 +132,7 @@ class Pipeline_Present : public RenderPipelineBase {
  public:
   Pipeline_Present(Diligent::IRenderDevice* device,
                    Diligent::TEXTURE_FORMAT target_format,
-                   bool setup_gamma_convert);
+                   bool manual_srgb);
 };
 
 }  // namespace renderer

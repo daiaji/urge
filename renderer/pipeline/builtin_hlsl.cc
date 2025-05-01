@@ -892,10 +892,8 @@ struct PSOutput {
 void main(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
   frag.a *= PSIn.Color.a;
+  SRGBA_TO_LINEAR(frag);
   PSOut.Color = frag;
-#if CONVERT_PS_GAMMA_TO_OUTPUT
-  PSOut.Color.rgb = pow(PSOut.Color.rgb, float3(2.2, 2.2, 2.2));
-#endif
 }
 
 )";

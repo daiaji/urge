@@ -11,6 +11,16 @@ namespace renderer {
 
 namespace {
 
+static constexpr char GAMMA_TO_LINEAR[] =
+    "((Gamma) < 0.04045 ? (Gamma) / 12.92 : pow(max((Gamma) + 0.055, 0.0) / "
+    "1.055, 2.4))";
+
+static constexpr char SRGBA_TO_LINEAR[] =
+    "col.r = GAMMA_TO_LINEAR(col.r); "
+    "col.g = GAMMA_TO_LINEAR(col.g); "
+    "col.b = GAMMA_TO_LINEAR(col.b); "
+    "col.a = 1.0 - GAMMA_TO_LINEAR(1.0 - col.a);";
+
 Diligent::RenderTargetBlendDesc GetBlendState(BlendType type) {
   Diligent::RenderTargetBlendDesc state;
   switch (type) {
@@ -445,15 +455,17 @@ Pipeline_BitmapHue::Pipeline_BitmapHue(Diligent::IRenderDevice* device,
 
 Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
                                    Diligent::TEXTURE_FORMAT target_format,
-                                   bool setup_gamma_convert)
+                                   bool manual_srgb)
     : RenderPipelineBase(device) {
-  Diligent::ShaderMacro pixel_macro = {"CONVERT_PS_GAMMA_TO_OUTPUT",
-                                       setup_gamma_convert ? "1" : "0"};
+  std::vector<Diligent::ShaderMacro> pixel_macros = {
+      {"GAMMA_TO_LINEAR(Gamma)", GAMMA_TO_LINEAR},
+      {"SRGBA_TO_LINEAR(col)", manual_srgb ? SRGBA_TO_LINEAR : ""},
+  };
 
   const ShaderSource vertex_shader{
       kHLSL_PresentRender_VertexShader, "main", "present.vertex", {}};
-  const ShaderSource pixel_shader{
-      kHLSL_PresentRender_PixelShader, "main", "present.pixel", {pixel_macro}};
+  const ShaderSource pixel_shader{kHLSL_PresentRender_PixelShader, "main",
+                                  "present.pixel", pixel_macros};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
