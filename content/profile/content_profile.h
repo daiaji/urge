@@ -61,6 +61,7 @@ class ContentProfile {
   bool smooth_scale = false;
   bool allow_skip_frame = true;
   bool fullscreen = false;
+  bool background_running = true;
 
   bool disable_ime = false;
   std::string orientation = "LandscapeLeft LandscapeRight";

@@ -271,22 +271,26 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
 
 bool ContentRunner::EventWatchHandlerInternal(void* userdata,
                                               SDL_Event* event) {
-#if defined(OS_ANDROID)
   ContentRunner* self = static_cast<ContentRunner*>(userdata);
-  if (event->type == SDL_EVENT_WILL_ENTER_BACKGROUND) {
+
+  if (self->graphics_impl_->AllowBackgroundRunning())
+    return true;
+
+  if (event->type == SDL_EVENT_WILL_ENTER_BACKGROUND ||
+      event->type == SDL_EVENT_WINDOW_FOCUS_LOST) {
     LOG(INFO) << "[Content] Enter background running.";
     self->graphics_impl_->SuspendRenderingContext();
     self->background_running_ = true;
-    return 0;
-  } else if (event->type == SDL_EVENT_DID_ENTER_FOREGROUND) {
+    return false;
+  } else if (event->type == SDL_EVENT_DID_ENTER_FOREGROUND ||
+             event->type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
     LOG(INFO) << "[Content] Resume foreground running.";
     self->graphics_impl_->ResumeRenderingContext();
     self->background_running_ = false;
-    return 0;
+    return false;
   }
-#endif  // OS_ANDROID
 
-  return 1;
+  return true;
 }
 
 void ContentRunner::CreateIMGUIContextInternal() {

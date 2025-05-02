@@ -141,6 +141,8 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   allow_skip_frame =
       reader->GetBoolean("Engine", "AllowSkipFrame", allow_skip_frame);
   fullscreen = reader->GetBoolean("Engine", "Fullscreen", fullscreen);
+  background_running =
+      reader->GetBoolean("Engine", "BackgroundRunning", background_running);
 
   disable_ime = reader->GetBoolean("Platform", "DisableIME", disable_ime);
   orientation = reader->Get("Platform", "Orientations", orientation);

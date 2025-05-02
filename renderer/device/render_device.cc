@@ -13,12 +13,15 @@
 #include "Graphics/GraphicsEngineD3D11/interface/EngineFactoryD3D11.h"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h"
-#include "Graphics/GraphicsEngineOpenGL/interface/RenderDeviceGLES.h"
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "Primitives/interface/DebugOutput.h"
 
 #include "base/debug/logging.h"
 #include "ui/widget/widget.h"
+
+#if defined(OS_ANDROID)
+#include "Graphics/GraphicsEngineOpenGL/interface/RenderDeviceGLES.h"
+#endif
 
 #if defined(OS_LINUX)
 using PFN_XGetXCBConnection = void* (*)(void*);

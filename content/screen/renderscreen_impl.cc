@@ -11,7 +11,10 @@
 #include "magic_enum/magic_enum.hpp"
 
 #include "Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+
+#if defined(OS_ANDROID)
 #include "Graphics/GraphicsEngineOpenGL/interface/RenderDeviceGLES.h"
+#endif
 
 #include "content/canvas/canvas_scheduler.h"
 #include "content/profile/command_ids.h"
@@ -500,7 +503,8 @@ RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
       frame_rate_(frame_rate),
       keep_ratio_(true),
       smooth_scale_(profile->smooth_scale),
-      allow_skip_frame_(profile->allow_skip_frame) {
+      allow_skip_frame_(profile->allow_skip_frame),
+      background_running_(profile->background_running) {
   // Setup render device on render thread if possible
   agent_ = new RenderGraphicsAgent;
 
@@ -512,6 +516,9 @@ RenderScreenImpl::RenderScreenImpl(base::WeakPtr<ui::Widget> window,
 
   // Initialize viewport
   UpdateWindowViewportInternal();
+
+  // Initialize fps limiter
+  limiter_.Reset();
 }
 
 RenderScreenImpl::~RenderScreenImpl() {
@@ -536,17 +543,19 @@ void RenderScreenImpl::PresentScreenBuffer(
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
 
-#if defined(OS_ANDROID)
 void RenderScreenImpl::SuspendRenderingContext() {
+#if defined(OS_ANDROID)
   base::ThreadWorker::PostTask(
       render_worker_,
       base::BindOnce(
           [](renderer::RenderDevice* device) { device->SuspendContext(); },
           GetDevice()));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
+#endif  // OS_ANDROID
 }
 
 void RenderScreenImpl::ResumeRenderingContext() {
+#if defined(OS_ANDROID)
   base::ThreadWorker::PostTask(
       render_worker_, base::BindOnce(
                           [](renderer::RenderDevice* device) {
@@ -556,8 +565,9 @@ void RenderScreenImpl::ResumeRenderingContext() {
                           },
                           GetDevice()));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
+#endif  // OS_ANDROID
+  limiter_.Reset();
 }
-#endif
 
 void RenderScreenImpl::CreateButtonGUISettings() {
   if (ImGui::CollapsingHeader(
@@ -607,6 +617,13 @@ void RenderScreenImpl::CreateButtonGUISettings() {
         &is_fullscreen);
     if (last_fullscreen != is_fullscreen)
       GetDevice()->GetWindow()->SetFullscreen(is_fullscreen);
+
+    // Background running
+    ImGui::Checkbox(i18n_profile_
+                        ->GetI18NString(IDS_GRAPHICS_BACKGROUND_RUNNING,
+                                        "Background Running")
+                        .c_str(),
+                    &background_running_);
   }
 }
 
