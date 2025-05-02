@@ -83,6 +83,13 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   // This function will wait for delta time to clamp fps.
   void PresentScreenBuffer(Diligent::ImGuiDiligentRenderer* gui_renderer);
 
+#if defined(OS_ANDROID)
+  // Hungup rendering context if system enter background,
+  // only calling on Android system
+  void SuspendRenderingContext();
+  void ResumeRenderingContext();
+#endif
+
   void CreateButtonGUISettings();
 
   DrawNodeController* GetDrawableController() { return &controller_; }

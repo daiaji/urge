@@ -79,8 +79,15 @@ class RenderDevice {
   // Platform specific
   inline bool IsUVFlip() const { return device_->GetDeviceInfo().IsGLDevice(); }
 
+#if defined(OS_ANDROID)
+  // Managed mobile rendering context
+  void SuspendContext();
+  int32_t ResumeContext();
+#endif
+
  private:
   RenderDevice(base::WeakPtr<ui::Widget> window,
+               const Diligent::SwapChainDesc& swapchain_desc,
                Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
                Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context,
                Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain,
@@ -90,6 +97,7 @@ class RenderDevice {
                SDL_GLContext gl_context);
 
   base::WeakPtr<ui::Widget> window_;
+  Diligent::SwapChainDesc swapchain_desc_;
 
   Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
   Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context_;
@@ -98,6 +106,8 @@ class RenderDevice {
   std::unique_ptr<PipelineSet> pipelines_;
   std::unique_ptr<QuadIndexCache> quad_index_;
   std::unique_ptr<ScissorController> scissor_;
+
+  Diligent::RENDER_DEVICE_TYPE device_type_;
 
   SDL_GLContext gl_context_;
 };

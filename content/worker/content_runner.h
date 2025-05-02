@@ -73,6 +73,8 @@ class ContentRunner {
   void RenderSettingsGUIInternal();
   void RenderFPSMonitorGUIInternal();
 
+  static bool EventWatchHandlerInternal(void* userdata, SDL_Event* event);
+
   void CreateIMGUIContextInternal();
   void DestroyIMGUIContextInternal();
 
@@ -99,6 +101,7 @@ class ContentRunner {
   std::unique_ptr<EventController> event_controller_;
   std::unique_ptr<Diligent::ImGuiDiligentRenderer> imgui_;
 
+  bool background_running_;
   bool handle_event_;
   bool disable_gui_input_;
   bool show_settings_menu_;

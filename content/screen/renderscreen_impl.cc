@@ -11,6 +11,7 @@
 #include "magic_enum/magic_enum.hpp"
 
 #include "Graphics/GraphicsAccessories/interface/GraphicsAccessories.hpp"
+#include "Graphics/GraphicsEngineOpenGL/interface/RenderDeviceGLES.h"
 
 #include "content/canvas/canvas_scheduler.h"
 #include "content/profile/command_ids.h"
@@ -534,6 +535,29 @@ void RenderScreenImpl::PresentScreenBuffer(
                      resolution_, gui_renderer, smooth_scale_));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 }
+
+#if defined(OS_ANDROID)
+void RenderScreenImpl::SuspendRenderingContext() {
+  base::ThreadWorker::PostTask(
+      render_worker_,
+      base::BindOnce(
+          [](renderer::RenderDevice* device) { device->SuspendContext(); },
+          GetDevice()));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
+}
+
+void RenderScreenImpl::ResumeRenderingContext() {
+  base::ThreadWorker::PostTask(
+      render_worker_, base::BindOnce(
+                          [](renderer::RenderDevice* device) {
+                            int32_t resume_result = device->ResumeContext();
+                            if (resume_result != EGL_SUCCESS)
+                              LOG(INFO) << "Failed to resume EGL context.";
+                          },
+                          GetDevice()));
+  base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
+}
+#endif
 
 void RenderScreenImpl::CreateButtonGUISettings() {
   if (ImGui::CollapsingHeader(

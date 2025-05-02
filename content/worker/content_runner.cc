@@ -49,6 +49,7 @@ ContentRunner::ContentRunner(ContentProfile* profile,
       binding_(std::move(binding)),
       binding_quit_flag_(0),
       binding_reset_flag_(0),
+      background_running_(false),
       handle_event_(true),
       disable_gui_input_(false),
       show_settings_menu_(false),
@@ -77,6 +78,9 @@ ContentRunner::ContentRunner(ContentProfile* profile,
   // Hook graphics event loop
   tick_observer_ = graphics_impl_->AddTickObserver(base::BindRepeating(
       &ContentRunner::TickHandlerInternal, base::Unretained(this)));
+
+  // Background watch
+  SDL_AddEventWatch(&ContentRunner::EventWatchHandlerInternal, this);
 }
 
 ContentRunner::~ContentRunner() {
@@ -158,6 +162,10 @@ void ContentRunner::TickHandlerInternal() {
       event_controller_->DispatchEvent(&queued_event);
     }
   }
+
+  // Wait for background running block
+  while (background_running_)
+    SDL_WaitEvent(&queued_event);
 
   // Update fps
   UpdateDisplayFPSInternal();
@@ -259,6 +267,26 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
   }
 
   ImGui::End();
+}
+
+bool ContentRunner::EventWatchHandlerInternal(void* userdata,
+                                              SDL_Event* event) {
+#if defined(OS_ANDROID)
+  ContentRunner* self = static_cast<ContentRunner*>(userdata);
+  if (event->type == SDL_EVENT_WILL_ENTER_BACKGROUND) {
+    LOG(INFO) << "[Content] Enter background running.";
+    self->graphics_impl_->SuspendRenderingContext();
+    self->background_running_ = true;
+    return 0;
+  } else if (event->type == SDL_EVENT_DID_ENTER_FOREGROUND) {
+    LOG(INFO) << "[Content] Resume foreground running.";
+    self->graphics_impl_->ResumeRenderingContext();
+    self->background_running_ = false;
+    return 0;
+  }
+#endif  // OS_ANDROID
+
+  return 1;
 }
 
 void ContentRunner::CreateIMGUIContextInternal() {

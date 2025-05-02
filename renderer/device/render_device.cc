@@ -13,6 +13,7 @@
 #include "Graphics/GraphicsEngineD3D11/interface/EngineFactoryD3D11.h"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "Graphics/GraphicsEngineOpenGL/interface/EngineFactoryOpenGL.h"
+#include "Graphics/GraphicsEngineOpenGL/interface/RenderDeviceGLES.h"
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "Primitives/interface/DebugOutput.h"
 
@@ -220,12 +221,14 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
 
   // Create new instance
   return std::unique_ptr<RenderDevice>(new RenderDevice(
-      window_target, device, context, swapchain, std::move(pipelines_set),
-      std::move(quad_index_cache), std::move(scissor), glcontext));
+      window_target, swap_chain_desc, device, context, swapchain,
+      std::move(pipelines_set), std::move(quad_index_cache), std::move(scissor),
+      glcontext));
 }
 
 RenderDevice::RenderDevice(
     base::WeakPtr<ui::Widget> window,
+    const Diligent::SwapChainDesc& swapchain_desc,
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
     Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context,
     Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain,
@@ -234,17 +237,75 @@ RenderDevice::RenderDevice(
     std::unique_ptr<ScissorController> scissor,
     SDL_GLContext gl_context)
     : window_(std::move(window)),
+      swapchain_desc_(swapchain_desc),
       device_(device),
       context_(context),
       swapchain_(swapchain),
       pipelines_(std::move(pipelines)),
       quad_index_(std::move(quad_index)),
       scissor_(std::move(scissor)),
+      device_type_(device_->GetDeviceInfo().Type),
       gl_context_(gl_context) {}
 
 RenderDevice::~RenderDevice() {
   if (gl_context_)
     SDL_GL_DestroyContext(gl_context_);
 }
+
+#if defined(OS_ANDROID)
+void RenderDevice::SuspendContext() {
+  switch (device_type_) {
+    case Diligent::RENDER_DEVICE_TYPE_GLES: {
+      Diligent::RefCntAutoPtr<Diligent::IRenderDeviceGLES> es_device(
+          device_, Diligent::IID_RenderDeviceGLES);
+      es_device->Suspend();
+    } break;
+#if VULKAN_SUPPORTED
+    case Diligent::RENDER_DEVICE_TYPE_VULKAN:
+      swapchain_.Release();
+      break;
+#endif  // VULKAN_SUPPORTED
+    default:
+      break;
+  }
+}
+
+int32_t RenderDevice::ResumeContext() {
+  SDL_PropertiesID window_properties =
+      SDL_GetWindowProperties(window_->AsSDLWindow());
+  void* android_native_window = SDL_GetPointerProperty(
+      window_properties, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
+
+  switch (device_type_) {
+    case Diligent::RENDER_DEVICE_TYPE_GLES: {
+      Diligent::RefCntAutoPtr<Diligent::IRenderDeviceGLES> es_device(
+          device_, Diligent::IID_RenderDeviceGLES);
+      return es_device->Resume(
+          static_cast<ANativeWindow*>(android_native_window));
+    }
+#if VULKAN_SUPPORTED
+    case Diligent::RENDER_DEVICE_TYPE_VULKAN: {
+      device_->IdleGPU();
+
+      Diligent::NativeWindow native_window;
+      native_window.pAWindow = android_native_window;
+
+#if ENGINE_DLL
+      auto GetEngineFactoryVk = Diligent::LoadGraphicsEngineVk();
+#endif
+      auto* factory = GetEngineFactoryVk();
+      factory->CreateSwapChainVk(device_, context_, swapchain_desc_,
+                                 native_window, &swapchain_);
+
+      return swapchain_ ? EGL_SUCCESS : EGL_NOT_INITIALIZED;
+    }
+#endif  // VULKAN_SUPPORTED
+    default:
+      break;
+  }
+
+  return EGL_NOT_INITIALIZED;
+}
+#endif  // OS_ANDROID
 
 }  // namespace renderer
