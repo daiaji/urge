@@ -162,6 +162,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Skipframe, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(KeepRatio, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(SmoothScale, bool);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(BackgroundRunning, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Ox, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Oy, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(WindowTitle, std::string);

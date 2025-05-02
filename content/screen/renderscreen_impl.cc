@@ -948,6 +948,15 @@ void RenderScreenImpl::Put_SmoothScale(const bool& value,
   smooth_scale_ = value;
 }
 
+bool RenderScreenImpl::Get_BackgroundRunning(ExceptionState& exception_state) {
+  return background_running_;
+}
+
+void RenderScreenImpl::Put_BackgroundRunning(const bool& value,
+                                             ExceptionState& exception_state) {
+  background_running_ = value;
+}
+
 int32_t RenderScreenImpl::Get_Ox(ExceptionState& exception_state) {
   return origin_.x;
 }

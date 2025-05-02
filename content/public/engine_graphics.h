@@ -124,6 +124,9 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
   /*--urge(name:smooth_scale)--*/
   URGE_EXPORT_ATTRIBUTE(SmoothScale, bool);
 
+  /*--urge(name:background_running)--*/
+  URGE_EXPORT_ATTRIBUTE(BackgroundRunning, bool);
+
   /*--urge(name:ox)--*/
   URGE_EXPORT_ATTRIBUTE(Ox, int32_t);
 
