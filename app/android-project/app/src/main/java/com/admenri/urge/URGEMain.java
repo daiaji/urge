@@ -35,7 +35,7 @@ public class URGEMain extends SDLActivity {
         java.io.File data_dir = context.getExternalFilesDir("");
         if (data_dir != null) {
             GAME_PATH = data_dir.toString();
-            Log.i(TAG, GAME_PATH);
+            Log.i(TAG, "Work Directory: " + GAME_PATH);
         }
 
         // Setup packages
@@ -46,7 +46,9 @@ public class URGEMain extends SDLActivity {
                 String[] rootFiles = assets.list("");
                 assert rootFiles != null;
                 for (String file : rootFiles) {
-                    if (assets.list(file) == null) {
+                    String[] dirFiles = assets.list(file);
+                    if (dirFiles == null || dirFiles.length == 0) {
+                        Log.i(TAG, "Extracting: " + file);
                         copySingleFile(context, file, GAME_PATH);
                     }
                 }
@@ -97,6 +99,10 @@ public class URGEMain extends SDLActivity {
             BufferedReader reader = new BufferedReader(new FileReader(recordFile));
             String savedMD5 = reader.readLine();
             reader.close();
+
+            Log.i(TAG, "Current MD5: " + currentMD5);
+            Log.i(TAG, "Local Resource MD5: " + savedMD5);
+
             return savedMD5 != null && savedMD5.equals(currentMD5);
         } catch (IOException e) {
             e.printStackTrace();
