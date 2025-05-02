@@ -45,6 +45,9 @@ class URGE_RUNTIME_API Display : public base::RefCounted<Display> {
   /*--urge(name:height)--*/
   virtual int32_t GetHeight(ExceptionState& exception_state) = 0;
 
+  /*--urge(name:content_scale)--*/
+  virtual float GetContentScale(ExceptionState& exception_state) = 0;
+
   /*--urge(name:pixel_density)--*/
   virtual float GetPixelDensity(ExceptionState& exception_state) = 0;
 

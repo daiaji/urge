@@ -51,6 +51,10 @@ int32_t DisplayImpl::GetHeight(ExceptionState& exception_state) {
   return mode_->h;
 }
 
+float DisplayImpl::GetContentScale(ExceptionState& exception_state) {
+  return SDL_GetDisplayContentScale(display_);
+}
+
 float DisplayImpl::GetPixelDensity(ExceptionState& exception_state) {
   return mode_->pixel_density;
 }

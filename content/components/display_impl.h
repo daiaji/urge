@@ -24,6 +24,7 @@ class DisplayImpl : public Display {
   std::string GetFormat(ExceptionState& exception_state) override;
   int32_t GetWidth(ExceptionState& exception_state) override;
   int32_t GetHeight(ExceptionState& exception_state) override;
+  float GetContentScale(ExceptionState& exception_state) override;
   float GetPixelDensity(ExceptionState& exception_state) override;
   float GetRefreshRate(ExceptionState& exception_state) override;
 
