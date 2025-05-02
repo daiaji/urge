@@ -273,17 +273,31 @@ bool ContentRunner::EventWatchHandlerInternal(void* userdata,
                                               SDL_Event* event) {
   ContentRunner* self = static_cast<ContentRunner*>(userdata);
 
+#if !defined(OS_ANDROID)
   if (self->graphics_impl_->AllowBackgroundRunning())
     return true;
+#endif
 
-  if (event->type == SDL_EVENT_WILL_ENTER_BACKGROUND ||
-      event->type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+  const bool is_focus_lost =
+#if defined(OS_ANDROID)
+      event->type == SDL_EVENT_WINDOW_FOCUS_LOST;
+#else
+      event->type == SDL_EVENT_WILL_ENTER_BACKGROUND;
+#endif
+  const bool is_focus_gained =
+#if defined(OS_ANDROID)
+      event->type == SDL_EVENT_WINDOW_FOCUS_GAINED;
+#else
+      event->type == SDL_EVENT_DID_ENTER_FOREGROUND;
+#endif
+
+  if (is_focus_lost) {
     LOG(INFO) << "[Content] Enter background running.";
     self->graphics_impl_->SuspendRenderingContext();
     self->background_running_ = true;
     return false;
-  } else if (event->type == SDL_EVENT_DID_ENTER_FOREGROUND ||
-             event->type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+  }
+  if (is_focus_gained) {
     LOG(INFO) << "[Content] Resume foreground running.";
     self->graphics_impl_->ResumeRenderingContext();
     self->background_running_ = false;
