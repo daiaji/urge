@@ -19,6 +19,7 @@ class MiscSystem : public URGE {
   MiscSystem& operator=(const MiscSystem&) = delete;
 
  public:
+  std::string GetPlatform(ExceptionState& exception_state) override;
   void OpenURL(const std::string& path,
                ExceptionState& exception_state) override;
   std::string Gets(ExceptionState& exception_state) override;

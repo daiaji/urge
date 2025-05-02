@@ -8,12 +8,17 @@
 
 #include "SDL3/SDL_messagebox.h"
 #include "SDL3/SDL_misc.h"
+#include "SDL3/SDL_platform.h"
 
 namespace content {
 
 MiscSystem::MiscSystem(base::WeakPtr<ui::Widget> window) : window_(window) {}
 
 MiscSystem::~MiscSystem() = default;
+
+std::string MiscSystem::GetPlatform(ExceptionState& exception_state) {
+  return SDL_GetPlatform();
+}
 
 void MiscSystem::OpenURL(const std::string& path,
                          ExceptionState& exception_state) {

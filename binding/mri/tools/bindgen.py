@@ -134,6 +134,9 @@ class MriBindGen:
         "is_virtual": is_static == False,
       }
 
+      if attr_type.startswith("std::string") or attr_type.startswith("std::vector"):
+        attr_type = "const {}&".format(attr_type)
+
       setter_method = {
         "name": fname + "=",
         "func": "Put_" + func,

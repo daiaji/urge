@@ -21,6 +21,9 @@ class URGE_RUNTIME_API URGE : public base::RefCounted<URGE> {
  public:
   virtual ~URGE() = default;
 
+  /*--urge(name:platform)--*/
+  virtual std::string GetPlatform(ExceptionState& exception_state) = 0;
+
   /*--urge(name:open_url)--*/
   virtual void OpenURL(const std::string& path,
                        ExceptionState& exception_state) = 0;

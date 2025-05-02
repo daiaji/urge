@@ -22,6 +22,8 @@ set(ENGINE_CONTENT_SRC
   common/table_impl.h
   common/tone_impl.cc
   common/tone_impl.h
+  components/display_impl.cc
+  components/display_impl.h
   components/disposable.cc
   components/disposable.h
   components/font_context.cc

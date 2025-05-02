@@ -146,6 +146,15 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   void Reset(ExceptionState& exception_state) override;
   void PlayMovie(const std::string& filename,
                  ExceptionState& exception_state) override;
+  void MoveWindow(int32_t x,
+                  int32_t y,
+                  int32_t width,
+                  int32_t height,
+                  ExceptionState& exception_state) override;
+  scoped_refptr<Rect> GetWindowRect(ExceptionState& exception_state) override;
+  uint32_t GetDisplayID(ExceptionState& exception_state) override;
+  void SetWindowIcon(scoped_refptr<Bitmap> icon,
+                     ExceptionState& exception_state) override;
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(FrameRate, uint32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(FrameCount, uint32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Brightness, uint32_t);
@@ -155,6 +164,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(SmoothScale, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Ox, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Oy, int32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(WindowTitle, std::string);
 
  private:
   void FrameProcessInternal(Diligent::ITexture** present_target);

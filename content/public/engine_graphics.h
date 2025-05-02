@@ -85,6 +85,24 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
   virtual void PlayMovie(const std::string& filename,
                          ExceptionState& exception_state) = 0;
 
+  /*--urge(name:move_window)--*/
+  virtual void MoveWindow(int32_t x,
+                          int32_t y,
+                          int32_t width,
+                          int32_t height,
+                          ExceptionState& exception_state) = 0;
+
+  /*--urge(name:window_rect)--*/
+  virtual scoped_refptr<Rect> GetWindowRect(
+      ExceptionState& exception_state) = 0;
+
+  /*--urge(name:display_id)--*/
+  virtual uint32_t GetDisplayID(ExceptionState& exception_state) = 0;
+
+  /*--urge(name:set_window_icon)--*/
+  virtual void SetWindowIcon(scoped_refptr<Bitmap> icon,
+                             ExceptionState& exception_state) = 0;
+
   /*--urge(name:frame_rate)--*/
   URGE_EXPORT_ATTRIBUTE(FrameRate, uint32_t);
 
@@ -111,6 +129,9 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
 
   /*--urge(name:oy)--*/
   URGE_EXPORT_ATTRIBUTE(Oy, int32_t);
+
+  /*--urge(name:window_title)--*/
+  URGE_EXPORT_ATTRIBUTE(WindowTitle, std::string);
 };
 
 }  // namespace content

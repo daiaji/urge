@@ -17,6 +17,7 @@
 #endif
 
 #include "content/canvas/canvas_scheduler.h"
+#include "content/common/rect_impl.h"
 #include "content/profile/command_ids.h"
 #include "renderer/utils/texture_utils.h"
 
@@ -853,6 +854,36 @@ void RenderScreenImpl::PlayMovie(const std::string& filename,
                                     "unimplement Graphics.play_movie");
 }
 
+void RenderScreenImpl::MoveWindow(int32_t x,
+                                  int32_t y,
+                                  int32_t width,
+                                  int32_t height,
+                                  ExceptionState& exception_state) {
+  auto* window = window_->AsSDLWindow();
+  SDL_SetWindowPosition(window, x, y);
+  SDL_SetWindowSize(window, width, height);
+}
+
+scoped_refptr<Rect> RenderScreenImpl::GetWindowRect(
+    ExceptionState& exception_state) {
+  auto* window = window_->AsSDLWindow();
+  base::Rect window_rect;
+  SDL_GetWindowPosition(window, &window_rect.x, &window_rect.y);
+  SDL_GetWindowSize(window, &window_rect.width, &window_rect.height);
+  return new RectImpl(window_rect);
+}
+
+uint32_t RenderScreenImpl::GetDisplayID(ExceptionState& exception_state) {
+  return SDL_GetDisplayForWindow(window_->AsSDLWindow());
+}
+
+void RenderScreenImpl::SetWindowIcon(scoped_refptr<Bitmap> icon,
+                                     ExceptionState& exception_state) {
+  scoped_refptr<CanvasImpl> data = CanvasImpl::FromBitmap(icon);
+  SDL_Surface* icon_surface = data->RequireMemorySurface();
+  SDL_SetWindowIcon(window_->AsSDLWindow(), icon_surface);
+}
+
 uint32_t RenderScreenImpl::Get_FrameRate(ExceptionState& exception_state) {
   return frame_rate_;
 }
@@ -939,6 +970,15 @@ void RenderScreenImpl::Put_Oy(const int32_t& value,
   base::ThreadWorker::PostTask(
       render_worker_, base::BindOnce(&GPUUpdateScreenWorldInternal, agent_,
                                      resolution_, -origin_));
+}
+
+std::string RenderScreenImpl::Get_WindowTitle(ExceptionState& exception_state) {
+  return SDL_GetWindowTitle(window_->AsSDLWindow());
+}
+
+void RenderScreenImpl::Put_WindowTitle(const std::string& value,
+                                       ExceptionState& exception_state) {
+  SDL_SetWindowTitle(window_->AsSDLWindow(), value.c_str());
 }
 
 void RenderScreenImpl::FrameProcessInternal(

@@ -16,6 +16,7 @@
 #include "binding/mri/autogen_audio_binding.h"
 #include "binding/mri/autogen_bitmap_binding.h"
 #include "binding/mri/autogen_color_binding.h"
+#include "binding/mri/autogen_display_binding.h"
 #include "binding/mri/autogen_font_binding.h"
 #include "binding/mri/autogen_graphics_binding.h"
 #include "binding/mri/autogen_input_binding.h"
@@ -186,6 +187,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitAudioBinding();
   InitBitmapBinding();
   InitColorBinding();
+  InitDisplayBinding();
   InitFontBinding();
   InitGraphicsBinding();
   InitInputBinding();
