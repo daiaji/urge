@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Setup encryption resource package
-  std::string app_package = app + ".ack";
+  std::string app_package = app + ".arb";
   io_service->AddLoadPath(app_package);
 
   // Disable IME on Windows
