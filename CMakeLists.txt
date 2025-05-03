@@ -135,6 +135,14 @@ else()
                         INTERFACE_INCLUDE_DIRECTORIES "${RUBY_INCLUDE_PATH}")
 endif()
 
+set(ENABLE_ADMENRI_BUILD_VERSION False)
+set(ADMENRI_BUILD_BUNDLE_DIR ${PROJECT_SOURCE_DIR}/admenri)
+if (EXISTS ${ADMENRI_BUILD_BUNDLE_DIR})
+  set(ENABLE_ADMENRI_BUILD_VERSION True)
+  message(STATUS "!!!!!!!!Enable Admenri Official Build Bundle Settings!!!!!!!!")
+  add_subdirectory(admenri)
+endif ()
+
 #-------------------------------------------------------------------------
 # * source
 #-------------------------------------------------------------------------

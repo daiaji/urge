@@ -11,6 +11,10 @@
 #include <jni.h>
 #endif
 
+#if HAVE_ARB_ENCRYPTO_SUPPORT
+#include "admenri/encryption/encrypt_arb.h"
+#endif
+
 namespace filesystem {
 
 namespace {
@@ -188,6 +192,11 @@ IOService::IOService(const std::string& argv0) {
   } else {
     LOG(INFO) << "[IOService] BasePath: " << PHYSFS_getBaseDir();
   }
+
+#if HAVE_ARB_ENCRYPTO_SUPPORT
+  if (PHYSFS_registerArchiver(&admenri::admenri_archiver_arb))
+    LOG(INFO) << "[ARB] Enable ARB crypto library.";
+#endif
 
 #if defined(OS_ANDROID)
   PHYSFS_mount(PHYSFS_getBaseDir(), nullptr, 1);
