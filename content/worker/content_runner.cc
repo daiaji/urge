@@ -84,6 +84,9 @@ ContentRunner::ContentRunner(ContentProfile* profile,
 }
 
 ContentRunner::~ContentRunner() {
+  // Remove watch
+  SDL_RemoveEventWatch(&ContentRunner::EventWatchHandlerInternal, this);
+
   // Destory GUI context
   base::ThreadWorker::PostTask(
       render_worker_,
