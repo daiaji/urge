@@ -8,9 +8,61 @@
 
 #include "base/debug/logging.h"
 
+#if defined(OS_WIN)
+#include <windows.h>
+#endif
+
 namespace content {
 
 namespace {
+
+// https://stackoverflow.com/questions/28270310/how-to-easily-detect-utf8-encoding-in-the-string
+bool CheckValidUTF8(const char* string) {
+  if (!string)
+    return true;
+
+  const unsigned char* bytes = (const unsigned char*)string;
+  unsigned int cp;
+  int num;
+
+  while (*bytes != 0x00) {
+    if ((*bytes & 0x80) == 0x00) {
+      // U+0000 to U+007F
+      cp = (*bytes & 0x7F);
+      num = 1;
+    } else if ((*bytes & 0xE0) == 0xC0) {
+      // U+0080 to U+07FF
+      cp = (*bytes & 0x1F);
+      num = 2;
+    } else if ((*bytes & 0xF0) == 0xE0) {
+      // U+0800 to U+FFFF
+      cp = (*bytes & 0x0F);
+      num = 3;
+    } else if ((*bytes & 0xF8) == 0xF0) {
+      // U+10000 to U+10FFFF
+      cp = (*bytes & 0x07);
+      num = 4;
+    } else
+      return false;
+
+    bytes += 1;
+    for (int i = 1; i < num; ++i) {
+      if ((*bytes & 0xC0) != 0x80)
+        return false;
+      cp = (cp << 6) | (*bytes & 0x3F);
+      bytes += 1;
+    }
+
+    if ((cp > 0x10FFFF) || ((cp >= 0xD800) && (cp <= 0xDFFF)) ||
+        ((cp <= 0x007F) && (num != 1)) ||
+        ((cp >= 0x0080) && (cp <= 0x07FF) && (num != 2)) ||
+        ((cp >= 0x0800) && (cp <= 0xFFFF) && (num != 3)) ||
+        ((cp >= 0x10000) && (cp <= 0x1FFFFF) && (num != 4)))
+      return false;
+  }
+
+  return true;
+}
 
 void ReplaceStringWidth(std::string& str, char before, char after) {
   for (size_t i = 0; i < str.size(); ++i)
@@ -46,6 +98,46 @@ char* IniStreamReader(char* str, int32_t num, void* stream) {
   str[i] = '\0';
   return i ? str : nullptr;
 }
+
+#if defined(OS_WIN)
+std::string AsciiToUtf8(const std::string& asciiStr) {
+  if (asciiStr.empty()) {
+    return "";
+  }
+
+  // ASCII -> UTF-16
+  int wcharsCount =
+      MultiByteToWideChar(CP_ACP, 0, asciiStr.c_str(), -1, NULL, 0);
+  if (wcharsCount == 0) {
+    throw std::runtime_error("MultiByteToWideChar failed: " +
+                             std::to_string(GetLastError()));
+  }
+
+  std::vector<wchar_t> wstr(wcharsCount);
+  if (MultiByteToWideChar(CP_ACP, 0, asciiStr.c_str(), -1, &wstr[0],
+                          wcharsCount) == 0) {
+    throw std::runtime_error("MultiByteToWideChar failed: " +
+                             std::to_string(GetLastError()));
+  }
+
+  // UTF-16 -> UTF-8
+  int utf8Count =
+      WideCharToMultiByte(CP_UTF8, 0, &wstr[0], -1, NULL, 0, NULL, NULL);
+  if (utf8Count == 0) {
+    throw std::runtime_error("WideCharToMultiByte failed: " +
+                             std::to_string(GetLastError()));
+  }
+
+  std::vector<char> utf8str(utf8Count);
+  if (WideCharToMultiByte(CP_UTF8, 0, &wstr[0], -1, &utf8str[0], utf8Count,
+                          NULL, NULL) == 0) {
+    throw std::runtime_error("WideCharToMultiByte failed: " +
+                             std::to_string(GetLastError()));
+  }
+
+  return std::string(&utf8str[0]);
+}
+#endif
 
 }  // namespace
 
@@ -88,6 +180,16 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
 
   // RGSS part
   window_title = reader->Get("Game", "Title", window_title);
+  if (!CheckValidUTF8(window_title.c_str())) {
+#if defined(OS_WIN)
+    LOG(INFO) << "[Profile] Non-UTF8 title was detected, try convert to ASCII.";
+    window_title = AsciiToUtf8(window_title);
+#else
+    LOG(INFO) << "[Profile] Non-UTF8 title was detected.";
+    window_title = "URGE Widget";
+#endif
+  }
+
   script_path = reader->Get("Game", "Scripts", script_path);
   ReplaceStringWidth(script_path, '\\', '/');
 
