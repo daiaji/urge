@@ -46,7 +46,7 @@ class ContentProfile {
 
   APIVersion api_version = APIVersion::UNKNOWN;
   std::string default_font_path = "Fonts/Default.ttf";
-  std::string driver_backend;
+  std::string driver_backend = "UNDEFINED";
   std::string i18n_xml_path;
 
   bool disable_settings = false;
@@ -58,6 +58,7 @@ class ContentProfile {
 
   int32_t frame_rate = 60;
 
+  bool render_validation = false;
   bool smooth_scale = false;
   bool allow_skip_frame = true;
   bool fullscreen = false;

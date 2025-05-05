@@ -239,6 +239,8 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   frame_rate = (api_version == APIVersion::RGSS1) ? 40 : 60;
   frame_rate = reader->GetInteger("Engine", "FrameRate", frame_rate);
 
+  render_validation =
+      reader->GetBoolean("Engine", "RenderValidation", render_validation);
   smooth_scale = reader->GetBoolean("Engine", "SmoothScale", smooth_scale);
   allow_skip_frame =
       reader->GetBoolean("Engine", "AllowSkipFrame", allow_skip_frame);
