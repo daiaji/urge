@@ -232,6 +232,13 @@ void BindingEngineMri::PreEarlyInitialization(
 
   LOG(INFO) << "[Binding] CRuby Interpreter Version: " << RUBY_API_VERSION_CODE;
   LOG(INFO) << "[Binding] CRuby Interpreter Platform: " << RUBY_PLATFORM;
+
+  VALUE debug = MRI_BOOL_VALUE(profile->game_debug);
+  if (profile->api_version < content::ContentProfile::APIVersion::RGSS2)
+    rb_gv_set("DEBUG", debug);
+  else
+    rb_gv_set("TEST", debug);
+  rb_gv_set("BTEST", MRI_BOOL_VALUE(profile->game_battle_test));
 }
 
 void BindingEngineMri::OnMainMessageLoopRun(

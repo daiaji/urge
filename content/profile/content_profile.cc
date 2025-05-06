@@ -100,7 +100,7 @@ char* IniStreamReader(char* str, int32_t num, void* stream) {
 }
 
 #if defined(OS_WIN)
-std::string AsciiToUtf8(const std::string& asciiStr) {
+std::string ANSIFromUtf8(const std::string& asciiStr) {
   if (asciiStr.empty()) {
     return "";
   }
@@ -182,8 +182,8 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   window_title = reader->Get("Game", "Title", window_title);
   if (!CheckValidUTF8(window_title.c_str())) {
 #if defined(OS_WIN)
-    LOG(INFO) << "[Profile] Non-UTF8 title was detected, try convert to ASCII.";
-    window_title = AsciiToUtf8(window_title);
+    LOG(INFO) << "[Profile] Non-UTF8 title was detected, try convert to ANSI.";
+    window_title = ANSIFromUtf8(window_title);
 #else
     LOG(INFO) << "[Profile] Non-UTF8 title was detected.";
     window_title = "URGE Widget";
