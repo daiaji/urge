@@ -136,7 +136,9 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
   Diligent::FullScreenModeDesc fullscreen_mode_desc;
 #endif
 
+#if defined(OS_ANDROID)
   swap_chain_desc.ColorBufferFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;
+#endif
 
 // Initialize specific graphics api
 #if GL_SUPPORTED || GLES_SUPPORTED
