@@ -272,8 +272,8 @@ FontImpl& FontImpl::operator=(const FontImpl& other) {
   outline_ = other.outline_;
   shadow_ = other.shadow_;
   solid_ = other.solid_;
-  color_ = new ColorImpl(base::Vec4());
-  out_color_ = new ColorImpl(base::Vec4());
+  *color_ = *other.color_;
+  *out_color_ = *other.out_color_;
   font_ = nullptr;
   return *this;
 }
