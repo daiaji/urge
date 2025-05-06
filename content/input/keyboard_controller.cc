@@ -413,6 +413,12 @@ std::vector<int32_t> KeyboardControllerImpl::GetRecentRepeated(
   return out;
 }
 
+void KeyboardControllerImpl::Emulate(int32_t scancode,
+                                     bool press,
+                                     ExceptionState& exception_state) {
+  window_->EmulateKeyState(static_cast<SDL_Scancode>(scancode), press);
+}
+
 void KeyboardControllerImpl::UpdateDir4Internal() {
   bool key_states[kArrowDirsSymbolSize] = {0};
   for (auto& it : key_bindings_)

@@ -72,6 +72,10 @@ class KeyboardControllerImpl : public Input {
   std::vector<int32_t> GetRecentRepeated(
       ExceptionState& exception_state) override;
 
+  void Emulate(int32_t scancode,
+               bool press,
+               ExceptionState& exception_state) override;
+
  private:
   void UpdateDir4Internal();
   void UpdateDir8Internal();

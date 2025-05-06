@@ -73,6 +73,11 @@ class URGE_RUNTIME_API Input : public base::RefCounted<Input> {
   /*--urge(name:recent_repeated_keys)--*/
   virtual std::vector<int32_t> GetRecentRepeated(
       ExceptionState& exception_state) = 0;
+
+  /*--urge(name:emulate)--*/
+  virtual void Emulate(int32_t scancode,
+                       bool press,
+                       ExceptionState& exception_state) = 0;
 };
 
 }  // namespace content
