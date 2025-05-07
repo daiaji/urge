@@ -351,6 +351,7 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
 void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
                                       Diligent::IBuffer** world_binding,
                                       const base::Rect& last_viewport,
+                                      const base::Vec2i& last_origin,
                                       const base::Rect& bound,
                                       WindowAgent* agent,
                                       TextureAgent* windowskin) {
@@ -359,7 +360,10 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
     auto& pipeline_set = device->GetPipelines()->base;
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
-    auto interact_region = base::MakeIntersect(last_viewport, bound);
+    const base::Rect window_bound(last_viewport.x + bound.x - last_origin.x,
+                                  last_viewport.y + bound.y - last_origin.y,
+                                  bound.width, bound.height);
+    auto interact_region = base::MakeIntersect(last_viewport, window_bound);
     if (!interact_region.width || !interact_region.height)
       return;
 
@@ -417,15 +421,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       if (!interact_region.width || !interact_region.height)
         return;
 
-      {
-        Diligent::Rect render_scissor;
-        render_scissor.left = interact_region.x;
-        render_scissor.top = interact_region.y;
-        render_scissor.right = interact_region.x + interact_region.width;
-        render_scissor.bottom = interact_region.y + interact_region.height;
-        context->SetScissorRects(1, &render_scissor, 1,
-                                 render_scissor.bottom + render_scissor.top);
-      }
+      device->Scissor()->Push(interact_region);
     }
 
     // Apply vertex index
@@ -457,8 +453,8 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
 
     {
       base::Rect inbox_region = bound;
-      inbox_region.x += 8 * scale;
-      inbox_region.y += 8 * scale;
+      inbox_region.x += last_viewport.x + 8 * scale - last_origin.x;
+      inbox_region.y += last_viewport.y + 8 * scale - last_origin.y;
       inbox_region.width -= 16 * scale;
       inbox_region.height -= 16 * scale;
 
@@ -466,15 +462,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       if (!interact_region.width || !interact_region.height)
         return;
 
-      {
-        Diligent::Rect render_scissor;
-        render_scissor.left = interact_region.x;
-        render_scissor.top = interact_region.y;
-        render_scissor.right = interact_region.x + interact_region.width;
-        render_scissor.bottom = interact_region.y + interact_region.height;
-        context->SetScissorRects(1, &render_scissor, 1,
-                                 render_scissor.bottom + render_scissor.top);
-      }
+      device->Scissor()->Apply(interact_region);
     }
 
     if (contents && agent->contents_draw_count) {
@@ -496,15 +484,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       context->DrawIndexed(draw_indexed_attribs);
     }
 
-    {
-      Diligent::Rect render_scissor;
-      render_scissor.left = last_viewport.x;
-      render_scissor.top = last_viewport.y;
-      render_scissor.right = last_viewport.x + last_viewport.width;
-      render_scissor.bottom = last_viewport.y + last_viewport.height;
-      context->SetScissorRects(1, &render_scissor, 1,
-                               render_scissor.bottom + render_scissor.top);
-    }
+    device->Scissor()->Pop();
   }
 }
 
@@ -869,10 +849,10 @@ void WindowImpl::BackgroundNodeHandlerInternal(
                                         windowskin_->GetAgent(), scale_, bound_,
                                         stretch_, opacity_, back_opacity_));
     } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-      screen()->PostTask(base::BindOnce(&GPURenderBackgroundLayerInternal,
-                                        params->device, params->world_binding,
-                                        params->viewport, bound_, agent_,
-                                        windowskin_->GetAgent()));
+      screen()->PostTask(base::BindOnce(
+          &GPURenderBackgroundLayerInternal, params->device,
+          params->world_binding, params->viewport, params->origin, bound_,
+          agent_, windowskin_->GetAgent()));
     }
   }
 }

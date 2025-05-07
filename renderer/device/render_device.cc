@@ -123,6 +123,8 @@ std::unique_ptr<RenderDevice> RenderDevice::Create(
 
   native_window.pAWindow = SDL_GetPointerProperty(
       window_properties, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
+#else
+#error "unsupport platform selected."
 #endif
 
   Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
