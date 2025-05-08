@@ -202,13 +202,15 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
                                  Diligent::MAP_FLAG_DO_NOT_WAIT, nullptr,
                                  MappedData);
 
-  // Fill in memory surface
-  uint8_t* dst_data = static_cast<uint8_t*>(surface_cache->pixels);
-  uint8_t* src_data = static_cast<uint8_t*>(MappedData.pData);
-  for (int32_t i = 0; i < surface_cache->h; ++i) {
-    memcpy(dst_data, src_data, surface_cache->pitch);
-    dst_data += surface_cache->pitch;
-    src_data += MappedData.Stride;
+  if (MappedData.pData) {
+    // Fill in memory surface
+    uint8_t* dst_data = static_cast<uint8_t*>(surface_cache->pixels);
+    uint8_t* src_data = static_cast<uint8_t*>(MappedData.pData);
+    for (int32_t i = 0; i < surface_cache->h; ++i) {
+      memcpy(dst_data, src_data, surface_cache->pitch);
+      dst_data += surface_cache->pitch;
+      src_data += MappedData.Stride;
+    }
   }
 
   // End of mapping
@@ -520,11 +522,23 @@ scoped_refptr<Bitmap> Bitmap::Deserialize(ExecutionContext* execution_context,
                                           ExceptionState& exception_state) {
   const uint8_t* raw_data = reinterpret_cast<const uint8_t*>(data.data());
 
+  if (data.size() < sizeof(uint32_t) * 2) {
+    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid bitmap header data.");
+    return nullptr;
+  }
+
   uint32_t surface_width = 0, surface_height = 0;
   std::memcpy(&surface_width, raw_data + sizeof(uint32_t) * 0,
               sizeof(uint32_t));
   std::memcpy(&surface_height, raw_data + sizeof(uint32_t) * 1,
               sizeof(uint32_t));
+
+  if (data.size() < sizeof(uint32_t) * 2 + surface_width * surface_height * 4) {
+    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid bitmap dump data.");
+    return nullptr;
+  }
 
   SDL_Surface* surface = SDL_CreateSurface(surface_width, surface_height,
                                            SDL_PIXELFORMAT_ABGR8888);
@@ -972,13 +986,25 @@ void CanvasImpl::SetPixel(int32_t x,
   if (x < 0 || x >= texture_->size.x || y < 0 || y >= texture_->size.y)
     return;
 
+  scoped_refptr<ColorImpl> color_obj = ColorImpl::From(color.get());
+
   auto* command = AllocateCommand<Command_GradientFillRect>();
   command->region = base::Rect(x, y, 1, 1);
-  command->color1 = ColorImpl::From(color.get())->AsNormColor();
+  command->color1 = color_obj->AsNormColor();
   command->color2 = command->color1;
   command->vertical = false;
 
-  InvalidateSurfaceCache();
+  SDL_Surface* surface = RequireMemorySurface();
+  if (surface) {
+    const SDL_Color color_unorm = color_obj->AsSDLColor();
+    auto* pixel_detail = SDL_GetPixelFormatDetails(surface->format);
+    int bpp = pixel_detail->bytes_per_pixel;
+    uint8_t* pixel =
+        static_cast<uint8_t*>(surface->pixels) + y * surface->pitch + x * bpp;
+    *reinterpret_cast<uint32_t*>(pixel) =
+        SDL_MapRGBA(pixel_detail, nullptr, color_unorm.r, color_unorm.g,
+                    color_unorm.b, color_unorm.a);
+  }
 }
 
 void CanvasImpl::HueChange(int32_t hue, ExceptionState& exception_state) {
