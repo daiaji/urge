@@ -11,8 +11,8 @@ namespace renderer {
 //   basis shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -22,7 +22,7 @@ namespace renderer {
 //   { Texture2D }
 ///
 
-const std::string kHLSL_BaseRender_VertexShader = R"(
+const std::string kHLSL_BaseRender = R"(
 
 struct WorldMatrix {
   float4x4 ProjMat;
@@ -45,31 +45,21 @@ struct PSInput {
   float4 Color : COLOR0;
 };
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Pos = mul(u_Transform.ProjMat, VSIn.Pos);
   PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
 
-)";
-
-const std::string kHLSL_BaseRender_PixelShader = R"(
-
 Texture2D u_Texture;
 SamplerState u_Texture_sampler;
-
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : COLOR0;
-};
 
 struct PSOutput {
   float4 Color : SV_TARGET;
 };
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
   frag.a *= PSIn.Color.a;
   PSOut.Color = frag;
@@ -82,8 +72,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   color shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -92,7 +82,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   { float4x4, float4x4 }
 ///
 
-const std::string kHLSL_ColorRender_VertexShader = R"(
+const std::string kHLSL_ColorRender = R"(
 
 struct WorldMatrix {
   float4x4 ProjMat;
@@ -115,28 +105,18 @@ struct PSInput {
   float4 Color : COLOR0;
 };
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Pos = mul(u_Transform.ProjMat, VSIn.Pos);
   PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
 
-)";
-
-const std::string kHLSL_ColorRender_PixelShader = R"(
-
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : COLOR0;
-};
-
 struct PSOutput {
   float4 Color : SV_TARGET;
 };
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   PSOut.Color = PSIn.Color;
 }
 
@@ -147,8 +127,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   flat shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -159,7 +139,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   { float4, float4 }
 ///
 
-const std::string kHLSL_FlatRender_VertexShader = R"(
+const std::string kHLSL_FlatRender = R"(
 
 struct WorldMatrix {
   float4x4 ProjMat;
@@ -182,16 +162,12 @@ struct PSInput {
   float4 Color : COLOR0;
 };
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Pos = mul(u_Transform.ProjMat, VSIn.Pos);
   PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
-
-)";
-
-const std::string kHLSL_FlatRender_PixelShader = R"(
 
 struct FlatParams {
   float4 Color;
@@ -205,19 +181,13 @@ cbuffer FlatUniformConstants {
 Texture2D u_Texture;
 SamplerState u_Texture_sampler;
 
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : COLOR0;
-};
-
 struct PSOutput {
   float4 Color : SV_TARGET;
 };
 
 static const float3 lumaF = float3(0.299, 0.587, 0.114);
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
 
   // Tone
@@ -241,8 +211,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   sprite shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -254,7 +224,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   < { float2, float2, float2, float, float4, float4, float, float, float } >
 ///
 
-const std::string kHLSL_SpriteRender_VertexShader = R"(
+const std::string kHLSL_SpriteRender = R"(
 
 struct WorldMatrix {
   float4x4 ProjMat;
@@ -301,7 +271,7 @@ struct PSInput {
   float BushOpacity : NORMAL4;
 };
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
 #if STORAGE_BUFFER_SUPPORT
 #if defined(GLSL)
   int vertex_id = int(VSIn.VertexIdx);
@@ -338,22 +308,8 @@ void main(in VSInput VSIn, out PSInput PSIn) {
   PSIn.BushOpacity = effect.BushDepthAndOpacity.y;
 }
 
-)";
-
-const std::string kHLSL_SpriteRender_PixelShader = R"(
-
 Texture2D u_Texture;
 SamplerState u_Texture_sampler;
-
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : NORMAL0;
-  float4 Tone : NORMAL1;
-  float Opacity : NORMAL2;
-  float BushDepth : NORMAL3;
-  float BushOpacity : NORMAL4;
-};
 
 struct PSOutput {
   float4 Color : SV_TARGET;
@@ -361,7 +317,7 @@ struct PSOutput {
 
 static const float3 lumaF = float3(0.299, 0.587, 0.114);
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
   
   // Tone
@@ -388,8 +344,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   alpha transition shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -398,7 +354,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   { Texture2D, Texture2D }
 ///
 
-const std::string kHLSL_AlphaTransitionRender_VertexShader = R"(
+const std::string kHLSL_AlphaTransitionRender = R"(
 
 struct VSInput {
   float4 Pos : ATTRIB0;
@@ -412,15 +368,11 @@ struct PSInput {
   float4 Color : COLOR0;
 };
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Pos = VSIn.Pos;
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
-
-)";
-
-const std::string kHLSL_AlphaTransitionRender_PixelShader = R"(
 
 Texture2D u_FrozenTexture;
 SamplerState u_FrozenTexture_sampler;
@@ -428,17 +380,11 @@ SamplerState u_FrozenTexture_sampler;
 Texture2D u_CurrentTexture;
 SamplerState u_CurrentTexture_sampler;
 
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : COLOR0;
-};
-
 struct PSOutput {
   float4 Color : SV_TARGET;
 };
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float4 frozenFrag = u_FrozenTexture.Sample(u_FrozenTexture_sampler, PSIn.UV);
   float4 currentFrag = u_CurrentTexture.Sample(u_CurrentTexture_sampler, PSIn.UV);
   PSOut.Color = lerp(frozenFrag, currentFrag, PSIn.Color.a);
@@ -451,8 +397,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   mapping transition shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -461,7 +407,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   { Texture2D, Texture2D, Texture2D }
 ///
 
-const std::string kHLSL_MappingTransitionRender_VertexShader = R"(
+const std::string kHLSL_MappingTransitionRender = R"(
 
 struct VSInput {
   float4 Pos : ATTRIB0;
@@ -475,15 +421,11 @@ struct PSInput {
   float4 Color : COLOR0;
 };
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Pos = VSIn.Pos;
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
-
-)";
-
-const std::string kHLSL_MappingTransitionRender_PixelShader = R"(
 
 Texture2D u_FrozenTexture;
 SamplerState u_FrozenTexture_sampler;
@@ -494,17 +436,11 @@ SamplerState u_CurrentTexture_sampler;
 Texture2D u_TransTexture;
 SamplerState u_TransTexture_sampler;
 
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : COLOR0;
-};
-
 struct PSOutput {
   float4 Color : SV_TARGET;
 };
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float4 frozenFrag = u_FrozenTexture.Sample(u_FrozenTexture_sampler, PSIn.UV);
   float4 currentFrag = u_CurrentTexture.Sample(u_CurrentTexture_sampler, PSIn.UV);
   float transSample = u_TransTexture.Sample(u_TransTexture_sampler, PSIn.UV).r;
@@ -525,8 +461,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   tilemap shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -537,7 +473,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   { float2, float2, float, float }
 ///
 
-const std::string kHLSL_TilemapRender_VertexShader = R"(
+const std::string kHLSL_TilemapRender = R"(
 
 struct WorldMatrix {
   float4x4 ProjMat;
@@ -571,7 +507,7 @@ struct PSInput {
 
 static const float2 kAutotileArea = float2(3.0, 28.0);
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
   float4 transPos = VSIn.Pos;
   float2 transUV = VSIn.UV;
 
@@ -595,24 +531,14 @@ void main(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Color = VSIn.Color;
 }
 
-)";
-
-const std::string kHLSL_TilemapRender_PixelShader = R"(
-
 Texture2D u_Texture;
 SamplerState u_Texture_sampler;
-
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : COLOR0;
-};
 
 struct PSOutput {
   float4 Color : SV_TARGET;
 };
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
   PSOut.Color.rgb = lerp(frag.rgb, PSIn.Color.rgb, PSIn.Color.a);
   PSOut.Color.a = frag.a;
@@ -625,8 +551,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   tilemap2 shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -637,7 +563,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   { float2, float2, float2, float }
 ///
 
-const std::string kHLSL_Tilemap2Render_VertexShader = R"(
+const std::string kHLSL_Tilemap2Render = R"(
 
 struct WorldMatrix {
   float4x4 ProjMat;
@@ -685,7 +611,7 @@ static const float2 kRegularArea = float2(12.0, 12.0);
 static const float4 kWaterfallArea = float4(12.0, 0.0, 4.0, 12.0);
 static const float4 kWaterfallAutotileArea = float4(12.0, 0.0, 2.0, 6.0);
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
   float4 transPos = VSIn.Pos;
   float2 transUV = VSIn.UV;
 
@@ -714,24 +640,14 @@ void main(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Color = VSIn.Color;
 }
 
-)";
-
-const std::string kHLSL_Tilemap2Render_PixelShader = R"(
-
 Texture2D u_Texture;
 SamplerState u_Texture_sampler;
-
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : COLOR0;
-};
 
 struct PSOutput {
   float4 Color : SV_TARGET;
 };
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
   PSOut.Color.rgb = lerp(frag.rgb, PSIn.Color.rgb, PSIn.Color.a);
   PSOut.Color.a = frag.a;
@@ -744,8 +660,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   bitmap hue shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -754,7 +670,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   { Texture2D }
 ///
 
-const std::string kHLSL_BitmapHueRender_VertexShader = R"(
+const std::string kHLSL_BitmapHueRender = R"(
 
 struct VSInput {
   float4 Pos : ATTRIB0;
@@ -768,24 +684,14 @@ struct PSInput {
   float4 Color : COLOR0;
 };
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Pos = VSIn.Pos;
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
 
-)";
-
-const std::string kHLSL_BitmapHueRender_PixelShader = R"(
-
 Texture2D u_Texture;
 SamplerState u_Texture_sampler;
-
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : COLOR0;
-};
 
 struct PSOutput {
   float4 Color : SV_TARGET;
@@ -814,7 +720,7 @@ float3 hsv2rgb(float3 c) {
   return c.z * lerp(float3(K.x, K.x, K.x), clamp(p - float3(K.x, K.x, K.x), 0.0, 1.0), c.y);
 }
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
   float3 hsv = rgb2hsv(frag.rgb);
   hsv.x += PSIn.Color.a;
@@ -828,8 +734,8 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   present shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -842,7 +748,7 @@ void main(in PSInput PSIn, out PSOutput PSOut) {
 //   CONVERT_PS_OUTPUT_TO_GAMMA
 ///
 
-const std::string kHLSL_PresentRender_VertexShader = R"(
+const std::string kHLSL_PresentRender = R"(
 
 struct WorldMatrix {
   float4x4 ProjMat;
@@ -865,31 +771,21 @@ struct PSInput {
   float4 Color : COLOR0;
 };
 
-void main(in VSInput VSIn, out PSInput PSIn) {
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
   PSIn.Pos = mul(u_Transform.ProjMat, VSIn.Pos);
   PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
   PSIn.UV = VSIn.UV;
   PSIn.Color = VSIn.Color;
 }
 
-)";
-
-const std::string kHLSL_PresentRender_PixelShader = R"(
-
 Texture2D u_Texture;
 SamplerState u_Texture_sampler;
-
-struct PSInput {
-  float4 Pos : SV_Position;
-  float2 UV : TEXCOORD0;
-  float4 Color : COLOR0;
-};
 
 struct PSOutput {
   float4 Color : SV_TARGET;
 };
 
-void main(in PSInput PSIn, out PSOutput PSOut) {
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float4 frag = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
   frag.a *= PSIn.Color.a;
   SRGBA_TO_LINEAR(frag);

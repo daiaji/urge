@@ -22,14 +22,6 @@
 #include <filesystem>
 #endif
 
-#if defined(OS_WIN)
-#include <windows.h>
-extern "C" {
-__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
-__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
-}
-#endif  //! OS_WIN
-
 int main(int argc, char* argv[]) {
 #if defined(OS_WIN)
   ::SetConsoleOutputCP(CP_UTF8);

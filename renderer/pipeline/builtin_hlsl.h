@@ -14,8 +14,8 @@ namespace renderer {
 //   basis shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -24,16 +24,15 @@ namespace renderer {
 //   { float4x4, float4x4 }
 //   { Texture2D }
 ///
-extern const std::string kHLSL_BaseRender_VertexShader;
-extern const std::string kHLSL_BaseRender_PixelShader;
+extern const std::string kHLSL_BaseRender;
 
 ///
 // type:
 //   color shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -41,16 +40,15 @@ extern const std::string kHLSL_BaseRender_PixelShader;
 // resource:
 //   { float4x4, float4x4 }
 ///
-extern const std::string kHLSL_ColorRender_VertexShader;
-extern const std::string kHLSL_ColorRender_PixelShader;
+extern const std::string kHLSL_ColorRender;
 
 ///
 // type:
 //   flat shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -60,16 +58,15 @@ extern const std::string kHLSL_ColorRender_PixelShader;
 //   { Texture2D }
 //   { float4, float4 }
 ///
-extern const std::string kHLSL_FlatRender_VertexShader;
-extern const std::string kHLSL_FlatRender_PixelShader;
+extern const std::string kHLSL_FlatRender;
 
 ///
 // type:
 //   sprite shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -82,16 +79,15 @@ extern const std::string kHLSL_FlatRender_PixelShader;
 // defination:
 //   STORAGE_BUFFER_SUPPORT
 ///
-extern const std::string kHLSL_SpriteRender_VertexShader;
-extern const std::string kHLSL_SpriteRender_PixelShader;
+extern const std::string kHLSL_SpriteRender;
 
 ///
 // type:
 //   alpha transition shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -99,16 +95,15 @@ extern const std::string kHLSL_SpriteRender_PixelShader;
 // bind:
 //   { Texture2D, Texture2D }
 ///
-extern const std::string kHLSL_AlphaTransitionRender_VertexShader;
-extern const std::string kHLSL_AlphaTransitionRender_PixelShader;
+extern const std::string kHLSL_AlphaTransitionRender;
 
 ///
 // type:
 //   mapping transition shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -116,16 +111,15 @@ extern const std::string kHLSL_AlphaTransitionRender_PixelShader;
 // bind:
 //   { Texture2D, Texture2D, Texture2D }
 ///
-extern const std::string kHLSL_MappingTransitionRender_VertexShader;
-extern const std::string kHLSL_MappingTransitionRender_PixelShader;
+extern const std::string kHLSL_MappingTransitionRender;
 
 ///
 // type:
 //   tilemap shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -135,16 +129,15 @@ extern const std::string kHLSL_MappingTransitionRender_PixelShader;
 //   { Texture2D }
 //   { float2, float2, float, float }
 ///
-extern const std::string kHLSL_TilemapRender_VertexShader;
-extern const std::string kHLSL_TilemapRender_PixelShader;
+extern const std::string kHLSL_TilemapRender;
 
 ///
 // type:
 //   tilemap2 shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -154,16 +147,15 @@ extern const std::string kHLSL_TilemapRender_PixelShader;
 //   { Texture2D }
 //   { float2, float2, float2, float }
 ///
-extern const std::string kHLSL_Tilemap2Render_VertexShader;
-extern const std::string kHLSL_Tilemap2Render_PixelShader;
+extern const std::string kHLSL_Tilemap2Render;
 
 ///
 // type:
 //   bitmap hue shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -171,16 +163,15 @@ extern const std::string kHLSL_Tilemap2Render_PixelShader;
 // resource:
 //   { Texture2D }
 ///
-extern const std::string kHLSL_BitmapHueRender_VertexShader;
-extern const std::string kHLSL_BitmapHueRender_PixelShader;
+extern const std::string kHLSL_BitmapHueRender;
 
 ///
 // type:
 //   present shader
 ///
 // entry:
-//   vertex: main
-//   pixel: main
+//   vertex: VSMain
+//   pixel: PSMain
 ///
 // vertex:
 //   <float4, float2, float4>
@@ -192,8 +183,7 @@ extern const std::string kHLSL_BitmapHueRender_PixelShader;
 // defination:
 //   CONVERT_PS_OUTPUT_TO_GAMMA
 ///
-extern const std::string kHLSL_PresentRender_VertexShader;
-extern const std::string kHLSL_PresentRender_PixelShader;
+extern const std::string kHLSL_PresentRender;
 
 }  // namespace renderer
 

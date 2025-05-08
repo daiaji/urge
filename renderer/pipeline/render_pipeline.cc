@@ -63,15 +63,13 @@ RenderPipelineBase::RenderPipelineBase(Diligent::IRenderDevice* device)
     : device_(device) {}
 
 void RenderPipelineBase::BuildPipeline(
-    const ShaderSource& vertex_shader,
-    const ShaderSource& pixel_shader,
+    const ShaderSource& shader_source,
     const std::vector<Diligent::LayoutElement>& input_layout,
     const std::vector<Diligent::ShaderResourceVariableDesc>& variables,
     const std::vector<Diligent::ImmutableSamplerDesc>& samplers,
     Diligent::TEXTURE_FORMAT target_format) {
   std::stringstream pipeline_debug_name;
-  pipeline_debug_name << "pipeline<" << vertex_shader.name << ", "
-                      << pixel_shader.name << ">";
+  pipeline_debug_name << "pipeline<" << shader_source.name << ">";
   pipeline_name_ = pipeline_debug_name.str();
 
   Diligent::GraphicsPipelineStateCreateInfo pipeline_state_desc;
@@ -99,21 +97,21 @@ void RenderPipelineBase::BuildPipeline(
 
   {
     shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
-    shader_desc.EntryPoint = vertex_shader.entry.c_str();
-    shader_desc.Desc.Name = vertex_shader.name.c_str();
-    shader_desc.Source = vertex_shader.source.c_str();
-    shader_desc.SourceLength = vertex_shader.source.size();
-    shader_desc.Macros.Count = vertex_shader.macros.size();
-    shader_desc.Macros.Elements = vertex_shader.macros.data();
+    shader_desc.EntryPoint = shader_source.vertex_entry.c_str();
+    shader_desc.Desc.Name = shader_source.name.c_str();
+    shader_desc.Source = shader_source.source.c_str();
+    shader_desc.SourceLength = shader_source.source.size();
+    shader_desc.Macros.Count = shader_source.macros.size();
+    shader_desc.Macros.Elements = shader_source.macros.data();
     device_->CreateShader(shader_desc, &vertex_shader_object);
 
     shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
-    shader_desc.EntryPoint = pixel_shader.entry.c_str();
-    shader_desc.Desc.Name = pixel_shader.name.c_str();
-    shader_desc.Source = pixel_shader.source.c_str();
-    shader_desc.SourceLength = pixel_shader.source.size();
-    shader_desc.Macros.Count = pixel_shader.macros.size();
-    shader_desc.Macros.Elements = pixel_shader.macros.data();
+    shader_desc.EntryPoint = shader_source.pixel_entry.c_str();
+    shader_desc.Desc.Name = shader_source.name.c_str();
+    shader_desc.Source = shader_source.source.c_str();
+    shader_desc.SourceLength = shader_source.source.size();
+    shader_desc.Macros.Count = shader_source.macros.size();
+    shader_desc.Macros.Elements = shader_source.macros.data();
     device_->CreateShader(shader_desc, &pixel_shader_object);
   }
 
@@ -150,10 +148,7 @@ void RenderPipelineBase::BuildPipeline(
 Pipeline_Base::Pipeline_Base(Diligent::IRenderDevice* device,
                              Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{
-      kHLSL_BaseRender_VertexShader, "main", "base.vertex", {}};
-  const ShaderSource pixel_shader{
-      kHLSL_BaseRender_PixelShader, "main", "base.pixel", {}};
+  const ShaderSource shader_source{kHLSL_BaseRender, "base.render"};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -172,34 +167,28 @@ Pipeline_Base::Pipeline_Base(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
-                samplers, target_format);
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
+                target_format);
 }
 
 Pipeline_Color::Pipeline_Color(Diligent::IRenderDevice* device,
                                Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{
-      kHLSL_ColorRender_VertexShader, "main", "color.vertex", {}};
-  const ShaderSource pixel_shader{
-      kHLSL_ColorRender_PixelShader, "main", "color.pixel", {}};
+  const ShaderSource shader_source{kHLSL_ColorRender, "color.render"};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables, {},
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, {},
                 target_format);
 }
 
 Pipeline_Flat::Pipeline_Flat(Diligent::IRenderDevice* device,
                              Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{
-      kHLSL_FlatRender_VertexShader, "main", "flat.vertex", {}};
-  const ShaderSource pixel_shader{
-      kHLSL_FlatRender_PixelShader, "main", "flat.pixel", {}};
+  const ShaderSource shader_source{kHLSL_FlatRender, "flat.render"};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -220,8 +209,8 @@ Pipeline_Flat::Pipeline_Flat(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
-                samplers, target_format);
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
+                target_format);
 }
 
 Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
@@ -244,10 +233,8 @@ Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
   Diligent::ShaderMacro vertex_macro = {"STORAGE_BUFFER_SUPPORT",
                                         storage_buffer_support ? "1" : "0"};
 
-  const ShaderSource vertex_shader{
-      kHLSL_SpriteRender_VertexShader, "main", "sprite.vertex", {vertex_macro}};
-  const ShaderSource pixel_shader{
-      kHLSL_SpriteRender_PixelShader, "main", "sprite.pixel", {}};
+  const ShaderSource shader_source{
+      kHLSL_SpriteRender, "sprite.render", {vertex_macro}};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -271,20 +258,16 @@ Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
-                samplers, target_format);
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
+                target_format);
 }
 
 Pipeline_AlphaTransition::Pipeline_AlphaTransition(
     Diligent::IRenderDevice* device,
     Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{kHLSL_AlphaTransitionRender_VertexShader,
-                                   "main",
-                                   "alphatrans.vertex",
-                                   {}};
-  const ShaderSource pixel_shader{
-      kHLSL_AlphaTransitionRender_PixelShader, "main", "alphatrans.pixel", {}};
+  const ShaderSource shader_source{kHLSL_AlphaTransitionRender,
+                                   "alpha.trans.render"};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_PIXEL, "u_FrozenTexture",
@@ -310,22 +293,16 @@ Pipeline_AlphaTransition::Pipeline_AlphaTransition(
       },
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
-                samplers, target_format);
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
+                target_format);
 }
 
 Pipeline_VagueTransition::Pipeline_VagueTransition(
     Diligent::IRenderDevice* device,
     Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{kHLSL_MappingTransitionRender_VertexShader,
-                                   "main",
-                                   "vaguetrans.vertex",
-                                   {}};
-  const ShaderSource pixel_shader{kHLSL_MappingTransitionRender_PixelShader,
-                                  "main",
-                                  "vaguetrans.pixel",
-                                  {}};
+  const ShaderSource shader_source{kHLSL_MappingTransitionRender,
+                                   "vague.trans.render"};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_PIXEL, "u_FrozenTexture",
@@ -360,17 +337,14 @@ Pipeline_VagueTransition::Pipeline_VagueTransition(
       },
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
-                samplers, target_format);
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
+                target_format);
 }
 
 Pipeline_Tilemap::Pipeline_Tilemap(Diligent::IRenderDevice* device,
                                    Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{
-      kHLSL_TilemapRender_VertexShader, "main", "tilemap.vertex", {}};
-  const ShaderSource pixel_shader{
-      kHLSL_TilemapRender_PixelShader, "main", "tilemap.pixel", {}};
+  const ShaderSource shader_source{kHLSL_TilemapRender, "tilemap.render"};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -391,17 +365,14 @@ Pipeline_Tilemap::Pipeline_Tilemap(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
-                samplers, target_format);
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
+                target_format);
 }
 
 Pipeline_Tilemap2::Pipeline_Tilemap2(Diligent::IRenderDevice* device,
                                      Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{
-      kHLSL_Tilemap2Render_VertexShader, "main", "tilemap2.vertex", {}};
-  const ShaderSource pixel_shader{
-      kHLSL_Tilemap2Render_PixelShader, "main", "tilemap2.pixel", {}};
+  const ShaderSource shader_source{kHLSL_Tilemap2Render, "tilemap2.render"};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -422,17 +393,14 @@ Pipeline_Tilemap2::Pipeline_Tilemap2(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
-                samplers, target_format);
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
+                target_format);
 }
 
 Pipeline_BitmapHue::Pipeline_BitmapHue(Diligent::IRenderDevice* device,
                                        Diligent::TEXTURE_FORMAT target_format)
     : RenderPipelineBase(device) {
-  const ShaderSource vertex_shader{
-      kHLSL_BitmapHueRender_VertexShader, "main", "bitmap.hue.vertex", {}};
-  const ShaderSource pixel_shader{
-      kHLSL_BitmapHueRender_PixelShader, "main", "bitmap.hue.pixel", {}};
+  const ShaderSource shader_source{kHLSL_BitmapHueRender, "hue.render"};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
@@ -449,8 +417,8 @@ Pipeline_BitmapHue::Pipeline_BitmapHue(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables,
-                samplers, target_format);
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
+                target_format);
 }
 
 Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
@@ -462,10 +430,8 @@ Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
       {"SRGBA_TO_LINEAR(col)", manual_srgb ? SRGBA_TO_LINEAR : ""},
   };
 
-  const ShaderSource vertex_shader{
-      kHLSL_PresentRender_VertexShader, "main", "present.vertex", {}};
-  const ShaderSource pixel_shader{kHLSL_PresentRender_PixelShader, "main",
-                                  "present.pixel", pixel_macros};
+  const ShaderSource shader_source{kHLSL_PresentRender, "present.render",
+                                   pixel_macros};
 
   const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
@@ -476,7 +442,7 @@ Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
-  BuildPipeline(vertex_shader, pixel_shader, Vertex::GetLayout(), variables, {},
+  BuildPipeline(shader_source, Vertex::GetLayout(), variables, {},
                 target_format);
 }
 

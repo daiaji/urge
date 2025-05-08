@@ -34,9 +34,10 @@ class RenderPipelineBase {
  public:
   struct ShaderSource {
     std::string source;
-    std::string entry = "main";
-    std::string name = "shader";
-    std::vector<Diligent::ShaderMacro> macros;
+    std::string name = "generic.shader";
+    std::vector<Diligent::ShaderMacro> macros = {};
+    std::string vertex_entry = "VSMain";
+    std::string pixel_entry = "PSMain";
   };
 
   virtual ~RenderPipelineBase() = default;
@@ -59,8 +60,7 @@ class RenderPipelineBase {
   RenderPipelineBase(Diligent::IRenderDevice* device);
 
   void BuildPipeline(
-      const ShaderSource& vertex_shader,
-      const ShaderSource& pixel_shader,
+      const ShaderSource& shader_source,
       const std::vector<Diligent::LayoutElement>& input_layout,
       const std::vector<Diligent::ShaderResourceVariableDesc>& variables,
       const std::vector<Diligent::ImmutableSamplerDesc>& samplers,
