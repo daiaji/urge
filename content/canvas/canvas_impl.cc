@@ -850,16 +850,7 @@ void CanvasImpl::FillRect(int32_t x,
                           uint32_t height,
                           scoped_refptr<Color> color,
                           ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return;
-
-  auto* command = AllocateCommand<Command_GradientFillRect>();
-  command->region = base::Rect(x, y, width, height);
-  command->color1 = ColorImpl::From(color.get())->AsNormColor();
-  command->color2 = command->color1;
-  command->vertical = false;
-
-  InvalidateSurfaceCache();
+  GradientFillRect(x, y, width, height, color, color, false, exception_state);
 }
 
 void CanvasImpl::FillRect(scoped_refptr<Rect> rect,
@@ -879,6 +870,9 @@ void CanvasImpl::GradientFillRect(int32_t x,
                                   bool vertical,
                                   ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
+    return;
+
+  if (width <= 0 || height <= 0)
     return;
 
   auto* command = AllocateCommand<Command_GradientFillRect>();
