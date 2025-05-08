@@ -57,7 +57,7 @@ void GPUUpdateWaveSpriteInternal(
   auto emit_wave_block = [&](int32_t block_y, int32_t block_size) {
     float wave_offset =
         wave_phase + (static_cast<float>(block_y) / wave.length) * kPi;
-    float block_x = std::sin(wave_offset) * (wave.amp + 1.0f);
+    float block_x = std::sin(wave_offset) * wave.amp;
 
     base::Rect tex(src_rect.x, src_rect.y + block_y, src_rect.width,
                    block_size);
