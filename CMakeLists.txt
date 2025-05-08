@@ -135,6 +135,11 @@ else()
                         INTERFACE_INCLUDE_DIRECTORIES "${RUBY_INCLUDE_PATH}")
 endif()
 
+## Spine2D
+add_subdirectory(third_party/spine2d)
+include_directories(third_party/spine2d/spine-cpp/include)
+
+## Private crypto
 set(ENABLE_ADMENRI_BUILD_VERSION False)
 set(ADMENRI_BUILD_BUNDLE_DIR ${PROJECT_SOURCE_DIR}/admenri)
 if (EXISTS ${ADMENRI_BUILD_BUNDLE_DIR})
@@ -144,12 +149,18 @@ if (EXISTS ${ADMENRI_BUILD_BUNDLE_DIR})
 endif ()
 
 #-------------------------------------------------------------------------
+# * sub compinents
+#-------------------------------------------------------------------------
+
+add_subdirectory(components/filesystem)
+add_subdirectory(components/fpslimiter)
+add_subdirectory(components/spine)
+
+#-------------------------------------------------------------------------
 # * source
 #-------------------------------------------------------------------------
 
 add_subdirectory(base)
-add_subdirectory(components/filesystem)
-add_subdirectory(components/fpslimiter)
 add_subdirectory(ui)
 add_subdirectory(renderer)
 add_subdirectory(content)

@@ -1,0 +1,67 @@
+// Copyright 2018-2025 Admenri.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef COMPONENTS_SPINE_SPINE_RENDERER_H_
+#define COMPONENTS_SPINE_SPINE_RENDERER_H_
+
+#include <memory>
+
+#include "spine/spine.h"
+
+#include "components/filesystem/io_service.h"
+#include "renderer/device/render_device.h"
+#include "renderer/pipeline/render_pipeline.h"
+
+namespace spine {
+
+class DiligentTextureLoader : public TextureLoader {
+ public:
+  DiligentTextureLoader(renderer::RenderDevice* device,
+                        filesystem::IOService* io_service);
+  ~DiligentTextureLoader() override;
+
+  DiligentTextureLoader(const DiligentTextureLoader&) = delete;
+  DiligentTextureLoader& operator=(const DiligentTextureLoader&) = delete;
+
+  void load(AtlasPage& page, const String& path) override;
+  void unload(void* texture) override;
+
+ private:
+  renderer::RenderDevice* device_;
+  filesystem::IOService* io_service_;
+};
+
+class DiligentRenderer {
+ public:
+  ~DiligentRenderer();
+
+  DiligentRenderer(const DiligentRenderer&) = delete;
+  DiligentRenderer& operator=(const DiligentRenderer&) = delete;
+
+  static std::unique_ptr<DiligentRenderer> Create(
+      renderer::RenderDevice* device,
+      SkeletonData* skeleton_data,
+      AnimationStateData* animation_state_data);
+
+  void Update(float delta, Physics physics);
+  void Render(Diligent::IDeviceContext* context,
+              Diligent::IBuffer* world_buffer);
+
+ private:
+  DiligentRenderer(renderer::RenderDevice* device,
+                   SkeletonData* skeleton_data,
+                   AnimationStateData* animation_state_data);
+
+  renderer::RenderDevice* device_;
+
+  std::unique_ptr<Skeleton> skeleton_;
+  std::unique_ptr<AnimationState> animation_state_;
+
+  std::unique_ptr<SkeletonRenderer> skeleton_renderer_;
+  bool owns_animation_state_data_;
+};
+
+}  // namespace spine
+
+#endif  //! COMPONENTS_SPINE_SPINE_RENDERER_H_

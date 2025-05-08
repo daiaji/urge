@@ -9,7 +9,7 @@ android {
     minSdkVersion 21
     targetSdkVersion 35
     versionCode 1
-    versionName "20250504"
+    versionName "20250507"
     externalNativeBuild {
       ndkBuild {
         arguments "APP_PLATFORM=android-21"
