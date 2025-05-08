@@ -23,7 +23,7 @@ class URGE_RUNTIME_API Font : public base::RefCounted<Font> {
  public:
   virtual ~Font() = default;
 
-  /*--urge(name:initialize)--*/
+  /*--urge(name:initialize,optional:size=20)--*/
   static scoped_refptr<Font> New(ExecutionContext* execution_context,
                                  const std::string& name,
                                  uint32_t size,
