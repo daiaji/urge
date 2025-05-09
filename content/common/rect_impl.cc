@@ -94,6 +94,10 @@ base::Rect RectImpl::AsBaseRect() {
   return tmp;
 }
 
+SDL_Rect RectImpl::AsSDLRect() {
+  return SDL_Rect{rect_.x, rect_.y, rect_.width, rect_.height};
+}
+
 int32_t RectImpl::Get_X(ExceptionState& exception_state) {
   return rect_.x;
 }

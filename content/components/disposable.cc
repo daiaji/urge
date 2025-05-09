@@ -6,9 +6,9 @@
 
 namespace content {
 
-Disposable::Disposable(DisposableCollection* parent)
-    : parent_(parent), disposed_(0) {
-  parent_->AddDisposable(this);
+Disposable::Disposable(DisposableCollection* parent) : disposed_(0) {
+  if (parent)
+    parent->AddDisposable(this);
 }
 
 Disposable::~Disposable() {

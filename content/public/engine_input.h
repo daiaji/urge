@@ -74,9 +74,11 @@ class URGE_RUNTIME_API Input : public base::RefCounted<Input> {
   virtual std::vector<int32_t> GetRecentRepeated(
       ExceptionState& exception_state) = 0;
 
-  /*--urge(name:emulate)--*/
-  virtual void Emulate(int32_t scancode,
-                       bool press,
+  /*--urge(name:emulate,optional:modifier=0,optional:repeat=false)--*/
+  virtual bool Emulate(int32_t scancode,
+                       bool down,
+                       int32_t modifier,
+                       bool repeat,
                        ExceptionState& exception_state) = 0;
 };
 

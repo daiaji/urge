@@ -106,6 +106,7 @@ void ContentRunner::RunMainLoop() {
   execution_context.event_controller = event_controller_.get();
   execution_context.canvas_scheduler = graphics_impl_->GetCanvasScheduler();
   execution_context.graphics = graphics_impl_.get();
+  execution_context.io_service = io_service_;
 
   // Make module context
   EngineBindingBase::ScopedModuleContext module_context;

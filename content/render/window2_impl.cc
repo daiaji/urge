@@ -123,7 +123,6 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         renderer::Quad::SetTexCoordRect(quad_ptr, background1_src,
                                         windowskin->size);
         renderer::Quad::SetColor(quad_ptr, base::Vec4(back_opacity_norm));
-        background_draw_count++;
         quad_ptr++;
 
         int32_t tiles_count = BuildTiles(background2_src, background_dest,
@@ -209,6 +208,8 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         auto& pipeline_set_tone = device->GetPipelines()->viewport;
         auto* pipeline_tone =
             pipeline_set_tone.GetPipeline(renderer::BlendType::NORMAL);
+        auto* pipeline_tone_alpha =
+            pipeline_set_tone.GetPipeline(renderer::BlendType::KEEP_ALPHA);
         auto& pipeline_set_base = device->GetPipelines()->base;
         auto* pipeline_base =
             pipeline_set_base.GetPipeline(renderer::BlendType::NORMAL);
@@ -223,12 +224,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
             render_target_view, clear_color,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        Diligent::Rect render_scissor;
-        render_scissor.right = bound.width;
-        render_scissor.bottom = bound.height;
-        context->SetScissorRects(1, &render_scissor, 1,
-                                 render_scissor.bottom + render_scissor.top);
-
+        device->Scissor()->Apply(bound.Size());
         device->GetQuadIndex()->Allocate(quads.size() + 20);
 
         // Create binding
@@ -262,11 +258,26 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
             **flat_binding,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        // Execute render command
+        // Stretch Layer
+        {
+          Diligent::DrawIndexedAttribs draw_indexed_attribs;
+          draw_indexed_attribs.NumIndices = 6;
+          draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+          context->DrawIndexed(draw_indexed_attribs);
+        }
+
+        // Apply pipeline state
+        context->SetPipelineState(pipeline_tone_alpha);
+        context->CommitShaderResources(
+            **flat_binding,
+            Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+        // Tiled Layer
         {
           Diligent::DrawIndexedAttribs draw_indexed_attribs;
           draw_indexed_attribs.NumIndices = background_draw_count * 6;
           draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+          draw_indexed_attribs.FirstIndexLocation = 6;
           context->DrawIndexed(draw_indexed_attribs);
         }
 
@@ -276,8 +287,9 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
             **base_binding,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        // Execute render command
+        // Frames and Corners
         {
+          background_draw_count++;
           Diligent::DrawIndexedAttribs draw_indexed_attribs;
           draw_indexed_attribs.NumIndices =
               (quads.size() - background_draw_count) * 6;

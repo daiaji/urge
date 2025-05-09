@@ -23,6 +23,7 @@
 #include "binding/mri/autogen_keyevent_binding.h"
 #include "binding/mri/autogen_mouse_binding.h"
 #include "binding/mri/autogen_mouseevent_binding.h"
+#include "binding/mri/autogen_palette_binding.h"
 #include "binding/mri/autogen_plane_binding.h"
 #include "binding/mri/autogen_rect_binding.h"
 #include "binding/mri/autogen_sprite_binding.h"
@@ -194,6 +195,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitKeyEventBinding();
   InitMouseBinding();
   InitMouseEventBinding();
+  InitPaletteBinding();
   InitPlaneBinding();
   InitRectBinding();
   InitSpriteBinding();

@@ -40,7 +40,6 @@ class Disposable : public base::LinkNode<Disposable> {
   virtual std::string DisposedObjectName() = 0;
 
  private:
-  DisposableCollection* parent_;
   int32_t disposed_;
 };
 

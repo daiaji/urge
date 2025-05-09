@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "SDL3/SDL_events.h"
+#include "SDL3/SDL_timer.h"
 #include "imgui/imgui.h"
 
 #include "content/profile/command_ids.h"
@@ -413,10 +414,25 @@ std::vector<int32_t> KeyboardControllerImpl::GetRecentRepeated(
   return out;
 }
 
-void KeyboardControllerImpl::Emulate(int32_t scancode,
-                                     bool press,
+bool KeyboardControllerImpl::Emulate(int32_t scancode,
+                                     bool down,
+                                     int32_t modifier,
+                                     bool repeat,
                                      ExceptionState& exception_state) {
-  window_->EmulateKeyState(static_cast<SDL_Scancode>(scancode), press);
+  SDL_Event emulate_event;
+  emulate_event.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+  emulate_event.key.timestamp = SDL_GetTicksNS();
+  emulate_event.key.windowID = window_->GetWindowID();
+  emulate_event.key.which = 0;
+  emulate_event.key.scancode = static_cast<SDL_Scancode>(scancode);
+  emulate_event.key.mod = modifier;
+  emulate_event.key.raw = 0;
+  emulate_event.key.down = down;
+  emulate_event.key.repeat = repeat;
+  emulate_event.key.key = SDL_GetKeyFromScancode(emulate_event.key.scancode,
+                                                 emulate_event.key.mod, true);
+
+  return SDL_PushEvent(&emulate_event);
 }
 
 void KeyboardControllerImpl::UpdateDir4Internal() {

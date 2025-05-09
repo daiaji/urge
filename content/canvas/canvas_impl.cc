@@ -8,6 +8,7 @@
 #include "SDL3_ttf/SDL_ttf.h"
 
 #include "content/canvas/canvas_scheduler.h"
+#include "content/canvas/palette_impl.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
 #include "content/context/execution_context.h"
@@ -505,6 +506,21 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
                             base::Vec2i(width, height), exception_state);
 }
 
+scoped_refptr<Bitmap> Bitmap::FromPalette(ExecutionContext* execution_context,
+                                          scoped_refptr<Palette> palette,
+                                          ExceptionState& exception_state) {
+  auto* surface = PaletteImpl::From(palette)->GetRawSurface();
+  if (!surface) {
+    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid palette target.");
+    return nullptr;
+  }
+
+  return CanvasImpl::Create(
+      execution_context->canvas_scheduler, execution_context->graphics,
+      execution_context->font_context, surface, "PaletteData", exception_state);
+}
+
 scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,
                                    scoped_refptr<Bitmap> other,
                                    ExceptionState& exception_state) {
@@ -823,6 +839,10 @@ void CanvasImpl::Blt(int32_t x,
     return;
 
   CanvasImpl* src_canvas = static_cast<CanvasImpl*>(src_bitmap.get());
+  if (!src_canvas || !src_canvas->GetAgent())
+    return exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
+                                             "Invalid blt target.");
+
   BlitTextureInternal(base::Rect(x, y, src_rect->Get_Width(exception_state),
                                  src_rect->Get_Height(exception_state)),
                       src_canvas, RectImpl::From(src_rect)->AsBaseRect(),
@@ -839,6 +859,10 @@ void CanvasImpl::StretchBlt(scoped_refptr<Rect> dest_rect,
     return;
 
   CanvasImpl* src_canvas = static_cast<CanvasImpl*>(src_bitmap.get());
+  if (!src_canvas || !src_canvas->GetAgent())
+    return exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
+                                             "Invalid blt target.");
+
   BlitTextureInternal(RectImpl::From(dest_rect)->AsBaseRect(), src_canvas,
                       RectImpl::From(src_rect)->AsBaseRect(), blend_type,
                       opacity);
@@ -1113,15 +1137,37 @@ scoped_refptr<Rect> CanvasImpl::TextSize(const std::string& str,
   return new RectImpl(base::Rect(0, 0, w, h));
 }
 
-void CanvasImpl::SavePNG(const std::string& filename,
-                         ExceptionState& exception_state) {
+scoped_refptr<Palette> CanvasImpl::CreatePalette(
+    ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
+  SDL_Surface* surface = RequireMemorySurface();
+  return new PaletteImpl(surface);
+}
+
+void CanvasImpl::UpdateSurface(scoped_refptr<Rect> dest_rect,
+                               scoped_refptr<Palette> palette,
+                               scoped_refptr<Rect> src_rect,
+                               ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  SDL_Surface* surface = RequireMemorySurface();
-  if (!IMG_SavePNG(surface, filename.c_str()))
-    exception_state.ThrowContentError(content::ExceptionCode::CONTENT_ERROR,
-                                      SDL_GetError());
+  auto* src_surface = PaletteImpl::From(palette)->GetRawSurface();
+  if (!canvas_cache_)
+    canvas_cache_ = SDL_CreateSurface(texture_->size.x, texture_->size.y,
+                                      SDL_PIXELFORMAT_ABGR8888);
+
+  const auto dest_region = RectImpl::From(dest_rect)->AsSDLRect();
+  const auto src_region = RectImpl::From(src_rect)->AsSDLRect();
+
+  if (src_region.w == dest_region.w && src_region.h == dest_region.h)
+    SDL_BlitSurface(src_surface, &src_region, canvas_cache_, &dest_region);
+  else
+    SDL_BlitSurfaceScaled(src_surface, &src_region, canvas_cache_, &dest_region,
+                          SDL_ScaleMode::SDL_SCALEMODE_LINEAR);
+
+  UpdateVideoMemory();
 }
 
 void CanvasImpl::OnObjectDisposed() {

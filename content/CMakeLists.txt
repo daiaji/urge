@@ -14,6 +14,8 @@ set(ENGINE_CONTENT_SRC
   canvas/canvas_scheduler.h
   canvas/font_impl.cc
   canvas/font_impl.h
+  canvas/palette_impl.cc
+  canvas/palette_impl.h
   common/color_impl.cc
   common/color_impl.h
   common/rect_impl.cc

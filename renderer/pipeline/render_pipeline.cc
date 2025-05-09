@@ -25,7 +25,7 @@ Diligent::RenderTargetBlendDesc GetBlendState(BlendType type) {
   Diligent::RenderTargetBlendDesc state;
   switch (type) {
     default:
-    case renderer::BlendType::NORMAL:
+    case BlendType::NORMAL:
       state.BlendEnable = Diligent::True;
       state.BlendOp = Diligent::BLEND_OPERATION_ADD;
       state.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
@@ -33,7 +33,7 @@ Diligent::RenderTargetBlendDesc GetBlendState(BlendType type) {
       state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
       state.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
       break;
-    case renderer::BlendType::ADDITION:
+    case BlendType::ADDITION:
       state.BlendEnable = Diligent::True;
       state.BlendOp = Diligent::BLEND_OPERATION_ADD;
       state.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
@@ -41,7 +41,7 @@ Diligent::RenderTargetBlendDesc GetBlendState(BlendType type) {
       state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
       state.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
       break;
-    case renderer::BlendType::SUBSTRACTION:
+    case BlendType::SUBSTRACTION:
       state.BlendEnable = Diligent::True;
       state.BlendOp = Diligent::BLEND_OPERATION_REV_SUBTRACT;
       state.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
@@ -49,7 +49,15 @@ Diligent::RenderTargetBlendDesc GetBlendState(BlendType type) {
       state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ZERO;
       state.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
       break;
-    case renderer::BlendType::NO_BLEND:
+    case BlendType::KEEP_ALPHA:
+      state.BlendEnable = Diligent::True;
+      state.BlendOp = Diligent::BLEND_OPERATION_ADD;
+      state.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
+      state.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ZERO;
+      state.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+      break;
+    case BlendType::NO_BLEND:
       state.BlendEnable = Diligent::False;
       break;
   }

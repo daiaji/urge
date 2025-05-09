@@ -7,6 +7,10 @@
 
 #include <memory>
 
+namespace filesystem {
+class IOService;
+}
+
 namespace content {
 
 struct ScopedFontData;
@@ -19,6 +23,7 @@ struct ExecutionContext {
   EventController* event_controller = nullptr;
   CanvasScheduler* canvas_scheduler = nullptr;
   RenderScreenImpl* graphics = nullptr;
+  filesystem::IOService* io_service = nullptr;
 
   ExecutionContext();
   ~ExecutionContext();

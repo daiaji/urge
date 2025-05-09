@@ -39,6 +39,7 @@ class RectImpl : public Rect, public ValueNotification {
 
   void SetBase(const base::Rect& base);
   base::Rect AsBaseRect();
+  SDL_Rect AsSDLRect();
 
  private:
   friend class Rect;

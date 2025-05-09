@@ -202,8 +202,12 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
   scoped_refptr<Rect> TextSize(const std::string& str,
                                ExceptionState& exception_state) override;
 
-  void SavePNG(const std::string& filename,
-               ExceptionState& exception_state) override;
+  scoped_refptr<Palette> CreatePalette(
+      ExceptionState& exception_state) override;
+  void UpdateSurface(scoped_refptr<Rect> dest_rect,
+                     scoped_refptr<Palette> palette,
+                     scoped_refptr<Rect> src_rect,
+                     ExceptionState& exception_state) override;
 
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Font, scoped_refptr<Font>);
 

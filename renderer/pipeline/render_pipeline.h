@@ -23,6 +23,7 @@ enum BlendType {
   NORMAL = 0,
   ADDITION,
   SUBSTRACTION,
+  KEEP_ALPHA,
   NO_BLEND,
 
   TYPE_NUMS,
