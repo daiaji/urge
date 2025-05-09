@@ -40,6 +40,9 @@ class URGE_RUNTIME_API Plane : public base::RefCounted<Plane> {
   /*--urge(name:bitmap)--*/
   URGE_EXPORT_ATTRIBUTE(Bitmap, scoped_refptr<Bitmap>);
 
+  /*--urge(name:src_rect)--*/
+  URGE_EXPORT_ATTRIBUTE(SrcRect, scoped_refptr<Rect>);
+
   /*--urge(name:viewport)--*/
   URGE_EXPORT_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
 

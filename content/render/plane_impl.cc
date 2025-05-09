@@ -27,6 +27,7 @@ void GPUDestroyPlaneInternal(PlaneAgent* agent) {
 void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
                                      PlaneAgent* agent,
                                      TextureAgent* texture,
+                                     const base::Rect& src_rect,
                                      const base::Vec2i& viewport_size,
                                      const base::Vec2& scale,
                                      const base::Vec2i& origin,
@@ -69,8 +70,7 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
       // Set vertex properties directly through pointer
       const base::RectF pos(current_x, current_y, item_x, item_y);
       renderer::Quad::SetPositionRect(quad_ptr, pos);
-      renderer::Quad::SetTexCoordRect(quad_ptr, base::Vec2(item_x, item_y),
-                                      texture->size);
+      renderer::Quad::SetTexCoordRect(quad_ptr, src_rect, texture->size);
       renderer::Quad::SetColor(quad_ptr, opacity_norm);
 
       // Move to next quad using pointer arithmetic
@@ -146,10 +146,14 @@ PlaneImpl::PlaneImpl(RenderScreenImpl* screen,
                    : screen->GetDrawableController(),
             SortKey()),
       viewport_(parent),
+      src_rect_(new RectImpl(base::Rect())),
       color_(new ColorImpl(base::Vec4())),
       tone_(new ToneImpl(base::Vec4())) {
   node_.RegisterEventHandler(base::BindRepeating(
       &PlaneImpl::DrawableNodeHandlerInternal, base::Unretained(this)));
+
+  src_rect_observer_ = src_rect_->AddObserver(base::BindRepeating(
+      &PlaneImpl::SrcRectChangedInternal, base::Unretained(this)));
 
   agent_ = new PlaneAgent;
   screen->PostTask(
@@ -184,7 +188,25 @@ void PlaneImpl::Put_Bitmap(const scoped_refptr<Bitmap>& value,
     return;
 
   bitmap_ = CanvasImpl::FromBitmap(value);
+  if (bitmap_)
+    src_rect_->SetBase(bitmap_->AsBaseSize());
+
   quad_array_dirty_ = true;
+}
+
+scoped_refptr<Rect> PlaneImpl::Get_SrcRect(ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return nullptr;
+
+  return src_rect_;
+}
+
+void PlaneImpl::Put_SrcRect(const scoped_refptr<Rect>& value,
+                            ExceptionState& exception_state) {
+  if (CheckDisposed(exception_state))
+    return;
+
+  *src_rect_ = *RectImpl::From(value);
 }
 
 scoped_refptr<Viewport> PlaneImpl::Get_Viewport(
@@ -373,15 +395,19 @@ void PlaneImpl::DrawableNodeHandlerInternal(
       quad_array_dirty_ = false;
       screen()->PostTask(base::BindOnce(
           &GPUUpdatePlaneQuadArrayInternal, params->device, agent_,
-          bitmap_->GetAgent(), params->viewport.Size(), scale_,
-          origin_ + params->origin, color_->AsNormColor(), tone_->AsNormColor(),
-          opacity_));
+          bitmap_->GetAgent(), src_rect_->AsBaseRect(), params->viewport.Size(),
+          scale_, origin_ + params->origin, color_->AsNormColor(),
+          tone_->AsNormColor(), opacity_));
     }
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(base::BindOnce(
         &GPUOnViewportRenderingInternal, params->device, params->world_binding,
         agent_, bitmap_->GetAgent(), blend_type_));
   }
+}
+
+void PlaneImpl::SrcRectChangedInternal() {
+  quad_array_dirty_ = true;
 }
 
 }  // namespace content

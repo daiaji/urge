@@ -89,6 +89,7 @@ class SpriteImpl : public Sprite, public GraphicsChild, public Disposable {
   void DrawableNodeHandlerInternal(
       DrawableNode::RenderStage stage,
       DrawableNode::RenderControllerParams* params);
+
   void SrcRectChangedInternal();
   TextureAgent* GetOtherRenderBatchableTextureInternal(SpriteImpl* other);
 

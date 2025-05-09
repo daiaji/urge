@@ -37,6 +37,7 @@ class PlaneImpl : public Plane, public GraphicsChild, public Disposable {
   bool IsDisposed(ExceptionState& exception_state) override;
 
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Bitmap, scoped_refptr<Bitmap>);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(SrcRect, scoped_refptr<Rect>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Visible, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Z, int32_t);
@@ -56,10 +57,13 @@ class PlaneImpl : public Plane, public GraphicsChild, public Disposable {
       DrawableNode::RenderStage stage,
       DrawableNode::RenderControllerParams* params);
 
+  void SrcRectChangedInternal();
+
   DrawableNode node_;
   PlaneAgent* agent_;
 
   scoped_refptr<ViewportImpl> viewport_;
+  scoped_refptr<RectImpl> src_rect_;
   scoped_refptr<CanvasImpl> bitmap_;
   base::Vec2i origin_;
   base::Vec2 scale_{1.0f};
@@ -69,6 +73,7 @@ class PlaneImpl : public Plane, public GraphicsChild, public Disposable {
   scoped_refptr<ColorImpl> color_;
   scoped_refptr<ToneImpl> tone_;
 
+  base::CallbackListSubscription src_rect_observer_;
   bool quad_array_dirty_ = true;
 };
 
