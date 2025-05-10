@@ -11,8 +11,8 @@
 #include "content/context/execution_context.h"
 #include "content/public/engine_color.h"
 #include "content/public/engine_font.h"
-#include "content/public/engine_palette.h"
 #include "content/public/engine_rect.h"
+#include "content/public/engine_surface.h"
 
 namespace content {
 
@@ -40,9 +40,9 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
                                     scoped_refptr<Bitmap> other,
                                     ExceptionState& exception_state);
 
-  /*--urge(name:from_palette)--*/
-  static scoped_refptr<Bitmap> FromPalette(ExecutionContext* execution_context,
-                                           scoped_refptr<Palette> palette,
+  /*--urge(name:from_surface)--*/
+  static scoped_refptr<Bitmap> FromSurface(ExecutionContext* execution_context,
+                                           scoped_refptr<Surface> surface,
                                            ExceptionState& exception_state);
 
   /*--urge(serializable)--*/
@@ -193,15 +193,9 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
   virtual scoped_refptr<Rect> TextSize(const std::string& str,
                                        ExceptionState& exception_state) = 0;
 
-  /*--urge(name:create_palette)--*/
-  virtual scoped_refptr<Palette> CreatePalette(
+  /*--urge(name:get_surface)--*/
+  virtual scoped_refptr<Surface> GetSurface(
       ExceptionState& exception_state) = 0;
-
-  /*--urge(name:update_surface)--*/
-  virtual void UpdateSurface(scoped_refptr<Rect> dest_rect,
-                             scoped_refptr<Palette> palette,
-                             scoped_refptr<Rect> src_rect,
-                             ExceptionState& exception_state) = 0;
 
   /*--urge(name:font)--*/
   URGE_EXPORT_ATTRIBUTE(Font, scoped_refptr<Font>);

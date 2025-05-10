@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_PUBLIC_ENGINE_PALETTE_H_
-#define CONTENT_PUBLIC_ENGINE_PALETTE_H_
+#ifndef CONTENT_PUBLIC_ENGINE_SURFACE_H_
+#define CONTENT_PUBLIC_ENGINE_SURFACE_H_
 
 #include "base/memory/ref_counted.h"
 #include "content/content_config.h"
@@ -16,34 +16,34 @@ namespace content {
 
 // IDL generator format:
 // Inhert: refcounted only.
-/*--urge(name:Palette)--*/
-class URGE_RUNTIME_API Palette : public base::RefCounted<Palette> {
+/*--urge(name:Surface)--*/
+class URGE_RUNTIME_API Surface : public base::RefCounted<Surface> {
  public:
-  virtual ~Palette() = default;
+  virtual ~Surface() = default;
 
   /*--urge(name:initialize)--*/
-  static scoped_refptr<Palette> New(ExecutionContext* execution_context,
+  static scoped_refptr<Surface> New(ExecutionContext* execution_context,
                                     uint32_t width,
                                     uint32_t height,
                                     ExceptionState& exception_state);
 
   /*--urge(name:initialize)--*/
-  static scoped_refptr<Palette> New(ExecutionContext* execution_context,
+  static scoped_refptr<Surface> New(ExecutionContext* execution_context,
                                     const std::string& filename,
                                     ExceptionState& exception_state);
 
   /*--urge(name:from_dump)--*/
-  static scoped_refptr<Palette> FromDump(ExecutionContext* execution_context,
+  static scoped_refptr<Surface> FromDump(ExecutionContext* execution_context,
                                          const std::string& dump_data,
                                          ExceptionState& exception_state);
 
   /*--urge(name:initialize_copy)--*/
-  static scoped_refptr<Palette> Copy(ExecutionContext* execution_context,
-                                     scoped_refptr<Palette> other,
+  static scoped_refptr<Surface> Copy(ExecutionContext* execution_context,
+                                     scoped_refptr<Surface> other,
                                      ExceptionState& exception_state);
 
   /*--urge(serializable)--*/
-  URGE_EXPORT_SERIALIZABLE(Palette);
+  URGE_EXPORT_SERIALIZABLE(Surface);
 
   /*--urge(name:dispose)--*/
   virtual void Dispose(ExceptionState& exception_state) = 0;
@@ -63,14 +63,14 @@ class URGE_RUNTIME_API Palette : public base::RefCounted<Palette> {
   /*--urge(name:blt,optional:opacity=255)--*/
   virtual void Blt(int32_t x,
                    int32_t y,
-                   scoped_refptr<Palette> src_palette,
+                   scoped_refptr<Surface> src_palette,
                    scoped_refptr<Rect> src_rect,
                    uint32_t opacity,
                    ExceptionState& exception_state) = 0;
 
   /*--urge(name:stretch_blt,optional:opacity=255)--*/
   virtual void StretchBlt(scoped_refptr<Rect> dest_rect,
-                          scoped_refptr<Palette> src_palette,
+                          scoped_refptr<Surface> src_palette,
                           scoped_refptr<Rect> src_rect,
                           uint32_t opacity,
                           ExceptionState& exception_state) = 0;
@@ -123,4 +123,4 @@ class URGE_RUNTIME_API Palette : public base::RefCounted<Palette> {
 
 }  // namespace content
 
-#endif  //! CONTENT_PUBLIC_ENGINE_PALETTE_H_
+#endif  //! CONTENT_PUBLIC_ENGINE_SURFACE_H_

@@ -8,7 +8,7 @@
 #include "SDL3_ttf/SDL_ttf.h"
 
 #include "content/canvas/canvas_scheduler.h"
-#include "content/canvas/palette_impl.h"
+#include "content/canvas/surface_impl.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
 #include "content/context/execution_context.h"
@@ -506,19 +506,24 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
                             base::Vec2i(width, height), exception_state);
 }
 
-scoped_refptr<Bitmap> Bitmap::FromPalette(ExecutionContext* execution_context,
-                                          scoped_refptr<Palette> palette,
+scoped_refptr<Bitmap> Bitmap::FromSurface(ExecutionContext* execution_context,
+                                          scoped_refptr<Surface> target,
                                           ExceptionState& exception_state) {
-  auto* surface = PaletteImpl::From(palette)->GetRawSurface();
-  if (!surface) {
+  auto* surface_data = SurfaceImpl::From(target)->GetRawSurface();
+  if (!surface_data) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                       "Invalid palette target.");
     return nullptr;
   }
 
-  return CanvasImpl::Create(
-      execution_context->canvas_scheduler, execution_context->graphics,
-      execution_context->font_context, surface, "PaletteData", exception_state);
+  auto* surface_duplicate = SDL_CreateSurfaceFrom(
+      surface_data->w, surface_data->h, surface_data->format,
+      surface_data->pixels, surface_data->pitch);
+
+  return CanvasImpl::Create(execution_context->canvas_scheduler,
+                            execution_context->graphics,
+                            execution_context->font_context, surface_duplicate,
+                            "PaletteData", exception_state);
 }
 
 scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,
@@ -1137,37 +1142,12 @@ scoped_refptr<Rect> CanvasImpl::TextSize(const std::string& str,
   return new RectImpl(base::Rect(0, 0, w, h));
 }
 
-scoped_refptr<Palette> CanvasImpl::CreatePalette(
-    ExceptionState& exception_state) {
+scoped_refptr<Surface> CanvasImpl::GetSurface(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return nullptr;
 
   SDL_Surface* surface = RequireMemorySurface();
-  return new PaletteImpl(surface);
-}
-
-void CanvasImpl::UpdateSurface(scoped_refptr<Rect> dest_rect,
-                               scoped_refptr<Palette> palette,
-                               scoped_refptr<Rect> src_rect,
-                               ExceptionState& exception_state) {
-  if (CheckDisposed(exception_state))
-    return;
-
-  auto* src_surface = PaletteImpl::From(palette)->GetRawSurface();
-  if (!canvas_cache_)
-    canvas_cache_ = SDL_CreateSurface(texture_->size.x, texture_->size.y,
-                                      SDL_PIXELFORMAT_ABGR8888);
-
-  const auto dest_region = RectImpl::From(dest_rect)->AsSDLRect();
-  const auto src_region = RectImpl::From(src_rect)->AsSDLRect();
-
-  if (src_region.w == dest_region.w && src_region.h == dest_region.h)
-    SDL_BlitSurface(src_surface, &src_region, canvas_cache_, &dest_region);
-  else
-    SDL_BlitSurfaceScaled(src_surface, &src_region, canvas_cache_, &dest_region,
-                          SDL_ScaleMode::SDL_SCALEMODE_LINEAR);
-
-  UpdateVideoMemory();
+  return new SurfaceImpl(surface);
 }
 
 void CanvasImpl::OnObjectDisposed() {

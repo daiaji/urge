@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/canvas/palette_impl.h"
+#include "content/canvas/surface_impl.h"
 
 #include "SDL3_image/SDL_image.h"
 
@@ -13,30 +13,31 @@
 
 namespace content {
 
-scoped_refptr<Palette> Palette::New(ExecutionContext* execution_context,
+scoped_refptr<Surface> Surface::New(ExecutionContext* execution_context,
                                     uint32_t width,
                                     uint32_t height,
                                     ExceptionState& exception_state) {
-  auto* surface = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_ABGR8888);
-  if (!surface) {
+  auto* surface_data =
+      SDL_CreateSurface(width, height, SDL_PIXELFORMAT_ABGR8888);
+  if (!surface_data) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                       SDL_GetError());
     return nullptr;
   }
 
-  return new PaletteImpl(surface);
+  return new SurfaceImpl(surface_data);
 }
 
-scoped_refptr<Palette> Palette::New(ExecutionContext* execution_context,
+scoped_refptr<Surface> Surface::New(ExecutionContext* execution_context,
                                     const std::string& filename,
                                     ExceptionState& exception_state) {
-  SDL_Surface* memory_texture = nullptr;
+  SDL_Surface* memory_surface = nullptr;
   auto file_handler = base::BindRepeating(
       [](SDL_Surface** surf, SDL_IOStream* ops, const std::string& ext) {
         *surf = IMG_LoadTyped_IO(ops, true, ext.c_str());
         return !!*surf;
       },
-      &memory_texture);
+      &memory_surface);
 
   filesystem::IOState io_state;
   execution_context->io_service->OpenRead(filename, file_handler, &io_state);
@@ -48,22 +49,22 @@ scoped_refptr<Palette> Palette::New(ExecutionContext* execution_context,
     return nullptr;
   }
 
-  if (!memory_texture) {
+  if (!memory_surface) {
     exception_state.ThrowContentError(
         ExceptionCode::CONTENT_ERROR,
         "Failed to load image: " + filename + " - " + SDL_GetError());
     return nullptr;
   }
 
-  return new PaletteImpl(memory_texture);
+  return new SurfaceImpl(memory_surface);
 }
 
-scoped_refptr<Palette> Palette::FromDump(ExecutionContext* execution_context,
+scoped_refptr<Surface> Surface::FromDump(ExecutionContext* execution_context,
                                          const std::string& dump_data,
                                          ExceptionState& exception_state) {
   if (dump_data.size() < sizeof(uint32_t) * 2) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                      "Invalid palette header dump data.");
+                                      "Invalid surface header dump data.");
     return nullptr;
   }
 
@@ -72,7 +73,7 @@ scoped_refptr<Palette> Palette::FromDump(ExecutionContext* execution_context,
 
   if (dump_data.size() < sizeof(uint32_t) * 2 + width * height * 4) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                      "Invalid palette body dump data.");
+                                      "Invalid surface body dump data.");
     return nullptr;
   }
 
@@ -85,16 +86,16 @@ scoped_refptr<Palette> Palette::FromDump(ExecutionContext* execution_context,
 
   std::memcpy(surface->pixels, raw_data + 2, surface->pitch * surface->h);
 
-  return new PaletteImpl(surface);
+  return new SurfaceImpl(surface);
 }
 
-scoped_refptr<Palette> Palette::Copy(ExecutionContext* execution_context,
-                                     scoped_refptr<Palette> other,
+scoped_refptr<Surface> Surface::Copy(ExecutionContext* execution_context,
+                                     scoped_refptr<Surface> other,
                                      ExceptionState& exception_state) {
-  auto* src_surf = PaletteImpl::From(other)->GetRawSurface();
+  auto* src_surf = SurfaceImpl::From(other)->GetRawSurface();
   if (!src_surf) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                      "Invalid copy palette target.");
+                                      "Invalid copy surface target.");
     return nullptr;
   }
 
@@ -107,10 +108,10 @@ scoped_refptr<Palette> Palette::Copy(ExecutionContext* execution_context,
     return nullptr;
   }
 
-  return new PaletteImpl(dst_surf);
+  return new SurfaceImpl(dst_surf);
 }
 
-scoped_refptr<Palette> Palette::Deserialize(ExecutionContext* execution_context,
+scoped_refptr<Surface> Surface::Deserialize(ExecutionContext* execution_context,
                                             const std::string& data,
                                             ExceptionState& exception_state) {
   const uint8_t* raw_data = reinterpret_cast<const uint8_t*>(data.data());
@@ -138,81 +139,81 @@ scoped_refptr<Palette> Palette::Deserialize(ExecutionContext* execution_context,
   std::memcpy(surface->pixels, raw_data + sizeof(uint32_t) * 2,
               surface->pitch * surface->h);
 
-  return new PaletteImpl(surface);
+  return new SurfaceImpl(surface);
 }
 
-std::string Palette::Serialize(ExecutionContext* execution_context,
-                               scoped_refptr<Palette> value,
+std::string Surface::Serialize(ExecutionContext* execution_context,
+                               scoped_refptr<Surface> value,
                                ExceptionState& exception_state) {
-  scoped_refptr<PaletteImpl> palette = PaletteImpl::From(value);
-  SDL_Surface* surface = palette->GetRawSurface();
+  scoped_refptr<SurfaceImpl> surface = SurfaceImpl::From(value);
+  SDL_Surface* raw_surface = surface->GetRawSurface();
 
   std::string serialized_data(
-      sizeof(uint32_t) * 2 + surface->pitch * surface->h, 0);
+      sizeof(uint32_t) * 2 + raw_surface->pitch * raw_surface->h, 0);
 
-  uint32_t surface_width = surface->w, surface_height = surface->h;
+  uint32_t surface_width = raw_surface->w, surface_height = raw_surface->h;
   std::memcpy(serialized_data.data() + sizeof(uint32_t) * 0, &surface_width,
               sizeof(uint32_t));
   std::memcpy(serialized_data.data() + sizeof(uint32_t) * 1, &surface_height,
               sizeof(uint32_t));
-  std::memcpy(serialized_data.data() + sizeof(uint32_t) * 2, surface->pixels,
-              surface->pitch * surface->h);
+  std::memcpy(serialized_data.data() + sizeof(uint32_t) * 2,
+              raw_surface->pixels, raw_surface->pitch * raw_surface->h);
 
   return serialized_data;
 }
 
-PaletteImpl::PaletteImpl(SDL_Surface* surface)
+SurfaceImpl::SurfaceImpl(SDL_Surface* surface)
     : Disposable(nullptr), surface_(surface) {}
 
-PaletteImpl::~PaletteImpl() {
+SurfaceImpl::~SurfaceImpl() {
   ExceptionState exception_state;
   Dispose(exception_state);
 }
 
-scoped_refptr<PaletteImpl> PaletteImpl::From(scoped_refptr<Palette> host) {
-  return static_cast<PaletteImpl*>(host.get());
+scoped_refptr<SurfaceImpl> SurfaceImpl::From(scoped_refptr<Surface> host) {
+  return static_cast<SurfaceImpl*>(host.get());
 }
 
-void PaletteImpl::Dispose(ExceptionState& exception_state) {
+void SurfaceImpl::Dispose(ExceptionState& exception_state) {
   Disposable::Dispose(exception_state);
 }
 
-bool PaletteImpl::IsDisposed(ExceptionState& exception_state) {
+bool SurfaceImpl::IsDisposed(ExceptionState& exception_state) {
   return Disposable::IsDisposed(exception_state);
 }
 
-uint32_t PaletteImpl::Width(ExceptionState& exception_state) {
+uint32_t SurfaceImpl::Width(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
   return surface_->w;
 }
 
-uint32_t PaletteImpl::Height(ExceptionState& exception_state) {
+uint32_t SurfaceImpl::Height(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return 0;
 
   return surface_->h;
 }
 
-scoped_refptr<Rect> PaletteImpl::GetRect(ExceptionState& exception_state) {
+scoped_refptr<Rect> SurfaceImpl::GetRect(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return nullptr;
 
   return new RectImpl(base::Rect(0, 0, surface_->w, surface_->h));
 }
 
-void PaletteImpl::Blt(int32_t x,
+void SurfaceImpl::Blt(int32_t x,
                       int32_t y,
-                      scoped_refptr<Palette> src_palette,
+                      scoped_refptr<Surface> src_surface,
                       scoped_refptr<Rect> src_rect,
                       uint32_t opacity,
                       ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  auto* src_surface = PaletteImpl::From(src_palette)->GetRawSurface();
-  if (!src_surface) {
+  auto* src_raw_surface = SurfaceImpl::From(src_surface)->GetRawSurface();
+  if (!src_raw_surface) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                       "Invalid blt target.");
     return;
@@ -221,19 +222,19 @@ void PaletteImpl::Blt(int32_t x,
   auto src_region = RectImpl::From(src_rect)->AsSDLRect();
   SDL_Rect dest_pos = {x, y, 0, 0};
 
-  SDL_BlitSurface(src_surface, &src_region, surface_, &dest_pos);
+  SDL_BlitSurface(src_raw_surface, &src_region, surface_, &dest_pos);
 }
 
-void PaletteImpl::StretchBlt(scoped_refptr<Rect> dest_rect,
-                             scoped_refptr<Palette> src_palette,
+void SurfaceImpl::StretchBlt(scoped_refptr<Rect> dest_rect,
+                             scoped_refptr<Surface> src_surface,
                              scoped_refptr<Rect> src_rect,
                              uint32_t opacity,
                              ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
-  auto* src_surface = PaletteImpl::From(src_palette)->GetRawSurface();
-  if (!src_surface) {
+  auto* src_raw_surface = SurfaceImpl::From(src_surface)->GetRawSurface();
+  if (!src_raw_surface) {
     exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
                                       "Invalid blt target.");
     return;
@@ -242,11 +243,11 @@ void PaletteImpl::StretchBlt(scoped_refptr<Rect> dest_rect,
   auto src_region = RectImpl::From(src_rect)->AsSDLRect();
   auto dest_region = RectImpl::From(dest_rect)->AsSDLRect();
 
-  SDL_BlitSurfaceScaled(src_surface, &src_region, surface_, &dest_region,
+  SDL_BlitSurfaceScaled(src_raw_surface, &src_region, surface_, &dest_region,
                         SDL_SCALEMODE_LINEAR);
 }
 
-void PaletteImpl::FillRect(int32_t x,
+void SurfaceImpl::FillRect(int32_t x,
                            int32_t y,
                            uint32_t width,
                            uint32_t height,
@@ -265,7 +266,7 @@ void PaletteImpl::FillRect(int32_t x,
   SDL_FillSurfaceRect(surface_, &rect, color32);
 }
 
-void PaletteImpl::FillRect(scoped_refptr<Rect> rect,
+void SurfaceImpl::FillRect(scoped_refptr<Rect> rect,
                            scoped_refptr<Color> color,
                            ExceptionState& exception_state) {
   FillRect(rect->Get_X(exception_state), rect->Get_Y(exception_state),
@@ -273,14 +274,14 @@ void PaletteImpl::FillRect(scoped_refptr<Rect> rect,
            color, exception_state);
 }
 
-void PaletteImpl::Clear(ExceptionState& exception_state) {
+void SurfaceImpl::Clear(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
 
   SDL_ClearSurface(surface_, 0, 0, 0, 0);
 }
 
-void PaletteImpl::ClearRect(int32_t x,
+void SurfaceImpl::ClearRect(int32_t x,
                             int32_t y,
                             uint32_t width,
                             uint32_t height,
@@ -293,14 +294,14 @@ void PaletteImpl::ClearRect(int32_t x,
   SDL_FillSurfaceRect(surface_, &rect, 0);
 }
 
-void PaletteImpl::ClearRect(scoped_refptr<Rect> rect,
+void SurfaceImpl::ClearRect(scoped_refptr<Rect> rect,
                             ExceptionState& exception_state) {
   ClearRect(rect->Get_X(exception_state), rect->Get_Y(exception_state),
             rect->Get_Width(exception_state), rect->Get_Height(exception_state),
             exception_state);
 }
 
-scoped_refptr<Color> PaletteImpl::GetPixel(int32_t x,
+scoped_refptr<Color> SurfaceImpl::GetPixel(int32_t x,
                                            int32_t y,
                                            ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
@@ -319,7 +320,7 @@ scoped_refptr<Color> PaletteImpl::GetPixel(int32_t x,
   return new ColorImpl(base::Vec4(color[0], color[1], color[2], color[3]));
 }
 
-void PaletteImpl::SetPixel(int32_t x,
+void SurfaceImpl::SetPixel(int32_t x,
                            int32_t y,
                            scoped_refptr<Color> color,
                            ExceptionState& exception_state) {
@@ -337,7 +338,7 @@ void PaletteImpl::SetPixel(int32_t x,
                   color_unorm.b, color_unorm.a);
 }
 
-std::string PaletteImpl::DumpData(ExceptionState& exception_state) {
+std::string SurfaceImpl::DumpData(ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return std::string();
 
@@ -353,7 +354,7 @@ std::string PaletteImpl::DumpData(ExceptionState& exception_state) {
   return data;
 }
 
-void PaletteImpl::SavePNG(const std::string& filename,
+void SurfaceImpl::SavePNG(const std::string& filename,
                           ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
@@ -361,7 +362,7 @@ void PaletteImpl::SavePNG(const std::string& filename,
   IMG_SavePNG(surface_, filename.c_str());
 }
 
-void PaletteImpl::OnObjectDisposed() {
+void SurfaceImpl::OnObjectDisposed() {
   SDL_DestroySurface(surface_);
   surface_ = nullptr;
 }

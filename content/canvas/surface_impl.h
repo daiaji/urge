@@ -2,25 +2,25 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_CANVAS_PALETTE_IMPL_H_
-#define CONTENT_CANVAS_PALETTE_IMPL_H_
+#ifndef CONTENT_CANVAS_SURFACE_IMPL_H_
+#define CONTENT_CANVAS_SURFACE_IMPL_H_
 
 #include "SDL3/SDL_surface.h"
 
 #include "content/components/disposable.h"
-#include "content/public/engine_palette.h"
+#include "content/public/engine_surface.h"
 
 namespace content {
 
-class PaletteImpl : public Palette, public Disposable {
+class SurfaceImpl : public Surface, public Disposable {
  public:
-  PaletteImpl(SDL_Surface* surface);
-  ~PaletteImpl() override;
+  SurfaceImpl(SDL_Surface* surface);
+  ~SurfaceImpl() override;
 
-  PaletteImpl(const PaletteImpl&) = delete;
-  PaletteImpl& operator=(const PaletteImpl&) = delete;
+  SurfaceImpl(const SurfaceImpl&) = delete;
+  SurfaceImpl& operator=(const SurfaceImpl&) = delete;
 
-  static scoped_refptr<PaletteImpl> From(scoped_refptr<Palette> host);
+  static scoped_refptr<SurfaceImpl> From(scoped_refptr<Surface> host);
 
   SDL_Surface* GetRawSurface() { return surface_; }
 
@@ -32,12 +32,12 @@ class PaletteImpl : public Palette, public Disposable {
   scoped_refptr<Rect> GetRect(ExceptionState& exception_state) override;
   void Blt(int32_t x,
            int32_t y,
-           scoped_refptr<Palette> src_palette,
+           scoped_refptr<Surface> src_surface,
            scoped_refptr<Rect> src_rect,
            uint32_t opacity,
            ExceptionState& exception_state) override;
   void StretchBlt(scoped_refptr<Rect> dest_rect,
-                  scoped_refptr<Palette> src_palette,
+                  scoped_refptr<Surface> src_surface,
                   scoped_refptr<Rect> src_rect,
                   uint32_t opacity,
                   ExceptionState& exception_state) override;
@@ -71,11 +71,11 @@ class PaletteImpl : public Palette, public Disposable {
 
  private:
   void OnObjectDisposed() override;
-  std::string DisposedObjectName() override { return "Palette"; }
+  std::string DisposedObjectName() override { return "Surface"; }
 
   SDL_Surface* surface_;
 };
 
 }  // namespace content
 
-#endif  //! CONTENT_CANVAS_PALETTE_IMPL_H_
+#endif  //! CONTENT_CANVAS_SURFACE_IMPL_H_

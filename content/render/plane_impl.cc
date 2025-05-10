@@ -330,6 +330,7 @@ void PlaneImpl::Put_Opacity(const int32_t& value,
     return;
 
   opacity_ = std::clamp(value, 0, 255);
+  quad_array_dirty_ = true;
 }
 
 int32_t PlaneImpl::Get_BlendType(ExceptionState& exception_state) {
