@@ -112,6 +112,9 @@ class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
   /*--urge(name:brightness)--*/
   URGE_EXPORT_ATTRIBUTE(Brightness, uint32_t);
 
+  /*--urge(name:vsync)--*/
+  URGE_EXPORT_ATTRIBUTE(VSync, uint32_t);
+
   /*--urge(name:fullscreen)--*/
   URGE_EXPORT_ATTRIBUTE(Fullscreen, bool);
 

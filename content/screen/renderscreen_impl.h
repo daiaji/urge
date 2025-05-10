@@ -158,6 +158,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(FrameRate, uint32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(FrameCount, uint32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Brightness, uint32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(VSync, uint32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Fullscreen, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Skipframe, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(KeepRatio, bool);
@@ -190,6 +191,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   base::Rect display_viewport_;
   base::Vec2i window_size_;
   int32_t brightness_;
+  uint32_t vsync_;
   uint64_t frame_count_;
   uint32_t frame_rate_;
   base::Vec2i origin_;
