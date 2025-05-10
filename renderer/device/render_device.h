@@ -37,6 +37,7 @@ class RenderDevice {
     Pipeline_Tilemap tilemap;
     Pipeline_Tilemap2 tilemap2;
     Pipeline_BitmapHue bitmaphue;
+    Pipeline_Spine2D spine2d;
 
     PipelineSet(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
                 Diligent::TEXTURE_FORMAT target_format)
@@ -48,7 +49,8 @@ class RenderDevice {
           mappedtrans(device, target_format),
           tilemap(device, target_format),
           tilemap2(device, target_format),
-          bitmaphue(device, target_format) {}
+          bitmaphue(device, target_format),
+          spine2d(device, target_format) {}
   };
 
   static std::unique_ptr<RenderDevice> Create(

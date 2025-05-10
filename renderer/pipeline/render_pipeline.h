@@ -23,7 +23,13 @@ enum BlendType {
   NORMAL = 0,
   ADDITION,
   SUBSTRACTION,
+  MULTIPLY,
+  SCREEN,
   KEEP_ALPHA,
+
+  NORMAL_PMA,
+  ADDITION_PMA,
+
   NO_BLEND,
 
   TYPE_NUMS,
@@ -127,6 +133,12 @@ class Pipeline_BitmapHue : public RenderPipelineBase {
  public:
   Pipeline_BitmapHue(Diligent::IRenderDevice* device,
                      Diligent::TEXTURE_FORMAT target_format);
+};
+
+class Pipeline_Spine2D : public RenderPipelineBase {
+ public:
+  Pipeline_Spine2D(Diligent::IRenderDevice* device,
+                   Diligent::TEXTURE_FORMAT target_format);
 };
 
 class Pipeline_Present : public RenderPipelineBase {

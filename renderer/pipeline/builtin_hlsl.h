@@ -167,6 +167,23 @@ extern const std::string kHLSL_BitmapHueRender;
 
 ///
 // type:
+//   spine2d shader
+///
+// entry:
+//   vertex: VSMain
+//   pixel: PSMain
+///
+// vertex:
+//   <float4, float4, float4>
+///
+// resource:
+//   { float4x4, float4x4 }
+//   { Texture2D }
+///
+extern const std::string kHLSL_Spine2DRender;
+
+///
+// type:
 //   present shader
 ///
 // entry:

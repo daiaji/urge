@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef COMPONENTS_SPINE_SPINE_RENDERER_H_
-#define COMPONENTS_SPINE_SPINE_RENDERER_H_
+#ifndef COMPONENTS_SPINE_SKELETON_RENDERER_H_
+#define COMPONENTS_SPINE_SKELETON_RENDERER_H_
 
 #include <memory>
 
@@ -14,6 +14,12 @@
 #include "renderer/pipeline/render_pipeline.h"
 
 namespace spine {
+
+using SpineVertexBatch = renderer::BatchBuffer<renderer::SpineVertex,
+                                               Diligent::BIND_VERTEX_BUFFER,
+                                               Diligent::BUFFER_MODE_UNDEFINED,
+                                               Diligent::CPU_ACCESS_NONE,
+                                               Diligent::USAGE_DEFAULT>;
 
 class DiligentTextureLoader : public TextureLoader {
  public:
@@ -44,9 +50,10 @@ class DiligentRenderer {
       SkeletonData* skeleton_data,
       AnimationStateData* animation_state_data);
 
-  void Update(float delta, Physics physics);
+  void Update(Diligent::IDeviceContext* context, float delta, Physics physics);
   void Render(Diligent::IDeviceContext* context,
-              Diligent::IBuffer* world_buffer);
+              Diligent::IBuffer* world_buffer,
+              bool premultiplied_alpha);
 
  private:
   DiligentRenderer(renderer::RenderDevice* device,
@@ -54,14 +61,19 @@ class DiligentRenderer {
                    AnimationStateData* animation_state_data);
 
   renderer::RenderDevice* device_;
+  std::vector<renderer::SpineVertex> vertex_cache_;
+  std::unique_ptr<SpineVertexBatch> vertex_batch_;
+  Diligent::RefCntAutoPtr<Diligent::IBuffer> index_buffer_;
+  std::unique_ptr<renderer::Binding_Base> shader_binding_;
 
   std::unique_ptr<Skeleton> skeleton_;
   std::unique_ptr<AnimationState> animation_state_;
 
   std::unique_ptr<SkeletonRenderer> skeleton_renderer_;
+  RenderCommand* pending_commands_;
   bool owns_animation_state_data_;
 };
 
 }  // namespace spine
 
-#endif  //! COMPONENTS_SPINE_SPINE_RENDERER_H_
+#endif  //! COMPONENTS_SPINE_SKELETON_RENDERER_H_

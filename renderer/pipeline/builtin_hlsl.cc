@@ -731,6 +731,71 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
 
 ///
 // type:
+//   spine2d shader
+///
+// entry:
+//   vertex: VSMain
+//   pixel: PSMain
+///
+// vertex:
+//   <float4, float4, float4>
+///
+// resource:
+//   { float4x4, float4x4 }
+//   { Texture2D }
+///
+const std::string kHLSL_Spine2DRender = R"(
+
+struct WorldMatrix {
+  float4x4 ProjMat;
+  float4x4 TransMat;
+};
+
+cbuffer WorldMatrixBuffer {
+  WorldMatrix u_Transform;
+};
+
+struct VSInput {
+  float2 Pos : ATTRIB0;
+  float4 LightColor : ATTRIB1;
+  float2 UV : ATTRIB2;
+  float4 DarkColor : ATTRIB3;
+};
+
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+  float4 LightColor : COLOR0;
+  float4 DarkColor : COLOR1;
+};
+
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
+  float4 pos = float4(VSIn.Pos.x, VSIn.Pos.y, 0.0, 1.0);
+  PSIn.Pos = mul(u_Transform.ProjMat, pos);
+  PSIn.Pos = mul(u_Transform.TransMat, PSIn.Pos);
+  PSIn.UV = VSIn.UV;
+  PSIn.LightColor = VSIn.LightColor;
+  PSIn.DarkColor = VSIn.DarkColor;
+}
+
+Texture2D u_Texture;
+SamplerState u_Texture_sampler;
+
+struct PSOutput {
+  float4 Color : SV_TARGET;
+};
+
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
+  float4 texColor = u_Texture.Sample(u_Texture_sampler, PSIn.UV);
+  float alpha = texColor.a * PSIn.LightColor.a;
+  PSOut.Color.a = alpha;
+  PSOut.Color.rgb = ((texColor.a - 1.0) * PSIn.DarkColor.a + 1.0 - texColor.rgb) * PSIn.DarkColor.rgb + texColor.rgb * PSIn.LightColor.rgb;
+}
+
+)";
+
+///
+// type:
 //   present shader
 ///
 // entry:

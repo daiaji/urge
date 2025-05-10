@@ -49,12 +49,44 @@ Diligent::RenderTargetBlendDesc GetBlendState(BlendType type) {
       state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ZERO;
       state.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
       break;
+    case BlendType::MULTIPLY:
+      state.BlendEnable = Diligent::True;
+      state.BlendOp = Diligent::BLEND_OPERATION_ADD;
+      state.SrcBlend = Diligent::BLEND_FACTOR_DEST_COLOR;
+      state.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      state.SrcBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      state.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      break;
+    case BlendType::SCREEN:
+      state.BlendEnable = Diligent::True;
+      state.BlendOp = Diligent::BLEND_OPERATION_ADD;
+      state.SrcBlend = Diligent::BLEND_FACTOR_ONE;
+      state.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      state.SrcBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      state.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      break;
     case BlendType::KEEP_ALPHA:
       state.BlendEnable = Diligent::True;
       state.BlendOp = Diligent::BLEND_OPERATION_ADD;
       state.SrcBlend = Diligent::BLEND_FACTOR_SRC_ALPHA;
       state.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
       state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ZERO;
+      state.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+      break;
+    case BlendType::NORMAL_PMA:
+      state.BlendEnable = Diligent::True;
+      state.BlendOp = Diligent::BLEND_OPERATION_ADD;
+      state.SrcBlend = Diligent::BLEND_FACTOR_ONE;
+      state.DestBlend = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
+      state.DestBlendAlpha = Diligent::BLEND_FACTOR_INV_SRC_ALPHA;
+      break;
+    case BlendType::ADDITION_PMA:
+      state.BlendEnable = Diligent::True;
+      state.BlendOp = Diligent::BLEND_OPERATION_ADD;
+      state.SrcBlend = Diligent::BLEND_FACTOR_ONE;
+      state.DestBlend = Diligent::BLEND_FACTOR_ONE;
+      state.SrcBlendAlpha = Diligent::BLEND_FACTOR_ONE;
       state.DestBlendAlpha = Diligent::BLEND_FACTOR_ONE;
       break;
     case BlendType::NO_BLEND:
@@ -426,6 +458,24 @@ Pipeline_BitmapHue::Pipeline_BitmapHue(Diligent::IRenderDevice* device,
   };
 
   BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
+                target_format);
+}
+
+Pipeline_Spine2D::Pipeline_Spine2D(Diligent::IRenderDevice* device,
+                                   Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource shader_source{kHLSL_Spine2DRender, "spine2d.render"};
+
+  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+      {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture_sampler",
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  BuildPipeline(shader_source, SpineVertex::GetLayout(), variables, {},
                 target_format);
 }
 
