@@ -992,6 +992,7 @@ void Window2Impl::Put_Padding(const int32_t& value,
     return;
 
   padding_ = value;
+  padding_bottom_ = padding_;
 }
 
 int32_t Window2Impl::Get_PaddingBottom(ExceptionState& exception_state) {

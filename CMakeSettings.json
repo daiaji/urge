@@ -8,7 +8,14 @@
       "installRoot": "${projectDir}\\out\\install\\${name}",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
-      "inheritEnvironments": [ "msvc_x64_x64" ]
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": [
+        {
+          "name": "DILIGENT_MSVC_RELEASE_COMPILE_OPTIONS",
+          "value": "/GL",
+          "type": "STRING"
+        }
+      ]
     },
     {
       "name": "x64-Debug",
