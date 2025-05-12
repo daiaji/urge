@@ -781,8 +781,10 @@ void Window2Impl::Put_Windowskin(const scoped_refptr<Bitmap>& value,
     return;
 
   windowskin_ = CanvasImpl::FromBitmap(value);
-  windowskin_->AddCanvasObserver(base::BindRepeating(
-      &Window2Impl::BackgroundTextureObserverInternal, base::Unretained(this)));
+  if (windowskin_)
+    windowskin_->AddCanvasObserver(
+        base::BindRepeating(&Window2Impl::BackgroundTextureObserverInternal,
+                            base::Unretained(this)));
   background_dirty_ = true;
 }
 
@@ -811,6 +813,8 @@ void Window2Impl::Put_CursorRect(const scoped_refptr<Rect>& value,
                                  ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
+
+  CHECK_ATTRIBUTE_VALUE;
 
   *cursor_rect_ = *RectImpl::From(value);
 }
@@ -1082,6 +1086,8 @@ void Window2Impl::Put_Tone(const scoped_refptr<Tone>& value,
                            ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
+
+  CHECK_ATTRIBUTE_VALUE;
 
   *tone_ = *ToneImpl::From(value);
   background_dirty_ = true;

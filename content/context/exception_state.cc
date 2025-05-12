@@ -4,13 +4,22 @@
 
 #include "content/context/exception_state.h"
 
+#include <stdarg.h>
+#include <stdio.h>
+
 namespace content {
 
-void ExceptionState::ThrowContentError(ExceptionCode exception_code,
-                                       const std::string& message) {
+void ExceptionState::ThrowError(ExceptionCode exception_code,
+                                const char* format,
+                                ...) {
   had_exception_ = true;
   code_ = exception_code;
-  message_ = message;
+
+  va_list ap;
+  va_start(ap, format);
+  message_.resize(1024);
+  vsnprintf(message_.data(), message_.size(), format, ap);
+  va_end(ap);
 }
 
 }  // namespace content

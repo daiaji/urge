@@ -520,8 +520,8 @@ scoped_refptr<Bitmap> TilemapAutotileImpl::Get(
 
   auto& autotiles = tilemap_->autotiles_;
   if (index < 0 || index >= static_cast<int32_t>(autotiles.size())) {
-    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                      "Out range of autotiles.");
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Out range of autotiles.");
     return nullptr;
   }
 
@@ -536,8 +536,8 @@ void TilemapAutotileImpl::Put(int32_t index,
 
   auto& autotiles = tilemap_->autotiles_;
   if (index < 0 || index >= static_cast<int32_t>(autotiles.size()))
-    return exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                             "Out range of autotiles.");
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Out range of autotiles.");
 
   autotiles[index].bitmap = CanvasImpl::FromBitmap(texture);
   autotiles[index].observer = autotiles[index].bitmap->AddCanvasObserver(
@@ -638,6 +638,8 @@ void TilemapImpl::Put_Tileset(const scoped_refptr<Bitmap>& value,
   if (CheckDisposed(exception_state))
     return;
 
+  CHECK_ATTRIBUTE_VALUE;
+
   if (tileset_ == value)
     return;
 
@@ -659,6 +661,8 @@ void TilemapImpl::Put_MapData(const scoped_refptr<Table>& value,
   if (CheckDisposed(exception_state))
     return;
 
+  CHECK_ATTRIBUTE_VALUE;
+
   map_data_ = TableImpl::From(value);
   map_data_observer_ = map_data_->AddObserver(base::BindRepeating(
       &TilemapImpl::MapDataModifyHandlerInternal, base::Unretained(this)));
@@ -678,6 +682,8 @@ void TilemapImpl::Put_FlashData(const scoped_refptr<Table>& value,
   if (CheckDisposed(exception_state))
     return;
 
+  CHECK_ATTRIBUTE_VALUE;
+
   flash_data_ = TableImpl::From(value);
   flash_data_observer_ = map_data_->AddObserver(base::BindRepeating(
       &TilemapImpl::MapDataModifyHandlerInternal, base::Unretained(this)));
@@ -696,6 +702,8 @@ void TilemapImpl::Put_Priorities(const scoped_refptr<Table>& value,
                                  ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
+
+  CHECK_ATTRIBUTE_VALUE;
 
   priorities_ = TableImpl::From(value);
   priorities_observer_ = priorities_->AddObserver(base::BindRepeating(

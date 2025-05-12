@@ -6,6 +6,7 @@
 #define CONTENT_CONTEXT_EXCEPTION_STATE_H_
 
 #include "base/buildflags/compiler_specific.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/stack_allocated.h"
 
 #include <string>
@@ -34,8 +35,9 @@ class ExceptionState {
   ExceptionState& operator=(const ExceptionState&) = delete;
 
   // Throws a ContentException due to the given exception code.
-  BASE_NOINLINE void ThrowContentError(ExceptionCode exception_code,
-                                       const std::string& message);
+  BASE_NOINLINE void ThrowError(ExceptionCode exception_code,
+                                const char* format,
+                                ...);
 
   // Returns true if there is a pending exception.
   bool HadException() const { return had_exception_; }
@@ -53,6 +55,22 @@ class ExceptionState {
   ExceptionCode code_;
   std::string message_;
 };
+
+#define CHECK_ATTRIBUTE_VALUE                  \
+  if (CheckValueValid(value, exception_state)) \
+    return;
+
+template <typename Ty>
+inline bool CheckValueValid(scoped_refptr<Ty> obj,
+                            ExceptionState& exception_state) {
+  if (!obj) {
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Invalid value object.");
+    return true;
+  }
+
+  return false;
+}
 
 }  // namespace content
 

@@ -45,8 +45,8 @@ scoped_refptr<Table> Table::Deserialize(ExecutionContext* execution_context,
 
   scoped_refptr<TableImpl> impl = new TableImpl(xsize, ysize, zsize);
   if (data_size != impl->x_size_ * impl->y_size_ * impl->z_size_) {
-    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                      "incorrect table serialize data");
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Invalid table serialize data.");
     return nullptr;
   }
 

@@ -89,9 +89,6 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
   SDL_Surface* RequireMemorySurface();
   void InvalidateSurfaceCache();
 
-  // Update memory surface to GPU.
-  void UpdateVideoMemory();
-
   // Process queued pending commands.
   void SubmitQueuedCommands();
 

@@ -39,6 +39,12 @@ scoped_refptr<Color> Color::Copy(ExecutionContext* execution_context,
 scoped_refptr<Color> Color::Deserialize(ExecutionContext* execution_context,
                                         const std::string& data,
                                         ExceptionState& exception_state) {
+  if (data.size() < sizeof(double) * 4) {
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Invalid data length, size: %d", data.size());
+    return nullptr;
+  }
+
   const double* ptr = reinterpret_cast<const double*>(data.data());
   const float red = static_cast<float>(*(ptr + 0));
   const float green = static_cast<float>(*(ptr + 1));

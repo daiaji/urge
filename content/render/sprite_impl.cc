@@ -351,6 +351,8 @@ void SpriteImpl::Put_SrcRect(const scoped_refptr<Rect>& value,
   if (CheckDisposed(exception_state))
     return;
 
+  CHECK_ATTRIBUTE_VALUE;
+
   *src_rect_ = *RectImpl::From(value);
 }
 
@@ -658,6 +660,8 @@ void SpriteImpl::Put_Color(const scoped_refptr<Color>& value,
   if (CheckDisposed(exception_state))
     return;
 
+  CHECK_ATTRIBUTE_VALUE;
+
   *color_ = *ColorImpl::From(value);
 }
 
@@ -672,6 +676,8 @@ void SpriteImpl::Put_Tone(const scoped_refptr<Tone>& value,
                           ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
+
+  CHECK_ATTRIBUTE_VALUE;
 
   *tone_ = *ToneImpl::From(value);
 }

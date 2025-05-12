@@ -385,8 +385,8 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
     font_names = font_names + it + " ";
 
   // Throw font not find error
-  exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                    "Failed to load font: " + font_names);
+  exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                             "Failed to load font: %s", font_names.c_str());
 }
 
 void FontImpl::EnsureFontSurfaceFormatInternal(SDL_Surface*& surf) {

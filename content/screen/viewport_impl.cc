@@ -288,12 +288,9 @@ void ViewportImpl::Render(scoped_refptr<Bitmap> target,
   scoped_refptr<CanvasImpl> render_target = CanvasImpl::FromBitmap(target);
   TextureAgent* bitmap_agent =
       render_target ? render_target->GetAgent() : nullptr;
-  if (!bitmap_agent) {
-    exception_state.ThrowContentError(
-        ExceptionCode::CONTENT_ERROR,
-        "Viewport::Render: Invalid bitmap as render target.");
-    return;
-  }
+  if (!bitmap_agent)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid render target.");
 
   // Check flash status
   if (flash_emitter_.IsFlashing() && flash_emitter_.IsInvalid())
@@ -400,6 +397,8 @@ void ViewportImpl::Put_Rect(const scoped_refptr<Rect>& value,
   if (CheckDisposed(exception_state))
     return;
 
+  CHECK_ATTRIBUTE_VALUE;
+
   *rect_ = *RectImpl::From(value);
 }
 
@@ -475,6 +474,8 @@ void ViewportImpl::Put_Color(const scoped_refptr<Color>& value,
   if (CheckDisposed(exception_state))
     return;
 
+  CHECK_ATTRIBUTE_VALUE;
+
   *color_ = *ColorImpl::From(value);
 }
 
@@ -489,6 +490,8 @@ void ViewportImpl::Put_Tone(const scoped_refptr<Tone>& value,
                             ExceptionState& exception_state) {
   if (CheckDisposed(exception_state))
     return;
+
+  CHECK_ATTRIBUTE_VALUE;
 
   *tone_ = *ToneImpl::From(value);
 }

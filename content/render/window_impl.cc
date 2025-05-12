@@ -638,6 +638,8 @@ void WindowImpl::Put_CursorRect(const scoped_refptr<Rect>& value,
   if (CheckDisposed(exception_state))
     return;
 
+  CHECK_ATTRIBUTE_VALUE;
+
   *cursor_rect_ = *RectImpl::From(value);
 }
 

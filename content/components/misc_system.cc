@@ -23,8 +23,8 @@ std::string MiscSystem::GetPlatform(ExceptionState& exception_state) {
 void MiscSystem::OpenURL(const std::string& path,
                          ExceptionState& exception_state) {
   if (!SDL_OpenURL(path.c_str()))
-    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                      SDL_GetError());
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR, "OpenURL: %s",
+                               SDL_GetError());
 }
 
 std::string MiscSystem::Gets(ExceptionState& exception_state) {

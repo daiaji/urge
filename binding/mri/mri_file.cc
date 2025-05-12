@@ -23,8 +23,8 @@ VALUE CreateCoreFileFrom(const std::string& filename,
   filesystem::IOState io_state;
   SDL_IOStream* ops = g_io_service->OpenReadRaw(filename, &io_state);
   if (io_state.error_count) {
-    exception_state.ThrowContentError(content::ExceptionCode::IO_ERROR,
-                                      io_state.error_message);
+    exception_state.ThrowError(content::ExceptionCode::IO_ERROR, "%s",
+                               io_state.error_message.c_str());
     return Qnil;
   }
 

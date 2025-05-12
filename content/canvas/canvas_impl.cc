@@ -19,6 +19,8 @@ namespace content {
 
 namespace {
 
+constexpr SDL_PixelFormat kCanvasInternalFormat = SDL_PIXELFORMAT_ABGR8888;
+
 void GPUMakeTextureWorldInternal(renderer::RenderDevice* device,
                                  const base::Vec2& bitmap_size,
                                  Diligent::IBuffer** out) {
@@ -48,9 +50,8 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
                                       const std::string& name,
                                       TextureAgent* agent) {
   // Make sure correct texture format
-  if (initial_data->format != SDL_PIXELFORMAT_ABGR8888) {
-    SDL_Surface* conv =
-        SDL_ConvertSurface(initial_data, SDL_PIXELFORMAT_ABGR8888);
+  if (initial_data->format != kCanvasInternalFormat) {
+    SDL_Surface* conv = SDL_ConvertSurface(initial_data, kCanvasInternalFormat);
     SDL_DestroySurface(initial_data);
     initial_data = conv;
   }
@@ -84,8 +85,8 @@ void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
 
   // Create an empty textrue: the driver will not clear the initial
   // texture, we need to clear it by ourselves.
-  SDL_Surface* empty_surface = SDL_CreateSurface(initial_size.x, initial_size.y,
-                                                 SDL_PIXELFORMAT_ABGR8888);
+  SDL_Surface* empty_surface =
+      SDL_CreateSurface(initial_size.x, initial_size.y, kCanvasInternalFormat);
   renderer::CreateTexture2D(
       **device_base, &agent->data, agent->name, empty_surface,
       Diligent::USAGE_DEFAULT,
@@ -216,22 +217,6 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
 
   // End of mapping
   context->UnmapTextureSubresource(stage_read_buffer, 0, 0);
-}
-
-void GPUUpdateTexturePixelsDataInternal(CanvasScheduler* scheduler,
-                                        TextureAgent* agent,
-                                        std::vector<uint8_t> pixels,
-                                        const base::Vec2i& surface_size) {
-  auto* context = scheduler->GetDevice()->GetContext();
-
-  // Update memory surface to video memory
-  Diligent::TextureSubResData texture_sub_res_data(pixels.data(),
-                                                   surface_size.x * 4);
-  Diligent::Box box(0, surface_size.x, 0, surface_size.y);
-
-  context->UpdateTexture(agent->data, 0, 0, box, texture_sub_res_data,
-                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void GPUCanvasClearInternal(CanvasScheduler* scheduler, TextureAgent* agent) {
@@ -509,16 +494,23 @@ scoped_refptr<Bitmap> Bitmap::New(ExecutionContext* execution_context,
 scoped_refptr<Bitmap> Bitmap::FromSurface(ExecutionContext* execution_context,
                                           scoped_refptr<Surface> target,
                                           ExceptionState& exception_state) {
-  auto* surface_data = SurfaceImpl::From(target)->GetRawSurface();
+  auto surface_target = SurfaceImpl::From(target);
+  auto* surface_data =
+      surface_target ? surface_target->GetRawSurface() : nullptr;
   if (!surface_data) {
-    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                      "Invalid palette target.");
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Invalid palette target.");
     return nullptr;
   }
 
   auto* surface_duplicate = SDL_CreateSurfaceFrom(
       surface_data->w, surface_data->h, surface_data->format,
       surface_data->pixels, surface_data->pitch);
+  if (!surface_duplicate) {
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Failed to copy surface data.");
+    return nullptr;
+  }
 
   return CanvasImpl::Create(execution_context->canvas_scheduler,
                             execution_context->graphics,
@@ -544,8 +536,8 @@ scoped_refptr<Bitmap> Bitmap::Deserialize(ExecutionContext* execution_context,
   const uint8_t* raw_data = reinterpret_cast<const uint8_t*>(data.data());
 
   if (data.size() < sizeof(uint32_t) * 2) {
-    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                      "Invalid bitmap header data.");
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Invalid bitmap header data.");
     return nullptr;
   }
 
@@ -556,13 +548,13 @@ scoped_refptr<Bitmap> Bitmap::Deserialize(ExecutionContext* execution_context,
               sizeof(uint32_t));
 
   if (data.size() < sizeof(uint32_t) * 2 + surface_width * surface_height * 4) {
-    exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                      "Invalid bitmap dump data.");
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Invalid bitmap dump data.");
     return nullptr;
   }
 
-  SDL_Surface* surface = SDL_CreateSurface(surface_width, surface_height,
-                                           SDL_PIXELFORMAT_ABGR8888);
+  SDL_Surface* surface =
+      SDL_CreateSurface(surface_width, surface_height, kCanvasInternalFormat);
   std::memcpy(surface->pixels, raw_data + sizeof(uint32_t) * 2,
               surface->pitch * surface->h);
 
@@ -597,10 +589,8 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
                                              const base::Vec2i& size,
                                              ExceptionState& exception_state) {
   if (size.x <= 0 || size.y <= 0) {
-    exception_state.ThrowContentError(
-        ExceptionCode::CONTENT_ERROR,
-        "Invalid bitmap size: " + std::to_string(size.x) + "x" +
-            std::to_string(size.y));
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Invalid bitmap size: %dx%d", size.x, size.y);
     return nullptr;
   }
 
@@ -633,16 +623,16 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
   scheduler->GetIOService()->OpenRead(filename, file_handler, &io_state);
 
   if (io_state.error_count) {
-    exception_state.ThrowContentError(
-        ExceptionCode::IO_ERROR,
-        "Failed to read file: " + filename + " - " + io_state.error_message);
+    exception_state.ThrowError(ExceptionCode::IO_ERROR,
+                               "Failed to read file: %s (%s)", filename.c_str(),
+                               io_state.error_message.c_str());
     return nullptr;
   }
 
   if (!memory_texture) {
-    exception_state.ThrowContentError(
-        ExceptionCode::CONTENT_ERROR,
-        "Failed to load image: " + filename + " - " + SDL_GetError());
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Failed to load image: %s (%s)",
+                               filename.c_str(), SDL_GetError());
     return nullptr;
   }
 
@@ -696,7 +686,7 @@ SDL_Surface* CanvasImpl::RequireMemorySurface() {
   if (!canvas_cache_) {
     // Create empty cache
     canvas_cache_ = SDL_CreateSurface(texture_->size.x, texture_->size.y,
-                                      SDL_PIXELFORMAT_ABGR8888);
+                                      kCanvasInternalFormat);
 
     // Submit pending commands
     SubmitQueuedCommands();
@@ -720,30 +710,6 @@ void CanvasImpl::InvalidateSurfaceCache() {
     // Set cache ptr to null
     SDL_DestroySurface(canvas_cache_);
     canvas_cache_ = nullptr;
-  }
-}
-
-void CanvasImpl::UpdateVideoMemory() {
-  if (canvas_cache_) {
-    // Aligned bytes
-    uint32_t aligned_bytes_per_row = (canvas_cache_->pitch + 255) & ~255;
-
-    // Copy pixels to temp closure parameter
-    std::vector<uint8_t> pixels;
-    pixels.assign(aligned_bytes_per_row * canvas_cache_->h, 0);
-
-    for (int32_t y = 0; y < canvas_cache_->h; ++y)
-      std::memcpy(pixels.data() + y * aligned_bytes_per_row,
-                  static_cast<uint8_t*>(canvas_cache_->pixels) +
-                      y * canvas_cache_->pitch,
-                  canvas_cache_->pitch);
-
-    // Post async upload request
-    base::ThreadWorker::PostTask(
-        scheduler_->render_worker(),
-        base::BindOnce(&GPUUpdateTexturePixelsDataInternal, scheduler_,
-                       texture_, std::move(pixels),
-                       base::Vec2i(canvas_cache_->pitch, canvas_cache_->h)));
   }
 }
 
@@ -845,8 +811,12 @@ void CanvasImpl::Blt(int32_t x,
 
   CanvasImpl* src_canvas = static_cast<CanvasImpl*>(src_bitmap.get());
   if (!src_canvas || !src_canvas->GetAgent())
-    return exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                             "Invalid blt target.");
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid blt source.");
+
+  if (!src_rect)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid source rect object.");
 
   BlitTextureInternal(base::Rect(x, y, src_rect->Get_Width(exception_state),
                                  src_rect->Get_Height(exception_state)),
@@ -865,8 +835,16 @@ void CanvasImpl::StretchBlt(scoped_refptr<Rect> dest_rect,
 
   CanvasImpl* src_canvas = static_cast<CanvasImpl*>(src_bitmap.get());
   if (!src_canvas || !src_canvas->GetAgent())
-    return exception_state.ThrowContentError(ExceptionCode::CONTENT_ERROR,
-                                             "Invalid blt target.");
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid blt source.");
+
+  if (!dest_rect)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid destination rect object.");
+
+  if (!src_rect)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid source rect object.");
 
   BlitTextureInternal(RectImpl::From(dest_rect)->AsBaseRect(), src_canvas,
                       RectImpl::From(src_rect)->AsBaseRect(), blend_type,
@@ -885,6 +863,10 @@ void CanvasImpl::FillRect(int32_t x,
 void CanvasImpl::FillRect(scoped_refptr<Rect> rect,
                           scoped_refptr<Color> color,
                           ExceptionState& exception_state) {
+  if (!rect)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid rect object.");
+
   FillRect(rect->Get_X(exception_state), rect->Get_Y(exception_state),
            rect->Get_Width(exception_state), rect->Get_Height(exception_state),
            color, exception_state);
@@ -903,6 +885,10 @@ void CanvasImpl::GradientFillRect(int32_t x,
 
   if (width <= 0 || height <= 0)
     return;
+
+  if (!color1 || !color2)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid color object.");
 
   auto* command = AllocateCommand<Command_GradientFillRect>();
   command->region = base::Rect(x, y, width, height);
@@ -928,6 +914,10 @@ void CanvasImpl::GradientFillRect(scoped_refptr<Rect> rect,
                                   scoped_refptr<Color> color2,
                                   bool vertical,
                                   ExceptionState& exception_state) {
+  if (!rect)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid rect object.");
+
   GradientFillRect(rect->Get_X(exception_state), rect->Get_Y(exception_state),
                    rect->Get_Width(exception_state),
                    rect->Get_Height(exception_state), color1, color2, vertical,
@@ -938,6 +928,10 @@ void CanvasImpl::GradientFillRect(scoped_refptr<Rect> rect,
                                   scoped_refptr<Color> color1,
                                   scoped_refptr<Color> color2,
                                   ExceptionState& exception_state) {
+  if (!rect)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid rect object.");
+
   GradientFillRect(rect->Get_X(exception_state), rect->Get_Y(exception_state),
                    rect->Get_Width(exception_state),
                    rect->Get_Height(exception_state), color1, color2, false,
@@ -971,6 +965,10 @@ void CanvasImpl::ClearRect(int32_t x,
 
 void CanvasImpl::ClearRect(scoped_refptr<Rect> rect,
                            ExceptionState& exception_state) {
+  if (!rect)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid rect object.");
+
   ClearRect(rect->Get_X(exception_state), rect->Get_Y(exception_state),
             rect->Get_Width(exception_state), rect->Get_Height(exception_state),
             exception_state);
@@ -1008,6 +1006,10 @@ void CanvasImpl::SetPixel(int32_t x,
 
   if (x < 0 || x >= texture_->size.x || y < 0 || y >= texture_->size.y)
     return;
+
+  if (!color)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid color object.");
 
   scoped_refptr<ColorImpl> color_obj = ColorImpl::From(color.get());
 
@@ -1122,6 +1124,10 @@ void CanvasImpl::DrawText(scoped_refptr<Rect> rect,
 void CanvasImpl::DrawText(scoped_refptr<Rect> rect,
                           const std::string& str,
                           ExceptionState& exception_state) {
+  if (!rect)
+    return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                                      "Invalid rect object.");
+
   DrawText(rect->Get_X(exception_state), rect->Get_Y(exception_state),
            rect->Get_Width(exception_state), rect->Get_Height(exception_state),
            str, 0, exception_state);
