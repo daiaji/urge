@@ -13,13 +13,13 @@ namespace content {
 
 class KeyEventImpl : public KeyEvent {
  public:
-  KeyEventImpl(EventController::KeyEvent event);
+  KeyEventImpl(EventController::KeyEventData event);
   ~KeyEventImpl() override;
 
   KeyEventImpl(const KeyEventImpl&) = delete;
   KeyEventImpl& operator=(const KeyEventImpl&) = delete;
 
-  int32_t GetType(ExceptionState& exception_state) override;
+  Type GetType(ExceptionState& exception_state) override;
   int32_t GetDeviceID(ExceptionState& exception_state) override;
   int32_t GetScancode(ExceptionState& exception_state) override;
   int32_t GetKey(ExceptionState& exception_state) override;
@@ -28,7 +28,7 @@ class KeyEventImpl : public KeyEvent {
   bool GetRepeat(ExceptionState& exception_state) override;
 
  private:
-  EventController::KeyEvent event_;
+  EventController::KeyEventData event_;
 };
 
 }  // namespace content

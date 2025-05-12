@@ -17,7 +17,10 @@ if __name__ == "__main__":
 
   os.makedirs(idl_dir, exist_ok=True)
   os.makedirs(out_dir, exist_ok=True)
-  os.remove(os.path.join(idl_dir, "export_apis.json"))
+  try:
+    os.remove(os.path.join(idl_dir, "export_apis.json"))
+  except FileNotFoundError:
+    pass
 
   template_classes = []
   for filepath in os.listdir(in_dir):

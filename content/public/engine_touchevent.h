@@ -19,13 +19,21 @@ class URGE_RUNTIME_API TouchEvent : public base::RefCounted<TouchEvent> {
  public:
   virtual ~TouchEvent() = default;
 
+  /*--urge(name:EventType)--*/
+  enum Type {
+    TYPE_FINGER_DOWN = 0,
+    TYPE_FINGER_UP,
+    TYPE_FINGER_MOTION,
+    TYPE_FINGER_CANCELED,
+  };
+
   /*--urge(name:update)--*/
   static std::vector<scoped_refptr<TouchEvent>> Update(
       ExecutionContext* execution_context,
       ExceptionState& exception_state);
 
   /*--urge(name:type)--*/
-  virtual int32_t GetType(ExceptionState& exception_state) = 0;
+  virtual Type GetType(ExceptionState& exception_state) = 0;
 
   /*--urge(name:device_id)--*/
   virtual int32_t GetDeviceID(ExceptionState& exception_state) = 0;

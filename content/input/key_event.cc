@@ -9,7 +9,7 @@ namespace content {
 std::vector<scoped_refptr<KeyEvent>> KeyEvent::Update(
     ExecutionContext* execution_context,
     ExceptionState& exception_state) {
-  std::vector<EventController::KeyEvent> raw_events;
+  std::vector<EventController::KeyEventData> raw_events;
   execution_context->event_controller->PollKeyEvents(raw_events);
 
   std::vector<scoped_refptr<KeyEvent>> filtered_events;
@@ -19,11 +19,12 @@ std::vector<scoped_refptr<KeyEvent>> KeyEvent::Update(
   return filtered_events;
 }
 
-KeyEventImpl::KeyEventImpl(EventController::KeyEvent event) : event_(event) {}
+KeyEventImpl::KeyEventImpl(EventController::KeyEventData event)
+    : event_(event) {}
 
 KeyEventImpl::~KeyEventImpl() = default;
 
-int32_t KeyEventImpl::GetType(ExceptionState& exception_state) {
+KeyEvent::Type KeyEventImpl::GetType(ExceptionState& exception_state) {
   return event_.type;
 }
 

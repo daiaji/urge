@@ -34,6 +34,7 @@ class MriBindGen:
     kname = template["class_name"]
     is_module = template["is_module"]
     parent_klass = template["parent"]
+    enums = template["enums"]
 
     func_body = "void Init{}Binding() {{\n".format(kname)
 
@@ -52,6 +53,14 @@ class MriBindGen:
       func_body += "rb_define_alloc_func(klass, MriClassAllocate<&k{}DataType>);\n".format(kname)
       func_body += "MriDefineMethod(klass, \"engine_id\", MriGetEngineID);\n"
       func_body += "MRI_DECLARE_OBJECT_COMPARE({});\n".format(kname)
+
+    func_body += "\n"
+
+    for enum_item in enums:
+      for item in enum_item["constants"]:
+        enum_name = enum_item["name"]
+        func_body += "rb_const_set(klass, rb_intern(\"{}\"), content::{}::{}::{});\n".format(item, kname, enum_name, item)
+      func_body += "\n"
 
     func_body += "\n"
 
@@ -289,7 +298,7 @@ if (rb_type({}) != RUBY_T_ARRAY) {{
             tmp = tmp.replace(">>", "")
             caller_prefix += "std::vector<scoped_refptr<content::{}>> result_value = ".format(tmp)
           else:
-            caller_prefix += return_type + " result_value = "
+            caller_prefix += "auto result_value = "
 
         if call_parameters != "":
           call_parameters += ", "

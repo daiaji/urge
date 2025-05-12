@@ -9,7 +9,7 @@ namespace content {
 std::vector<scoped_refptr<TouchEvent>> TouchEvent::Update(
     ExecutionContext* execution_context,
     ExceptionState& exception_state) {
-  std::vector<EventController::TouchEvent> raw_events;
+  std::vector<EventController::TouchEventData> raw_events;
   execution_context->event_controller->PollTouchEvents(raw_events);
 
   std::vector<scoped_refptr<TouchEvent>> filtered_events;
@@ -19,12 +19,12 @@ std::vector<scoped_refptr<TouchEvent>> TouchEvent::Update(
   return filtered_events;
 }
 
-TouchEventImpl::TouchEventImpl(EventController::TouchEvent event)
+TouchEventImpl::TouchEventImpl(EventController::TouchEventData event)
     : event_(event) {}
 
 TouchEventImpl::~TouchEventImpl() = default;
 
-int32_t TouchEventImpl::GetType(ExceptionState& exception_state) {
+TouchEvent::Type TouchEventImpl::GetType(ExceptionState& exception_state) {
   return event_.type;
 }
 

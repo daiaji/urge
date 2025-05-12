@@ -29,7 +29,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_KEY_UP:
       if (event->key.windowID == window_->GetWindowID()) {
         auto& raw_event = event->key;
-        KeyEvent out_event = {};
+        KeyEventData out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.keyboard_id = raw_event.which;
         out_event.type = static_cast<decltype(out_event.type)>(
@@ -45,7 +45,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_MOUSE_MOTION:
       if (event->motion.windowID == window_->GetWindowID()) {
         auto& raw_event = event->motion;
-        MouseEvent out_event = {};
+        MouseEventData out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.mouse_id = raw_event.which;
         out_event.type = static_cast<decltype(out_event.type)>(
@@ -63,7 +63,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_MOUSE_BUTTON_UP:
       if (event->button.windowID == window_->GetWindowID()) {
         auto& raw_event = event->button;
-        MouseEvent out_event = {};
+        MouseEventData out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.mouse_id = raw_event.which;
         out_event.type = static_cast<decltype(out_event.type)>(
@@ -80,7 +80,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_MOUSE_WHEEL:
       if (event->wheel.windowID == window_->GetWindowID()) {
         auto& raw_event = event->wheel;
-        MouseEvent out_event = {};
+        MouseEventData out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.mouse_id = raw_event.which;
         out_event.type = static_cast<decltype(out_event.type)>(
@@ -88,7 +88,8 @@ void EventController::DispatchEvent(SDL_Event* event) {
         out_event.x = (raw_event.x - window_viewport.x) / window_scale.x;
         out_event.y = (raw_event.y - window_viewport.y) / window_scale.y;
 
-        out_event.wheel_dir = raw_event.direction;
+        out_event.wheel_dir =
+            static_cast<MouseEvent::WheelState>(raw_event.direction);
         out_event.wheel_x = raw_event.x;
         out_event.wheel_y = raw_event.y;
         mouse_events_.push_back(out_event);
@@ -100,7 +101,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     case SDL_EVENT_FINGER_CANCELED:
       if (event->tfinger.windowID == window_->GetWindowID()) {
         auto& raw_event = event->tfinger;
-        TouchEvent out_event = {};
+        TouchEventData out_event = {};
         out_event.timestamp = raw_event.timestamp;
         out_event.touch_id = raw_event.touchID;
         out_event.type = static_cast<decltype(out_event.type)>(
@@ -121,15 +122,15 @@ void EventController::DispatchEvent(SDL_Event* event) {
   }
 }
 
-void EventController::PollKeyEvents(std::vector<KeyEvent>& out) {
+void EventController::PollKeyEvents(std::vector<KeyEventData>& out) {
   out = key_events_;
 }
 
-void EventController::PollMouseEvents(std::vector<MouseEvent>& out) {
+void EventController::PollMouseEvents(std::vector<MouseEventData>& out) {
   out = mouse_events_;
 }
 
-void EventController::PollTouchEvents(std::vector<TouchEvent>& out) {
+void EventController::PollTouchEvents(std::vector<TouchEventData>& out) {
   out = touch_events_;
 }
 

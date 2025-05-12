@@ -13,13 +13,13 @@ namespace content {
 
 class MouseEventImpl : public MouseEvent {
  public:
-  MouseEventImpl(EventController::MouseEvent event);
+  MouseEventImpl(EventController::MouseEventData event);
   ~MouseEventImpl() override;
 
   MouseEventImpl(const MouseEventImpl&) = delete;
   MouseEventImpl& operator=(const MouseEventImpl&) = delete;
 
-  int32_t GetType(ExceptionState& exception_state) override;
+  Type GetType(ExceptionState& exception_state) override;
   int32_t GetMouseID(ExceptionState& exception_state) override;
   int32_t GetX(ExceptionState& exception_state) override;
   int32_t GetY(ExceptionState& exception_state) override;
@@ -29,12 +29,12 @@ class MouseEventImpl : public MouseEvent {
   int32_t GetMotion(ExceptionState& exception_state) override;
   int32_t GetMotionX(ExceptionState& exception_state) override;
   int32_t GetMotionY(ExceptionState& exception_state) override;
-  int32_t GetWheel(ExceptionState& exception_state) override;
+  WheelState GetWheel(ExceptionState& exception_state) override;
   int32_t GetWheelX(ExceptionState& exception_state) override;
   int32_t GetWheelY(ExceptionState& exception_state) override;
 
  private:
-  EventController::MouseEvent event_;
+  EventController::MouseEventData event_;
 };
 
 }  // namespace content

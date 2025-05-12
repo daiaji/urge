@@ -9,7 +9,7 @@ namespace content {
 std::vector<scoped_refptr<MouseEvent>> MouseEvent::Update(
     ExecutionContext* execution_context,
     ExceptionState& exception_state) {
-  std::vector<EventController::MouseEvent> raw_events;
+  std::vector<EventController::MouseEventData> raw_events;
   execution_context->event_controller->PollMouseEvents(raw_events);
 
   std::vector<scoped_refptr<MouseEvent>> filtered_events;
@@ -19,12 +19,12 @@ std::vector<scoped_refptr<MouseEvent>> MouseEvent::Update(
   return filtered_events;
 }
 
-MouseEventImpl::MouseEventImpl(EventController::MouseEvent event)
+MouseEventImpl::MouseEventImpl(EventController::MouseEventData event)
     : event_(event) {}
 
 MouseEventImpl::~MouseEventImpl() = default;
 
-int32_t MouseEventImpl::GetType(ExceptionState& exception_state) {
+MouseEvent::Type MouseEventImpl::GetType(ExceptionState& exception_state) {
   return event_.type;
 }
 
@@ -64,7 +64,8 @@ int32_t MouseEventImpl::GetMotionY(ExceptionState& exception_state) {
   return event_.motion_rely;
 }
 
-int32_t MouseEventImpl::GetWheel(ExceptionState& exception_state) {
+MouseEvent::WheelState MouseEventImpl::GetWheel(
+    ExceptionState& exception_state) {
   return event_.wheel_dir;
 }
 

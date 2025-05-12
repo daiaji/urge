@@ -13,13 +13,13 @@ namespace content {
 
 class TouchEventImpl : public TouchEvent {
  public:
-  TouchEventImpl(EventController::TouchEvent event);
+  TouchEventImpl(EventController::TouchEventData event);
   ~TouchEventImpl() override;
 
   TouchEventImpl(const TouchEventImpl&) = delete;
   TouchEventImpl& operator=(const TouchEventImpl&) = delete;
 
-  int32_t GetType(ExceptionState& exception_state) override;
+  Type GetType(ExceptionState& exception_state) override;
   int32_t GetDeviceID(ExceptionState& exception_state) override;
   int32_t GetFinger(ExceptionState& exception_state) override;
   int32_t GetX(ExceptionState& exception_state) override;
@@ -29,7 +29,7 @@ class TouchEventImpl : public TouchEvent {
   float GetPressure(ExceptionState& exception_state) override;
 
  private:
-  EventController::TouchEvent event_;
+  EventController::TouchEventData event_;
 };
 
 }  // namespace content

@@ -19,13 +19,27 @@ class URGE_RUNTIME_API MouseEvent : public base::RefCounted<MouseEvent> {
  public:
   virtual ~MouseEvent() = default;
 
+  /*--urge(name:EventType)--*/
+  enum Type {
+    TYPE_MOUSE_MOTION = 0,
+    TYPE_MOUSE_BUTTON_DOWN,
+    TYPE_MOUSE_BUTTON_UP,
+    TYPE_MOUSE_WHEEL,
+  };
+
+  /*--urge(name:WheelState)--*/
+  enum WheelState {
+    MOUSEWHEEL_NORMAL = 0,
+    MOUSEWHEEL_FLIPPED,
+  };
+
   /*--urge(name:update)--*/
   static std::vector<scoped_refptr<MouseEvent>> Update(
       ExecutionContext* execution_context,
       ExceptionState& exception_state);
 
   /*--urge(name:type)--*/
-  virtual int32_t GetType(ExceptionState& exception_state) = 0;
+  virtual Type GetType(ExceptionState& exception_state) = 0;
 
   /*--urge(name:mouse_id)--*/
   virtual int32_t GetMouseID(ExceptionState& exception_state) = 0;
@@ -55,7 +69,7 @@ class URGE_RUNTIME_API MouseEvent : public base::RefCounted<MouseEvent> {
   virtual int32_t GetMotionY(ExceptionState& exception_state) = 0;
 
   /*--urge(name:wheel)--*/
-  virtual int32_t GetWheel(ExceptionState& exception_state) = 0;
+  virtual WheelState GetWheel(ExceptionState& exception_state) = 0;
 
   /*--urge(name:wheel_x)--*/
   virtual int32_t GetWheelX(ExceptionState& exception_state) = 0;

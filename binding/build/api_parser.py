@@ -12,6 +12,8 @@ class APIParser:
     self.current_comment = {}
     self.buffer = ""
     self.is_processing_params = False
+    self.is_processing_enum = False
+    self.enum_buffer = []
 
   def parse_urge_comment(self, line):
     match = re.search(r'/\*--urge\((.*)\)--\*/', line)
@@ -40,6 +42,12 @@ class APIParser:
 
   def process_line(self, line):
     line = line.strip()
+    if self.is_processing_enum:
+      self.enum_buffer.append(line)
+      if '};' in line:
+        self.process_enum_body(' '.join(self.enum_buffer))
+        self.is_processing_enum = False
+      return
     if self.is_processing_params:
       self.buffer += " " + line
       if ')' in line:
@@ -57,6 +65,14 @@ class APIParser:
     if line.startswith('/*--urge'):
       self.current_comment = self.parse_urge_comment(line)
       self.expect_decl = True
+      return
+
+    if self.expect_decl and line.startswith('enum'):
+      self.enum_buffer = [line]
+      self.is_processing_enum = '{' not in line or '}' not in line
+      if not self.is_processing_enum:
+        self.process_enum_body(line)
+      self.expect_decl = False
       return
 
     if self.expect_decl and line.startswith('class'):
@@ -107,8 +123,24 @@ class APIParser:
       "is_serializable": False,
       "is_comparable": False,
       "is_module": self.current_comment.get('is_module', False),
-      "dependency": []
+      "dependency": [],
+      "enums": []
     }
+
+  def process_enum_body(self, body):
+    enum_decl = re.search(r'enum\s+(\w+)(?:\s*:\s*(\w+))?', body)
+    if not enum_decl: return
+        
+    enum_data = {
+      "name": enum_decl.group(1),
+      "base_type": enum_decl.group(2),
+      "constants": [],
+      "comment": self.current_comment.copy()
+    }
+    
+    constants = re.findall(r'(\w+)(?:\s*=.*?)?(?=,|})', body.split('{')[-1])
+    enum_data["constants"] = [c.strip() for c in constants if c.strip()]
+    self.current_class['enums'].append(enum_data)
 
   def _extract_scoped_ref_types(self, type_str):
     pattern = r'scoped_refptr\s*<\s*([\w:]+)\s*>'
@@ -206,6 +238,15 @@ if __name__ == "__main__":
       class URGE_RUNTIME_API Graphics : public base::RefCounted<Graphics> {
        public:
         virtual ~Graphics() = default;
+
+        /*--urge(name:Test)--*/
+        enum TestConstants {
+          TEST_VALUE1 = 0,
+          TEST_VALUE2,
+          TEST_VALUE3,
+          TEST_VALUE4,
+          TEST_VALUE5,
+        };
 
         /*--urge(name:initialize)--*/
         static scoped_refptr<Graphics> New(ExecutionContext* execution_context,

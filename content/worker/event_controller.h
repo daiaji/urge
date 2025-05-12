@@ -9,20 +9,20 @@
 
 #include "SDL3/SDL_events.h"
 
+#include "content/public/engine_keyevent.h"
+#include "content/public/engine_mouseevent.h"
+#include "content/public/engine_touchevent.h"
 #include "ui/widget/widget.h"
 
 namespace content {
 
 class EventController {
  public:
-  using KeyEvent = struct {
+  using KeyEventData = struct {
     uint64_t timestamp;
     SDL_KeyboardID keyboard_id;
 
-    enum {
-      KEY_DOWN = 0,
-      KEY_UP,
-    } type;
+    KeyEvent::Type type;
 
     SDL_Scancode scancode;
     SDL_Keycode keycode;
@@ -31,15 +31,11 @@ class EventController {
     bool repeat;
   };
 
-  using MouseEvent = struct {
+  using MouseEventData = struct {
     uint64_t timestamp;
     SDL_MouseID mouse_id;
 
-    enum {
-      MOUSE_MOTION = 0,
-      MOUSE_BUTTON_EVENT,
-      MOUSE_WHEEL_EVENT,
-    } type;
+    MouseEvent::Type type;
 
     int32_t x;
     int32_t y;
@@ -52,21 +48,16 @@ class EventController {
     int32_t motion_relx;
     int32_t motion_rely;
 
-    int32_t wheel_dir;
+    MouseEvent::WheelState wheel_dir;
     int32_t wheel_x;
     int32_t wheel_y;
   };
 
-  using TouchEvent = struct {
+  using TouchEventData = struct {
     uint64_t timestamp;
     SDL_TouchID touch_id;
 
-    enum {
-      FINGER_DOWN = 0,
-      FINGER_UP,
-      FINGER_MOTION,
-      FINGER_CANCELED,
-    } type;
+    TouchEvent::Type type;
 
     SDL_FingerID finger;
     int32_t x;
@@ -84,15 +75,15 @@ class EventController {
 
   void DispatchEvent(SDL_Event* event);
 
-  void PollKeyEvents(std::vector<KeyEvent>& out);
-  void PollMouseEvents(std::vector<MouseEvent>& out);
-  void PollTouchEvents(std::vector<TouchEvent>& out);
+  void PollKeyEvents(std::vector<KeyEventData>& out);
+  void PollMouseEvents(std::vector<MouseEventData>& out);
+  void PollTouchEvents(std::vector<TouchEventData>& out);
 
  private:
   base::WeakPtr<ui::Widget> window_;
-  std::vector<KeyEvent> key_events_;
-  std::vector<MouseEvent> mouse_events_;
-  std::vector<TouchEvent> touch_events_;
+  std::vector<KeyEventData> key_events_;
+  std::vector<MouseEventData> mouse_events_;
+  std::vector<TouchEventData> touch_events_;
 };
 
 }  // namespace content

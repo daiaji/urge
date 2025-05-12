@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_PUBLIC_ENGINE_INPUTEVENT_H_
-#define CONTENT_PUBLIC_ENGINE_INPUTEVENT_H_
+#ifndef CONTENT_PUBLIC_ENGINE_KEYEVENT_H_
+#define CONTENT_PUBLIC_ENGINE_KEYEVENT_H_
 
 #include "base/memory/ref_counted.h"
 #include "content/content_config.h"
@@ -19,13 +19,19 @@ class URGE_RUNTIME_API KeyEvent : public base::RefCounted<KeyEvent> {
  public:
   virtual ~KeyEvent() = default;
 
+  /*--urge(name:EventType)--*/
+  enum Type {
+    TYPE_KEY_DOWN = 0,
+    TYPE_KEY_UP,
+  };
+
   /*--urge(name:update)--*/
   static std::vector<scoped_refptr<KeyEvent>> Update(
       ExecutionContext* execution_context,
       ExceptionState& exception_state);
 
   /*--urge(name:type)--*/
-  virtual int32_t GetType(ExceptionState& exception_state) = 0;
+  virtual Type GetType(ExceptionState& exception_state) = 0;
 
   /*--urge(name:device_id)--*/
   virtual int32_t GetDeviceID(ExceptionState& exception_state) = 0;
@@ -48,4 +54,4 @@ class URGE_RUNTIME_API KeyEvent : public base::RefCounted<KeyEvent> {
 
 }  // namespace content
 
-#endif  //! CONTENT_PUBLIC_ENGINE_INPUTEVENT_H_
+#endif  //! CONTENT_PUBLIC_ENGINE_KEYEVENT_H_
