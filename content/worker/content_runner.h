@@ -69,8 +69,8 @@ class ContentRunner {
                 std::unique_ptr<EngineBindingBase> binding);
   void TickHandlerInternal();
   void UpdateDisplayFPSInternal();
-  void RenderGUIInternal();
-  void RenderSettingsGUIInternal();
+  bool RenderGUIInternal();
+  bool RenderSettingsGUIInternal();
   void RenderFPSMonitorGUIInternal();
 
   static bool EventWatchHandlerInternal(void* userdata, SDL_Event* event);
@@ -102,7 +102,6 @@ class ContentRunner {
   std::unique_ptr<Diligent::ImGuiDiligentRenderer> imgui_;
 
   bool background_running_;
-  bool handle_event_;
   bool disable_gui_input_;
   bool show_settings_menu_;
   bool show_fps_monitor_;
