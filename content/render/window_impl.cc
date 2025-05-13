@@ -508,7 +508,7 @@ WindowImpl::WindowImpl(RenderScreenImpl* screen,
                        SortKey()),
       control_node_(parent ? parent->GetDrawableController()
                            : screen->GetDrawableController(),
-                    SortKey(0, 2)),
+                    SortKey(2)),
       scale_(scale),
       viewport_(parent),
       cursor_rect_(new RectImpl(base::Rect())) {
