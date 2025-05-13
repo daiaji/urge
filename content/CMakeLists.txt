@@ -49,6 +49,8 @@ set(ENGINE_CONTENT_SRC
   input/mouse_controller.h
   input/mouse_event.cc
   input/mouse_event.h
+  input/text_input.cc
+  input/text_input.h
   input/touch_event.cc
   input/touch_event.h
   media/audio_impl.cc

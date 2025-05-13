@@ -17,6 +17,7 @@ void EventController::DispatchEvent(SDL_Event* event) {
     key_events_.clear();
     mouse_events_.clear();
     touch_events_.clear();
+    text_input_events_.clear();
     return;
   }
 
@@ -117,21 +118,35 @@ void EventController::DispatchEvent(SDL_Event* event) {
         touch_events_.push_back(out_event);
       }
       break;
+    case SDL_EVENT_TEXT_EDITING:
+      if (event->edit.windowID == window_->GetWindowID()) {
+        auto& raw_event = event->edit;
+        TextInputEventData out_event = {};
+        out_event.timestamp = raw_event.timestamp;
+        out_event.type = static_cast<decltype(out_event.type)>(
+            event->type - SDL_EVENT_TEXT_EDITING);
+        out_event.text = raw_event.text;
+        out_event.select_start = raw_event.start;
+        out_event.select_length = raw_event.length;
+        text_input_events_.push_back(out_event);
+      }
+      break;
+    case SDL_EVENT_TEXT_INPUT:
+      if (event->text.windowID == window_->GetWindowID()) {
+        auto& raw_event = event->text;
+        TextInputEventData out_event = {};
+        out_event.timestamp = raw_event.timestamp;
+        out_event.type = static_cast<decltype(out_event.type)>(
+            event->type - SDL_EVENT_TEXT_EDITING);
+        out_event.text = raw_event.text;
+        out_event.select_start = -1;
+        out_event.select_length = -1;
+        text_input_events_.push_back(out_event);
+      }
+      break;
     default:
       break;
   }
-}
-
-void EventController::PollKeyEvents(std::vector<KeyEventData>& out) {
-  out = key_events_;
-}
-
-void EventController::PollMouseEvents(std::vector<MouseEventData>& out) {
-  out = mouse_events_;
-}
-
-void EventController::PollTouchEvents(std::vector<TouchEventData>& out) {
-  out = touch_events_;
 }
 
 }  // namespace content

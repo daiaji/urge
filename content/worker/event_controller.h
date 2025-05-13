@@ -11,6 +11,7 @@
 
 #include "content/public/engine_keyevent.h"
 #include "content/public/engine_mouseevent.h"
+#include "content/public/engine_textinputevent.h"
 #include "content/public/engine_touchevent.h"
 #include "ui/widget/widget.h"
 
@@ -67,23 +68,48 @@ class EventController {
     float pressure;
   };
 
+  using TextInputEventData = struct {
+    uint64_t timestamp;
+
+    TextInputEvent::Type type;
+
+    std::string text;
+    int32_t select_start;
+    int32_t select_length;
+  };
+
   EventController(base::WeakPtr<ui::Widget> window);
   ~EventController();
 
   EventController(const EventController&) = delete;
   EventController& operator=(const EventController&) = delete;
 
+  base::WeakPtr<ui::Widget> GetHostWidget() const { return window_; }
+
   void DispatchEvent(SDL_Event* event);
 
-  void PollKeyEvents(std::vector<KeyEventData>& out);
-  void PollMouseEvents(std::vector<MouseEventData>& out);
-  void PollTouchEvents(std::vector<TouchEventData>& out);
+  inline void PollKeyEvents(std::vector<KeyEventData>& out) {
+    out = key_events_;
+  }
+
+  inline void PollMouseEvents(std::vector<MouseEventData>& out) {
+    out = mouse_events_;
+  }
+
+  inline void PollTouchEvents(std::vector<TouchEventData>& out) {
+    out = touch_events_;
+  }
+
+  inline void PollTextInputEvents(std::vector<TextInputEventData>& out) {
+    out = text_input_events_;
+  }
 
  private:
   base::WeakPtr<ui::Widget> window_;
   std::vector<KeyEventData> key_events_;
   std::vector<MouseEventData> mouse_events_;
   std::vector<TouchEventData> touch_events_;
+  std::vector<TextInputEventData> text_input_events_;
 };
 
 }  // namespace content
