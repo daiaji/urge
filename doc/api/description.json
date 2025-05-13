@@ -3,7 +3,8 @@
     "class_name": "Audio",
     "description": "管理引擎音频播放的模块，使用SoLoud提供音频流处理支持，目前支持MP3 WAV OGG这3种格式的数据。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Bitmap",
@@ -18,25 +19,29 @@
         "description": "将当前Bitmap的数据保存到文件系统中。\n※ 警告：本函数需要与GPU同步获取像素数据，请勿频繁调用。"
       }
     ],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Color",
     "description": "管理RGBA颜色的类，内部使用4个float存储数据。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Font",
     "description": "管理字体加载的类，如果未设置引擎默认字体，则使用内置的一个纯英文字体替代。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Graphics",
     "description": "管理全局图形渲染的模块，在引擎中负责管理所有可以绘制图形的类。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Input",
@@ -79,7 +84,8 @@
         "description": "获取最近重复的按键，按键代码参数参考：https://wiki.libsdl.org/SDL3/SDL_Scancode"
       }
     ],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Mouse",
@@ -134,49 +140,57 @@
         "description": "用一个Bitmap图像替代默认的鼠标指针，bitmap为nil时恢复。"
       }
     ],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Plane",
     "description": "平铺图形渲染的类。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Rect",
     "description": "矩形数据。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Sprite",
     "description": "2D精灵图形渲染类，在引擎内部使用批处理实现，两个Z轴相邻的精灵只要混合方式和Bitmap是一样的即可进行批处理，可利用此特性大幅提升渲染性能。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Table",
     "description": "三维图标数据类。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Tilemap",
     "description": "兼容 RPG Maker XP 图块数据的地图渲染类。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Tilemap2",
     "description": "兼容 RPG Maker VX (Ace) 图块数据的地图渲染类。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Tone",
     "description": "色调数据类。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Viewport",
@@ -187,19 +201,22 @@
         "description": "将当前Viewport的内容渲染到一张Bitmap上。\n注意：\n 1. 本函数不会清空原有位图内容。\n2. 视口的XY偏移会变为0\n 3. 无视视口是否可视\n 4. 本函数不等待渲染完成"
       }
     ],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Window",
     "description": "兼容 RPG Maker XP 窗口数据的渲染类。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "Window2",
     "description": "兼容 RPG Maker VX (Ace) 窗口数据的渲染类。",
     "methods": [],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "KeyEvent",
@@ -210,7 +227,8 @@
         "description": "返回值：<0 - 按键按下> <1 - 按键弹起>"
       }
     ],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "MouseEvent",
@@ -233,7 +251,8 @@
         "description": "返回值：<0 - 正常方向滚动> <0 - 翻转滚动>"
       }
     ],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   },
   {
     "class_name": "TouchEvent",
@@ -244,6 +263,7 @@
         "description": "返回值：<0 - 触控按下> <1 - 触控抬起> <2 - 触控移动> <3 - 触控取消>"
       }
     ],
-    "attributes": []
+    "attributes": [],
+    "enums": []
   }
 ]
