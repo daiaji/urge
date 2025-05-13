@@ -59,7 +59,7 @@ class MriBindGen:
     for enum_item in enums:
       for item in enum_item["constants"]:
         enum_name = enum_item["name"]
-        func_body += "rb_const_set(klass, rb_intern(\"{}\"), content::{}::{}::{});\n".format(item, kname, enum_name, item)
+        func_body += "rb_const_set(klass, rb_intern(\"{}\"), INT2NUM(content::{}::{}::{}));\n".format(item, kname, enum_name, item)
       func_body += "\n"
 
     func_body += "\n"
