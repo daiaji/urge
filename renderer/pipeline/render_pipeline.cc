@@ -105,15 +105,27 @@ RenderPipelineBase::RenderPipelineBase(Diligent::IRenderDevice* device)
 void RenderPipelineBase::BuildPipeline(
     const ShaderSource& shader_source,
     const std::vector<Diligent::LayoutElement>& input_layout,
-    const std::vector<Diligent::ShaderResourceVariableDesc>& variables,
+    const std::vector<Diligent::PipelineResourceDesc>& variables,
     const std::vector<Diligent::ImmutableSamplerDesc>& samplers,
     Diligent::TEXTURE_FORMAT target_format) {
+  // Make pipeline debug name
   std::stringstream pipeline_debug_name;
   pipeline_debug_name << "pipeline<" << shader_source.name << ">";
-  pipeline_name_ = pipeline_debug_name.str();
+  std::string pipeline_name = pipeline_debug_name.str();
 
+  // Make pipeline resource uniform signature
+  Diligent::PipelineResourceSignatureDesc resource_signature_desc;
+  resource_signature_desc.Resources = variables.data();
+  resource_signature_desc.NumResources = variables.size();
+  resource_signature_desc.ImmutableSamplers = samplers.data();
+  resource_signature_desc.NumImmutableSamplers = samplers.size();
+  resource_signature_desc.UseCombinedTextureSamplers = Diligent::True;
+  device_->CreatePipelineResourceSignature(resource_signature_desc,
+                                           &resource_signature_);
+
+  // Make graphics pipeline state
   Diligent::GraphicsPipelineStateCreateInfo pipeline_state_desc;
-  pipeline_state_desc.PSODesc.Name = pipeline_name_.c_str();
+  pipeline_state_desc.PSODesc.Name = pipeline_name.c_str();
   pipeline_state_desc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_GRAPHICS;
 
   pipeline_state_desc.GraphicsPipeline.NumRenderTargets = 1;
@@ -127,6 +139,7 @@ void RenderPipelineBase::BuildPipeline(
   pipeline_state_desc.GraphicsPipeline.DepthStencilDesc.DepthEnable =
       Diligent::False;
 
+  // Make vertex shader and pixel shader
   Diligent::ShaderCreateInfo shader_desc;
   Diligent::RefCntAutoPtr<Diligent::IShader> vertex_shader_object,
       pixel_shader_object;
@@ -136,6 +149,7 @@ void RenderPipelineBase::BuildPipeline(
       Diligent::SHADER_COMPILE_FLAG_PACK_MATRIX_ROW_MAJOR;
 
   {
+    // Vertex shader
     shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
     shader_desc.EntryPoint = shader_source.vertex_entry.c_str();
     shader_desc.Desc.Name = shader_source.name.c_str();
@@ -145,6 +159,7 @@ void RenderPipelineBase::BuildPipeline(
     shader_desc.Macros.Elements = shader_source.macros.data();
     device_->CreateShader(shader_desc, &vertex_shader_object);
 
+    // Pixel shader
     shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
     shader_desc.EntryPoint = shader_source.pixel_entry.c_str();
     shader_desc.Desc.Name = shader_source.name.c_str();
@@ -158,28 +173,23 @@ void RenderPipelineBase::BuildPipeline(
   pipeline_state_desc.pVS = vertex_shader_object;
   pipeline_state_desc.pPS = pixel_shader_object;
 
+  // Setup input attribute elements
   pipeline_state_desc.GraphicsPipeline.InputLayout.LayoutElements =
       input_layout.data();
   pipeline_state_desc.GraphicsPipeline.InputLayout.NumElements =
       input_layout.size();
 
-  pipeline_state_desc.PSODesc.ResourceLayout.Variables = variables.data();
-  pipeline_state_desc.PSODesc.ResourceLayout.NumVariables = variables.size();
+  // Setup resource signature
+  pipeline_state_desc.ResourceSignaturesCount = 1;
+  pipeline_state_desc.ppResourceSignatures = &resource_signature_;
 
-  pipeline_state_desc.PSODesc.ResourceLayout.ImmutableSamplers =
-      samplers.data();
-  pipeline_state_desc.PSODesc.ResourceLayout.NumImmutableSamplers =
-      samplers.size();
-
+  // Make all color blend type pipelines
   for (int32_t i = 0; i < BlendType::TYPE_NUMS; ++i) {
     pipeline_state_desc.GraphicsPipeline.BlendDesc.RenderTargets[0] =
         GetBlendState(static_cast<BlendType>(i));
 
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_state;
     device_->CreateGraphicsPipelineState(pipeline_state_desc, &pipeline_state);
-
-    if (i > 0 && !pipeline_state->IsCompatibleWith(pipelines_[0]))
-      LOG(ERROR) << "[Renderer] Pipeline is not compatible with other state.";
 
     pipelines_.push_back(pipeline_state);
   }
@@ -190,10 +200,12 @@ Pipeline_Base::Pipeline_Base(Diligent::IRenderDevice* device,
     : RenderPipelineBase(device) {
   const ShaderSource shader_source{kHLSL_BaseRender, "base.render"};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -216,8 +228,9 @@ Pipeline_Color::Pipeline_Color(Diligent::IRenderDevice* device,
     : RenderPipelineBase(device) {
   const ShaderSource shader_source{kHLSL_ColorRender, "color.render"};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -230,12 +243,15 @@ Pipeline_Flat::Pipeline_Flat(Diligent::IRenderDevice* device,
     : RenderPipelineBase(device) {
   const ShaderSource shader_source{kHLSL_FlatRender, "flat.render"};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "FlatUniformConstants",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -276,15 +292,16 @@ Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
   const ShaderSource shader_source{
       kHLSL_SpriteRender, "sprite.render", {vertex_macro}};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
-       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-      {Diligent::SHADER_TYPE_VERTEX, "u_Vertices",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_VERTEX,
        storage_buffer_support ? "u_Params" : "SpriteUniformParam",
+       Diligent::SHADER_RESOURCE_TYPE_BUFFER_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -309,10 +326,12 @@ Pipeline_AlphaTransition::Pipeline_AlphaTransition(
   const ShaderSource shader_source{kHLSL_AlphaTransitionRender,
                                    "alpha.trans.render"};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_PIXEL, "u_FrozenTexture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_CurrentTexture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -344,12 +363,15 @@ Pipeline_VagueTransition::Pipeline_VagueTransition(
   const ShaderSource shader_source{kHLSL_MappingTransitionRender,
                                    "vague.trans.render"};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_PIXEL, "u_FrozenTexture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_CurrentTexture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_TransTexture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -386,12 +408,15 @@ Pipeline_Tilemap::Pipeline_Tilemap(Diligent::IRenderDevice* device,
     : RenderPipelineBase(device) {
   const ShaderSource shader_source{kHLSL_TilemapRender, "tilemap.render"};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_VERTEX, "TilemapUniformBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -414,12 +439,15 @@ Pipeline_Tilemap2::Pipeline_Tilemap2(Diligent::IRenderDevice* device,
     : RenderPipelineBase(device) {
   const ShaderSource shader_source{kHLSL_Tilemap2Render, "tilemap2.render"};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_VERTEX, "Tilemap2UniformBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -442,8 +470,9 @@ Pipeline_BitmapHue::Pipeline_BitmapHue(Diligent::IRenderDevice* device,
     : RenderPipelineBase(device) {
   const ShaderSource shader_source{kHLSL_BitmapHueRender, "hue.render"};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -466,12 +495,15 @@ Pipeline_Spine2D::Pipeline_Spine2D(Diligent::IRenderDevice* device,
     : RenderPipelineBase(device) {
   const ShaderSource shader_source{kHLSL_Spine2DRender, "spine2d.render"};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture_sampler",
+       Diligent::SHADER_RESOURCE_TYPE_SAMPLER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
@@ -491,12 +523,15 @@ Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
   const ShaderSource shader_source{kHLSL_PresentRender, "present.render",
                                    pixel_macros};
 
-  const std::vector<Diligent::ShaderResourceVariableDesc> variables = {
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_VERTEX, "WorldMatrixBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture_sampler",
+       Diligent::SHADER_RESOURCE_TYPE_SAMPLER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
