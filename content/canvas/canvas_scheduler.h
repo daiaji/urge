@@ -34,9 +34,13 @@ class CanvasScheduler {
   // clear children canvas command queue.
   void SubmitPendingPaintCommands();
 
+  // Setup canvas render target
+  // Cached render state
+  void SetupRenderTarget(Diligent::ITextureView* render_target,
+                         bool clear_target);
+
   base::ThreadWorker* render_worker() { return render_worker_; }
   renderer::QuadBatch* quad_batch() { return common_quad_batch_.get(); }
-  std::vector<uint8_t>* text_render_buffer() { return &text_render_buffer_; }
 
   renderer::Binding_Base* base_binding() { return generic_base_binding_.get(); }
   renderer::Binding_Color* color_binding() {
@@ -54,7 +58,7 @@ class CanvasScheduler {
   renderer::RenderDevice* device_;
   base::ThreadWorker* render_worker_;
   filesystem::IOService* io_service_;
-  std::vector<uint8_t> text_render_buffer_;
+  Diligent::ITextureView* current_render_target_;
 
   std::unique_ptr<renderer::Binding_Base> generic_base_binding_;
   std::unique_ptr<renderer::Binding_Color> generic_color_binding_;

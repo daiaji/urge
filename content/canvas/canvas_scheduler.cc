@@ -31,12 +31,45 @@ void CanvasScheduler::SubmitPendingPaintCommands() {
   }
 }
 
+void CanvasScheduler::SetupRenderTarget(Diligent::ITextureView* render_target,
+                                        bool clear_target) {
+  auto* context = device_->GetContext();
+
+  // Clear cached state
+  if (current_render_target_ != render_target)
+    context->InvalidateState();
+  current_render_target_ = render_target;
+
+  // Setup new render target
+  if (current_render_target_) {
+    context->SetRenderTargets(
+        1, &current_render_target_, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    if (clear_target) {
+      float clear_color[] = {0, 0, 0, 0};
+      context->ClearRenderTarget(
+          current_render_target_, clear_color,
+          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+
+    return;
+  }
+
+  // Reset render target state
+  context->SetRenderTargets(
+      0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+  // Apply clear buffer if need
+}
+
 CanvasScheduler::CanvasScheduler(base::ThreadWorker* worker,
                                  renderer::RenderDevice* device,
                                  filesystem::IOService* io_service)
     : device_(device),
       render_worker_(worker),
       io_service_(io_service),
+      current_render_target_(nullptr),
       generic_base_binding_(
           device->GetPipelines()->base.CreateBinding<renderer::Binding_Base>()),
       generic_color_binding_(

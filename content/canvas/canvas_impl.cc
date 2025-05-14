@@ -130,9 +130,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
 
   // Setup render target
   Diligent::ITextureView* render_target_view = dst_texture->target;
-  context->SetRenderTargets(
-      1, &render_target_view, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
   scheduler->GetDevice()->Scissor()->Push(dst_texture->size);
@@ -187,8 +185,7 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
   device->CreateTexture(stage_buffer_desc, nullptr, &stage_read_buffer);
 
   // Reset render target
-  context->SetRenderTargets(
-      0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  scheduler->SetupRenderTarget(nullptr, false);
 
   // Copy textrue to temp buffer
   Diligent::CopyTextureAttribs copy_texture_attribs(
@@ -220,17 +217,9 @@ void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
 }
 
 void GPUCanvasClearInternal(CanvasScheduler* scheduler, TextureAgent* agent) {
-  auto* context = scheduler->GetDevice()->GetContext();
-  Diligent::ITextureView* render_target_view = agent->target;
-  float clear_color[] = {0, 0, 0, 0};
-
   // Clear all data in texture
-  context->SetRenderTargets(
-      1, &render_target_view, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->ClearRenderTarget(
-      render_target_view, clear_color,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  Diligent::ITextureView* render_target_view = agent->target;
+  scheduler->SetupRenderTarget(render_target_view, true);
 }
 
 void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
@@ -261,9 +250,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
 
   // Setup render target
   Diligent::ITextureView* render_target_view = agent->target;
-  context->SetRenderTargets(
-      1, &render_target_view, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
   scheduler->GetDevice()->Scissor()->Push(agent->size);
@@ -362,9 +349,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
 
   // Setup render target
   Diligent::ITextureView* render_target_view = agent->target;
-  context->SetRenderTargets(
-      1, &render_target_view, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
   scheduler->GetDevice()->Scissor()->Push(agent->size);
@@ -414,8 +399,7 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
   GPUResetEffectLayerIfNeed(scheduler->GetDevice(), agent);
 
   // Copy current texture to stage intermediate texture
-  context->SetRenderTargets(
-      0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  scheduler->SetupRenderTarget(nullptr, false);
 
   Diligent::CopyTextureAttribs copy_texture_attribs(
       agent->data, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
@@ -435,9 +419,7 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
 
   // Setup render target
   Diligent::ITextureView* render_target_view = agent->target;
-  context->SetRenderTargets(
-      1, &render_target_view, nullptr,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
   scheduler->GetDevice()->Scissor()->Push(agent->size);
