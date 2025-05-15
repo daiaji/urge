@@ -9,6 +9,8 @@
 #include "SDL3/SDL_stdinc.h"
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
+#include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 #include "binding/mri/mri_main.h"
 #include "components/filesystem/io_service.h"
@@ -28,9 +30,6 @@ int main(int argc, char* argv[]) {
   ::SetConsoleOutputCP(CP_UTF8);
 #endif  //! defined(OS_WIN)
 
-  spdlog::logger* logger = spdlog::default_logger_raw();
-  base::logging::InitWithLogger(logger);
-
 #if defined(OS_ANDROID)
   // Get GAME_PATH string field from JNI (MainActivity.java)
   JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();
@@ -49,8 +48,6 @@ int main(int argc, char* argv[]) {
     std::filesystem::create_directories(std_path);
 
   std::filesystem::current_path(std_path);
-  if (!std::filesystem::equivalent(std::filesystem::current_path(), std_path))
-    LOG(INFO) << "[Android] Failed to setup working path: " << game_data_dir;
 
   env->ReleaseStringUTFChars(java_string_game_path, game_data_dir);
   env->DeleteLocalRef(java_string_game_path);
@@ -69,13 +66,21 @@ int main(int argc, char* argv[]) {
   if (last_sep != std::string::npos)
     app = app.substr(last_sep + 1);
 
-  LOG(INFO) << "[App] Path: " << app;
-
   last_sep = app.find_last_of('.');
   if (last_sep != std::string::npos)
     app = app.substr(0, last_sep);
   std::string ini = app + ".ini";
 #endif  //! defined(OS_ANDROID)
+
+  auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+  console_sink->set_pattern("[log] [%^%l%$] %v");
+
+  auto file_sink =
+      std::make_shared<spdlog::sinks::basic_file_sink_mt>(app + ".log", true);
+  file_sink->set_level(spdlog::level::trace);
+
+  spdlog::logger logger_sink("urgecore", {console_sink, file_sink});
+  base::logging::InitWithLogger(&logger_sink);
 
   std::string current_path = std::filesystem::current_path().generic_u8string();
 
