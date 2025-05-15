@@ -17,6 +17,11 @@
 
 namespace renderer {
 
+#define MAKE_BINDING_FUNCTION(ty, x)           \
+  inline std::unique_ptr<ty> CreateBinding() { \
+    return CreateBindingAt<ty>(x);             \
+  }
+
 /// Color Blend Type of Pipeline
 ///
 enum BlendType {
@@ -56,31 +61,37 @@ class RenderPipelineBase {
     return pipelines_[blend];
   }
 
-  inline Diligent::IPipelineResourceSignature* GetSignature() const {
-    return resource_signature_;
-  }
-
-  template <typename Ty>
-  std::unique_ptr<Ty> CreateBinding() {
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding;
-    resource_signature_->CreateShaderResourceBinding(&binding);
-    return RenderBindingBase::Create<Ty>(binding);
+  inline Diligent::IPipelineResourceSignature* GetSignatureAt(
+      size_t index) const {
+    return resource_signatures_[index];
   }
 
  protected:
   RenderPipelineBase(Diligent::IRenderDevice* device);
 
-  void BuildPipeline(
-      const ShaderSource& shader_source,
-      const std::vector<Diligent::LayoutElement>& input_layout,
+  void BuildPipeline(const ShaderSource& shader_source,
+                     const std::vector<Diligent::LayoutElement>& input_layout,
+                     const std::vector<Diligent::RefCntAutoPtr<
+                         Diligent::IPipelineResourceSignature>>& signatures,
+                     Diligent::TEXTURE_FORMAT target_format);
+
+  Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature>
+  MakeResourceSignature(
       const std::vector<Diligent::PipelineResourceDesc>& variables,
       const std::vector<Diligent::ImmutableSamplerDesc>& samplers,
-      Diligent::TEXTURE_FORMAT target_format);
+      uint8_t binding_index);
+
+  template <typename Ty>
+  std::unique_ptr<Ty> CreateBindingAt(size_t index) {
+    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding;
+    resource_signatures_[index]->CreateShaderResourceBinding(&binding);
+    return RenderBindingBase::Create<Ty>(binding);
+  }
 
  private:
   Diligent::IRenderDevice* device_;
-  Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature>
-      resource_signature_;
+  std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature>>
+      resource_signatures_;
   std::vector<Diligent::RefCntAutoPtr<Diligent::IPipelineState>> pipelines_;
 };
 
@@ -88,18 +99,24 @@ class Pipeline_Base : public RenderPipelineBase {
  public:
   Pipeline_Base(Diligent::IRenderDevice* device,
                 Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_Base, 0);
 };
 
 class Pipeline_Color : public RenderPipelineBase {
  public:
   Pipeline_Color(Diligent::IRenderDevice* device,
                  Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_Color, 0);
 };
 
 class Pipeline_Flat : public RenderPipelineBase {
  public:
   Pipeline_Flat(Diligent::IRenderDevice* device,
                 Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_Flat, 0);
 };
 
 class Pipeline_Sprite : public RenderPipelineBase {
@@ -108,42 +125,56 @@ class Pipeline_Sprite : public RenderPipelineBase {
                   Diligent::TEXTURE_FORMAT target_format);
 
   Diligent::Bool storage_buffer_support = Diligent::False;
+
+  MAKE_BINDING_FUNCTION(Binding_Sprite, 0);
 };
 
 class Pipeline_AlphaTransition : public RenderPipelineBase {
  public:
   Pipeline_AlphaTransition(Diligent::IRenderDevice* device,
                            Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_AlphaTrans, 0);
 };
 
 class Pipeline_VagueTransition : public RenderPipelineBase {
  public:
   Pipeline_VagueTransition(Diligent::IRenderDevice* device,
                            Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_VagueTrans, 0);
 };
 
 class Pipeline_Tilemap : public RenderPipelineBase {
  public:
   Pipeline_Tilemap(Diligent::IRenderDevice* device,
                    Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_Tilemap, 0);
 };
 
 class Pipeline_Tilemap2 : public RenderPipelineBase {
  public:
   Pipeline_Tilemap2(Diligent::IRenderDevice* device,
                     Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_Tilemap2, 0);
 };
 
 class Pipeline_BitmapHue : public RenderPipelineBase {
  public:
   Pipeline_BitmapHue(Diligent::IRenderDevice* device,
                      Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_BitmapFilter, 0);
 };
 
 class Pipeline_Spine2D : public RenderPipelineBase {
  public:
   Pipeline_Spine2D(Diligent::IRenderDevice* device,
                    Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_Base, 0);
 };
 
 class Pipeline_Present : public RenderPipelineBase {
@@ -151,6 +182,8 @@ class Pipeline_Present : public RenderPipelineBase {
   Pipeline_Present(Diligent::IRenderDevice* device,
                    Diligent::TEXTURE_FORMAT target_format,
                    bool manual_srgb);
+
+  MAKE_BINDING_FUNCTION(Binding_Base, 0);
 };
 
 }  // namespace renderer

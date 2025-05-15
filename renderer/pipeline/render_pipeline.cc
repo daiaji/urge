@@ -105,23 +105,14 @@ RenderPipelineBase::RenderPipelineBase(Diligent::IRenderDevice* device)
 void RenderPipelineBase::BuildPipeline(
     const ShaderSource& shader_source,
     const std::vector<Diligent::LayoutElement>& input_layout,
-    const std::vector<Diligent::PipelineResourceDesc>& variables,
-    const std::vector<Diligent::ImmutableSamplerDesc>& samplers,
+    const std::vector<
+        Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature>>&
+        signatures,
     Diligent::TEXTURE_FORMAT target_format) {
   // Make pipeline debug name
   std::stringstream pipeline_debug_name;
   pipeline_debug_name << "pipeline<" << shader_source.name << ">";
   std::string pipeline_name = pipeline_debug_name.str();
-
-  // Make pipeline resource uniform signature
-  Diligent::PipelineResourceSignatureDesc resource_signature_desc;
-  resource_signature_desc.Resources = variables.data();
-  resource_signature_desc.NumResources = variables.size();
-  resource_signature_desc.ImmutableSamplers = samplers.data();
-  resource_signature_desc.NumImmutableSamplers = samplers.size();
-  resource_signature_desc.UseCombinedTextureSamplers = Diligent::True;
-  device_->CreatePipelineResourceSignature(resource_signature_desc,
-                                           &resource_signature_);
 
   // Make graphics pipeline state
   Diligent::GraphicsPipelineStateCreateInfo pipeline_state_desc;
@@ -180,8 +171,12 @@ void RenderPipelineBase::BuildPipeline(
       input_layout.size();
 
   // Setup resource signature
-  pipeline_state_desc.ResourceSignaturesCount = 1;
-  pipeline_state_desc.ppResourceSignatures = &resource_signature_;
+  resource_signatures_ = signatures;
+  std::vector<Diligent::IPipelineResourceSignature*> raw_signatures;
+  for (const auto& it : resource_signatures_)
+    raw_signatures.push_back(it);
+  pipeline_state_desc.ResourceSignaturesCount = resource_signatures_.size();
+  pipeline_state_desc.ppResourceSignatures = raw_signatures.data();
 
   // Make all color blend type pipelines
   for (int32_t i = 0; i < BlendType::TYPE_NUMS; ++i) {
@@ -193,6 +188,24 @@ void RenderPipelineBase::BuildPipeline(
 
     pipelines_.push_back(pipeline_state);
   }
+}
+
+Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature>
+RenderPipelineBase::MakeResourceSignature(
+    const std::vector<Diligent::PipelineResourceDesc>& variables,
+    const std::vector<Diligent::ImmutableSamplerDesc>& samplers,
+    uint8_t binding_index) {
+  Diligent::PipelineResourceSignatureDesc resource_signature_desc;
+  resource_signature_desc.Resources = variables.data();
+  resource_signature_desc.NumResources = variables.size();
+  resource_signature_desc.ImmutableSamplers = samplers.data();
+  resource_signature_desc.NumImmutableSamplers = samplers.size();
+  resource_signature_desc.BindingIndex = binding_index;
+  resource_signature_desc.UseCombinedTextureSamplers = Diligent::True;
+
+  Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature> signature;
+  device_->CreatePipelineResourceSignature(resource_signature_desc, &signature);
+  return signature;
 }
 
 Pipeline_Base::Pipeline_Base(Diligent::IRenderDevice* device,
@@ -219,8 +232,8 @@ Pipeline_Base::Pipeline_Base(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 Pipeline_Color::Pipeline_Color(Diligent::IRenderDevice* device,
@@ -234,8 +247,8 @@ Pipeline_Color::Pipeline_Color(Diligent::IRenderDevice* device,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, {},
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, {}, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 Pipeline_Flat::Pipeline_Flat(Diligent::IRenderDevice* device,
@@ -265,8 +278,8 @@ Pipeline_Flat::Pipeline_Flat(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
@@ -315,8 +328,8 @@ Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 Pipeline_AlphaTransition::Pipeline_AlphaTransition(
@@ -352,8 +365,8 @@ Pipeline_AlphaTransition::Pipeline_AlphaTransition(
       },
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 Pipeline_VagueTransition::Pipeline_VagueTransition(
@@ -399,8 +412,8 @@ Pipeline_VagueTransition::Pipeline_VagueTransition(
       },
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 Pipeline_Tilemap::Pipeline_Tilemap(Diligent::IRenderDevice* device,
@@ -430,8 +443,8 @@ Pipeline_Tilemap::Pipeline_Tilemap(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 Pipeline_Tilemap2::Pipeline_Tilemap2(Diligent::IRenderDevice* device,
@@ -461,8 +474,8 @@ Pipeline_Tilemap2::Pipeline_Tilemap2(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 Pipeline_BitmapHue::Pipeline_BitmapHue(Diligent::IRenderDevice* device,
@@ -486,8 +499,8 @@ Pipeline_BitmapHue::Pipeline_BitmapHue(Diligent::IRenderDevice* device,
       },
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, samplers,
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 Pipeline_Spine2D::Pipeline_Spine2D(Diligent::IRenderDevice* device,
@@ -507,7 +520,8 @@ Pipeline_Spine2D::Pipeline_Spine2D(Diligent::IRenderDevice* device,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
-  BuildPipeline(shader_source, SpineVertex::GetLayout(), variables, {},
+  auto binding0 = MakeResourceSignature(variables, {}, 0);
+  BuildPipeline(shader_source, SpineVertex::GetLayout(), {binding0},
                 target_format);
 }
 
@@ -535,8 +549,8 @@ Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
-  BuildPipeline(shader_source, Vertex::GetLayout(), variables, {},
-                target_format);
+  auto binding0 = MakeResourceSignature(variables, {}, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
 }
 
 }  // namespace renderer

@@ -104,12 +104,9 @@ void GPUCreateGraphicsHostInternal(RenderGraphicsAgent* agent,
   agent->effect_quads = renderer::QuadBatch::Make(**agent->device);
 
   // Create generic shader binding
-  agent->transition_binding_alpha =
-      pipelines->alphatrans.CreateBinding<renderer::Binding_AlphaTrans>();
-  agent->transition_binding_vague =
-      pipelines->mappedtrans.CreateBinding<renderer::Binding_VagueTrans>();
-  agent->effect_binding =
-      pipelines->color.CreateBinding<renderer::Binding_Color>();
+  agent->transition_binding_alpha = pipelines->alphatrans.CreateBinding();
+  agent->transition_binding_vague = pipelines->mappedtrans.CreateBinding();
+  agent->effect_binding = pipelines->color.CreateBinding();
 
   // If the swap chain color buffer format is a non-sRGB UNORM format,
   // we need to manually convert pixel shader output to gamma space.
@@ -167,7 +164,7 @@ void GPUPresentScreenBufferInternal(
   std::unique_ptr<renderer::QuadBatch> present_quads =
       renderer::QuadBatch::Make(**agent->device);
   std::unique_ptr<renderer::Binding_Base> present_binding =
-      pipeline_set.CreateBinding<renderer::Binding_Base>();
+      pipeline_set.CreateBinding();
   RRefPtr<Diligent::IBuffer> present_uniform;
   RRefPtr<Diligent::ISampler> present_sampler;
 

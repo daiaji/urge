@@ -14,8 +14,7 @@ void GPUCreateWindowInternal(renderer::RenderDevice* device,
                              WindowAgent* agent) {
   agent->background_batch = renderer::QuadBatch::Make(**device);
   agent->control_batch = renderer::QuadBatch::Make(**device);
-  agent->shader_binding =
-      device->GetPipelines()->base.CreateBinding<renderer::Binding_Base>();
+  agent->shader_binding = device->GetPipelines()->base.CreateBinding();
 }
 
 void GPUDestroyWindowInternal(WindowAgent* agent) {

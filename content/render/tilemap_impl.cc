@@ -306,9 +306,7 @@ const base::Vec2 kAutotileSrcRegular[][4] = {
 void GPUCreateTilemapInternal(renderer::RenderDevice* device,
                               TilemapAgent* agent) {
   agent->batch = renderer::QuadBatch::Make(**device);
-  agent->shader_binding =
-      device->GetPipelines()
-          ->tilemap.CreateBinding<renderer::Binding_Tilemap>();
+  agent->shader_binding = device->GetPipelines()->tilemap.CreateBinding();
 
   Diligent::CreateUniformBuffer(
       **device, sizeof(renderer::Binding_Tilemap::Params), "tilemap.uniform",

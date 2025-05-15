@@ -24,8 +24,7 @@ void GPUCreateViewportAgent(renderer::RenderDevice* device,
       &agent->effect.uniform_buffer, Diligent::USAGE_DEFAULT);
 
   agent->effect.quads = renderer::QuadBatch::Make(**device);
-  agent->effect.binding =
-      device->GetPipelines()->viewport.CreateBinding<renderer::Binding_Flat>();
+  agent->effect.binding = device->GetPipelines()->viewport.CreateBinding();
 }
 
 void GPUDestroyViewportAgent(ViewportAgent* agent) {

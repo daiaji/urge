@@ -20,8 +20,7 @@ SpriteBatch::SpriteBatch(renderer::RenderDevice* device,
 SpriteBatch::~SpriteBatch() {}
 
 std::unique_ptr<SpriteBatch> SpriteBatch::Make(renderer::RenderDevice* device) {
-  auto binding =
-      device->GetPipelines()->sprite.CreateBinding<renderer::Binding_Sprite>();
+  auto binding = device->GetPipelines()->sprite.CreateBinding();
   auto vertex_batch = renderer::QuadBatch::Make(**device);
   auto uniform_batch = SpriteBatchBuffer::Make(**device);
 

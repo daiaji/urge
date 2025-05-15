@@ -23,9 +23,7 @@ void GPUCreateSpriteInternal(renderer::RenderDevice* device,
   agent->wave_cache.reserve(1 << 3);
 
   if (!device->GetPipelines()->sprite.storage_buffer_support) {
-    agent->single_binding =
-        device->GetPipelines()
-            ->sprite.CreateBinding<renderer::Binding_Sprite>();
+    agent->single_binding = device->GetPipelines()->sprite.CreateBinding();
     agent->single_vertex = renderer::QuadBatch::Make(**device, 1);
     Diligent::CreateUniformBuffer(
         **device, sizeof(renderer::Binding_Sprite::Params),

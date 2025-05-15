@@ -364,10 +364,7 @@ SDL_Surface* CreateShadowSet(int32_t tilesize) {
 void GPUCreateTilemapInternal(renderer::RenderDevice* device,
                               Tilemap2Agent* agent) {
   agent->batch = renderer::QuadBatch::Make(**device);
-
-  agent->shader_binding =
-      device->GetPipelines()
-          ->tilemap2.CreateBinding<renderer::Binding_Tilemap2>();
+  agent->shader_binding = device->GetPipelines()->tilemap2.CreateBinding();
 
   Diligent::CreateUniformBuffer(
       **device, sizeof(renderer::Binding_Tilemap::Params), "tilemap.uniform",

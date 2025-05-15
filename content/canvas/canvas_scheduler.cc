@@ -70,11 +70,8 @@ CanvasScheduler::CanvasScheduler(base::ThreadWorker* worker,
       render_worker_(worker),
       io_service_(io_service),
       current_render_target_(nullptr),
-      generic_base_binding_(
-          device->GetPipelines()->base.CreateBinding<renderer::Binding_Base>()),
-      generic_color_binding_(
-          device->GetPipelines()
-              ->color.CreateBinding<renderer::Binding_Color>()),
+      generic_base_binding_(device->GetPipelines()->base.CreateBinding()),
+      generic_color_binding_(device->GetPipelines()->color.CreateBinding()),
       common_quad_batch_(renderer::QuadBatch::Make(**device)) {}
 
 }  // namespace content

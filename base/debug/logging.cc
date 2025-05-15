@@ -193,7 +193,7 @@ LogMessage::~LogMessage() {
     str_newline += file_;
     str_newline += " - Line: ";
     str_newline += line_;
-    str_newline += ': \n';
+    str_newline += ": \n";
     str_newline += stream_.str();
     str_newline += '\n';
   } else {

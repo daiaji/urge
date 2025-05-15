@@ -393,8 +393,7 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
   if (!agent->hue_binding)
-    agent->hue_binding =
-        pipeline_set.CreateBinding<renderer::Binding_BitmapFilter>();
+    agent->hue_binding = pipeline_set.CreateBinding();
 
   GPUResetEffectLayerIfNeed(scheduler->GetDevice(), agent);
 

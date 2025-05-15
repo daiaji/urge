@@ -12,8 +12,7 @@ namespace {
 
 void GPUCreatePlaneInternal(renderer::RenderDevice* device, PlaneAgent* agent) {
   agent->batch = renderer::QuadBatch::Make(**device);
-  agent->shader_binding =
-      device->GetPipelines()->viewport.CreateBinding<renderer::Binding_Flat>();
+  agent->shader_binding = device->GetPipelines()->viewport.CreateBinding();
 
   Diligent::CreateUniformBuffer(
       **device, sizeof(renderer::Binding_Flat::Params), "plane.flat.uniform",

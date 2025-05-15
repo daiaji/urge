@@ -15,9 +15,7 @@ void GPUCreateWindowInternal(renderer::RenderDevice* device,
                              Window2Agent* agent) {
   agent->background_batch = renderer::QuadBatch::Make(**device);
   agent->controls_batch = renderer::QuadBatch::Make(**device);
-
-  agent->shader_binding =
-      device->GetPipelines()->base.CreateBinding<renderer::Binding_Base>();
+  agent->shader_binding = device->GetPipelines()->base.CreateBinding();
 
   Diligent::CreateUniformBuffer(
       **device, sizeof(renderer::Binding_Flat::Params), "window2.uniform",
@@ -229,11 +227,9 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
 
         // Create binding
         std::unique_ptr<renderer::Binding_Flat> flat_binding =
-            device->GetPipelines()
-                ->viewport.CreateBinding<renderer::Binding_Flat>();
+            device->GetPipelines()->viewport.CreateBinding();
         std::unique_ptr<renderer::Binding_Base> base_binding =
-            device->GetPipelines()
-                ->base.CreateBinding<renderer::Binding_Base>();
+            device->GetPipelines()->base.CreateBinding();
 
         // Setup uniform params
         flat_binding->u_transform->Set(agent->background_world);
