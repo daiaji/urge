@@ -187,18 +187,25 @@ LogMessage::LogMessage(const char* file,
 }
 
 LogMessage::~LogMessage() {
-  std::string str_newline(stream_.str());
+  std::string str_newline;
   if (severity_ >= LOG_ERROR) {
     str_newline += "[ELOG] File: ";
     str_newline += file_;
     str_newline += " - Line: ";
     str_newline += line_;
+    str_newline += ': \n';
+    str_newline += stream_.str();
+    str_newline += '\n';
+  } else {
+    str_newline += "[LOG] ";
+    str_newline += stream_.str();
+    str_newline += '\n';
   }
 
 #ifdef __ANDROID__
   __android_log_write(ANDROID_LOG_DEBUG, "urgecore", str_newline.c_str());
 #else
-  printf("[LOG] %s\n", str_newline.c_str());
+  printf("%s", str_newline.c_str());
 #endif
 }
 

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <filesystem>
+
 #include "SDL3/SDL_main.h"
 #include "SDL3/SDL_messagebox.h"
 #include "SDL3/SDL_stdinc.h"
@@ -19,7 +21,6 @@
 #include <jni.h>
 #include <sys/system_properties.h>
 #include <unistd.h>
-#include <filesystem>
 #endif
 
 int main(int argc, char* argv[]) {
@@ -45,8 +46,8 @@ int main(int argc, char* argv[]) {
     std::filesystem::create_directories(std_path);
 
   std::filesystem::current_path(std_path);
-  if (std::filesystem::equivalent(std::filesystem::current_path(), std_path))
-    LOG(INFO) << "[Android] Base directory: " << game_data_dir;
+  if (!std::filesystem::equivalent(std::filesystem::current_path(), std_path))
+    LOG(INFO) << "[Android] Failed to setup working path: " << game_data_dir;
 
   env->ReleaseStringUTFChars(java_string_game_path, game_data_dir);
   env->DeleteLocalRef(java_string_game_path);
@@ -73,17 +74,28 @@ int main(int argc, char* argv[]) {
   std::string ini = app + ".ini";
 #endif  //! defined(OS_ANDROID)
 
-  LOG(INFO) << "[App] Configure: " << ini;
+  std::string current_path = std::filesystem::current_path().generic_u8string();
+
+  LOG(INFO) << "[App] Current Path: " << current_path;
+  LOG(INFO) << "[App] Configure File: " << ini;
 
   // Initialize filesystem
   std::unique_ptr<filesystem::IOService> io_service =
       std::make_unique<filesystem::IOService>(argv[0]);
-  io_service->AddLoadPath(".");
+  io_service->AddLoadPath(current_path);
 
   filesystem::IOState io_state;
   SDL_IOStream* inifile = io_service->OpenReadRaw(ini, &io_state);
   if (io_state.error_count) {
-    LOG(INFO) << "[App] Warning: " << io_state.error_message;
+    std::string error_info = "Failed to load configure: ";
+    error_info += ini;
+    error_info += '\n';
+    error_info += "Current path: ";
+    error_info += current_path;
+
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE", error_info.c_str(),
+                             nullptr);
+    return 1;
   }
 
   // Initialize profile
