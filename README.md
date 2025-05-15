@@ -67,6 +67,7 @@ cmake --build out --target urge_engine
 - ogg - https://github.com/xiph/ogg  
 - vorbis - https://github.com/xiph/vorbis  
 - ruby - https://github.com/ruby/ruby  
+- spdlog - https://github.com/gabime/spdlog  
 
 ## 联系方式
 

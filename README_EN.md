@@ -67,6 +67,7 @@
 - ogg - https://github.com/xiph/ogg  
 - vorbis - https://github.com/xiph/vorbis  
 - ruby - https://github.com/ruby/ruby  
+- spdlog - https://github.com/gabime/spdlog  
 
 ## Contact Information
 

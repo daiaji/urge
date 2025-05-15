@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
 #endif  //! defined(OS_ANDROID)
 
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-  console_sink->set_pattern("[log] [%^%l%$] %v");
+  console_sink->set_pattern("[%^%l%$] %v");
 
   auto file_sink =
       std::make_shared<spdlog::sinks::basic_file_sink_mt>(app + ".log", true);
