@@ -18,12 +18,10 @@
 #include <string.h>
 #endif
 
-#ifdef __ANDROID__
-#include <android/log.h>
-#endif
-
 namespace base {
 namespace logging {
+
+spdlog::logger* g_logger = nullptr;
 
 namespace {
 
@@ -187,26 +185,21 @@ LogMessage::LogMessage(const char* file,
 }
 
 LogMessage::~LogMessage() {
-  std::string str_newline;
-  if (severity_ >= LOG_ERROR) {
-    str_newline += "[ELOG] File: ";
-    str_newline += file_;
-    str_newline += " - Line: ";
-    str_newline += line_;
-    str_newline += ": \n";
-    str_newline += stream_.str();
-    str_newline += '\n';
-  } else {
-    str_newline += "[LOG] ";
-    str_newline += stream_.str();
-    str_newline += '\n';
+  switch (severity_) {
+    default:
+    case LOG_INFO:
+      g_logger->info(stream_.str());
+      break;
+    case LOG_WARNING:
+      g_logger->warn(stream_.str());
+      break;
+    case LOG_ERROR:
+      g_logger->error(stream_.str());
+      break;
+    case LOG_FATAL:
+      g_logger->critical(stream_.str());
+      break;
   }
-
-#ifdef __ANDROID__
-  __android_log_write(ANDROID_LOG_DEBUG, "urgecore", str_newline.c_str());
-#else
-  printf("%s", str_newline.c_str());
-#endif
 }
 
 #if defined(OS_WIN)
@@ -274,6 +267,10 @@ ErrnoLogMessage::~ErrnoLogMessage() {
   stream() << ": " << SystemErrorCodeToString(err_);
 }
 #endif  // OS_WIN
+
+void InitWithLogger(spdlog::logger* logger) {
+  g_logger = logger;
+}
 
 }  // namespace logging
 }  // namespace base

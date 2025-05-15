@@ -49,10 +49,7 @@ set(ENGINE_BASE_SRC
 )
 
 add_library(engine_base STATIC ${ENGINE_BASE_SRC})
-
-if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-  target_link_libraries(engine_base PUBLIC android log)
-endif()
+target_link_libraries(engine_base PUBLIC spdlog::spdlog)
 
 if(SDL_STATIC)
   target_link_libraries(engine_base PUBLIC SDL3::SDL3-static)

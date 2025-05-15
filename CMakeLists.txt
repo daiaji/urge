@@ -139,6 +139,9 @@ endif()
 add_subdirectory(third_party/spine2d)
 include_directories(third_party/spine2d/spine-cpp/include)
 
+## spdlog
+add_subdirectory(third_party/spdlog)
+
 ## Private crypto
 set(ENABLE_ADMENRI_BUILD_VERSION False)
 set(ADMENRI_BUILD_BUNDLE_DIR ${PROJECT_SOURCE_DIR}/admenri)

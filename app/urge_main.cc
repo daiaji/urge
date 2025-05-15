@@ -28,6 +28,9 @@ int main(int argc, char* argv[]) {
   ::SetConsoleOutputCP(CP_UTF8);
 #endif  //! defined(OS_WIN)
 
+  spdlog::logger* logger = spdlog::default_logger_raw();
+  base::logging::InitWithLogger(logger);
+
 #if defined(OS_ANDROID)
   // Get GAME_PATH string field from JNI (MainActivity.java)
   JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();

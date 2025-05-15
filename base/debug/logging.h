@@ -178,6 +178,8 @@
 #include <sstream>
 #include <string>
 
+#include "spdlog/spdlog.h"
+
 #include "base/buildflags/build.h"
 
 namespace base {
@@ -201,7 +203,9 @@ int GetVlogLevel(const char (&file)[N]) {
 }
 
 // Gets the current log level.
-inline int GetMinLogLevel() { return ::base::logging::LOG_INFO; }
+inline int GetMinLogLevel() {
+  return ::base::logging::LOG_INFO;
+}
 
 // LOG_DFATAL is LOG_FATAL in debug mode, ERROR in normal mode
 #ifdef NDEBUG
@@ -384,16 +388,25 @@ std::string* MakeCheckOpString(const t1& v1, const t2& v2, const char* names) {
 #if !defined(COMPILER_MSVC)
 // Commonly used instantiations of MakeCheckOpString<>. Explicitly instantiated
 // in logging.cc.
-extern template std::string* MakeCheckOpString<int, int>(const int&, const int&,
+extern template std::string* MakeCheckOpString<int, int>(const int&,
+                                                         const int&,
                                                          const char* names);
 extern template std::string* MakeCheckOpString<unsigned long, unsigned long>(
-    const unsigned long&, const unsigned long&, const char* names);
+    const unsigned long&,
+    const unsigned long&,
+    const char* names);
 extern template std::string* MakeCheckOpString<unsigned long, unsigned int>(
-    const unsigned long&, const unsigned int&, const char* names);
+    const unsigned long&,
+    const unsigned int&,
+    const char* names);
 extern template std::string* MakeCheckOpString<unsigned int, unsigned long>(
-    const unsigned int&, const unsigned long&, const char* names);
+    const unsigned int&,
+    const unsigned long&,
+    const char* names);
 extern template std::string* MakeCheckOpString<std::string, std::string>(
-    const std::string&, const std::string&, const char* name);
+    const std::string&,
+    const std::string&,
+    const char* name);
 #endif
 
 // Helper functions for CHECK_OP macro.
@@ -582,7 +595,9 @@ class LogMessage {
   LogMessage(const char* file, int line, std::string* result);
 
   // Used for DCHECK_EQ(), etc. Takes ownership of the given string.
-  LogMessage(const char* file, int line, LogSeverity severity,
+  LogMessage(const char* file,
+             int line,
+             LogSeverity severity,
              std::string* result);
 
   LogMessage(const LogMessage&) = delete;
@@ -653,7 +668,9 @@ std::string SystemErrorCodeToString(SystemErrorCode error_code);
 // Appends a formatted system message of the GetLastError() type.
 class Win32ErrorLogMessage {
  public:
-  Win32ErrorLogMessage(const char* file, int line, LogSeverity severity,
+  Win32ErrorLogMessage(const char* file,
+                       int line,
+                       LogSeverity severity,
                        SystemErrorCode err);
 
   Win32ErrorLogMessage(const Win32ErrorLogMessage&) = delete;
@@ -672,7 +689,9 @@ class Win32ErrorLogMessage {
 // Appends a formatted system message of the errno type
 class ErrnoLogMessage {
  public:
-  ErrnoLogMessage(const char* file, int line, LogSeverity severity,
+  ErrnoLogMessage(const char* file,
+                  int line,
+                  LogSeverity severity,
                   SystemErrorCode err);
 
   ErrnoLogMessage(const ErrnoLogMessage&) = delete;
@@ -688,6 +707,8 @@ class ErrnoLogMessage {
   LogMessage log_message_;
 };
 #endif  // OS_WIN
+
+void InitWithLogger(spdlog::logger* logger);
 
 }  // namespace logging
 }  // namespace base
