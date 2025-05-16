@@ -314,7 +314,8 @@ Pipeline_Sprite::Pipeline_Sprite(Diligent::IRenderDevice* device,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
       {Diligent::SHADER_TYPE_VERTEX,
        storage_buffer_support ? "u_Params" : "SpriteUniformParam",
-       Diligent::SHADER_RESOURCE_TYPE_BUFFER_SRV,
+       storage_buffer_support ? Diligent::SHADER_RESOURCE_TYPE_BUFFER_SRV
+                              : Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
   };
 
