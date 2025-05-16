@@ -50,11 +50,23 @@ DebugMessageOutputFunc(Diligent::DEBUG_MESSAGE_SEVERITY Severity,
                        const Diligent::Char* Function,
                        const Diligent::Char* File,
                        int Line) {
-  if (Severity >=
-      Diligent::DEBUG_MESSAGE_SEVERITY::DEBUG_MESSAGE_SEVERITY_ERROR) {
-    if (Function)
-      LOG(INFO) << "[Renderer] Function " << Function << ":";
-    LOG(INFO) << "[Renderer] " << Message;
+  if (Function)
+    LOG(INFO) << "[Renderer] Function " << Function << ":";
+
+  switch (Severity) {
+    default:
+    case Diligent::DEBUG_MESSAGE_SEVERITY_INFO:
+      LOG(INFO) << "[Renderer] " << Message;
+      break;
+    case Diligent::DEBUG_MESSAGE_SEVERITY_WARNING:
+      LOG(WARNING) << "[Renderer] " << Message;
+      break;
+    case Diligent::DEBUG_MESSAGE_SEVERITY_ERROR:
+      LOG(ERROR) << "[Renderer] " << Message;
+      break;
+    case Diligent::DEBUG_MESSAGE_SEVERITY_FATAL_ERROR:
+      LOG(FATAL) << "[Renderer] " << Message;
+      break;
   }
 }
 
