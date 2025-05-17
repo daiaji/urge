@@ -219,6 +219,7 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   ReplaceStringWidth(default_font_path, '\\', '/');
   driver_backend = reader->Get("Engine", "GraphicsAPI", driver_backend);
   i18n_xml_path = reader->Get("Engine", "I18nXMLPath", app + ".xml");
+  disable_audio = reader->GetBoolean("Engine", "DisableAudio", disable_audio);
 
   disable_settings =
       reader->GetBoolean("Engine", "DisableSettings", disable_settings);

@@ -48,6 +48,7 @@ class ContentProfile {
   std::string default_font_path = "Fonts/Default.ttf";
   std::string driver_backend = "UNDEFINED";
   std::string i18n_xml_path;
+  bool disable_audio = false;
 
   bool disable_settings = false;
   bool disable_fps_monitor = false;

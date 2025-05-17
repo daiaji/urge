@@ -61,7 +61,7 @@ ContentRunner::ContentRunner(ContentProfile* profile,
       window, render_worker, profile, i18n_profile, io_service, font_context,
       profile->resolution, profile->frame_rate);
   keyboard_impl_ = new KeyboardControllerImpl(window, profile, i18n_profile);
-  audio_impl_ = new AudioImpl(io_service, i18n_profile);
+  audio_impl_ = new AudioImpl(profile, io_service, i18n_profile);
   mouse_impl_ = new MouseImpl(window);
   engine_impl_ = new MiscSystem(window);
 

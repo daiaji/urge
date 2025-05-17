@@ -24,7 +24,9 @@ namespace content {
 
 class AudioImpl : public Audio {
  public:
-  AudioImpl(filesystem::IOService* io_service, I18NProfile* i18n_profile);
+  AudioImpl(ContentProfile* profile,
+            filesystem::IOService* io_service,
+            I18NProfile* i18n_profile);
   ~AudioImpl() override;
 
   AudioImpl(const AudioImpl&) = delete;
