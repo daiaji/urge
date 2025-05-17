@@ -9,6 +9,8 @@
 
 #include "ruby.h"
 #include "ruby/encoding.h"
+#include "ruby/internal/arithmetic/int.h"
+#include "ruby/internal/arithmetic/long_long.h"
 #include "ruby/version.h"
 
 #include "base/memory/ref_counted.h"

@@ -90,18 +90,22 @@ class EventController {
 
   inline void PollKeyEvents(std::vector<KeyEventData>& out) {
     out = key_events_;
+    key_events_.clear();
   }
 
   inline void PollMouseEvents(std::vector<MouseEventData>& out) {
     out = mouse_events_;
+    mouse_events_.clear();
   }
 
   inline void PollTouchEvents(std::vector<TouchEventData>& out) {
     out = touch_events_;
+    touch_events_.clear();
   }
 
   inline void PollTextInputEvents(std::vector<TextInputEventData>& out) {
     out = text_input_events_;
+    text_input_events_.clear();
   }
 
  private:

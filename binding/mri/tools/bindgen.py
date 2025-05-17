@@ -243,7 +243,9 @@ class MriBindGen:
 
             conv_func = {
               "int32_t": "NUM2INT(it)",
-              "uint32_t": "NUM2INT(it)",
+              "uint32_t": "NUM2UINT(it)",
+              "int64_t": "NUM2LL(it)",
+              "uint64_t": "NUM2ULL(it)",
               "float": "RFLOAT_VALUE(it)",
               "bool": "MRI_FROM_BOOL(it)",
               "std::string": "MRI_FROM_STRING(it)",
@@ -263,6 +265,18 @@ if (rb_type({}) != RUBY_T_ARRAY) {{
 }}
             """.format(a_name, a_name, a_name, conv_func[vector_type], a_name, a_name, a_name, conv_func[vector_type])
             a_type = "VALUE"
+          elif a_type == "uint64_t":
+            parse_template += "p"
+            call_parameters += a_name
+            a_type = "uint64_t"
+          elif a_type == "int64_t":
+            parse_template += "l"
+            call_parameters += a_name
+            a_type = "int64_t"
+          elif a_type == "uint32_t":
+            parse_template += "u"
+            call_parameters += a_name
+            a_type = "uint32_t"
           else:
             parse_template += "i"
             call_parameters += a_name
@@ -346,7 +360,9 @@ if (rb_type({}) != RUBY_T_ARRAY) {{
 
             conv_func = {
               "int32_t": "INT2NUM(it)",
-              "uint32_t": "INT2NUM(it)",
+              "uint32_t": "UINT2NUM(it)",
+              "int64_t": "LL2NUM(it)",
+              "uint64_t": "ULL2NUM(it)",
               "float": "rb_float_new(it)",
               "bool": "MRI_BOOL_VALUE(it)",
               "std::string": "MRI_STRING_VALUE(it)",
@@ -359,8 +375,14 @@ for (auto& it : result_value)
   rb_ary_push(ary, {});
 return ary;
             """.format(conv_func[vector_type])
+          elif return_type.startswith("uint64_t"):
+            func_body += "return ULL2NUM(result_value);\n"
+          elif return_type.startswith("int64_t"):
+            func_body += "return LL2NUM(result_value);\n"
+          elif return_type.startswith("uint32_t"):
+            func_body += "return UINT2NUM(result_value);\n"
           else:
-            func_body += "return rb_fix_new(result_value);\n"
+            func_body += "return INT2NUM(result_value);\n"
 
         if overload_count > 1:
           func_body += "} break;\n"

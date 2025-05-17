@@ -12,15 +12,6 @@ EventController::EventController(base::WeakPtr<ui::Widget> window)
 EventController::~EventController() = default;
 
 void EventController::DispatchEvent(SDL_Event* event) {
-  // Clear queue if update new frame
-  if (!event) {
-    key_events_.clear();
-    mouse_events_.clear();
-    touch_events_.clear();
-    text_input_events_.clear();
-    return;
-  }
-
   // Dispatch event with filter
   auto window_size = window_->GetSize();
   auto window_scale = window_->GetDisplayState().scale;

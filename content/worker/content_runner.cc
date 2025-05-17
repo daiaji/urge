@@ -133,9 +133,6 @@ std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
 void ContentRunner::TickHandlerInternal() {
   frame_count_++;
 
-  // Reset event controller
-  event_controller_->DispatchEvent(nullptr);
-
   // Update fps
   UpdateDisplayFPSInternal();
 

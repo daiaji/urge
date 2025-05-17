@@ -44,16 +44,57 @@ int MriParseArgsTo(int argc, VALUE* argv, const char* fmt, ...) {
         ++count;
         break;
       case 'i': {
-        int* ptr = va_arg(args_iter, int*);
+        int32_t* ptr = va_arg(args_iter, int32_t*);
         switch (rb_type(arg_element)) {
           case RUBY_T_FLOAT:
-            *ptr = NUM2LONG(arg_element);
-            break;
           case RUBY_T_FIXNUM:
-            *ptr = FIX2INT(arg_element);
+            *ptr = NUM2INT(arg_element);
             break;
           default:
-            rb_raise(rb_eTypeError, "Argument %d: Expected fixnum", count);
+            rb_raise(rb_eTypeError, "Argument %d: Expected int32 fixnum",
+                     count);
+        }
+      }
+        ++count;
+        break;
+      case 'u': {
+        uint32_t* ptr = va_arg(args_iter, uint32_t*);
+        switch (rb_type(arg_element)) {
+          case RUBY_T_FLOAT:
+          case RUBY_T_FIXNUM:
+            *ptr = NUM2UINT(arg_element);
+            break;
+          default:
+            rb_raise(rb_eTypeError, "Argument %d: Expected uint32 fixnum",
+                     count);
+        }
+      }
+        ++count;
+        break;
+      case 'l': {
+        int64_t* ptr = va_arg(args_iter, int64_t*);
+        switch (rb_type(arg_element)) {
+          case RUBY_T_FLOAT:
+          case RUBY_T_FIXNUM:
+            *ptr = NUM2LL(arg_element);
+            break;
+          default:
+            rb_raise(rb_eTypeError, "Argument %d: Expected int64 fixnum",
+                     count);
+        }
+      }
+        ++count;
+        break;
+      case 'p': {
+        uint64_t* ptr = va_arg(args_iter, uint64_t*);
+        switch (rb_type(arg_element)) {
+          case RUBY_T_FLOAT:
+          case RUBY_T_FIXNUM:
+            *ptr = NUM2ULL(arg_element);
+            break;
+          default:
+            rb_raise(rb_eTypeError, "Argument %d: Expected uint64 fixnum",
+                     count);
         }
       }
         ++count;

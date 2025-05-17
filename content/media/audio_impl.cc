@@ -130,7 +130,7 @@ SoLoud::result soloud_sdlbackend_init(SoLoud::Soloud* aSoloud,
 
 AudioImpl::AudioImpl(filesystem::IOService* io_service,
                      I18NProfile* i18n_profile)
-    : io_service_(io_service), i18n_profile_(i18n_profile) {
+    : io_service_(io_service), i18n_profile_(i18n_profile), output_device_(0) {
   audio_runner_ = base::ThreadWorker::Create();
 
   base::ThreadWorker::PostTask(
@@ -325,12 +325,12 @@ void AudioImpl::InitAudioDeviceInternal() {
   soloud_spec_.freq = 44100;
   soloud_spec_.format = SDL_AUDIO_F32;
   soloud_spec_.channels = 2;
-  output_device_ =
-      SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &soloud_spec_);
+  output_device_ = 0;
+  // SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &soloud_spec_);
 
   if (!output_device_) {
     LOG(INFO) << "[Content] Failed to initialize audio device, audio module "
-                 "will be disabled";
+                 "will be disabled.";
     return;
   }
 
