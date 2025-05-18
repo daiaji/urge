@@ -9,6 +9,7 @@
 #include "components/filesystem/io_service.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
+#include "content/components/iostream_impl.h"
 #include "content/screen/renderscreen_impl.h"
 
 namespace content {
@@ -87,6 +88,29 @@ scoped_refptr<Surface> Surface::FromDump(ExecutionContext* execution_context,
               surface_data->pitch * surface_data->h);
 
   return new SurfaceImpl(surface_data);
+}
+
+scoped_refptr<Surface> Surface::FromStream(ExecutionContext* execution_context,
+                                           scoped_refptr<IOStream> stream,
+                                           const std::string& extname,
+                                           ExceptionState& exception_state) {
+  auto stream_obj = IOStreamImpl::From(stream);
+  if (!stream_obj || !stream_obj->GetRawStream()) {
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Invalid iostream input.");
+    return nullptr;
+  }
+
+  SDL_Surface* memory_texture =
+      IMG_LoadTyped_IO(stream_obj->GetRawStream(), false, extname.c_str());
+  if (!memory_texture) {
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Failed to load image from iostream. (%s)",
+                               SDL_GetError());
+    return nullptr;
+  }
+
+  return new SurfaceImpl(memory_texture);
 }
 
 scoped_refptr<Surface> Surface::Copy(ExecutionContext* execution_context,
@@ -384,7 +408,9 @@ void SurfaceImpl::SavePNG(const std::string& filename,
   if (CheckDisposed(exception_state))
     return;
 
-  IMG_SavePNG(surface_, filename.c_str());
+  if (!IMG_SavePNG(surface_, filename.c_str()))
+    exception_state.ThrowError(ExceptionCode::IO_ERROR,
+                               "Failed to save png: %s", SDL_GetError());
 }
 
 void SurfaceImpl::OnObjectDisposed() {

@@ -10,6 +10,7 @@
 #include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
 #include "content/public/engine_color.h"
+#include "content/public/engine_iostream.h"
 #include "content/public/engine_rect.h"
 
 namespace content {
@@ -36,6 +37,12 @@ class URGE_RUNTIME_API Surface : public base::RefCounted<Surface> {
   static scoped_refptr<Surface> FromDump(ExecutionContext* execution_context,
                                          const std::string& dump_data,
                                          ExceptionState& exception_state);
+
+  /*--urge(name:from_stream)--*/
+  static scoped_refptr<Surface> FromStream(ExecutionContext* execution_context,
+                                           scoped_refptr<IOStream> stream,
+                                           const std::string& extname,
+                                           ExceptionState& exception_state);
 
   /*--urge(name:initialize_copy)--*/
   static scoped_refptr<Surface> Copy(ExecutionContext* execution_context,

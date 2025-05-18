@@ -11,6 +11,7 @@
 #include "content/canvas/surface_impl.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
+#include "content/components/iostream_impl.h"
 #include "content/context/execution_context.h"
 #include "content/screen/renderscreen_impl.h"
 #include "renderer/utils/texture_utils.h"
@@ -497,6 +498,32 @@ scoped_refptr<Bitmap> Bitmap::FromSurface(ExecutionContext* execution_context,
                             execution_context->graphics,
                             execution_context->font_context, surface_duplicate,
                             "PaletteData", exception_state);
+}
+
+scoped_refptr<Bitmap> Bitmap::FromStream(ExecutionContext* execution_context,
+                                         scoped_refptr<IOStream> stream,
+                                         const std::string& extname,
+                                         ExceptionState& exception_state) {
+  auto stream_obj = IOStreamImpl::From(stream);
+  if (!stream_obj || !stream_obj->GetRawStream()) {
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Invalid iostream input.");
+    return nullptr;
+  }
+
+  SDL_Surface* memory_texture =
+      IMG_LoadTyped_IO(stream_obj->GetRawStream(), false, extname.c_str());
+  if (!memory_texture) {
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Failed to load image from iostream. (%s)",
+                               SDL_GetError());
+    return nullptr;
+  }
+
+  return CanvasImpl::Create(execution_context->canvas_scheduler,
+                            execution_context->graphics,
+                            execution_context->font_context, memory_texture,
+                            "IOStream", exception_state);
 }
 
 scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,

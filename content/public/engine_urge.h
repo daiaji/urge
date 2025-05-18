@@ -42,6 +42,25 @@ class URGE_RUNTIME_API URGE : public base::RefCounted<URGE> {
   /*--urge(name:confirm)--*/
   virtual bool Confirm(const std::string& message,
                        ExceptionState& exception_state) = 0;
+
+  /*--urge(name:add_load_path)--*/
+  virtual bool AddLoadPath(const std::string& new_path,
+                           const std::string& mount_point,
+                           bool append_to_path,
+                           ExceptionState& exception_state) = 0;
+
+  /*--urge(name:remove_load_path)--*/
+  virtual bool RemoveLoadPath(const std::string& old_path,
+                              ExceptionState& exception_state) = 0;
+
+  /*--urge(name:file_exist?)--*/
+  virtual bool IsFileExisted(const std::string& filepath,
+                             ExceptionState& exception_state) = 0;
+
+  /*--urge(name:enum_directory)--*/
+  virtual std::vector<std::string> EnumDirectory(
+      const std::string& dirpath,
+      ExceptionState& exception_state) = 0;
 };
 
 }  // namespace content

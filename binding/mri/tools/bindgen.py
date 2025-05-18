@@ -279,7 +279,9 @@ if (rb_type({}) != RUBY_T_ARRAY) {{
             a_type = "uint32_t"
           else:
             parse_template += "i"
-            call_parameters += a_name
+            if not a_type.startswith("int") and not a_type.startswith("uint"):
+              a_type = "content::{}::{}".format(kname, a_type)
+            call_parameters += ("({})".format(a_type) + a_name)
             a_type = "int32_t"
 
           func_body += "{} {}".format(a_type, a_name)

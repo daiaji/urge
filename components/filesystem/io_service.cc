@@ -209,9 +209,14 @@ IOService::~IOService() {
     LOG(INFO) << "[IOService] Failed to unload Physfs.";
 }
 
-void IOService::AddLoadPath(const std::string& path) {
-  if (!PHYSFS_mount(path.c_str(), nullptr, 1))
-    LOG(INFO) << "[IOService] Failed to add path: " << path;
+int32_t IOService::AddLoadPath(const std::string& new_path,
+                               const std::string& mount_point,
+                               bool append) {
+  return PHYSFS_mount(new_path.c_str(), mount_point.c_str(), append);
+}
+
+int32_t IOService::RemoveLoadPath(const std::string& old_path) {
+  return PHYSFS_unmount(old_path.c_str());
 }
 
 bool IOService::Exists(const std::string& filename) {

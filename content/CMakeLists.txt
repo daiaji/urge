@@ -30,6 +30,8 @@ set(ENGINE_CONTENT_SRC
   components/disposable.h
   components/font_context.cc
   components/font_context.h
+  components/iostream_impl.cc
+  components/iostream_impl.h
   components/misc_system.cc
   components/misc_system.h
   components/sprite_batch.cc

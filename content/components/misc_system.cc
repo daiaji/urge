@@ -9,10 +9,13 @@
 #include "SDL3/SDL_messagebox.h"
 #include "SDL3/SDL_misc.h"
 #include "SDL3/SDL_platform.h"
+#include "physfs.h"
 
 namespace content {
 
-MiscSystem::MiscSystem(base::WeakPtr<ui::Widget> window) : window_(window) {}
+MiscSystem::MiscSystem(base::WeakPtr<ui::Widget> window,
+                       filesystem::IOService* io_service)
+    : window_(window), io_service_(io_service) {}
 
 MiscSystem::~MiscSystem() = default;
 
@@ -72,6 +75,46 @@ bool MiscSystem::Confirm(const std::string& message,
   SDL_ShowMessageBox(&messagebox_data, &button_id);
 
   return button_id;
+}
+
+bool MiscSystem::AddLoadPath(const std::string& new_path,
+                             const std::string& mount_point,
+                             bool append_to_path,
+                             ExceptionState& exception_state) {
+  auto result = io_service_->AddLoadPath(new_path.c_str(), mount_point.c_str(),
+                                         append_to_path);
+  if (!result) {
+    exception_state.ThrowError(
+        ExceptionCode::IO_ERROR, "Failed to add path: %s",
+        PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
+    return false;
+  }
+
+  return !!result;
+}
+
+bool MiscSystem::RemoveLoadPath(const std::string& old_path,
+                                ExceptionState& exception_state) {
+  auto result = io_service_->RemoveLoadPath(old_path.c_str());
+  if (!result) {
+    exception_state.ThrowError(
+        ExceptionCode::IO_ERROR, "Failed to remove path: %s",
+        PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
+    return false;
+  }
+
+  return !!result;
+}
+
+bool MiscSystem::IsFileExisted(const std::string& filepath,
+                               ExceptionState& exception_state) {
+  return io_service_->Exists(filepath);
+}
+
+std::vector<std::string> MiscSystem::EnumDirectory(
+    const std::string& dirpath,
+    ExceptionState& exception_state) {
+  return io_service_->EnumDir(dirpath);
 }
 
 }  // namespace content

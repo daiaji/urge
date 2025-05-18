@@ -63,7 +63,7 @@ ContentRunner::ContentRunner(ContentProfile* profile,
   keyboard_impl_ = new KeyboardControllerImpl(window, profile, i18n_profile);
   audio_impl_ = new AudioImpl(profile, io_service, i18n_profile);
   mouse_impl_ = new MouseImpl(window);
-  engine_impl_ = new MiscSystem(window);
+  engine_impl_ = new MiscSystem(window, io_service);
 
   // Create event router
   event_controller_.reset(new EventController(window));

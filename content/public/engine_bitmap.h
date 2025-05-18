@@ -11,6 +11,7 @@
 #include "content/context/execution_context.h"
 #include "content/public/engine_color.h"
 #include "content/public/engine_font.h"
+#include "content/public/engine_iostream.h"
 #include "content/public/engine_rect.h"
 #include "content/public/engine_surface.h"
 
@@ -44,6 +45,12 @@ class URGE_RUNTIME_API Bitmap : public base::RefCounted<Bitmap> {
   static scoped_refptr<Bitmap> FromSurface(ExecutionContext* execution_context,
                                            scoped_refptr<Surface> surface,
                                            ExceptionState& exception_state);
+
+  /*--urge(name:from_stream)--*/
+  static scoped_refptr<Bitmap> FromStream(ExecutionContext* execution_context,
+                                          scoped_refptr<IOStream> stream,
+                                          const std::string& extname,
+                                          ExceptionState& exception_state);
 
   /*--urge(serializable)--*/
   URGE_EXPORT_SERIALIZABLE(Bitmap);

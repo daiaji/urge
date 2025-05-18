@@ -28,7 +28,10 @@ class IOService {
   IOService(const IOService&) = delete;
   IOService& operator=(const IOService&) = delete;
 
-  void AddLoadPath(const std::string& path);
+  int32_t AddLoadPath(const std::string& new_path,
+                      const std::string& mount_point,
+                      bool append = true);
+  int32_t RemoveLoadPath(const std::string& old_path);
   bool Exists(const std::string& filename);
   std::vector<std::string> EnumDir(const std::string& dir);
 

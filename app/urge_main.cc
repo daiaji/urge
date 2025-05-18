@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
   // Initialize filesystem
   std::unique_ptr<filesystem::IOService> io_service =
       std::make_unique<filesystem::IOService>(argv[0]);
-  io_service->AddLoadPath(current_path);
+  io_service->AddLoadPath(current_path, "", false);
 
   filesystem::IOState io_state;
   SDL_IOStream* inifile = io_service->OpenReadRaw(ini, &io_state);
@@ -119,7 +119,9 @@ int main(int argc, char* argv[]) {
 
   // Setup encryption resource package
   std::string app_package = app + ".arb";
-  io_service->AddLoadPath(app_package);
+  if (io_service->AddLoadPath(app_package, "", false))
+    LOG(INFO) << "[IOService] Encrypto pack \"" << app_package
+              << "\" was added.";
 
   // Disable IME on Windows
 #if defined(OS_WIN)
