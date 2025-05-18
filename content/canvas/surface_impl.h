@@ -14,7 +14,7 @@ namespace content {
 
 class SurfaceImpl : public Surface, public Disposable {
  public:
-  SurfaceImpl(SDL_Surface* surface);
+  SurfaceImpl(SDL_Surface* surface, filesystem::IOService* io_service);
   ~SurfaceImpl() override;
 
   SurfaceImpl(const SurfaceImpl&) = delete;
@@ -74,6 +74,7 @@ class SurfaceImpl : public Surface, public Disposable {
   std::string DisposedObjectName() override { return "Surface"; }
 
   SDL_Surface* surface_;
+  filesystem::IOService* io_service_;
 };
 
 }  // namespace content

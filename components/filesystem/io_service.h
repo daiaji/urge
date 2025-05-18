@@ -28,6 +28,8 @@ class IOService {
   IOService(const IOService&) = delete;
   IOService& operator=(const IOService&) = delete;
 
+  bool SetWritePath(const std::string& path);
+
   int32_t AddLoadPath(const std::string& new_path,
                       const std::string& mount_point,
                       bool append = true);
@@ -35,12 +37,15 @@ class IOService {
   bool Exists(const std::string& filename);
   std::vector<std::string> EnumDir(const std::string& dir);
 
+  std::string GetLastError();
+
   using OpenCallback =
       base::RepeatingCallback<bool(SDL_IOStream*, const std::string&)>;
   void OpenRead(const std::string& file_path,
                 OpenCallback callback,
                 IOState* io_state);
   SDL_IOStream* OpenReadRaw(const std::string& filename, IOState* io_state);
+  SDL_IOStream* OpenWrite(const std::string& filename, IOState* io_state);
 };
 
 }  // namespace filesystem

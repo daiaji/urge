@@ -91,6 +91,7 @@ int main(int argc, char* argv[]) {
   std::unique_ptr<filesystem::IOService> io_service =
       std::make_unique<filesystem::IOService>(argv[0]);
   io_service->AddLoadPath(current_path, "", false);
+  io_service->SetWritePath(current_path);
 
   filesystem::IOState io_state;
   SDL_IOStream* inifile = io_service->OpenReadRaw(ini, &io_state);

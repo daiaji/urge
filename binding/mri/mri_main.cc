@@ -19,6 +19,7 @@
 #include "binding/mri/autogen_display_binding.h"
 #include "binding/mri/autogen_font_binding.h"
 #include "binding/mri/autogen_graphics_binding.h"
+#include "binding/mri/autogen_imageanimation_binding.h"
 #include "binding/mri/autogen_input_binding.h"
 #include "binding/mri/autogen_iostream_binding.h"
 #include "binding/mri/autogen_keyevent_binding.h"
@@ -193,6 +194,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitDisplayBinding();
   InitFontBinding();
   InitGraphicsBinding();
+  InitImageAnimationBinding();
   InitInputBinding();
   InitIOStreamBinding();
   InitKeyEventBinding();

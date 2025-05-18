@@ -54,8 +54,11 @@ class URGE_RUNTIME_API IOStream : public base::RefCounted<IOStream> {
                                             const std::string& buffer,
                                             ExceptionState& exception_state);
 
-  /*--urge(name:close)--*/
-  virtual bool Close(ExceptionState& exception_state) = 0;
+  /*--urge(name:dispose)--*/
+  virtual void Dispose(ExceptionState& exception_state) = 0;
+
+  /*--urge(name:disposed?)--*/
+  virtual bool IsDisposed(ExceptionState& exception_state) = 0;
 
   /*--urge(name:status)--*/
   virtual IOStatus GetStatus(ExceptionState& exception_state) = 0;

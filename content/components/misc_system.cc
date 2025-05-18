@@ -9,7 +9,6 @@
 #include "SDL3/SDL_messagebox.h"
 #include "SDL3/SDL_misc.h"
 #include "SDL3/SDL_platform.h"
-#include "physfs.h"
 
 namespace content {
 
@@ -84,9 +83,9 @@ bool MiscSystem::AddLoadPath(const std::string& new_path,
   auto result = io_service_->AddLoadPath(new_path.c_str(), mount_point.c_str(),
                                          append_to_path);
   if (!result) {
-    exception_state.ThrowError(
-        ExceptionCode::IO_ERROR, "Failed to add path: %s",
-        PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Failed to add path: %s",
+                               io_service_->GetLastError().c_str());
     return false;
   }
 
@@ -97,9 +96,9 @@ bool MiscSystem::RemoveLoadPath(const std::string& old_path,
                                 ExceptionState& exception_state) {
   auto result = io_service_->RemoveLoadPath(old_path.c_str());
   if (!result) {
-    exception_state.ThrowError(
-        ExceptionCode::IO_ERROR, "Failed to remove path: %s",
-        PHYSFS_getErrorByCode(PHYSFS_getLastErrorCode()));
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
+                               "Failed to remove path: %s",
+                               io_service_->GetLastError().c_str());
     return false;
   }
 

@@ -1161,7 +1161,7 @@ scoped_refptr<Surface> CanvasImpl::GetSurface(ExceptionState& exception_state) {
     return nullptr;
 
   SDL_Surface* surface = RequireMemorySurface();
-  return new SurfaceImpl(surface);
+  return new SurfaceImpl(surface, scheduler_->io_service_);
 }
 
 void CanvasImpl::OnObjectDisposed() {
