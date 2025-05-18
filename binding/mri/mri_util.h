@@ -9,9 +9,23 @@
 
 #include "ruby.h"
 #include "ruby/encoding.h"
+#include "ruby/version.h"
+
+#ifdef RUBY_API_VERSION_MAJOR
+#define RAPI_MAJOR RUBY_API_VERSION_MAJOR
+#define RAPI_MINOR RUBY_API_VERSION_MINOR
+#define RAPI_TEENY RUBY_API_VERSION_TEENY
+#else
+#define RAPI_MAJOR RUBY_VERSION_MAJOR
+#define RAPI_MINOR RUBY_VERSION_MINOR
+#define RAPI_TEENY RUBY_VERSION_TEENY
+#endif
+#define RAPI_FULL ((RAPI_MAJOR * 100) + (RAPI_MINOR * 10) + RAPI_TEENY)
+
+#if RAPI_FULL >= 270
 #include "ruby/internal/arithmetic/int.h"
 #include "ruby/internal/arithmetic/long_long.h"
-#include "ruby/version.h"
+#endif
 
 #include "base/memory/ref_counted.h"
 #include "content/context/exception_state.h"
@@ -35,17 +49,6 @@ struct GlobalModules {
 
 GlobalModules* MriGetGlobalModules();
 content::ExecutionContext* MriGetCurrentContext();
-
-#ifdef RUBY_API_VERSION_MAJOR
-#define RAPI_MAJOR RUBY_API_VERSION_MAJOR
-#define RAPI_MINOR RUBY_API_VERSION_MINOR
-#define RAPI_TEENY RUBY_API_VERSION_TEENY
-#else
-#define RAPI_MAJOR RUBY_VERSION_MAJOR
-#define RAPI_MINOR RUBY_VERSION_MINOR
-#define RAPI_TEENY RUBY_VERSION_TEENY
-#endif
-#define RAPI_FULL ((RAPI_MAJOR * 100) + (RAPI_MINOR * 10) + RAPI_TEENY)
 
 #if RAPI_FULL >= 270
 #define DEF_TYPE_RESERVED 0,
