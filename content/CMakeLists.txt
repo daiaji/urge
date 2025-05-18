@@ -103,7 +103,8 @@ execute_process(
 )
 
 add_library(engine_content STATIC ${ENGINE_CONTENT_SRC})
-target_link_libraries(engine_content PUBLIC
+target_link_libraries(engine_content
+ PUBLIC
   engine_base
   engine_ui
   engine_renderer

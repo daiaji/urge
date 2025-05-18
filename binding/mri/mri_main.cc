@@ -42,6 +42,10 @@
 #include "binding/mri/autogen_window2_binding.h"
 #include "binding/mri/autogen_window_binding.h"
 
+#ifdef HAVE_GET_MACHINE_HASH
+#include "admenri/machineid/machineid.h"
+#endif
+
 extern "C" {
 void rb_call_builtin_inits();
 void Init_zlib();
@@ -154,6 +158,13 @@ MRI_METHOD(MRI_RGSSStop) {
   return Qnil;
 }
 
+#ifdef HAVE_GET_MACHINE_HASH
+MRI_METHOD(ADMENRI_getMachineHash) {
+  auto hash = admenri::GetMachineHash();
+  return rb_str_new(hash.data(), hash.size());
+}
+#endif
+
 }  // namespace
 
 BindingEngineMri::BindingEngineMri() : profile_(nullptr) {}
@@ -237,6 +248,12 @@ void BindingEngineMri::PreEarlyInitialization(
 
   MriDefineModuleFunction(rb_mKernel, "rgss_main", MRI_RGSSMain);
   MriDefineModuleFunction(rb_mKernel, "rgss_stop", MRI_RGSSStop);
+
+#ifdef HAVE_GET_MACHINE_HASH
+  VALUE class_admenri = rb_define_module("Admenri");
+  MriDefineModuleFunction(class_admenri, "get_machine_hash",
+                          ADMENRI_getMachineHash);
+#endif
 
   LOG(INFO) << "[Binding] CRuby Interpreter Version: " << RUBY_API_VERSION_CODE;
   LOG(INFO) << "[Binding] CRuby Interpreter Platform: " << RUBY_PLATFORM;

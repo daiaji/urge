@@ -40,10 +40,16 @@ set(BINDING_MRI_SRC
 )
 
 add_library(binding_mri STATIC ${BINDING_MRI_SRC})
-target_link_libraries(binding_mri PUBLIC
+target_link_libraries(binding_mri
+ PUBLIC
   engine_base
   engine_content
   engine_renderer
   mri_ruby
   zlibstatic
 )
+
+if (ENABLE_ADMENRI_BUILD_VERSION)
+  target_link_libraries(binding_mri PRIVATE admenri_arb)
+  target_compile_definitions(binding_mri PRIVATE HAVE_GET_MACHINE_HASH=1)
+endif ()

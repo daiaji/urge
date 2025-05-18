@@ -27,7 +27,8 @@ set(ENGINE_RENDERER_SRC
 )
 
 add_library(engine_renderer STATIC ${ENGINE_RENDERER_SRC})
-target_link_libraries(engine_renderer PUBLIC
+target_link_libraries(engine_renderer
+ PUBLIC
   engine_base
   engine_ui
   Diligent-BuildSettings
