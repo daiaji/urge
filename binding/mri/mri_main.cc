@@ -20,6 +20,7 @@
 #include "binding/mri/autogen_font_binding.h"
 #include "binding/mri/autogen_graphics_binding.h"
 #include "binding/mri/autogen_input_binding.h"
+#include "binding/mri/autogen_iostream_binding.h"
 #include "binding/mri/autogen_keyevent_binding.h"
 #include "binding/mri/autogen_mouse_binding.h"
 #include "binding/mri/autogen_mouseevent_binding.h"
@@ -193,6 +194,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitFontBinding();
   InitGraphicsBinding();
   InitInputBinding();
+  InitIOStreamBinding();
   InitKeyEventBinding();
   InitMouseBinding();
   InitMouseEventBinding();
