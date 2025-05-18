@@ -32,4 +32,5 @@ target_compile_definitions(sdl_image_loader PRIVATE
   LOAD_JPG
   LOAD_BMP
   LOAD_SVG
+  LOAD_GIF
 )
