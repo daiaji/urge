@@ -54,24 +54,24 @@ void GPURenderYUVInternal(renderer::RenderDevice* device,
   Diligent::Box dest_box;
   Diligent::TextureSubResData sub_res_data;
 
-  dest_box.MaxX = data->width(0);
-  dest_box.MaxY = data->height(0);
+  dest_box.MaxX = agent->y->GetDesc().Width;
+  dest_box.MaxY = agent->y->GetDesc().Height;
   sub_res_data.pData = data->plane(0);
   sub_res_data.Stride = data->width(0);
   context->UpdateTexture(agent->y, 0, 0, dest_box, sub_res_data,
                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  dest_box.MaxX = data->width(1);
-  dest_box.MaxY = data->height(1);
+  dest_box.MaxX = agent->u->GetDesc().Width;
+  dest_box.MaxY = agent->u->GetDesc().Height;
   sub_res_data.pData = data->plane(1);
   sub_res_data.Stride = data->width(1);
   context->UpdateTexture(agent->u, 0, 0, dest_box, sub_res_data,
                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-  dest_box.MaxX = data->width(2);
-  dest_box.MaxY = data->height(2);
+  dest_box.MaxX = agent->v->GetDesc().Width;
+  dest_box.MaxY = agent->v->GetDesc().Height;
   sub_res_data.pData = data->plane(2);
   sub_res_data.Stride = data->width(2);
   context->UpdateTexture(agent->v, 0, 0, dest_box, sub_res_data,
