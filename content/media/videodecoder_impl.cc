@@ -341,14 +341,17 @@ void VideoDecoderImpl::OnObjectDisposed() {
   if (audio_output_)
     SDL_CloseAudioDevice(audio_output_);
 
+  audio_stream_ = nullptr;
   player_.reset();
+
   screen()->PostTask(base::BindOnce(&GPUDestroyYUVFramesInternal, agent_));
   agent_ = nullptr;
 }
 
 void VideoDecoderImpl::OnAudioData(void* userPtr, float* pcm, size_t count) {
   auto* self = static_cast<VideoDecoderImpl*>(userPtr);
-  SDL_PutAudioStreamData(self->audio_stream_, pcm, count * sizeof(float));
+  if (self->audio_stream_)
+    SDL_PutAudioStreamData(self->audio_stream_, pcm, count * sizeof(float));
 }
 
 void VideoDecoderImpl::OnVideoFinished(void* userPtr) {
