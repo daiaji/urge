@@ -35,8 +35,9 @@ void CanvasScheduler::SetupRenderTarget(Diligent::ITextureView* render_target,
                                         bool clear_target) {
   auto* context = device_->GetContext();
 
-  // Clear cached state
-  if (current_render_target_ != render_target)
+  // Clear cached state only in OpenGL mode
+  if (current_render_target_ != render_target &&
+      (*device_)->GetDeviceInfo().IsGLDevice())
     context->InvalidateState();
   current_render_target_ = render_target;
 
