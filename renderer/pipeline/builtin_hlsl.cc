@@ -796,6 +796,69 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
 
 ///
 // type:
+//   yuv shader
+///
+// entry:
+//   vertex: VSMain
+//   pixel: PSMain
+///
+// vertex:
+//   <float4, float2, float4>
+///
+// resource:
+//   { Texture2D x 3 }
+///
+
+const std::string kHLSL_YUVRender = R"(
+
+struct VSInput {
+  float4 Pos : ATTRIB0;
+  float2 UV : ATTRIB1;
+  float4 Color : ATTRIB2;
+};
+
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+};
+
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
+  PSIn.Pos = VSIn.Pos;
+  PSIn.UV = VSIn.UV;
+}
+
+Texture2D u_TextureY;
+SamplerState u_TextureY_sampler;
+
+Texture2D u_TextureU;
+SamplerState u_TextureU_sampler;
+
+Texture2D u_TextureV;
+SamplerState u_TextureV_sampler;
+
+struct PSOutput {
+  float4 Color : SV_TARGET;
+};
+
+static const float3 kYUVOffset = float3(0, -0.501960814, -0.501960814);
+static const float3x3 kYUVMatrix = float3x3(1,       1,        1,
+                                            0,      -0.3441,   1.772,
+                                            1.402,  -0.7141,   0);
+
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
+  float3 yuv;
+  yuv.x = u_TextureY.Sample(u_TextureY_sampler, PSIn.UV).r;
+  yuv.y = u_TextureU.Sample(u_TextureU_sampler, PSIn.UV).r;
+  yuv.z = u_TextureV.Sample(u_TextureV_sampler, PSIn.UV).r;
+  yuv += kYUVOffset;
+  float3 rgb = mul(kYUVMatrix, yuv);
+  PSOut.Color = float4(rgb.x, rgb.y, rgb.z, 1.0);
+}
+
+)";
+
+///
+// type:
 //   present shader
 ///
 // entry:

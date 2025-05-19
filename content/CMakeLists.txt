@@ -59,6 +59,8 @@ set(ENGINE_CONTENT_SRC
   input/touch_event.h
   media/audio_impl.cc
   media/audio_impl.h
+  media/videodecoder_impl.cc
+  media/videodecoder_impl.h
   profile/command_ids.h
   profile/content_profile.cc
   profile/content_profile.h
@@ -113,6 +115,7 @@ target_link_libraries(engine_content
   sdl_image_loader
   sdl_ttf_render
   ocornut_imgui
+  av1player
   soloud
 )
 

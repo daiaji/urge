@@ -184,6 +184,22 @@ extern const std::string kHLSL_Spine2DRender;
 
 ///
 // type:
+//   yuv shader
+///
+// entry:
+//   vertex: VSMain
+//   pixel: PSMain
+///
+// vertex:
+//   <float4, float2, float4>
+///
+// resource:
+//   { Texture2D x 3 }
+///
+extern const std::string kHLSL_YUVRender;
+
+///
+// type:
 //   present shader
 ///
 // entry:

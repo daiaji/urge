@@ -519,6 +519,51 @@ Pipeline_Spine2D::Pipeline_Spine2D(Diligent::IRenderDevice* device,
                 target_format);
 }
 
+Pipeline_YUV::Pipeline_YUV(Diligent::IRenderDevice* device,
+                           Diligent::TEXTURE_FORMAT target_format)
+    : RenderPipelineBase(device) {
+  const ShaderSource shader_source{kHLSL_YUVRender, "yuv.render"};
+
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
+      {Diligent::SHADER_TYPE_PIXEL, "u_TextureY",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_TextureU",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "u_TextureV",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_TextureY",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_TextureU",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+      {
+          Diligent::SHADER_TYPE_PIXEL,
+          "u_TextureV",
+          {Diligent::FILTER_TYPE_POINT, Diligent::FILTER_TYPE_POINT,
+           Diligent::FILTER_TYPE_POINT, Diligent::TEXTURE_ADDRESS_CLAMP,
+           Diligent::TEXTURE_ADDRESS_CLAMP, Diligent::TEXTURE_ADDRESS_CLAMP},
+      },
+  };
+
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  BuildPipeline(shader_source, Vertex::GetLayout(), {binding0}, target_format);
+}
+
 Pipeline_Present::Pipeline_Present(Diligent::IRenderDevice* device,
                                    Diligent::TEXTURE_FORMAT target_format,
                                    bool manual_srgb)

@@ -332,6 +332,7 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
 
   base::RepeatingClosureList observers_;
   scoped_refptr<FontImpl> font_;
+  DisposableCollection* parent_;
 };
 
 }  // namespace content

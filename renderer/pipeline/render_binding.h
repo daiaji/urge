@@ -173,6 +173,17 @@ class Binding_BitmapFilter : public RenderBindingBase {
   Binding_BitmapFilter(ShaderBinding binding);
 };
 
+class Binding_YUV : public RenderBindingBase {
+ public:
+  ShaderVariable u_texture_y;
+  ShaderVariable u_texture_u;
+  ShaderVariable u_texture_v;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_YUV(ShaderBinding binding);
+};
+
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_RENDER_BINDING_H_

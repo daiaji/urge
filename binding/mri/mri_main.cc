@@ -38,6 +38,7 @@
 #include "binding/mri/autogen_tone_binding.h"
 #include "binding/mri/autogen_touchevent_binding.h"
 #include "binding/mri/autogen_urge_binding.h"
+#include "binding/mri/autogen_videodecoder_binding.h"
 #include "binding/mri/autogen_viewport_binding.h"
 #include "binding/mri/autogen_window2_binding.h"
 #include "binding/mri/autogen_window_binding.h"
@@ -223,6 +224,7 @@ void BindingEngineMri::PreEarlyInitialization(
   InitTilemap2Binding();
   InitToneBinding();
   InitTouchEventBinding();
+  InitVideoDecoderBinding();
   InitViewportBinding();
   InitWindowBinding();
   InitWindow2Binding();

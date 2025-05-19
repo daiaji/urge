@@ -77,33 +77,6 @@ void GPUCreateTextureWithDataInternal(renderer::RenderDevice* device_base,
   SDL_DestroySurface(initial_data);
 }
 
-void GPUCreateTextureWithSizeInternal(renderer::RenderDevice* device_base,
-                                      const base::Vec2i& initial_size,
-                                      TextureAgent* agent) {
-  // Texture's debug name
-  agent->name = "bitmap.texture<" + std::to_string(initial_size.x) + "x" +
-                std::to_string(initial_size.y) + ">";
-
-  // Create an empty textrue: the driver will not clear the initial
-  // texture, we need to clear it by ourselves.
-  SDL_Surface* empty_surface =
-      SDL_CreateSurface(initial_size.x, initial_size.y, kCanvasInternalFormat);
-  renderer::CreateTexture2D(
-      **device_base, &agent->data, agent->name, empty_surface,
-      Diligent::USAGE_DEFAULT,
-      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
-  SDL_DestroySurface(empty_surface);
-
-  // Setup access view
-  agent->view =
-      agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
-  agent->target =
-      agent->data->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
-
-  // Make bitmap draw transform
-  GPUMakeTextureWorldInternal(device_base, agent->size, &agent->world_buffer);
-}
-
 void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                  TextureAgent* dst_texture,
                                  const base::Rect& dst_region,
@@ -481,13 +454,14 @@ scoped_refptr<Bitmap> Bitmap::FromSurface(ExecutionContext* execution_context,
       surface_target ? surface_target->GetRawSurface() : nullptr;
   if (!surface_data) {
     exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
-                               "Invalid palette target.");
+                               "Invalid surface target.");
     return nullptr;
   }
 
-  auto* surface_duplicate = SDL_CreateSurfaceFrom(
-      surface_data->w, surface_data->h, surface_data->format,
-      surface_data->pixels, surface_data->pitch);
+  auto* surface_duplicate =
+      SDL_CreateSurface(surface_data->w, surface_data->h, surface_data->format);
+  std::memcpy(surface_duplicate->pixels, surface_data->pixels,
+              surface_data->pitch * surface_data->h);
   if (!surface_duplicate) {
     exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
                                "Failed to copy surface data.");
@@ -602,16 +576,10 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
     return nullptr;
   }
 
-  auto* canvas_texture_agent = new TextureAgent;
-  canvas_texture_agent->size = size;
-
-  base::ThreadWorker::PostTask(
-      scheduler->render_worker(),
-      base::BindOnce(&GPUCreateTextureWithSizeInternal, scheduler->GetDevice(),
-                     size, canvas_texture_agent));
-
-  return new CanvasImpl(screen, scheduler, canvas_texture_agent,
-                        new FontImpl(font_data), canvas_texture_agent->name);
+  auto* empty_surface =
+      SDL_CreateSurface(size.x, size.y, kCanvasInternalFormat);
+  return CanvasImpl::Create(scheduler, screen, font_data, empty_surface,
+                            "EmptyBitmap", exception_state);
 }
 
 scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
@@ -677,7 +645,8 @@ CanvasImpl::CanvasImpl(RenderScreenImpl* screen,
       texture_(texture),
       canvas_cache_(nullptr),
       name_(name),
-      font_(FontImpl::From(font)) {
+      font_(FontImpl::From(font)),
+      parent_(screen) {
   scheduler->children_.Append(this);
 }
 
@@ -1161,7 +1130,7 @@ scoped_refptr<Surface> CanvasImpl::GetSurface(ExceptionState& exception_state) {
     return nullptr;
 
   SDL_Surface* surface = RequireMemorySurface();
-  return new SurfaceImpl(surface, scheduler_->io_service_);
+  return new SurfaceImpl(parent_, surface, scheduler_->io_service_);
 }
 
 void CanvasImpl::OnObjectDisposed() {

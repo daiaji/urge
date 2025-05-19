@@ -186,6 +186,14 @@ class Pipeline_Present : public RenderPipelineBase {
   MAKE_BINDING_FUNCTION(Binding_Base, 0);
 };
 
+class Pipeline_YUV : public RenderPipelineBase {
+ public:
+  Pipeline_YUV(Diligent::IRenderDevice* device,
+                Diligent::TEXTURE_FORMAT target_format);
+
+  MAKE_BINDING_FUNCTION(Binding_YUV, 0);
+};
+
 }  // namespace renderer
 
 #endif  //! RENDERER_PIPELINE_RENDER_PIPELINE_H_

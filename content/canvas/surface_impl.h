@@ -14,7 +14,9 @@ namespace content {
 
 class SurfaceImpl : public Surface, public Disposable {
  public:
-  SurfaceImpl(SDL_Surface* surface, filesystem::IOService* io_service);
+  SurfaceImpl(DisposableCollection* parent,
+              SDL_Surface* surface,
+              filesystem::IOService* io_service);
   ~SurfaceImpl() override;
 
   SurfaceImpl(const SurfaceImpl&) = delete;

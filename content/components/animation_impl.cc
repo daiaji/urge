@@ -39,7 +39,8 @@ scoped_refptr<ImageAnimation> ImageAnimation::New(
     return nullptr;
   }
 
-  return new ImageAnimationImpl(animation_data, execution_context->io_service);
+  return new ImageAnimationImpl(execution_context->graphics, animation_data,
+                                execution_context->io_service);
 }
 
 scoped_refptr<ImageAnimation> ImageAnimation::New(
@@ -63,13 +64,17 @@ scoped_refptr<ImageAnimation> ImageAnimation::New(
     return nullptr;
   }
 
-  return new ImageAnimationImpl(memory_animation,
+  return new ImageAnimationImpl(execution_context->graphics, memory_animation,
                                 execution_context->io_service);
 }
 
-ImageAnimationImpl::ImageAnimationImpl(IMG_Animation* animation,
+ImageAnimationImpl::ImageAnimationImpl(RenderScreenImpl* parent,
+                                       IMG_Animation* animation,
                                        filesystem::IOService* io_service)
-    : Disposable(nullptr), animation_(animation), io_service_(io_service) {}
+    : GraphicsChild(parent),
+      Disposable(parent),
+      animation_(animation),
+      io_service_(io_service) {}
 
 ImageAnimationImpl::~ImageAnimationImpl() {
   ExceptionState exception_state;
@@ -106,11 +111,12 @@ std::vector<scoped_refptr<Surface>> ImageAnimationImpl::GetFrames(
   std::vector<scoped_refptr<Surface>> result;
   for (int32_t i = 0; i < animation_->count; ++i) {
     auto* origin_surface = animation_->frames[i];
-    auto* duplicate_surface = SDL_CreateSurfaceFrom(
-        origin_surface->w, origin_surface->h, origin_surface->format,
-        origin_surface->pixels, origin_surface->pitch);
+    auto* duplicate_surface = SDL_CreateSurface(
+        origin_surface->w, origin_surface->h, origin_surface->format);
+    std::memcpy(duplicate_surface->pixels, origin_surface->pixels,
+                origin_surface->pitch * origin_surface->h);
 
-    result.push_back(new SurfaceImpl(duplicate_surface, io_service_));
+    result.push_back(new SurfaceImpl(screen(), duplicate_surface, io_service_));
   }
 
   return result;

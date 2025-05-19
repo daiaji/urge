@@ -9,12 +9,16 @@
 
 #include "content/components/disposable.h"
 #include "content/public/engine_imageanimation.h"
+#include "content/screen/renderscreen_impl.h"
 
 namespace content {
 
-class ImageAnimationImpl : public ImageAnimation, public Disposable {
+class ImageAnimationImpl : public ImageAnimation,
+                           public GraphicsChild,
+                           public Disposable {
  public:
-  ImageAnimationImpl(IMG_Animation* animation,
+  ImageAnimationImpl(RenderScreenImpl* parent,
+                     IMG_Animation* animation,
                      filesystem::IOService* io_service);
   ~ImageAnimationImpl() override;
 

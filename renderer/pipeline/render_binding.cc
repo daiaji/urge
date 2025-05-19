@@ -87,4 +87,13 @@ Binding_BitmapFilter::Binding_BitmapFilter(ShaderBinding binding)
       RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
 }
 
+Binding_YUV::Binding_YUV(ShaderBinding binding) : RenderBindingBase(binding) {
+  u_texture_y =
+      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_TextureY");
+  u_texture_u =
+      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_TextureU");
+  u_texture_v =
+      RawPtr()->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_TextureV");
+}
+
 }  // namespace renderer

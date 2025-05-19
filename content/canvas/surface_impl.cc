@@ -26,7 +26,8 @@ scoped_refptr<Surface> Surface::New(ExecutionContext* execution_context,
     return nullptr;
   }
 
-  return new SurfaceImpl(surface_data, execution_context->io_service);
+  return new SurfaceImpl(execution_context->graphics, surface_data,
+                         execution_context->io_service);
 }
 
 scoped_refptr<Surface> Surface::New(ExecutionContext* execution_context,
@@ -57,7 +58,8 @@ scoped_refptr<Surface> Surface::New(ExecutionContext* execution_context,
     return nullptr;
   }
 
-  return new SurfaceImpl(surface_data, execution_context->io_service);
+  return new SurfaceImpl(execution_context->graphics, surface_data,
+                         execution_context->io_service);
 }
 
 scoped_refptr<Surface> Surface::FromDump(ExecutionContext* execution_context,
@@ -87,7 +89,8 @@ scoped_refptr<Surface> Surface::FromDump(ExecutionContext* execution_context,
   std::memcpy(surface_data->pixels, raw_data + 2,
               surface_data->pitch * surface_data->h);
 
-  return new SurfaceImpl(surface_data, execution_context->io_service);
+  return new SurfaceImpl(execution_context->graphics, surface_data,
+                         execution_context->io_service);
 }
 
 scoped_refptr<Surface> Surface::FromStream(ExecutionContext* execution_context,
@@ -110,7 +113,8 @@ scoped_refptr<Surface> Surface::FromStream(ExecutionContext* execution_context,
     return nullptr;
   }
 
-  return new SurfaceImpl(memory_texture, execution_context->io_service);
+  return new SurfaceImpl(execution_context->graphics, memory_texture,
+                         execution_context->io_service);
 }
 
 scoped_refptr<Surface> Surface::Copy(ExecutionContext* execution_context,
@@ -124,14 +128,16 @@ scoped_refptr<Surface> Surface::Copy(ExecutionContext* execution_context,
   }
 
   auto* dst_surf =
-      SDL_CreateSurfaceFrom(src_surf->w, src_surf->h, src_surf->format,
-                            src_surf->pixels, src_surf->pitch);
+      SDL_CreateSurface(src_surf->w, src_surf->h, src_surf->format);
+  std::memcpy(dst_surf->pixels, src_surf->pixels,
+              src_surf->pitch * src_surf->h);
   if (!dst_surf) {
     exception_state.ThrowError(ExceptionCode::CONTENT_ERROR, SDL_GetError());
     return nullptr;
   }
 
-  return new SurfaceImpl(dst_surf, execution_context->io_service);
+  return new SurfaceImpl(execution_context->graphics, dst_surf,
+                         execution_context->io_service);
 }
 
 scoped_refptr<Surface> Surface::Deserialize(ExecutionContext* execution_context,
@@ -162,7 +168,8 @@ scoped_refptr<Surface> Surface::Deserialize(ExecutionContext* execution_context,
   std::memcpy(surface->pixels, raw_data + sizeof(uint32_t) * 2,
               surface->pitch * surface->h);
 
-  return new SurfaceImpl(surface, execution_context->io_service);
+  return new SurfaceImpl(execution_context->graphics, surface,
+                         execution_context->io_service);
 }
 
 std::string Surface::Serialize(ExecutionContext* execution_context,
@@ -185,9 +192,10 @@ std::string Surface::Serialize(ExecutionContext* execution_context,
   return serialized_data;
 }
 
-SurfaceImpl::SurfaceImpl(SDL_Surface* surface,
+SurfaceImpl::SurfaceImpl(DisposableCollection* parent,
+                         SDL_Surface* surface,
                          filesystem::IOService* io_service)
-    : Disposable(nullptr), surface_(surface), io_service_(io_service) {}
+    : Disposable(parent), surface_(surface), io_service_(io_service) {}
 
 SurfaceImpl::~SurfaceImpl() {
   ExceptionState exception_state;
