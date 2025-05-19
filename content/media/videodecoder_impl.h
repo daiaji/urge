@@ -57,7 +57,6 @@ class VideoDecoderImpl : public VideoDecoder,
   VideoDecoderAgent* agent_;
 
   std::unique_ptr<uvpx::Player> player_;
-  filesystem::IOService* io_service_;
   uint64_t last_ticks_;
   int64_t counter_freq_;
   float frame_delta_;

@@ -168,7 +168,6 @@ VideoDecoderImpl::VideoDecoderImpl(RenderScreenImpl* parent,
     : GraphicsChild(parent),
       Disposable(parent),
       player_(std::move(player)),
-      io_service_(io_service),
       audio_output_(0),
       audio_stream_(nullptr) {
   // Video info
