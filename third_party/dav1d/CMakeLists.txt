@@ -85,6 +85,12 @@ option(DAV1D_ASM "Build asm files, if available" ON)
 set(DAV1D_BITDEPTHS "8;16" CACHE STRING "enabled bitdepths")
 option(DAV1D_LOG "logging" TRUE)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+  if(ARCH_X86_64 OR ARCH_X86_32)
+    set(DAV1D_ASM OFF)
+  endif()
+endif()
+
 list(APPEND config_variables PREFIX)
 if(DAV1D_ASM)
   if(DAV1D_CPU_X64 OR DAV1D_CPU_X86)
