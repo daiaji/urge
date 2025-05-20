@@ -58,7 +58,6 @@ class CanvasScheduler {
   renderer::RenderDevice* device_;
   base::ThreadWorker* render_worker_;
   filesystem::IOService* io_service_;
-  Diligent::ITextureView* current_render_target_;
 
   std::unique_ptr<renderer::Binding_Base> generic_base_binding_;
   std::unique_ptr<renderer::Binding_Color> generic_color_binding_;

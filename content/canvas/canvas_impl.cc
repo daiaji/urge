@@ -279,6 +279,9 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
     renderer::CreateTexture2D(**scheduler->GetDevice(),
                               &agent->text_cache_texture, "textdraw.cache",
                               agent->text_cache_size);
+
+    if ((*scheduler->GetDevice())->GetDeviceInfo().IsGLDevice())
+      context->InvalidateState();
   }
 
   // Update text texture cache

@@ -35,22 +35,17 @@ void CanvasScheduler::SetupRenderTarget(Diligent::ITextureView* render_target,
                                         bool clear_target) {
   auto* context = device_->GetContext();
 
-  // Clear cached state only in OpenGL mode
-  if (current_render_target_ != render_target &&
-      (*device_)->GetDeviceInfo().IsGLDevice())
-    context->InvalidateState();
-  current_render_target_ = render_target;
-
   // Setup new render target
-  if (current_render_target_) {
+  if (render_target) {
     context->SetRenderTargets(
-        1, &current_render_target_, nullptr,
+        1, &render_target, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
+    // Apply clear buffer if need
     if (clear_target) {
       float clear_color[] = {0, 0, 0, 0};
       context->ClearRenderTarget(
-          current_render_target_, clear_color,
+          render_target, clear_color,
           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
 
@@ -60,8 +55,6 @@ void CanvasScheduler::SetupRenderTarget(Diligent::ITextureView* render_target,
   // Reset render target state
   context->SetRenderTargets(
       0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-
-  // Apply clear buffer if need
 }
 
 CanvasScheduler::CanvasScheduler(base::ThreadWorker* worker,
@@ -70,7 +63,6 @@ CanvasScheduler::CanvasScheduler(base::ThreadWorker* worker,
     : device_(device),
       render_worker_(worker),
       io_service_(io_service),
-      current_render_target_(nullptr),
       generic_base_binding_(device->GetPipelines()->base.CreateBinding()),
       generic_color_binding_(device->GetPipelines()->color.CreateBinding()),
       common_quad_batch_(renderer::QuadBatch::Make(**device)) {}
