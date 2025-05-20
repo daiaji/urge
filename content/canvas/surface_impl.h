@@ -24,7 +24,7 @@ class SurfaceImpl : public Surface, public Disposable {
 
   static scoped_refptr<SurfaceImpl> From(scoped_refptr<Surface> host);
 
-  SDL_Surface* GetRawSurface() { return surface_; }
+  SDL_Surface* GetRawSurface() const { return surface_; }
 
  public:
   void Dispose(ExceptionState& exception_state) override;

@@ -45,16 +45,14 @@ scoped_refptr<Surface> Surface::New(ExecutionContext* execution_context,
   execution_context->io_service->OpenRead(filename, file_handler, &io_state);
 
   if (io_state.error_count) {
-    exception_state.ThrowError(ExceptionCode::IO_ERROR,
-                               "Failed to read file: %s (%s)", filename.c_str(),
+    exception_state.ThrowError(ExceptionCode::IO_ERROR, "%s",
                                io_state.error_message.c_str());
     return nullptr;
   }
 
   if (!surface_data) {
-    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
-                               "Failed to load image: %s (%s)",
-                               filename.c_str(), SDL_GetError());
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR, "%s",
+                               SDL_GetError());
     return nullptr;
   }
 

@@ -52,9 +52,9 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
  public:
   CanvasImpl(RenderScreenImpl* screen,
              CanvasScheduler* scheduler,
-             TextureAgent* texture,
-             scoped_refptr<Font> font,
-             const std::string& name);
+             SDL_Surface* memory_surface,
+             ScopedFontData* font_data,
+             const std::string& debug_name);
   ~CanvasImpl() override;
 
   CanvasImpl(const CanvasImpl&) = delete;
@@ -70,13 +70,6 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
                                           RenderScreenImpl* screen,
                                           ScopedFontData* font_data,
                                           const std::string& filename,
-                                          ExceptionState& exception_state);
-
-  static scoped_refptr<CanvasImpl> Create(CanvasScheduler* scheduler,
-                                          RenderScreenImpl* screen,
-                                          ScopedFontData* font_data,
-                                          SDL_Surface* memory_texture,
-                                          const std::string& debug_name,
                                           ExceptionState& exception_state);
 
   static scoped_refptr<CanvasImpl> FromBitmap(scoped_refptr<Bitmap> host);

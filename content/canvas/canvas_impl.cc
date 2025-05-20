@@ -471,10 +471,9 @@ scoped_refptr<Bitmap> Bitmap::FromSurface(ExecutionContext* execution_context,
     return nullptr;
   }
 
-  return CanvasImpl::Create(execution_context->canvas_scheduler,
-                            execution_context->graphics,
-                            execution_context->font_context, surface_duplicate,
-                            "PaletteData", exception_state);
+  return new CanvasImpl(execution_context->graphics,
+                        execution_context->canvas_scheduler, surface_duplicate,
+                        execution_context->font_context, "SurfaceDataBitmap");
 }
 
 scoped_refptr<Bitmap> Bitmap::FromStream(ExecutionContext* execution_context,
@@ -497,10 +496,9 @@ scoped_refptr<Bitmap> Bitmap::FromStream(ExecutionContext* execution_context,
     return nullptr;
   }
 
-  return CanvasImpl::Create(execution_context->canvas_scheduler,
-                            execution_context->graphics,
-                            execution_context->font_context, memory_texture,
-                            "IOStream", exception_state);
+  return new CanvasImpl(execution_context->graphics,
+                        execution_context->canvas_scheduler, memory_texture,
+                        execution_context->font_context, "IOBitmap");
 }
 
 scoped_refptr<Bitmap> Bitmap::Copy(ExecutionContext* execution_context,
@@ -543,9 +541,9 @@ scoped_refptr<Bitmap> Bitmap::Deserialize(ExecutionContext* execution_context,
   std::memcpy(surface->pixels, raw_data + sizeof(uint32_t) * 2,
               surface->pitch * surface->h);
 
-  return CanvasImpl::Create(
-      execution_context->canvas_scheduler, execution_context->graphics,
-      execution_context->font_context, surface, "MemoryData", exception_state);
+  return new CanvasImpl(execution_context->graphics,
+                        execution_context->canvas_scheduler, surface,
+                        execution_context->font_context, "MemoryData");
 }
 
 std::string Bitmap::Serialize(ExecutionContext* execution_context,
@@ -581,8 +579,13 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
 
   auto* empty_surface =
       SDL_CreateSurface(size.x, size.y, kCanvasInternalFormat);
-  return CanvasImpl::Create(scheduler, screen, font_data, empty_surface,
-                            "EmptyBitmap", exception_state);
+  if (!empty_surface) {
+    exception_state.ThrowError(ExceptionCode::CONTENT_ERROR, SDL_GetError());
+    return nullptr;
+  }
+
+  return new CanvasImpl(screen, scheduler, empty_surface, font_data,
+                        "SizeBitmap");
 }
 
 scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
@@ -615,42 +618,32 @@ scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
     return nullptr;
   }
 
-  return CanvasImpl::Create(scheduler, screen, font_data, memory_texture,
-                            filename, exception_state);
-}
-
-scoped_refptr<CanvasImpl> CanvasImpl::Create(CanvasScheduler* scheduler,
-                                             RenderScreenImpl* screen,
-                                             ScopedFontData* font_data,
-                                             SDL_Surface* memory_texture,
-                                             const std::string& debug_name,
-                                             ExceptionState& exception_state) {
-  auto* canvas_texture_agent = new TextureAgent;
-  canvas_texture_agent->size =
-      base::Vec2i(memory_texture->w, memory_texture->h);
-
-  base::ThreadWorker::PostTask(
-      scheduler->render_worker(),
-      base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
-                     memory_texture, debug_name, canvas_texture_agent));
-
-  return new CanvasImpl(screen, scheduler, canvas_texture_agent,
-                        new FontImpl(font_data), canvas_texture_agent->name);
+  return new CanvasImpl(screen, scheduler, memory_texture, font_data, filename);
 }
 
 CanvasImpl::CanvasImpl(RenderScreenImpl* screen,
                        CanvasScheduler* scheduler,
-                       TextureAgent* texture,
-                       scoped_refptr<Font> font,
-                       const std::string& name)
+                       SDL_Surface* memory_surface,
+                       ScopedFontData* font_data,
+                       const std::string& debug_name)
     : Disposable(screen),
       scheduler_(scheduler),
-      texture_(texture),
       canvas_cache_(nullptr),
-      name_(name),
-      font_(FontImpl::From(font)),
+      name_(debug_name),
+      font_(new FontImpl(font_data)),
       parent_(screen) {
+  // Add link in scheduler node
   scheduler->children_.Append(this);
+
+  // Create agent data
+  texture_ = new TextureAgent;
+  texture_->size = base::Vec2i(memory_surface->w, memory_surface->h);
+
+  // Create renderer texture
+  base::ThreadWorker::PostTask(
+      scheduler->render_worker(),
+      base::BindOnce(&GPUCreateTextureWithDataInternal, scheduler->GetDevice(),
+                     memory_surface, debug_name, texture_));
 }
 
 CanvasImpl::~CanvasImpl() {
