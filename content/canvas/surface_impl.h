@@ -7,7 +7,7 @@
 
 #include "SDL3/SDL_surface.h"
 
-#include "content/components/disposable.h"
+#include "content/context/disposable.h"
 #include "content/public/engine_surface.h"
 
 namespace content {

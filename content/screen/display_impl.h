@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_COMPONENTS_DISPLAY_IMPL_H_
-#define CONTENT_COMPONENTS_DISPLAY_IMPL_H_
+#ifndef CONTENT_SCREEN_DISPLAY_IMPL_H_
+#define CONTENT_SCREEN_DISPLAY_IMPL_H_
 
 #include "SDL3/SDL_video.h"
 
@@ -35,4 +35,4 @@ class DisplayImpl : public Display {
 
 }  // namespace content
 
-#endif  //! CONTENT_COMPONENTS_DISPLAY_IMPL_H_
+#endif  //! CONTENT_SCREEN_DISPLAY_IMPL_H_

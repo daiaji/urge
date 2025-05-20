@@ -2,18 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_COMPONENTS_MISC_SYSTEM_H_
-#define CONTENT_COMPONENTS_MISC_SYSTEM_H_
+#ifndef CONTENT_MISC_MISC_SYSTEM_H_
+#define CONTENT_MISC_MISC_SYSTEM_H_
 
+#include "components/filesystem/io_service.h"
 #include "content/public/engine_urge.h"
 #include "ui/widget/widget.h"
-#include "components/filesystem/io_service.h"
 
 namespace content {
 
 class MiscSystem : public URGE {
  public:
-  MiscSystem(base::WeakPtr<ui::Widget> window, filesystem::IOService* io_service);
+  MiscSystem(base::WeakPtr<ui::Widget> window,
+             filesystem::IOService* io_service);
   ~MiscSystem() override;
 
   MiscSystem(const MiscSystem&) = delete;
@@ -52,4 +53,4 @@ class MiscSystem : public URGE {
 
 }  // namespace content
 
-#endif  //! CONTENT_COMPONENTS_MISC_SYSTEM_H_
+#endif  //! CONTENT_MISC_MISC_SYSTEM_H_

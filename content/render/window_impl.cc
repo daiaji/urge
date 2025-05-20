@@ -4,7 +4,7 @@
 
 #include "content/render/window_impl.h"
 
-#include "content/composite/tilequad.h"
+#include "content/render/tilequad.h"
 
 namespace content {
 

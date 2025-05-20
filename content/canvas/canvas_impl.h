@@ -12,7 +12,7 @@
 
 #include "base/containers/linked_list.h"
 #include "content/canvas/font_impl.h"
-#include "content/components/disposable.h"
+#include "content/context/disposable.h"
 #include "content/public/engine_bitmap.h"
 #include "content/render/drawable_controller.h"
 

@@ -9,11 +9,11 @@
 
 #include "base/worker/thread_worker.h"
 #include "components/filesystem/io_service.h"
-#include "content/components/font_context.h"
-#include "content/components/misc_system.h"
+#include "content/canvas/font_context.h"
 #include "content/input/keyboard_controller.h"
 #include "content/input/mouse_controller.h"
 #include "content/media/audio_impl.h"
+#include "content/misc/misc_system.h"
 #include "content/profile/content_profile.h"
 #include "content/profile/i18n_profile.h"
 #include "content/screen/renderscreen_impl.h"

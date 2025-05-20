@@ -9,7 +9,7 @@
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
 #include "content/common/tone_impl.h"
-#include "content/components/disposable.h"
+#include "content/context/disposable.h"
 #include "content/public/engine_sprite.h"
 #include "content/render/drawable_controller.h"
 #include "content/screen/viewport_impl.h"

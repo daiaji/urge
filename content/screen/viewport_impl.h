@@ -8,7 +8,7 @@
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
 #include "content/common/tone_impl.h"
-#include "content/components/disposable.h"
+#include "content/context/disposable.h"
 #include "content/public/engine_viewport.h"
 #include "content/render/drawable_controller.h"
 #include "content/screen/renderscreen_impl.h"

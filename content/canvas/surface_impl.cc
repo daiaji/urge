@@ -9,7 +9,7 @@
 #include "components/filesystem/io_service.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
-#include "content/components/iostream_impl.h"
+#include "content/io/iostream_impl.h"
 #include "content/screen/renderscreen_impl.h"
 
 namespace content {

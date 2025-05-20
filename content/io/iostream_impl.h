@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_COMPONENTS_IOSTREAM_IMPL_H_
-#define CONTENT_COMPONENTS_IOSTREAM_IMPL_H_
+#ifndef CONTENT_IO_IOSTREAM_IMPL_H_
+#define CONTENT_IO_IOSTREAM_IMPL_H_
 
 #include "SDL3/SDL_iostream.h"
 
-#include "content/components/disposable.h"
+#include "content/context/disposable.h"
 #include "content/public/engine_iostream.h"
 
 namespace content {
@@ -48,4 +48,4 @@ class IOStreamImpl : public IOStream, public Disposable {
 
 }  // namespace content
 
-#endif  //! CONTENT_COMPONENTS_IOSTREAM_IMPL_H_
+#endif  //! CONTENT_IO_IOSTREAM_IMPL_H_

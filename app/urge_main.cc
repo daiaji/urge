@@ -14,7 +14,7 @@
 
 #include "binding/mri/mri_main.h"
 #include "components/filesystem/io_service.h"
-#include "content/components/font_context.h"
+#include "content/canvas/font_context.h"
 #include "content/profile/i18n_profile.h"
 #include "content/worker/content_runner.h"
 #include "ui/widget/widget.h"

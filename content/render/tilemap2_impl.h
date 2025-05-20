@@ -15,7 +15,7 @@
 #include "content/common/rect_impl.h"
 #include "content/common/table_impl.h"
 #include "content/common/tone_impl.h"
-#include "content/components/disposable.h"
+#include "content/context/disposable.h"
 #include "content/public/engine_tilemap2.h"
 #include "content/public/engine_tilemapbitmap.h"
 #include "content/render/drawable_controller.h"

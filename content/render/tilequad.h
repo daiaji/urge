@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_COMPOSITE_TILEQUAD_H_
-#define CONTENT_COMPOSITE_TILEQUAD_H_
+#ifndef CONTENT_RENDER_TILEQUAD_H_
+#define CONTENT_RENDER_TILEQUAD_H_
 
 #include "base/math/rectangle.h"
 #include "renderer/layout/vertex_layout.h"
@@ -41,4 +41,4 @@ int32_t BuildTiles(const base::Rect& src_rect,
 
 }  // namespace content
 
-#endif  //! CONTENT_COMPOSITE_TILEQUAD_H_
+#endif  //! CONTENT_RENDER_TILEQUAD_H_

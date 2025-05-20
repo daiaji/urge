@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_COMPONENTS_ANIMATION_IMPL_H_
-#define CONTENT_COMPONENTS_ANIMATION_IMPL_H_
+#ifndef CONTENT_CANVAS_ANIMATION_IMPL_H_
+#define CONTENT_CANVAS_ANIMATION_IMPL_H_
 
 #include "SDL3_image/SDL_image.h"
 
-#include "content/components/disposable.h"
+#include "content/context/disposable.h"
 #include "content/public/engine_imageanimation.h"
 #include "content/screen/renderscreen_impl.h"
 
@@ -44,4 +44,4 @@ class ImageAnimationImpl : public ImageAnimation,
 
 }  // namespace content
 
-#endif  //! CONTENT_COMPONENTS_ANIMATION_IMPL_H_
+#endif  //! CONTENT_CANVAS_ANIMATION_IMPL_H_

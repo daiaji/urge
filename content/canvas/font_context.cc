@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/components/font_context.h"
+#include "content/canvas/font_context.h"
 
 #include "content/resource/embed.ttf.bin"
 

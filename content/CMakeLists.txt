@@ -8,10 +8,14 @@ cmake_minimum_required(VERSION 3.20.1)
 file(GLOB RUNTIMEAPI_HEADERS "${PROJECT_SOURCE_DIR}/content/public/*.h")
 
 set(ENGINE_CONTENT_SRC
+  canvas/animation_impl.cc
+  canvas/animation_impl.h  
   canvas/canvas_impl.cc
   canvas/canvas_impl.h
   canvas/canvas_scheduler.cc
   canvas/canvas_scheduler.h
+  canvas/font_context.cc
+  canvas/font_context.h
   canvas/font_impl.cc
   canvas/font_impl.h
   canvas/surface_impl.cc
@@ -24,23 +28,9 @@ set(ENGINE_CONTENT_SRC
   common/table_impl.h
   common/tone_impl.cc
   common/tone_impl.h
-  components/animation_impl.cc
-  components/animation_impl.h
-  components/display_impl.cc
-  components/display_impl.h
-  components/disposable.cc
-  components/disposable.h
-  components/font_context.cc
-  components/font_context.h
-  components/iostream_impl.cc
-  components/iostream_impl.h
-  components/misc_system.cc
-  components/misc_system.h
-  components/sprite_batch.cc
-  components/sprite_batch.h
-  composite/tilequad.cc
-  composite/tilequad.h
   common/value_observer.h
+  context/disposable.cc
+  context/disposable.h
   context/exception_state.cc
   context/exception_state.h
   context/execution_context.cc
@@ -57,10 +47,14 @@ set(ENGINE_CONTENT_SRC
   input/text_input.h
   input/touch_event.cc
   input/touch_event.h
+  io/iostream_impl.cc
+  io/iostream_impl.h
   media/audio_impl.cc
   media/audio_impl.h
   media/videodecoder_impl.cc
   media/videodecoder_impl.h
+  misc/misc_system.cc
+  misc/misc_system.h
   profile/command_ids.h
   profile/content_profile.cc
   profile/content_profile.h
@@ -70,16 +64,22 @@ set(ENGINE_CONTENT_SRC
   render/drawable_controller.h
   render/plane_impl.cc
   render/plane_impl.h
+  render/sprite_batch.cc
+  render/sprite_batch.h
   render/sprite_impl.cc
   render/sprite_impl.h
   render/tilemap_impl.cc
   render/tilemap_impl.h
   render/tilemap2_impl.cc
   render/tilemap2_impl.h
+  render/tilequad.cc
+  render/tilequad.h
   render/window_impl.cc
   render/window_impl.h
   render/window2_impl.cc
   render/window2_impl.h
+  screen/display_impl.cc
+  screen/display_impl.h
   screen/renderscreen_impl.cc
   screen/renderscreen_impl.h
   screen/viewport_impl.cc

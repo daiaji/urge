@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/components/animation_impl.h"
+#include "content/canvas/animation_impl.h"
 
 #include "components/filesystem/io_service.h"
 #include "content/canvas/surface_impl.h"
-#include "content/components/iostream_impl.h"
+#include "content/io/iostream_impl.h"
 
 namespace content {
 

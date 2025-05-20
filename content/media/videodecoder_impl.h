@@ -10,7 +10,7 @@
 
 #include "base/memory/ref_counted.h"
 #include "components/filesystem/io_service.h"
-#include "content/components/disposable.h"
+#include "content/context/disposable.h"
 #include "content/public/engine_videodecoder.h"
 #include "content/screen/renderscreen_impl.h"
 

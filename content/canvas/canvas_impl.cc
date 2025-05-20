@@ -11,8 +11,8 @@
 #include "content/canvas/surface_impl.h"
 #include "content/common/color_impl.h"
 #include "content/common/rect_impl.h"
-#include "content/components/iostream_impl.h"
 #include "content/context/execution_context.h"
+#include "content/io/iostream_impl.h"
 #include "content/screen/renderscreen_impl.h"
 #include "renderer/utils/texture_utils.h"
 
