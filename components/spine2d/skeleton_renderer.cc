@@ -158,7 +158,6 @@ void DiligentRenderer::Update(Diligent::IDeviceContext* context,
   skeleton_->updateWorldTransform(physics);
 
   vertex_cache_.clear();
-  index_cache_.clear();
   pending_commands_ = skeleton_renderer_->render(*skeleton_);
   RenderCommand* command = pending_commands_;
   while (command) {
@@ -166,52 +165,33 @@ void DiligentRenderer::Update(Diligent::IDeviceContext* context,
     float* uvs = command->uvs;
     uint32_t* colors = command->colors;
     uint32_t* darkColors = command->darkColors;
-    uint16_t* indices = command->indices;
 
     // Vertex data
-    int32_t num_command_vertices = command->numVertices;
-    for (int32_t i = 0, j = 0; i < num_command_vertices; i++, j += 2) {
+    for (int32_t i = 0; i < command->numIndices; ++i) {
+      uint16_t index = command->indices[i];
+      uint16_t vertex_index = index << 1;
+
       renderer::SpineVertex vertex;
-      vertex.position.x = positions[j];
-      vertex.position.y = positions[j + 1];
-      vertex.texcoord.x = uvs[j];
-      vertex.texcoord.y = uvs[j + 1];
-      uint32_t color = colors[i];
+      vertex.position.x = positions[vertex_index];
+      vertex.position.y = positions[vertex_index + 1];
+      vertex.texcoord.x = uvs[vertex_index];
+      vertex.texcoord.y = uvs[vertex_index + 1];
+      uint32_t color = colors[vertex_index >> 1];
       vertex.light_color = (color & 0xFF00FF00) | ((color & 0x00FF0000) >> 16) |
                            ((color & 0x000000FF) << 16);
-      uint32_t darkColor = darkColors[i];
+      uint32_t darkColor = darkColors[vertex_index >> 1];
       vertex.dark_color = (darkColor & 0xFF00FF00) |
                           ((darkColor & 0x00FF0000) >> 16) |
                           ((darkColor & 0x000000FF) << 16);
       vertex_cache_.push_back(vertex);
     }
 
-    // Index data
-    index_cache_.insert(index_cache_.end(), indices,
-                        indices + command->numIndices);
-
     command = command->next;
-  }
-
-  // Reset index buffer if need
-  int32_t num_command_indices = index_cache_.size();
-  uint32_t index_buffer_size = num_command_indices * sizeof(uint16_t);
-  if (!index_buffer_ || index_buffer_->GetDesc().Size < index_buffer_size) {
-    Diligent::BufferDesc buffer_desc;
-    buffer_desc.Name = "spine2d.index.buffer";
-    buffer_desc.Usage = Diligent::USAGE_DEFAULT;
-    buffer_desc.BindFlags = Diligent::BIND_INDEX_BUFFER;
-    buffer_desc.Size = index_buffer_size;
-    index_buffer_.Release();
-    (*device_)->CreateBuffer(buffer_desc, nullptr, &index_buffer_);
   }
 
   // Upload data
   vertex_batch_->QueueWrite(context, vertex_cache_.data(),
                             vertex_cache_.size());
-  context->UpdateBuffer(index_buffer_, 0, index_buffer_size,
-                        index_cache_.data(),
-                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void DiligentRenderer::Render(Diligent::IDeviceContext* context,
@@ -242,15 +222,12 @@ void DiligentRenderer::Render(Diligent::IDeviceContext* context,
     context->SetVertexBuffers(
         0, 1, &vertex_buffer, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetIndexBuffer(
-        index_buffer_, 0, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Execute render command
-    Diligent::DrawIndexedAttribs draw_indexed_attribs;
-    draw_indexed_attribs.NumIndices = command->numIndices;
-    draw_indexed_attribs.IndexType = Diligent::VT_UINT16;
-    draw_indexed_attribs.FirstIndexLocation = vertices_offset;
-    context->DrawIndexed(draw_indexed_attribs);
+    Diligent::DrawAttribs draw_indexed_attribs;
+    draw_indexed_attribs.NumVertices = command->numIndices;
+    draw_indexed_attribs.StartVertexLocation = vertices_offset;
+    context->Draw(draw_indexed_attribs);
 
     // Apply offset
     vertices_offset += command->numIndices;
