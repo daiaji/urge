@@ -62,6 +62,7 @@ class DiligentRenderer {
 
   renderer::RenderDevice* device_;
   std::vector<renderer::SpineVertex> vertex_cache_;
+  std::vector<uint16_t> index_cache_;
   std::unique_ptr<SpineVertexBatch> vertex_batch_;
   Diligent::RefCntAutoPtr<Diligent::IBuffer> index_buffer_;
   std::unique_ptr<renderer::Binding_Base> shader_binding_;
