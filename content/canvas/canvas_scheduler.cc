@@ -6,18 +6,35 @@
 
 namespace content {
 
-CanvasScheduler::~CanvasScheduler() = default;
-
 std::unique_ptr<CanvasScheduler> CanvasScheduler::MakeInstance(
     base::ThreadWorker* worker,
     renderer::RenderDevice* device,
+    renderer::RenderContext* context,
     filesystem::IOService* io_service) {
   return std::unique_ptr<CanvasScheduler>(
-      new CanvasScheduler(worker, device, io_service));
+      new CanvasScheduler(worker, device, context, io_service));
 }
+
+CanvasScheduler::CanvasScheduler(base::ThreadWorker* worker,
+                                 renderer::RenderDevice* device,
+                                 renderer::RenderContext* context,
+                                 filesystem::IOService* io_service)
+    : device_(device),
+      context_(context),
+      render_worker_(worker),
+      io_service_(io_service),
+      generic_base_binding_(device->GetPipelines()->base.CreateBinding()),
+      generic_color_binding_(device->GetPipelines()->color.CreateBinding()),
+      common_quad_batch_(renderer::QuadBatch::Make(**device)) {}
+
+CanvasScheduler::~CanvasScheduler() = default;
 
 renderer::RenderDevice* CanvasScheduler::GetDevice() const {
   return device_;
+}
+
+renderer::RenderContext* CanvasScheduler::GetContext() const {
+  return context_;
 }
 
 filesystem::IOService* CanvasScheduler::GetIOService() const {
@@ -33,7 +50,7 @@ void CanvasScheduler::SubmitPendingPaintCommands() {
 
 void CanvasScheduler::SetupRenderTarget(Diligent::ITextureView* render_target,
                                         bool clear_target) {
-  auto* context = device_->GetContext();
+  auto* context = **context_;
 
   // Setup new render target
   if (render_target) {
@@ -56,15 +73,5 @@ void CanvasScheduler::SetupRenderTarget(Diligent::ITextureView* render_target,
   context->SetRenderTargets(
       0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
-
-CanvasScheduler::CanvasScheduler(base::ThreadWorker* worker,
-                                 renderer::RenderDevice* device,
-                                 filesystem::IOService* io_service)
-    : device_(device),
-      render_worker_(worker),
-      io_service_(io_service),
-      generic_base_binding_(device->GetPipelines()->base.CreateBinding()),
-      generic_color_binding_(device->GetPipelines()->color.CreateBinding()),
-      common_quad_batch_(renderer::QuadBatch::Make(**device)) {}
 
 }  // namespace content

@@ -214,7 +214,7 @@ bool ContentRunner::RenderGUIInternal() {
 
   // Setup renderer new frame
   const Diligent::SwapChainDesc& swapchain_desc =
-      graphics_impl_->GetDevice()->GetSwapchain()->GetDesc();
+      graphics_impl_->GetDevice()->GetSwapChain()->GetDesc();
   imgui_->NewFrame(swapchain_desc.Width, swapchain_desc.Height,
                    swapchain_desc.PreTransform);
 
@@ -359,7 +359,7 @@ void ContentRunner::CreateIMGUIContextInternal() {
 
   // Setup renderer backend
   Diligent::ImGuiDiligentCreateInfo imgui_create_info(
-      **render_device, render_device->GetSwapchain()->GetDesc());
+      **render_device, render_device->GetSwapChain()->GetDesc());
   imgui_.reset(new Diligent::ImGuiDiligentRenderer(imgui_create_info));
 }
 

@@ -5,15 +5,14 @@
 #ifndef RENDERER_DEVICE_RENDER_DEVICE_H_
 #define RENDERER_DEVICE_RENDER_DEVICE_H_
 
+#include "renderer/context/render_context.h"
 #include "renderer/context/scissor_controller.h"
 #include "renderer/pipeline/render_pipeline.h"
 #include "renderer/resource/render_buffer.h"
 #include "ui/widget/widget.h"
 
 #include <memory>
-
-template <typename Ty>
-using RRefPtr = Diligent::RefCntAutoPtr<Ty>;
+#include <tuple>
 
 namespace renderer {
 
@@ -55,9 +54,10 @@ class RenderDevice {
           yuv(device, target_format) {}
   };
 
-  static std::unique_ptr<RenderDevice> Create(
-      base::WeakPtr<ui::Widget> window_target,
-      DriverType driver_type);
+  using CreateDeviceResult =
+      std::tuple<std::unique_ptr<RenderDevice>, std::unique_ptr<RenderContext>>;
+  static CreateDeviceResult Create(base::WeakPtr<ui::Widget> window_target,
+                                   DriverType driver_type);
 
   ~RenderDevice();
 
@@ -69,50 +69,38 @@ class RenderDevice {
   inline Diligent::IRenderDevice* operator*() { return device_; }
 
   // Device Attribute interface
-  Diligent::IDeviceContext* GetContext() const { return context_; }
-  Diligent::ISwapChain* GetSwapchain() const { return swapchain_; }
-
-  // Render window device
   base::WeakPtr<ui::Widget> GetWindow() { return window_; }
+  Diligent::ISwapChain* GetSwapChain() const { return swapchain_; }
 
   // Pre-compile shaders set storage
   PipelineSet* GetPipelines() const { return pipelines_.get(); }
   QuadIndexCache* GetQuadIndex() const { return quad_index_.get(); }
-  ScissorController* Scissor() const { return scissor_.get(); }
 
-  // Platform specific
-  inline bool IsUVFlip() const { return device_->GetDeviceInfo().IsGLDevice(); }
-
-#if defined(OS_ANDROID)
-  // Managed mobile rendering context
-  void SuspendContext();
-  int32_t ResumeContext();
-#endif
+  // Platform specific type
+  inline bool IsUVFlip() const {
+    return device_type_ == Diligent::RENDER_DEVICE_TYPE_GL ||
+           device_type_ == Diligent::RENDER_DEVICE_TYPE_GLES;
+  }
 
  private:
   RenderDevice(base::WeakPtr<ui::Widget> window,
                const Diligent::SwapChainDesc& swapchain_desc,
                Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device,
-               Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context,
                Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain,
                std::unique_ptr<PipelineSet> pipelines,
                std::unique_ptr<QuadIndexCache> quad_index,
-               std::unique_ptr<ScissorController> scissor,
                SDL_GLContext gl_context);
 
   base::WeakPtr<ui::Widget> window_;
   Diligent::SwapChainDesc swapchain_desc_;
 
   Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
-  Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context_;
   Diligent::RefCntAutoPtr<Diligent::ISwapChain> swapchain_;
 
   std::unique_ptr<PipelineSet> pipelines_;
   std::unique_ptr<QuadIndexCache> quad_index_;
-  std::unique_ptr<ScissorController> scissor_;
 
   Diligent::RENDER_DEVICE_TYPE device_type_;
-
   SDL_GLContext gl_context_;
 };
 

@@ -18,18 +18,19 @@ namespace renderer {
 //    |   \|
 //  3 +----+ 2
 // order: lt -> rt -> rb -> lb
-static std::array<uint16_t, 6> kQuadrangleDrawIndices = {
+static std::array<QuadIndexCache::IndexFormat, 6> kQuadrangleDrawIndices = {
     0, 1, 2, 2, 3, 0,
 };
 
-QuadIndexCache::QuadIndexCache(
-    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device)
-    : device_(device), format_(Diligent::VALUE_TYPE::VT_UINT16) {}
-
 std::unique_ptr<QuadIndexCache> renderer::QuadIndexCache::Make(
-    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device) {
+    RRefPtr<Diligent::IRenderDevice> device) {
   return std::unique_ptr<QuadIndexCache>(new QuadIndexCache(device));
 }
+
+QuadIndexCache::QuadIndexCache(RRefPtr<Diligent::IRenderDevice> device)
+    : device_(device) {}
+
+QuadIndexCache::~QuadIndexCache() = default;
 
 void QuadIndexCache::Allocate(size_t quadrangle_size) {
   size_t required_indices_size =
@@ -41,7 +42,7 @@ void QuadIndexCache::Allocate(size_t quadrangle_size) {
     cache_.reserve(required_indices_size);
     for (size_t i = 0; i < quadrangle_size; ++i)
       for (const auto& it : kQuadrangleDrawIndices)
-        cache_.push_back(static_cast<uint16_t>(i * 4 + it));
+        cache_.push_back(static_cast<QuadIndexCache::IndexFormat>(i * 4 + it));
 
     // Reset old buffer
     buffer_.Release();
@@ -51,7 +52,7 @@ void QuadIndexCache::Allocate(size_t quadrangle_size) {
   if (!buffer_) {
     // Allocate bigger buffer
     Diligent::BufferDesc buffer_desc;
-    buffer_desc.Name = "generic.index.buffer";
+    buffer_desc.Name = "quad.index.buffer";
     buffer_desc.Usage = Diligent::USAGE_IMMUTABLE;
     buffer_desc.BindFlags = Diligent::BIND_INDEX_BUFFER;
     buffer_desc.Size = required_indices_size *

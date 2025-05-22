@@ -85,7 +85,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                  int32_t blend_type,
                                  uint32_t blit_alpha) {
   // Custom blend blit pipeline
-  auto* context = scheduler->GetDevice()->GetContext();
+  auto& context = *scheduler->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
   auto* pipeline =
       pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
@@ -100,14 +100,14 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
                                   src_texture->size);
   renderer::Quad::SetPositionRect(&transient_quad, dst_region);
   renderer::Quad::SetColor(&transient_quad, blend_alpha);
-  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
+  scheduler->quad_batch()->QueueWrite(*context, &transient_quad);
 
   // Setup render target
   Diligent::ITextureView* render_target_view = dst_texture->target;
   scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
-  scheduler->GetDevice()->Scissor()->Push(dst_texture->size);
+  context.Scissor()->Push(dst_texture->size);
 
   // Setup uniform params
   scheduler->base_binding()->u_transform->Set(dst_texture->world_buffer);
@@ -130,12 +130,11 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   // Execute render command
   Diligent::DrawIndexedAttribs draw_indexed_attribs;
   draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType =
-      scheduler->GetDevice()->GetQuadIndex()->format();
+  draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
   context->DrawIndexed(draw_indexed_attribs);
 
   // Pop scissor region
-  scheduler->GetDevice()->Scissor()->Pop();
+  context.Scissor()->Pop();
 }
 
 void GPUDestroyTextureInternal(TextureAgent* agent) {
@@ -145,7 +144,7 @@ void GPUDestroyTextureInternal(TextureAgent* agent) {
 void GPUFetchTexturePixelsDataInternal(CanvasScheduler* scheduler,
                                        TextureAgent* agent,
                                        SDL_Surface* surface_cache) {
-  auto* context = scheduler->GetDevice()->GetContext();
+  auto& context = *scheduler->GetContext();
   auto& device = *scheduler->GetDevice();
 
   // Create transient read stage texture
@@ -202,7 +201,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
                                        const base::Vec4& color1,
                                        const base::Vec4& color2,
                                        bool vertical) {
-  auto* context = scheduler->GetDevice()->GetContext();
+  auto& context = *scheduler->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->color;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
@@ -220,14 +219,14 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
     transient_quad.vertices[2].color = color2;
     transient_quad.vertices[3].color = color1;
   }
-  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
+  scheduler->quad_batch()->QueueWrite(*context, &transient_quad);
 
   // Setup render target
   Diligent::ITextureView* render_target_view = agent->target;
   scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
-  scheduler->GetDevice()->Scissor()->Push(agent->size);
+  context.Scissor()->Push(agent->size);
 
   // Setup uniform params
   scheduler->color_binding()->u_transform->Set(agent->world_buffer);
@@ -249,12 +248,11 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   // Execute render command
   Diligent::DrawIndexedAttribs draw_indexed_attribs;
   draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType =
-      scheduler->GetDevice()->GetQuadIndex()->format();
+  draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
   context->DrawIndexed(draw_indexed_attribs);
 
   // Pop scissor
-  scheduler->GetDevice()->Scissor()->Pop();
+  context.Scissor()->Pop();
 }
 
 void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
@@ -263,7 +261,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
                                       SDL_Surface* text,
                                       float opacity,
                                       int32_t align) {
-  auto* context = scheduler->GetDevice()->GetContext();
+  auto& context = *scheduler->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->base;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
@@ -322,14 +320,14 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
                                   agent->text_cache_size);
   renderer::Quad::SetPositionRect(&transient_quad, compose_position);
   renderer::Quad::SetColor(&transient_quad, blend_alpha);
-  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
+  scheduler->quad_batch()->QueueWrite(*context, &transient_quad);
 
   // Setup render target
   Diligent::ITextureView* render_target_view = agent->target;
   scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
-  scheduler->GetDevice()->Scissor()->Push(agent->size);
+  context.Scissor()->Push(agent->size);
 
   // Setup uniform params
   scheduler->base_binding()->u_transform->Set(agent->world_buffer);
@@ -354,18 +352,17 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   // Execute render command
   Diligent::DrawIndexedAttribs draw_indexed_attribs;
   draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType =
-      scheduler->GetDevice()->GetQuadIndex()->format();
+  draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
   context->DrawIndexed(draw_indexed_attribs);
 
   // Pop scissor
-  scheduler->GetDevice()->Scissor()->Pop();
+  context.Scissor()->Pop();
 }
 
 void GPUCanvasHueChange(CanvasScheduler* scheduler,
                         TextureAgent* agent,
                         int32_t hue) {
-  auto* context = scheduler->GetDevice()->GetContext();
+  auto& context = *scheduler->GetContext();
   auto& pipeline_set = scheduler->GetDevice()->GetPipelines()->bitmaphue;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NO_BLEND);
 
@@ -391,14 +388,14 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
                            ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
                            : base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
   renderer::Quad::SetColor(&transient_quad, base::Vec4(hue / 360.0f));
-  scheduler->quad_batch()->QueueWrite(context, &transient_quad);
+  scheduler->quad_batch()->QueueWrite(*context, &transient_quad);
 
   // Setup render target
   Diligent::ITextureView* render_target_view = agent->target;
   scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
-  scheduler->GetDevice()->Scissor()->Push(agent->size);
+  context.Scissor()->Push(agent->size);
 
   // Setup uniform params
   agent->hue_binding->u_texture->Set(agent->effect_layer->GetDefaultView(
@@ -421,12 +418,11 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
   // Execute render command
   Diligent::DrawIndexedAttribs draw_indexed_attribs;
   draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType =
-      scheduler->GetDevice()->GetQuadIndex()->format();
+  draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
   context->DrawIndexed(draw_indexed_attribs);
 
   // Pop scissor
-  scheduler->GetDevice()->Scissor()->Pop();
+  context.Scissor()->Pop();
 }
 
 }  // namespace

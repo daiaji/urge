@@ -6,6 +6,8 @@ cmake_minimum_required(VERSION 3.20.1)
 #--------------------------------------------------------------------------------
 
 set(ENGINE_RENDERER_SRC
+  context/render_context.cc
+  context/render_context.h
   context/scissor_controller.cc
   context/scissor_controller.h
   device/render_device.cc

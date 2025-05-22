@@ -83,14 +83,16 @@ void GPUCreateGraphicsHostInternal(RenderGraphicsAgent* agent,
                                    filesystem::IOService* io_service,
                                    const base::Vec2i& resolution) {
   // Create primary device on window widget
-  agent->device = renderer::RenderDevice::Create(
+  auto [render_device, render_context] = renderer::RenderDevice::Create(
       window,
       magic_enum::enum_cast<renderer::DriverType>(profile->driver_backend)
           .value_or(renderer::DriverType::UNDEFINED));
+  agent->device = std::move(render_device);
+  agent->context = std::move(render_context);
 
   // Create global canvas scheduler
   agent->canvas_scheduler = CanvasScheduler::MakeInstance(
-      render_worker, agent->device.get(), io_service);
+      render_worker, agent->device.get(), agent->context.get(), io_service);
 
   // Create global sprite batch scheduler
   if (agent->device->GetPipelines()->sprite.storage_buffer_support)
@@ -110,7 +112,7 @@ void GPUCreateGraphicsHostInternal(RenderGraphicsAgent* agent,
 
   // If the swap chain color buffer format is a non-sRGB UNORM format,
   // we need to manually convert pixel shader output to gamma space.
-  auto* swapchain = agent->device->GetSwapchain();
+  auto* swapchain = agent->device->GetSwapChain();
   const auto& swapchain_desc = swapchain->GetDesc();
   const auto srgb_framebuffer =
       Diligent::GetTextureFormatAttribs(swapchain_desc.ColorBufferFormat)
@@ -151,8 +153,8 @@ void GPUPresentScreenBufferInternal(
     bool smooth,
     uint32_t vsync) {
   // Initial device attribute
-  Diligent::IDeviceContext* context = agent->device->GetContext();
-  Diligent::ISwapChain* swapchain = agent->device->GetSwapchain();
+  auto& context = *agent->context;
+  Diligent::ISwapChain* swapchain = agent->device->GetSwapChain();
 
   // Setup render params
   auto* render_target_view = swapchain->GetCurrentBackBufferRTV();
@@ -175,7 +177,7 @@ void GPUPresentScreenBufferInternal(
     renderer::Quad::SetTexCoordRectNorm(
         &transient_quad, agent->device->IsUVFlip() ? base::Rect(0, 1, 1, -1)
                                                    : base::Rect(0, 0, 1, 1));
-    present_quads->QueueWrite(context, &transient_quad);
+    present_quads->QueueWrite(*context, &transient_quad);
 
     // Update window screen transform
     renderer::WorldTransform world_matrix;
@@ -214,7 +216,7 @@ void GPUPresentScreenBufferInternal(
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply present scissor
-  agent->device->Scissor()->Apply(screen_size);
+  agent->context->Scissor()->Apply(screen_size);
 
   // Start screen render
   if (agent->present_target) {
@@ -244,13 +246,13 @@ void GPUPresentScreenBufferInternal(
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = 6;
-    draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
     context->DrawIndexed(draw_indexed_attribs);
   }
 
   // Render GUI if need
   if (gui_renderer)
-    gui_renderer->RenderDrawData(context, ImGui::GetDrawData());
+    gui_renderer->RenderDrawData(*context, ImGui::GetDrawData());
 
   // Flush command buffer and present GPU surface
   swapchain->Present(vsync);
@@ -260,7 +262,7 @@ void GPUFrameBeginRenderPassInternal(RenderGraphicsAgent* agent,
                                      Diligent::ITexture** render_target,
                                      const base::Vec2i& resolution,
                                      uint32_t brightness) {
-  auto* context = agent->device->GetContext();
+  auto& context = *agent->context;
 
   // Setup screen effect params
   if (brightness < 255) {
@@ -268,7 +270,7 @@ void GPUFrameBeginRenderPassInternal(RenderGraphicsAgent* agent,
     renderer::Quad::SetPositionRect(&effect_quad, base::Rect(resolution));
     renderer::Quad::SetColor(&effect_quad,
                              base::Vec4(0, 0, 0, (255 - brightness) / 255.0f));
-    agent->effect_quads->QueueWrite(context, &effect_quad);
+    agent->effect_quads->QueueWrite(*context, &effect_quad);
   }
 
   // Setup render pass
@@ -283,12 +285,12 @@ void GPUFrameBeginRenderPassInternal(RenderGraphicsAgent* agent,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Push scissor
-  agent->device->Scissor()->Push(resolution);
+  agent->context->Scissor()->Push(resolution);
 }
 
 void GPUFrameEndRenderPassInternal(RenderGraphicsAgent* agent,
                                    uint32_t brightness) {
-  auto* context = agent->device->GetContext();
+  auto& context = *agent->context;
 
   // Render screen effect if need
   if (brightness < 255) {
@@ -317,18 +319,18 @@ void GPUFrameEndRenderPassInternal(RenderGraphicsAgent* agent,
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = 6;
-    draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
     context->DrawIndexed(draw_indexed_attribs);
   }
 
   // Pop scissor
-  agent->device->Scissor()->Pop();
+  agent->context->Scissor()->Pop();
 }
 
 void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
                                            float progress) {
   // Initial context
-  Diligent::IDeviceContext* context = agent->device->GetContext();
+  auto& context = *agent->context;
 
   // Target UV
   const bool flip_uv = agent->device->IsUVFlip();
@@ -341,7 +343,7 @@ void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
                                   base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
   renderer::Quad::SetTexCoordRectNorm(&transient_quad, uv_rect);
   renderer::Quad::SetColor(&transient_quad, base::Vec4(progress));
-  agent->transition_quads->QueueWrite(context, &transient_quad);
+  agent->transition_quads->QueueWrite(*context, &transient_quad);
 
   // Composite transition frame
   auto render_target_view = agent->screen_buffer->GetDefaultView(
@@ -356,7 +358,7 @@ void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
 
   base::Vec2i resolution(agent->screen_buffer->GetDesc().Width,
                          agent->screen_buffer->GetDesc().Height);
-  agent->device->Scissor()->Push(resolution);
+  agent->context->Scissor()->Push(resolution);
 
   // Apply brightness effect
   auto& pipeline_set = agent->device->GetPipelines()->alphatrans;
@@ -389,10 +391,10 @@ void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
   // Execute render command
   Diligent::DrawIndexedAttribs draw_indexed_attribs;
   draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
+  draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
   context->DrawIndexed(draw_indexed_attribs);
 
-  agent->device->Scissor()->Pop();
+  agent->context->Scissor()->Pop();
 }
 
 void GPURenderVagueTransitionFrameInternal(
@@ -401,7 +403,7 @@ void GPURenderVagueTransitionFrameInternal(
     float vague,
     Diligent::ITextureView** trans_mapping) {
   // Initial context
-  Diligent::IDeviceContext* context = agent->device->GetContext();
+  auto& context = *agent->context;
 
   // Target UV
   const bool flip_uv = agent->device->IsUVFlip();
@@ -414,7 +416,7 @@ void GPURenderVagueTransitionFrameInternal(
                                   base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
   renderer::Quad::SetTexCoordRectNorm(&transient_quad, uv_rect);
   renderer::Quad::SetColor(&transient_quad, base::Vec4(vague, 0, 0, progress));
-  agent->transition_quads->QueueWrite(context, &transient_quad);
+  agent->transition_quads->QueueWrite(*context, &transient_quad);
 
   // Composite transition frame
   auto render_target_view = agent->screen_buffer->GetDefaultView(
@@ -429,7 +431,7 @@ void GPURenderVagueTransitionFrameInternal(
 
   base::Vec2i resolution(agent->screen_buffer->GetDesc().Width,
                          agent->screen_buffer->GetDesc().Height);
-  agent->device->Scissor()->Push(resolution);
+  agent->context->Scissor()->Push(resolution);
 
   // Apply brightness effect
   auto& pipeline_set = agent->device->GetPipelines()->mappedtrans;
@@ -465,15 +467,15 @@ void GPURenderVagueTransitionFrameInternal(
   // Execute render command
   Diligent::DrawIndexedAttribs draw_indexed_attribs;
   draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType = agent->device->GetQuadIndex()->format();
+  draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
   context->DrawIndexed(draw_indexed_attribs);
 
-  agent->device->Scissor()->Pop();
+  agent->context->Scissor()->Pop();
 }
 
 void GPUResizeSwapchainInternal(RenderGraphicsAgent* agent,
                                 const base::Vec2i& size) {
-  auto* swapchain = agent->device->GetSwapchain();
+  auto* swapchain = agent->device->GetSwapChain();
   swapchain->Resize(size.x, size.y);
 }
 
@@ -1016,6 +1018,7 @@ void RenderScreenImpl::RenderFrameInternal(Diligent::ITexture** render_target) {
   // Prepare for rendering context
   DrawableNode::RenderControllerParams controller_params;
   controller_params.device = GetDevice();
+  controller_params.context = GetContext();
   controller_params.screen_buffer = render_target;
   controller_params.screen_size = resolution_;
   controller_params.viewport = resolution_;
@@ -1031,7 +1034,7 @@ void RenderScreenImpl::RenderFrameInternal(Diligent::ITexture** render_target) {
         render_worker_,
         base::BindOnce(&SpriteBatch::SubmitBatchDataAndResetCache,
                        base::Unretained(GetSpriteBatch()),
-                       controller_params.device));
+                       controller_params.device, controller_params.context));
 
   // 2) Setup renderpass
   base::ThreadWorker::PostTask(

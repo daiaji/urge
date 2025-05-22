@@ -24,6 +24,7 @@ void GPUDestroyPlaneInternal(PlaneAgent* agent) {
 }
 
 void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
+                                     renderer::RenderContext* context,
                                      PlaneAgent* agent,
                                      TextureAgent* texture,
                                      const base::Rect& src_rect,
@@ -79,25 +80,24 @@ void GPUUpdatePlaneQuadArrayInternal(renderer::RenderDevice* device,
     current_y += item_y;  // Y-axis accumulation
   }
 
-  auto* context = device->GetContext();
   device->GetQuadIndex()->Allocate(quad_size);
   agent->quad_size = quad_size;
-  agent->batch->QueueWrite(context, agent->cache.data(), agent->cache.size());
+  agent->batch->QueueWrite(**context, agent->cache.data(), agent->cache.size());
 
   renderer::Binding_Flat::Params transient_uniform;
   transient_uniform.Color = color;
   transient_uniform.Tone = tone;
-  context->UpdateBuffer(agent->uniform_buffer, 0, sizeof(transient_uniform),
-                        &transient_uniform,
-                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  (*context)->UpdateBuffer(agent->uniform_buffer, 0, sizeof(transient_uniform),
+                           &transient_uniform,
+                           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
+                                    renderer::RenderContext* context,
                                     Diligent::IBuffer** world_binding,
                                     PlaneAgent* agent,
                                     TextureAgent* texture,
                                     int32_t blend_type) {
-  auto* context = device->GetContext();
   auto& pipeline_set = device->GetPipelines()->viewport;
   auto* pipeline =
       pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
@@ -108,24 +108,25 @@ void GPUOnViewportRenderingInternal(renderer::RenderDevice* device,
   agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
   // Apply pipeline state
-  context->SetPipelineState(pipeline);
-  context->CommitShaderResources(
+  (*context)->SetPipelineState(pipeline);
+  (*context)->CommitShaderResources(
       **agent->shader_binding,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply vertex index
   Diligent::IBuffer* const vertex_buffer = **agent->batch;
-  context->SetVertexBuffers(
+  (*context)->SetVertexBuffers(
       0, 1, &vertex_buffer, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->SetIndexBuffer(**device->GetQuadIndex(), 0,
-                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  (*context)->SetIndexBuffer(
+      **device->GetQuadIndex(), 0,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Execute render command
   Diligent::DrawIndexedAttribs draw_indexed_attribs;
   draw_indexed_attribs.NumIndices = 6 * agent->cache.size();
-  draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
-  context->DrawIndexed(draw_indexed_attribs);
+  draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
+  (*context)->DrawIndexed(draw_indexed_attribs);
 }
 
 }  // namespace
@@ -388,14 +389,14 @@ void PlaneImpl::DrawableNodeHandlerInternal(
 
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     screen()->PostTask(base::BindOnce(
-        &GPUUpdatePlaneQuadArrayInternal, params->device, agent_,
-        bitmap_->GetAgent(), src_rect_->AsBaseRect(), params->viewport.Size(),
-        scale_, origin_ + params->origin, opacity_, color_->AsNormColor(),
-        tone_->AsNormColor()));
+        &GPUUpdatePlaneQuadArrayInternal, params->device, params->context,
+        agent_, bitmap_->GetAgent(), src_rect_->AsBaseRect(),
+        params->viewport.Size(), scale_, origin_ + params->origin, opacity_,
+        color_->AsNormColor(), tone_->AsNormColor()));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(base::BindOnce(
-        &GPUOnViewportRenderingInternal, params->device, params->world_binding,
-        agent_, bitmap_->GetAgent(), blend_type_));
+        &GPUOnViewportRenderingInternal, params->device, params->context,
+        params->world_binding, agent_, bitmap_->GetAgent(), blend_type_));
   }
 }
 

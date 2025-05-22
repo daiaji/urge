@@ -22,6 +22,7 @@ void GPUDestroyWindowInternal(WindowAgent* agent) {
 }
 
 void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
+                                         renderer::RenderContext* context,
                                          WindowAgent* agent,
                                          TextureAgent* windowskin,
                                          int32_t scale,
@@ -156,11 +157,12 @@ void GPUCompositeBackgroundLayerInternal(renderer::RenderDevice* device,
                             windowskin->size, quad_ptr);
   }
 
-  agent->background_batch->QueueWrite(device->GetContext(), quad_buffer.data(),
+  agent->background_batch->QueueWrite(**context, quad_buffer.data(),
                                       quad_buffer.size());
 }
 
 void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
+                                      renderer::RenderContext* context,
                                       WindowAgent* agent,
                                       TextureAgent* windowskin,
                                       int32_t scale,
@@ -343,11 +345,12 @@ void GPUCompositeControlLayerInternal(renderer::RenderDevice* device,
     agent->contents_draw_count = 0;
   }
 
-  agent->control_batch->QueueWrite(device->GetContext(), quad_buffer.data(),
+  agent->control_batch->QueueWrite(**context, quad_buffer.data(),
                                    quad_buffer.size());
 }
 
 void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
+                                      renderer::RenderContext* context,
                                       Diligent::IBuffer** world_binding,
                                       const base::Rect& last_viewport,
                                       const base::Vec2i& last_origin,
@@ -355,7 +358,6 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
                                       WindowAgent* agent,
                                       TextureAgent* windowskin) {
   if (agent->background_cache.size()) {
-    auto* context = device->GetContext();
     auto& pipeline_set = device->GetPipelines()->base;
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
@@ -366,38 +368,39 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
     if (!interact_region.width || !interact_region.height)
       return;
 
-    device->Scissor()->Push(interact_region);
+    context->Scissor()->Push(interact_region);
 
     // Setup uniform params
     agent->shader_binding->u_transform->Set(*world_binding);
     agent->shader_binding->u_texture->Set(windowskin->view);
 
     // Apply pipeline state
-    context->SetPipelineState(pipeline);
-    context->CommitShaderResources(
+    (*context)->SetPipelineState(pipeline);
+    (*context)->CommitShaderResources(
         **agent->shader_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Apply vertex index
     Diligent::IBuffer* const vertex_buffer = **agent->background_batch;
-    context->SetVertexBuffers(
+    (*context)->SetVertexBuffers(
         0, 1, &vertex_buffer, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetIndexBuffer(
+    (*context)->SetIndexBuffer(
         **device->GetQuadIndex(), 0,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = 6 * agent->background_cache.size();
-    draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
-    context->DrawIndexed(draw_indexed_attribs);
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
+    (*context)->DrawIndexed(draw_indexed_attribs);
 
-    device->Scissor()->Pop();
+    context->Scissor()->Pop();
   }
 }
 
 void GPURenderControlLayerInternal(renderer::RenderDevice* device,
+                                   renderer::RenderContext* context,
                                    Diligent::IBuffer** world_binding,
                                    const base::Rect& last_viewport,
                                    const base::Vec2i& last_origin,
@@ -407,7 +410,6 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
                                    TextureAgent* contents,
                                    int32_t scale) {
   if (agent->control_draw_count || agent->contents_draw_count) {
-    auto* context = device->GetContext();
     auto& pipeline_set = device->GetPipelines()->base;
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
@@ -420,15 +422,15 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       if (!interact_region.width || !interact_region.height)
         return;
 
-      device->Scissor()->Push(interact_region);
+      context->Scissor()->Push(interact_region);
     }
 
     // Apply vertex index
     Diligent::IBuffer* const vertex_buffer = **agent->control_batch;
-    context->SetVertexBuffers(
+    (*context)->SetVertexBuffers(
         0, 1, &vertex_buffer, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetIndexBuffer(
+    (*context)->SetIndexBuffer(
         **device->GetQuadIndex(), 0,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -438,16 +440,16 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       agent->shader_binding->u_texture->Set(windowskin->view);
 
       // Apply pipeline state
-      context->SetPipelineState(pipeline);
-      context->CommitShaderResources(
+      (*context)->SetPipelineState(pipeline);
+      (*context)->CommitShaderResources(
           **agent->shader_binding,
           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
       // Execute render command
       Diligent::DrawIndexedAttribs draw_indexed_attribs;
       draw_indexed_attribs.NumIndices = 6 * agent->control_draw_count;
-      draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
-      context->DrawIndexed(draw_indexed_attribs);
+      draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
+      (*context)->DrawIndexed(draw_indexed_attribs);
     }
 
     {
@@ -461,7 +463,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       if (!interact_region.width || !interact_region.height)
         return;
 
-      device->Scissor()->Apply(interact_region);
+      context->Scissor()->Apply(interact_region);
     }
 
     if (contents && agent->contents_draw_count) {
@@ -470,20 +472,20 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       agent->shader_binding->u_texture->Set(contents->view);
 
       // Apply pipeline state
-      context->SetPipelineState(pipeline);
-      context->CommitShaderResources(
+      (*context)->SetPipelineState(pipeline);
+      (*context)->CommitShaderResources(
           **agent->shader_binding,
           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
       // Execute render command
       Diligent::DrawIndexedAttribs draw_indexed_attribs;
       draw_indexed_attribs.NumIndices = 6 * agent->contents_draw_count;
-      draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+      draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
       draw_indexed_attribs.FirstIndexLocation = agent->control_draw_count * 6;
-      context->DrawIndexed(draw_indexed_attribs);
+      (*context)->DrawIndexed(draw_indexed_attribs);
     }
 
-    device->Scissor()->Pop();
+    context->Scissor()->Pop();
   }
 }
 
@@ -850,12 +852,12 @@ void WindowImpl::BackgroundNodeHandlerInternal(
   if (windowskin_ && windowskin_->GetAgent()) {
     if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
       screen()->PostTask(base::BindOnce(&GPUCompositeBackgroundLayerInternal,
-                                        params->device, agent_,
+                                        params->device, params->context, agent_,
                                         windowskin_->GetAgent(), scale_, bound_,
                                         stretch_, opacity_, back_opacity_));
     } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
       screen()->PostTask(base::BindOnce(
-          &GPURenderBackgroundLayerInternal, params->device,
+          &GPURenderBackgroundLayerInternal, params->device, params->context,
           params->world_binding, params->viewport, params->origin, bound_,
           agent_, windowskin_->GetAgent()));
     }
@@ -874,15 +876,15 @@ void WindowImpl::ControlNodeHandlerInternal(
 
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     screen()->PostTask(base::BindOnce(
-        &GPUCompositeControlLayerInternal, params->device, agent_,
-        windowskin_agent, scale_, bound_, cursor_rect_->AsBaseRect(), origin_,
-        contents_agent, pause_, pause_index_, contents_opacity_,
+        &GPUCompositeControlLayerInternal, params->device, params->context,
+        agent_, windowskin_agent, scale_, bound_, cursor_rect_->AsBaseRect(),
+        origin_, contents_agent, pause_, pause_index_, contents_opacity_,
         cursor_opacity_));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(base::BindOnce(
-        &GPURenderControlLayerInternal, params->device, params->world_binding,
-        params->viewport, params->origin, bound_, agent_, windowskin_agent,
-        contents_agent, scale_));
+        &GPURenderControlLayerInternal, params->device, params->context,
+        params->world_binding, params->viewport, params->origin, bound_, agent_,
+        windowskin_agent, contents_agent, scale_));
   }
 }
 

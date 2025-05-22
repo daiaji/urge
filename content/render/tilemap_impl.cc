@@ -320,10 +320,10 @@ void GPUDestroyTilemapInternal(TilemapAgent* agent) {
 
 void GPUMakeAtlasInternal(
     renderer::RenderDevice* device,
+    renderer::RenderContext* context,
     TilemapAgent* agent,
     const base::Vec2i& atlas_size,
     std::vector<TilemapImpl::AtlasCompositeCommand> make_commands) {
-  auto* context = device->GetContext();
   renderer::CreateTexture2D(**device, &agent->atlas_texture, "tilemap.atlas",
                             atlas_size);
   agent->atlas_binding = agent->atlas_texture->GetDefaultView(
@@ -357,17 +357,16 @@ void GPUMakeAtlasInternal(
         it.dst_pos.y + it.src_rect.height > atlas_size.y)
       continue;
 
-    context->CopyTexture(copy_attribs);
+    (*context)->CopyTexture(copy_attribs);
   }
 }
 
 void GPUUploadTilesBatchInternal(
     renderer::RenderDevice* device,
+    renderer::RenderContext* context,
     TilemapAgent* agent,
     std::vector<renderer::Quad> ground_cache,
     std::vector<std::vector<renderer::Quad>> aboves_cache) {
-  auto* context = device->GetContext();
-
   std::vector<renderer::Quad> total_quads;
   agent->ground_draw_count = ground_cache.size();
 
@@ -391,7 +390,7 @@ void GPUUploadTilesBatchInternal(
 
   if (!total_quads.empty()) {
     // Upload data
-    agent->batch->QueueWrite(context, total_quads.data(), total_quads.size());
+    agent->batch->QueueWrite(**context, total_quads.data(), total_quads.size());
 
     // Allocate quad index
     device->GetQuadIndex()->Allocate(offset);
@@ -399,6 +398,7 @@ void GPUUploadTilesBatchInternal(
 }
 
 void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
+                                     renderer::RenderContext* context,
                                      TilemapAgent* agent,
                                      const base::Vec2& offset,
                                      int32_t tilesize,
@@ -412,19 +412,18 @@ void GPUUpdateTilemapUniformInternal(renderer::RenderDevice* device,
   uniform.AnimateIndexAndTileSize.x = anim_index / 16;
   uniform.AnimateIndexAndTileSize.y = tilesize;
 
-  device->GetContext()->UpdateBuffer(
-      agent->uniform_buffer, 0, sizeof(uniform), &uniform,
-      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  (*context)->UpdateBuffer(agent->uniform_buffer, 0, sizeof(uniform), &uniform,
+                           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 }
 
 void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
+                                  renderer::RenderContext* context,
                                   Diligent::IBuffer** world_binding,
                                   TilemapAgent* agent) {
   if (!agent->atlas_texture)
     return;
 
   if (agent->ground_draw_count) {
-    auto* context = device->GetContext();
     auto& pipeline_set = device->GetPipelines()->tilemap;
     auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
@@ -434,29 +433,30 @@ void GPURenderGroundLayerInternal(renderer::RenderDevice* device,
     agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
     // Apply pipeline state
-    context->SetPipelineState(pipeline);
-    context->CommitShaderResources(
+    (*context)->SetPipelineState(pipeline);
+    (*context)->CommitShaderResources(
         **agent->shader_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Apply vertex index
     Diligent::IBuffer* const vertex_buffer = **agent->batch;
-    context->SetVertexBuffers(
+    (*context)->SetVertexBuffers(
         0, 1, &vertex_buffer, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetIndexBuffer(
+    (*context)->SetIndexBuffer(
         **device->GetQuadIndex(), 0,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = 6 * agent->ground_draw_count;
-    draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
-    context->DrawIndexed(draw_indexed_attribs);
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
+    (*context)->DrawIndexed(draw_indexed_attribs);
   }
 }
 
 void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
+                                 renderer::RenderContext* context,
                                  Diligent::IBuffer** world_binding,
                                  TilemapAgent* agent,
                                  int32_t index) {
@@ -469,7 +469,6 @@ void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
       for (int32_t i = 0; i < index; ++i)
         draw_offset += agent->above_draw_count[i];
 
-      auto* context = device->GetContext();
       auto& pipeline_set = device->GetPipelines()->tilemap;
       auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
@@ -479,26 +478,26 @@ void GPURenderAboveLayerInternal(renderer::RenderDevice* device,
       agent->shader_binding->u_params->Set(agent->uniform_buffer);
 
       // Apply pipeline state
-      context->SetPipelineState(pipeline);
-      context->CommitShaderResources(
+      (*context)->SetPipelineState(pipeline);
+      (*context)->CommitShaderResources(
           **agent->shader_binding,
           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
       // Apply vertex index
       Diligent::IBuffer* const vertex_buffer = **agent->batch;
-      context->SetVertexBuffers(
+      (*context)->SetVertexBuffers(
           0, 1, &vertex_buffer, nullptr,
           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-      context->SetIndexBuffer(
+      (*context)->SetIndexBuffer(
           **device->GetQuadIndex(), 0,
           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
       // Execute render command
       Diligent::DrawIndexedAttribs draw_indexed_attribs;
       draw_indexed_attribs.NumIndices = 6 * draw_count;
-      draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+      draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
       draw_indexed_attribs.FirstIndexLocation = draw_offset * 6;
-      context->DrawIndexed(draw_indexed_attribs);
+      (*context)->DrawIndexed(draw_indexed_attribs);
     }
   }
 }
@@ -786,7 +785,8 @@ void TilemapImpl::GroundNodeHandlerInternal(
       base::Vec2i size = MakeAtlasInternal(commands);
 
       screen()->PostTask(base::BindOnce(&GPUMakeAtlasInternal, params->device,
-                                        agent_, size, std::move(commands)));
+                                        params->context, agent_, size,
+                                        std::move(commands)));
       atlas_dirty_ = false;
     }
 
@@ -796,20 +796,20 @@ void TilemapImpl::GroundNodeHandlerInternal(
       std::vector<std::vector<renderer::Quad>> aboves_cache;
       ParseMapDataInternal(ground_cache, aboves_cache);
 
-      screen()->PostTask(
-          base::BindOnce(&GPUUploadTilesBatchInternal, params->device, agent_,
-                         std::move(ground_cache), std::move(aboves_cache)));
+      screen()->PostTask(base::BindOnce(
+          &GPUUploadTilesBatchInternal, params->device, params->context, agent_,
+          std::move(ground_cache), std::move(aboves_cache)));
       map_buffer_dirty_ = false;
     }
 
     // Update tilemap uniform per frame.
     screen()->PostTask(base::BindOnce(&GPUUpdateTilemapUniformInternal,
-                                      params->device, agent_, render_offset_,
-                                      tilesize_, anim_index_));
+                                      params->device, params->context, agent_,
+                                      render_offset_, tilesize_, anim_index_));
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(base::BindOnce(&GPURenderGroundLayerInternal,
-                                      params->device, params->world_binding,
-                                      agent_));
+                                      params->device, params->context,
+                                      params->world_binding, agent_));
   }
 }
 
@@ -818,9 +818,9 @@ void TilemapImpl::AboveNodeHandlerInternal(
     DrawableNode::RenderStage stage,
     DrawableNode::RenderControllerParams* params) {
   if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(base::BindOnce(&GPURenderAboveLayerInternal,
-                                      params->device, params->world_binding,
-                                      agent_, layer_index));
+    screen()->PostTask(base::BindOnce(
+        &GPURenderAboveLayerInternal, params->device, params->context,
+        params->world_binding, agent_, layer_index));
   }
 }
 

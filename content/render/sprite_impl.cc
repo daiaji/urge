@@ -80,6 +80,7 @@ void GPUUpdateWaveSpriteInternal(
 
 void GPUUpdateBatchSpriteInternal(
     renderer::RenderDevice* device,
+    renderer::RenderContext* context,
     SpriteBatch* batch_scheduler,
     SpriteAgent* agent,
     TextureAgent* texture,
@@ -134,25 +135,25 @@ void GPUUpdateBatchSpriteInternal(
       agent->instance_count = 0;
     }
   } else {
-    auto* context = device->GetContext();
-
     if (wave.amp) {
       agent->single_wave_quad_count = agent->wave_cache.size();
       device->GetQuadIndex()->Allocate(agent->single_wave_quad_count);
 
-      agent->single_vertex->QueueWrite(context, agent->wave_cache.data(),
+      agent->single_vertex->QueueWrite(**context, agent->wave_cache.data(),
                                        agent->wave_cache.size());
     } else {
       agent->single_wave_quad_count = 1;
-      agent->single_vertex->QueueWrite(context, &agent->quad);
+      agent->single_vertex->QueueWrite(**context, &agent->quad);
     }
 
-    context->UpdateBuffer(agent->single_uniform, 0, sizeof(uniform), &uniform,
-                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    (*context)->UpdateBuffer(
+        agent->single_uniform, 0, sizeof(uniform), &uniform,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
   }
 }
 
 void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
+                                  renderer::RenderContext* context,
                                   SpriteBatch* batch_scheduler,
                                   Diligent::IBuffer** world_binding,
                                   SpriteAgent* agent,
@@ -161,7 +162,6 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
                                   bool wave_active) {
   if (agent->single_binding) {
     // Single drawcall
-    auto* context = device->GetContext();
     auto& pipeline_set = device->GetPipelines()->sprite;
     auto* pipeline =
         pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
@@ -172,32 +172,31 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
     agent->single_binding->u_param->Set(agent->single_uniform);
 
     // Apply pipeline state
-    context->SetPipelineState(pipeline);
-    context->CommitShaderResources(
+    (*context)->SetPipelineState(pipeline);
+    (*context)->CommitShaderResources(
         **agent->single_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Apply vertex index
     Diligent::IBuffer* const vertex_buffer = **agent->single_vertex;
-    context->SetVertexBuffers(
+    (*context)->SetVertexBuffers(
         0, 1, &vertex_buffer, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetIndexBuffer(
+    (*context)->SetIndexBuffer(
         **device->GetQuadIndex(), 0,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = 6 * agent->single_wave_quad_count;
-    draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
-    context->DrawIndexed(draw_indexed_attribs);
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
+    (*context)->DrawIndexed(draw_indexed_attribs);
 
     return;
   }
 
   if (agent->instance_count) {
     // Batch draw
-    auto* context = device->GetContext();
     auto& pipeline_set = device->GetPipelines()->sprite;
     auto* pipeline =
         pipeline_set.GetPipeline(static_cast<renderer::BlendType>(blend_type));
@@ -209,26 +208,26 @@ void GPUOnSpriteRenderingInternal(renderer::RenderDevice* device,
         batch_scheduler->GetUniformBinding());
 
     // Apply pipeline state
-    context->SetPipelineState(pipeline);
-    context->CommitShaderResources(
+    (*context)->SetPipelineState(pipeline);
+    (*context)->CommitShaderResources(
         **batch_scheduler->GetShaderBinding(),
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Apply vertex index
     Diligent::IBuffer* const vertex_buffer = batch_scheduler->GetVertexBuffer();
-    context->SetVertexBuffers(
+    (*context)->SetVertexBuffers(
         0, 1, &vertex_buffer, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->SetIndexBuffer(
+    (*context)->SetIndexBuffer(
         **device->GetQuadIndex(), 0,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = 6 * agent->instance_count;
-    draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
     draw_indexed_attribs.FirstIndexLocation = 6 * agent->instance_offset;
-    context->DrawIndexed(draw_indexed_attribs);
+    (*context)->DrawIndexed(draw_indexed_attribs);
   }
 }
 
@@ -725,17 +724,17 @@ void SpriteImpl::DrawableNodeHandlerInternal(
         GetOtherRenderBatchableTextureInternal(next_sprite);
 
     screen()->PostTask(base::BindOnce(
-        &GPUUpdateBatchSpriteInternal, params->device,
+        &GPUUpdateBatchSpriteInternal, params->device, params->context,
         screen()->GetSpriteBatch(), agent_, current_texture, next_texture,
         wave_, uniform_params_, src_rect, mirror_, src_rect_dirty_));
 
     wave_.dirty = false;
     src_rect_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
-    screen()->PostTask(
-        base::BindOnce(&GPUOnSpriteRenderingInternal, params->device,
-                       screen()->GetSpriteBatch(), params->world_binding,
-                       agent_, current_texture, blend_type_, !!wave_.amp));
+    screen()->PostTask(base::BindOnce(
+        &GPUOnSpriteRenderingInternal, params->device, params->context,
+        screen()->GetSpriteBatch(), params->world_binding, agent_,
+        current_texture, blend_type_, !!wave_.amp));
   }
 }
 

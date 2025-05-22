@@ -8,6 +8,7 @@
 #include "base/worker/thread_worker.h"
 #include "components/filesystem/io_service.h"
 #include "content/canvas/canvas_impl.h"
+#include "renderer/context/render_context.h"
 #include "renderer/device/render_device.h"
 #include "renderer/resource/render_buffer.h"
 
@@ -15,19 +16,21 @@ namespace content {
 
 class CanvasScheduler {
  public:
-  ~CanvasScheduler();
-
-  CanvasScheduler(const CanvasScheduler&) = delete;
-  CanvasScheduler& operator=(const CanvasScheduler&) = delete;
-
   // All bitmap/canvas draw command will be encoded on this worker.
   // If worker set to null, it will be executed immediately on caller thread.
   static std::unique_ptr<CanvasScheduler> MakeInstance(
       base::ThreadWorker* worker,
       renderer::RenderDevice* device,
+      renderer::RenderContext* context,
       filesystem::IOService* io_service);
 
+  ~CanvasScheduler();
+
+  CanvasScheduler(const CanvasScheduler&) = delete;
+  CanvasScheduler& operator=(const CanvasScheduler&) = delete;
+
   renderer::RenderDevice* GetDevice() const;
+  renderer::RenderContext* GetContext() const;
   filesystem::IOService* GetIOService() const;
 
   // Sync all pending command to device queue,
@@ -51,11 +54,13 @@ class CanvasScheduler {
   friend class CanvasImpl;
   CanvasScheduler(base::ThreadWorker* worker,
                   renderer::RenderDevice* device,
+                  renderer::RenderContext* context,
                   filesystem::IOService* io_service);
 
   base::LinkedList<CanvasImpl> children_;
 
   renderer::RenderDevice* device_;
+  renderer::RenderContext* context_;
   base::ThreadWorker* render_worker_;
   filesystem::IOService* io_service_;
 

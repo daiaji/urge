@@ -51,17 +51,19 @@ void SpriteBatch::EndBatch(uint32_t* instance_offset,
   last_batch_index_ = -1;
 }
 
-void SpriteBatch::SubmitBatchDataAndResetCache(renderer::RenderDevice* device) {
+void SpriteBatch::SubmitBatchDataAndResetCache(
+    renderer::RenderDevice* device,
+    renderer::RenderContext* context) {
   // Setup index buffer
   device_->GetQuadIndex()->Allocate(uniform_cache_.size());
 
   // Upload data and rebuild binding
   if (quad_cache_.size())
-    vertex_batch_->QueueWrite(device->GetContext(), quad_cache_.data(),
+    vertex_batch_->QueueWrite(**context, quad_cache_.data(),
                               quad_cache_.size());
 
   if (uniform_cache_.size()) {
-    uniform_batch_->QueueWrite(device->GetContext(), uniform_cache_.data(),
+    uniform_batch_->QueueWrite(**context, uniform_cache_.data(),
                                uniform_cache_.size());
     uniform_binding_ =
         (**uniform_batch_)

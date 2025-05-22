@@ -106,9 +106,6 @@ class URGE_RUNTIME_API SpineSprite : public base::RefCounted<SpineSprite> {
   /*--urge(name:zoom_y)--*/
   URGE_EXPORT_ATTRIBUTE(ZoomY, float);
 
-  /*--urge(name:opacity)--*/
-  URGE_EXPORT_ATTRIBUTE(Opacity, int32_t);
-
   /*--urge(name:mix)--*/
   URGE_EXPORT_ATTRIBUTE(Mix, float);
 };

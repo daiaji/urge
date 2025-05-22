@@ -24,6 +24,8 @@ namespace content {
 
 struct RenderGraphicsAgent {
   std::unique_ptr<renderer::RenderDevice> device;
+  std::unique_ptr<renderer::RenderContext> context;
+
   std::unique_ptr<CanvasScheduler> canvas_scheduler;
   std::unique_ptr<SpriteBatch> sprite_batch;
 
@@ -95,6 +97,7 @@ class RenderScreenImpl : public Graphics, public DisposableCollection {
   base::Vec2i GetResolution() const { return resolution_; }
 
   renderer::RenderDevice* GetDevice() const { return agent_->device.get(); }
+  renderer::RenderContext* GetContext() const { return agent_->context.get(); }
   SpriteBatch* GetSpriteBatch() const { return agent_->sprite_batch.get(); }
   ScopedFontData* GetScopedFontContext() const { return scoped_font_; }
   CanvasScheduler* GetCanvasScheduler() const {

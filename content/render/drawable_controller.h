@@ -86,6 +86,10 @@ class DrawableNode final : public base::LinkNode<DrawableNode> {
     renderer::RenderDevice* device = nullptr;
 
     // [Stage: all]
+    // Immediate rendering context.
+    renderer::RenderContext* context = nullptr;
+
+    // [Stage: all]
     // Abstract "screen" render buffer.
     Diligent::ITexture** screen_buffer = nullptr;
 

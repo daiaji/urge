@@ -9,6 +9,7 @@
 
 #include "spine/spine.h"
 
+#include "base/worker/thread_worker.h"
 #include "components/filesystem/io_service.h"
 #include "renderer/device/render_device.h"
 #include "renderer/pipeline/render_pipeline.h"
@@ -21,9 +22,15 @@ using SpineVertexBatch = renderer::BatchBuffer<renderer::SpineVertex,
                                                Diligent::CPU_ACCESS_NONE,
                                                Diligent::USAGE_DEFAULT>;
 
+struct SpineRendererAgent {
+  std::unique_ptr<SpineVertexBatch> vertex_batch;
+  std::unique_ptr<renderer::Binding_Base> shader_binding;
+};
+
 class DiligentTextureLoader : public TextureLoader {
  public:
   DiligentTextureLoader(renderer::RenderDevice* device,
+                        base::ThreadWorker* worker,
                         filesystem::IOService* io_service);
   ~DiligentTextureLoader() override;
 
@@ -35,6 +42,7 @@ class DiligentTextureLoader : public TextureLoader {
 
  private:
   renderer::RenderDevice* device_;
+  base::ThreadWorker* worker_;
   filesystem::IOService* io_service_;
 };
 
@@ -47,6 +55,7 @@ class DiligentRenderer {
 
   static std::unique_ptr<DiligentRenderer> Create(
       renderer::RenderDevice* device,
+      base::ThreadWorker* worker,
       SkeletonData* skeleton_data,
       AnimationStateData* animation_state_data);
 
@@ -57,13 +66,14 @@ class DiligentRenderer {
 
  private:
   DiligentRenderer(renderer::RenderDevice* device,
+                   base::ThreadWorker* worker,
                    SkeletonData* skeleton_data,
                    AnimationStateData* animation_state_data);
 
   renderer::RenderDevice* device_;
+  base::ThreadWorker* worker_;
+  SpineRendererAgent* agent_;
   std::vector<renderer::SpineVertex> vertex_cache_;
-  std::unique_ptr<SpineVertexBatch> vertex_batch_;
-  std::unique_ptr<renderer::Binding_Base> shader_binding_;
 
   std::unique_ptr<Skeleton> skeleton_;
   std::unique_ptr<AnimationState> animation_state_;

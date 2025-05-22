@@ -64,6 +64,8 @@ set(ENGINE_CONTENT_SRC
   render/drawable_controller.h
   render/plane_impl.cc
   render/plane_impl.h
+  render/spinesprite_impl.cc
+  render/spinesprite_impl.h
   render/sprite_batch.cc
   render/sprite_batch.h
   render/sprite_impl.cc

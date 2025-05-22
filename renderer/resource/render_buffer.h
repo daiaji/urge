@@ -8,7 +8,6 @@
 #include <cstring>
 #include <memory>
 
-#include "Common/interface/RefCntAutoPtr.hpp"
 #include "Graphics/GraphicsEngine/interface/Buffer.h"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
@@ -20,28 +19,30 @@ namespace renderer {
 
 class QuadIndexCache {
  public:
-  ~QuadIndexCache() = default;
-
-  QuadIndexCache(const QuadIndexCache&) = delete;
-  QuadIndexCache& operator=(const QuadIndexCache&) = delete;
+  using IndexFormat = uint16_t;
+  static const Diligent::VALUE_TYPE kValueType =
+      Diligent::VALUE_TYPE::VT_UINT16;
 
   // Make quad index(6) buffer cache
   static std::unique_ptr<QuadIndexCache> Make(
-      Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device);
+      RRefPtr<Diligent::IRenderDevice> device);
+
+  ~QuadIndexCache();
+
+  QuadIndexCache(const QuadIndexCache&) = delete;
+  QuadIndexCache& operator=(const QuadIndexCache&) = delete;
 
   // Allocate a new capacity index buffer for drawcall using,
   // |quadrangle_size| is the count not the byte size.
   void Allocate(size_t quadrangle_size);
 
-  Diligent::RefCntAutoPtr<Diligent::IBuffer>& operator*() { return buffer_; }
-  Diligent::VALUE_TYPE format() const { return format_; }
+  RRefPtr<Diligent::IBuffer>& operator*() { return buffer_; }
 
  private:
-  QuadIndexCache(Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device);
+  QuadIndexCache(RRefPtr<Diligent::IRenderDevice> device);
 
-  Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
-  Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer_;
-  Diligent::VALUE_TYPE format_;
+  RRefPtr<Diligent::IRenderDevice> device_;
+  RRefPtr<Diligent::IBuffer> buffer_;
 
   std::vector<uint16_t> cache_;
 };
@@ -61,7 +62,7 @@ class BatchBuffer {
 
   static std::unique_ptr<BatchBuffer> Make(Diligent::IRenderDevice* device,
                                            size_t initial_count = 0) {
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer;
+    RRefPtr<Diligent::IBuffer> buffer;
 
     if (initial_count > 0) {
       Diligent::BufferDesc buffer_desc;
@@ -108,7 +109,7 @@ class BatchBuffer {
 
  private:
   BatchBuffer(Diligent::IRenderDevice* device,
-              Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer)
+              RRefPtr<Diligent::IBuffer> buffer)
       : device_(device), buffer_(buffer) {}
 
   static void MakeBufferDesc(Diligent::BufferDesc& buffer_desc,
@@ -123,7 +124,7 @@ class BatchBuffer {
   }
 
   Diligent::IRenderDevice* device_;
-  Diligent::RefCntAutoPtr<Diligent::IBuffer> buffer_;
+  RRefPtr<Diligent::IBuffer> buffer_;
 };
 
 using QuadBatch = BatchBuffer<Quad,

@@ -27,6 +27,7 @@ void GPUDestroyWindowInternal(Window2Agent* agent) {
 }
 
 void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
+                                     renderer::RenderContext* context,
                                      Window2Agent* agent,
                                      const base::Rect& bound,
                                      int32_t scale,
@@ -47,8 +48,6 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
                                      const base::Vec4& tone,
                                      bool rgss3,
                                      bool background_dirty) {
-  auto* context = device->GetContext();
-
   // Create texture if need
   if (windowskin) {
     if (!agent->background_texture ||
@@ -192,13 +191,14 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
             bound.height - 16 * scale, windowskin->size, quad_ptr);
       }
 
-      agent->background_batch->QueueWrite(context, quads.data(), quads.size());
+      agent->background_batch->QueueWrite(**context, quads.data(),
+                                          quads.size());
 
       renderer::Binding_Flat::Params uniform;
       uniform.Color = base::Vec4();
       uniform.Tone = tone;
 
-      context->UpdateBuffer(
+      (*context)->UpdateBuffer(
           agent->uniform_buffer, 0, sizeof(uniform), &uniform,
           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -215,14 +215,14 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         float clear_color[] = {0, 0, 0, 0};
         auto* render_target_view = agent->background_texture->GetDefaultView(
             Diligent::TEXTURE_VIEW_RENDER_TARGET);
-        context->SetRenderTargets(
+        (*context)->SetRenderTargets(
             1, &render_target_view, nullptr,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        context->ClearRenderTarget(
+        (*context)->ClearRenderTarget(
             render_target_view, clear_color,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        device->Scissor()->Apply(bound.Size());
+        context->Scissor()->Apply(bound.Size());
         device->GetQuadIndex()->Allocate(quads.size() + 20);
 
         // Create binding
@@ -241,16 +241,16 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
 
         // Apply vertex index
         Diligent::IBuffer* const vertex_buffer = **agent->background_batch;
-        context->SetVertexBuffers(
+        (*context)->SetVertexBuffers(
             0, 1, &vertex_buffer, nullptr,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        context->SetIndexBuffer(
+        (*context)->SetIndexBuffer(
             **device->GetQuadIndex(), 0,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
         // Apply pipeline state
-        context->SetPipelineState(pipeline_tone);
-        context->CommitShaderResources(
+        (*context)->SetPipelineState(pipeline_tone);
+        (*context)->CommitShaderResources(
             **flat_binding,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -258,13 +258,13 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         {
           Diligent::DrawIndexedAttribs draw_indexed_attribs;
           draw_indexed_attribs.NumIndices = 6;
-          draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
-          context->DrawIndexed(draw_indexed_attribs);
+          draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
+          (*context)->DrawIndexed(draw_indexed_attribs);
         }
 
         // Apply pipeline state
-        context->SetPipelineState(pipeline_tone_alpha);
-        context->CommitShaderResources(
+        (*context)->SetPipelineState(pipeline_tone_alpha);
+        (*context)->CommitShaderResources(
             **flat_binding,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -272,14 +272,14 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
         {
           Diligent::DrawIndexedAttribs draw_indexed_attribs;
           draw_indexed_attribs.NumIndices = background_draw_count * 6;
-          draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+          draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
           draw_indexed_attribs.FirstIndexLocation = 6;
-          context->DrawIndexed(draw_indexed_attribs);
+          (*context)->DrawIndexed(draw_indexed_attribs);
         }
 
         // Apply pipeline state
-        context->SetPipelineState(pipeline_base);
-        context->CommitShaderResources(
+        (*context)->SetPipelineState(pipeline_base);
+        (*context)->CommitShaderResources(
             **base_binding,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -289,9 +289,9 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
           Diligent::DrawIndexedAttribs draw_indexed_attribs;
           draw_indexed_attribs.NumIndices =
               (quads.size() - background_draw_count) * 6;
-          draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+          draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
           draw_indexed_attribs.FirstIndexLocation = background_draw_count * 6;
-          context->DrawIndexed(draw_indexed_attribs);
+          (*context)->DrawIndexed(draw_indexed_attribs);
         }
       }
     }
@@ -502,11 +502,12 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
     }
 
     // Uplopad data
-    agent->controls_batch->QueueWrite(context, quads.data(), quads.size());
+    agent->controls_batch->QueueWrite(**context, quads.data(), quads.size());
   }
 }
 
 void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
+                                  renderer::RenderContext* context,
                                   Diligent::IBuffer** world_binding,
                                   Window2Agent* agent,
                                   TextureAgent* windowskin,
@@ -515,7 +516,6 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
                                   const base::Rect& padding_rect,
                                   const base::Rect& last_viewport,
                                   const base::Vec2i& last_origin) {
-  auto* context = device->GetContext();
   auto& pipeline_set = device->GetPipelines()->base;
   auto* pipeline = pipeline_set.GetPipeline(renderer::BlendType::NORMAL);
 
@@ -524,14 +524,15 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
 
   // Apply vertex index
   Diligent::IBuffer* const vertex_buffer = **agent->controls_batch;
-  context->SetVertexBuffers(
+  (*context)->SetVertexBuffers(
       0, 1, &vertex_buffer, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->SetIndexBuffer(**device->GetQuadIndex(), 0,
-                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  (*context)->SetIndexBuffer(
+      **device->GetQuadIndex(), 0,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply pipeline state
-  context->SetPipelineState(pipeline);
+  (*context)->SetPipelineState(pipeline);
 
   int32_t count = 0;
   if (agent->background_draw_count > 0) {
@@ -539,16 +540,16 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
     agent->shader_binding->u_texture->Set(
         agent->background_texture->GetDefaultView(
             Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
-    context->CommitShaderResources(
+    (*context)->CommitShaderResources(
         **agent->shader_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = agent->background_draw_count * 6;
-    draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
     draw_indexed_attribs.FirstIndexLocation = count * 6;
-    context->DrawIndexed(draw_indexed_attribs);
+    (*context)->DrawIndexed(draw_indexed_attribs);
 
     count += agent->background_draw_count;
   }
@@ -556,16 +557,16 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
   if (agent->controls_draw_count > 0) {
     // Setup texture
     agent->shader_binding->u_texture->Set(windowskin->view);
-    context->CommitShaderResources(
+    (*context)->CommitShaderResources(
         **agent->shader_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = agent->controls_draw_count * 6;
-    draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
     draw_indexed_attribs.FirstIndexLocation = count * 6;
-    context->DrawIndexed(draw_indexed_attribs);
+    (*context)->DrawIndexed(draw_indexed_attribs);
 
     count += agent->controls_draw_count;
   }
@@ -578,21 +579,21 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
   if (!scissor_region.width || !scissor_region.height)
     return;
 
-  device->Scissor()->Push(scissor_region);
+  context->Scissor()->Push(scissor_region);
 
   if (agent->cursor_draw_count > 0) {
     // Setup texture
     agent->shader_binding->u_texture->Set(windowskin->view);
-    context->CommitShaderResources(
+    (*context)->CommitShaderResources(
         **agent->shader_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = agent->cursor_draw_count * 6;
-    draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
     draw_indexed_attribs.FirstIndexLocation = count * 6;
-    context->DrawIndexed(draw_indexed_attribs);
+    (*context)->DrawIndexed(draw_indexed_attribs);
 
     count += agent->cursor_draw_count;
   }
@@ -600,19 +601,19 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
   if (agent->contents_draw_count > 0) {
     // Setup texture
     agent->shader_binding->u_texture->Set(contents->view);
-    context->CommitShaderResources(
+    (*context)->CommitShaderResources(
         **agent->shader_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Execute render command
     Diligent::DrawIndexedAttribs draw_indexed_attribs;
     draw_indexed_attribs.NumIndices = agent->contents_draw_count * 6;
-    draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
+    draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
     draw_indexed_attribs.FirstIndexLocation = count * 6;
-    context->DrawIndexed(draw_indexed_attribs);
+    (*context)->DrawIndexed(draw_indexed_attribs);
   }
 
-  device->Scissor()->Pop();
+  context->Scissor()->Pop();
 }
 
 }  // namespace
@@ -1112,17 +1113,18 @@ void Window2Impl::DrawableNodeHandlerInternal(
 
   if (stage == DrawableNode::RenderStage::BEFORE_RENDER) {
     screen()->PostTask(base::BindOnce(
-        &GPUCompositeWindowQuadsInternal, params->device, agent_, bound_,
-        scale_, pause_, active_, arrows_visible_, opacity_, openness_,
-        back_opacity_, contents_opacity_, pause_index_, cursor_opacity_,
-        contents_agent, windowskin_agent, origin_, cursor_rect_->AsBaseRect(),
-        padding_rect, tone_->AsNormColor(), rgss3_style_, background_dirty_));
+        &GPUCompositeWindowQuadsInternal, params->device, params->context,
+        agent_, bound_, scale_, pause_, active_, arrows_visible_, opacity_,
+        openness_, back_opacity_, contents_opacity_, pause_index_,
+        cursor_opacity_, contents_agent, windowskin_agent, origin_,
+        cursor_rect_->AsBaseRect(), padding_rect, tone_->AsNormColor(),
+        rgss3_style_, background_dirty_));
     background_dirty_ = false;
   } else if (stage == DrawableNode::RenderStage::ON_RENDERING) {
     screen()->PostTask(base::BindOnce(
-        &GPURenderWindowQuadsInternal, params->device, params->world_binding,
-        agent_, windowskin_agent, contents_agent, bound_, padding_rect,
-        params->viewport, params->origin));
+        &GPURenderWindowQuadsInternal, params->device, params->context,
+        params->world_binding, agent_, windowskin_agent, contents_agent, bound_,
+        padding_rect, params->viewport, params->origin));
   }
 }
 

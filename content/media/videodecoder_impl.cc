@@ -45,11 +45,10 @@ void GPUDestroyYUVFramesInternal(VideoDecoderAgent* agent) {
 }
 
 void GPURenderYUVInternal(renderer::RenderDevice* device,
+                          renderer::RenderContext* context,
                           VideoDecoderAgent* agent,
                           std::unique_ptr<uvpx::Frame> data,
                           TextureAgent* target) {
-  auto* context = device->GetContext();
-
   // Update yuv planes
   Diligent::Box dest_box;
   Diligent::TextureSubResData sub_res_data;
@@ -58,25 +57,28 @@ void GPURenderYUVInternal(renderer::RenderDevice* device,
   dest_box.MaxY = agent->y->GetDesc().Height;
   sub_res_data.pData = data->plane(0);
   sub_res_data.Stride = data->width(0);
-  context->UpdateTexture(agent->y, 0, 0, dest_box, sub_res_data,
-                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  (*context)->UpdateTexture(
+      agent->y, 0, 0, dest_box, sub_res_data,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   dest_box.MaxX = agent->u->GetDesc().Width;
   dest_box.MaxY = agent->u->GetDesc().Height;
   sub_res_data.pData = data->plane(1);
   sub_res_data.Stride = data->width(1);
-  context->UpdateTexture(agent->u, 0, 0, dest_box, sub_res_data,
-                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  (*context)->UpdateTexture(
+      agent->u, 0, 0, dest_box, sub_res_data,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   dest_box.MaxX = agent->v->GetDesc().Width;
   dest_box.MaxY = agent->v->GetDesc().Height;
   sub_res_data.pData = data->plane(2);
   sub_res_data.Stride = data->width(2);
-  context->UpdateTexture(agent->v, 0, 0, dest_box, sub_res_data,
-                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  (*context)->UpdateTexture(
+      agent->v, 0, 0, dest_box, sub_res_data,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Render to target
   auto& pipeline_set = device->GetPipelines()->yuv;
@@ -90,20 +92,20 @@ void GPURenderYUVInternal(renderer::RenderDevice* device,
       &transient_quad, device->IsUVFlip()
                            ? base::RectF(0.0f, 1.0f, 1.0f, -1.0f)
                            : base::RectF(0.0f, 0.0f, 1.0f, 1.0f));
-  agent->batch->QueueWrite(context, &transient_quad);
+  agent->batch->QueueWrite(**context, &transient_quad);
 
   // Setup render target
   auto render_target = target->target;
   float clear_color[] = {0, 0, 0, 0};
-  context->SetRenderTargets(
+  (*context)->SetRenderTargets(
       1, &render_target, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->ClearRenderTarget(
+  (*context)->ClearRenderTarget(
       render_target, clear_color,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Push scissor
-  device->Scissor()->Apply(target->size);
+  context->Scissor()->Apply(target->size);
 
   // Setup uniform params
   agent->shader_binding->u_texture_y->Set(
@@ -114,24 +116,25 @@ void GPURenderYUVInternal(renderer::RenderDevice* device,
       agent->v->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
 
   // Apply pipeline state
-  context->SetPipelineState(pipeline);
-  context->CommitShaderResources(
+  (*context)->SetPipelineState(pipeline);
+  (*context)->CommitShaderResources(
       **agent->shader_binding,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply vertex index
   Diligent::IBuffer* const vertex_buffer = **agent->batch;
-  context->SetVertexBuffers(
+  (*context)->SetVertexBuffers(
       0, 1, &vertex_buffer, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-  context->SetIndexBuffer(**device->GetQuadIndex(), 0,
-                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  (*context)->SetIndexBuffer(
+      **device->GetQuadIndex(), 0,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Execute render command
   Diligent::DrawIndexedAttribs draw_indexed_attribs;
   draw_indexed_attribs.NumIndices = 6;
-  draw_indexed_attribs.IndexType = device->GetQuadIndex()->format();
-  context->DrawIndexed(draw_indexed_attribs);
+  draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
+  (*context)->DrawIndexed(draw_indexed_attribs);
 }
 
 }  // namespace
@@ -287,9 +290,9 @@ void VideoDecoderImpl::Render(scoped_refptr<Bitmap> target,
     yuv->copyData(frame_data.get());
     player_->unlockRead();
 
-    screen()->PostTask(
-        base::BindOnce(&GPURenderYUVInternal, screen()->GetDevice(), agent_,
-                       std::move(frame_data), canvas->GetAgent()));
+    screen()->PostTask(base::BindOnce(
+        &GPURenderYUVInternal, screen()->GetDevice(), screen()->GetContext(),
+        agent_, std::move(frame_data), canvas->GetAgent()));
   }
 }
 

@@ -35,6 +35,7 @@ class SpriteBatch {
   Diligent::IBuffer* GetVertexBuffer() { return **vertex_batch_; }
   Diligent::IBufferView* GetUniformBinding() { return uniform_binding_; }
 
+  // Setup a sprite batch
   void BeginBatch(TextureAgent* texture);
 
   void PushSprite(const renderer::Quad& quad,
@@ -42,7 +43,9 @@ class SpriteBatch {
 
   void EndBatch(uint32_t* instance_offset, uint32_t* instance_count);
 
-  void SubmitBatchDataAndResetCache(renderer::RenderDevice* device);
+  // Summit pending batch data to rendering queue
+  void SubmitBatchDataAndResetCache(renderer::RenderDevice* device,
+                                    renderer::RenderContext* context);
 
  private:
   SpriteBatch(renderer::RenderDevice* device,
