@@ -92,10 +92,10 @@ class URGE_RUNTIME_API SpineSprite : public base::RefCounted<SpineSprite> {
   URGE_EXPORT_ATTRIBUTE(Visible, bool);
 
   /*--urge(name:x)--*/
-  URGE_EXPORT_ATTRIBUTE(X, int32_t);
+  URGE_EXPORT_ATTRIBUTE(X, float);
 
   /*--urge(name:y)--*/
-  URGE_EXPORT_ATTRIBUTE(Y, int32_t);
+  URGE_EXPORT_ATTRIBUTE(Y, float);
 
   /*--urge(name:z)--*/
   URGE_EXPORT_ATTRIBUTE(Z, int32_t);
@@ -105,9 +105,6 @@ class URGE_RUNTIME_API SpineSprite : public base::RefCounted<SpineSprite> {
 
   /*--urge(name:zoom_y)--*/
   URGE_EXPORT_ATTRIBUTE(ZoomY, float);
-
-  /*--urge(name:mix)--*/
-  URGE_EXPORT_ATTRIBUTE(Mix, float);
 };
 
 }  // namespace content

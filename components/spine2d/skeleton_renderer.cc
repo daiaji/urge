@@ -110,15 +110,15 @@ void GPUDestroyRendererDataInternal(SpineRendererAgent* agent) {
 }
 
 void GPUUploadVerticesDataInternal(
-    Diligent::IDeviceContext* context,
+    renderer::RenderContext* context,
     SpineRendererAgent* agent,
     std::vector<renderer::SpineVertex> vertices_data) {
-  agent->vertex_batch->QueueWrite(context, vertices_data.data(),
+  agent->vertex_batch->QueueWrite(**context, vertices_data.data(),
                                   vertices_data.size());
 }
 
 void GPURenderSkeletonCommandsInternal(renderer::RenderDevice* device,
-                                       Diligent::IDeviceContext* context,
+                                       renderer::RenderContext* context,
                                        SpineRendererAgent* agent,
                                        SpineTextureAgent* atlas,
                                        BlendMode blend_mode,
@@ -136,14 +136,14 @@ void GPURenderSkeletonCommandsInternal(renderer::RenderDevice* device,
       atlas->texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
 
   // Apply pipeline state
-  context->SetPipelineState(pipeline);
-  context->CommitShaderResources(
+  (*context)->SetPipelineState(pipeline);
+  (*context)->CommitShaderResources(
       **agent->shader_binding,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply vertex index
   Diligent::IBuffer* const vertex_buffer = **agent->vertex_batch;
-  context->SetVertexBuffers(
+  (*context)->SetVertexBuffers(
       0, 1, &vertex_buffer, nullptr,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
@@ -151,7 +151,7 @@ void GPURenderSkeletonCommandsInternal(renderer::RenderDevice* device,
   Diligent::DrawAttribs draw_indexed_attribs;
   draw_indexed_attribs.NumVertices = num_vertices;
   draw_indexed_attribs.StartVertexLocation = vertices_offset;
-  context->Draw(draw_indexed_attribs);
+  (*context)->Draw(draw_indexed_attribs);
 }
 
 }  // namespace
@@ -204,50 +204,32 @@ void DiligentTextureLoader::unload(void* texture) {
 }
 
 DiligentRenderer::DiligentRenderer(renderer::RenderDevice* device,
-                                   base::ThreadWorker* worker,
-                                   SkeletonData* skeleton_data,
-                                   AnimationStateData* animation_state_data)
+                                   base::ThreadWorker* worker)
     : device_(device),
       worker_(worker),
       agent_(new SpineRendererAgent),
-      skeleton_(std::make_unique<Skeleton>(skeleton_data)),
-      animation_state_(std::make_unique<AnimationState>(
-          animation_state_data ? animation_state_data
-                               : new AnimationStateData(skeleton_data))),
       skeleton_renderer_(std::unique_ptr<SkeletonRenderer>()),
-      pending_commands_(nullptr),
-      owns_animation_state_data_(!animation_state_data) {
+      pending_commands_(nullptr) {
   base::ThreadWorker::PostTask(
       worker_, base::BindOnce(&GPUCreateRendererDataInternal, device, agent_));
 }
 
 DiligentRenderer::~DiligentRenderer() {
-  if (owns_animation_state_data_)
-    delete animation_state_->getData();
-
   base::ThreadWorker::PostTask(
       worker_, base::BindOnce(&GPUDestroyRendererDataInternal, agent_));
 }
 
 std::unique_ptr<DiligentRenderer> DiligentRenderer::Create(
     renderer::RenderDevice* device,
-    base::ThreadWorker* worker,
-    SkeletonData* skeleton_data,
-    AnimationStateData* animation_state_data) {
-  return std::unique_ptr<DiligentRenderer>(new DiligentRenderer(
-      device, worker, skeleton_data, animation_state_data));
+    base::ThreadWorker* worker) {
+  return std::unique_ptr<DiligentRenderer>(
+      new DiligentRenderer(device, worker));
 }
 
-void DiligentRenderer::Update(Diligent::IDeviceContext* context,
-                              float delta,
-                              Physics physics) {
-  animation_state_->update(delta);
-  animation_state_->apply(*skeleton_);
-  skeleton_->update(delta);
-  skeleton_->updateWorldTransform(physics);
-
+void DiligentRenderer::Update(renderer::RenderContext* context,
+                              spine::Skeleton* skeleton) {
   vertex_cache_.clear();
-  pending_commands_ = skeleton_renderer_->render(*skeleton_);
+  pending_commands_ = skeleton_renderer_->render(*skeleton);
   RenderCommand* command = pending_commands_;
   while (command) {
     float* positions = command->positions;
@@ -284,7 +266,7 @@ void DiligentRenderer::Update(Diligent::IDeviceContext* context,
                               vertex_cache_));
 }
 
-void DiligentRenderer::Render(Diligent::IDeviceContext* context,
+void DiligentRenderer::Render(renderer::RenderContext* context,
                               Diligent::IBuffer* world_buffer,
                               bool premultiplied_alpha) {
   uint32_t vertices_offset = 0;

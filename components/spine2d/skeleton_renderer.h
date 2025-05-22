@@ -55,32 +55,22 @@ class DiligentRenderer {
 
   static std::unique_ptr<DiligentRenderer> Create(
       renderer::RenderDevice* device,
-      base::ThreadWorker* worker,
-      SkeletonData* skeleton_data,
-      AnimationStateData* animation_state_data);
+      base::ThreadWorker* worker);
 
-  void Update(Diligent::IDeviceContext* context, float delta, Physics physics);
-  void Render(Diligent::IDeviceContext* context,
+  void Update(renderer::RenderContext* context, spine::Skeleton* skeleton);
+  void Render(renderer::RenderContext* context,
               Diligent::IBuffer* world_buffer,
               bool premultiplied_alpha);
 
  private:
-  DiligentRenderer(renderer::RenderDevice* device,
-                   base::ThreadWorker* worker,
-                   SkeletonData* skeleton_data,
-                   AnimationStateData* animation_state_data);
+  DiligentRenderer(renderer::RenderDevice* device, base::ThreadWorker* worker);
 
   renderer::RenderDevice* device_;
   base::ThreadWorker* worker_;
   SpineRendererAgent* agent_;
   std::vector<renderer::SpineVertex> vertex_cache_;
-
-  std::unique_ptr<Skeleton> skeleton_;
-  std::unique_ptr<AnimationState> animation_state_;
-
   std::unique_ptr<SkeletonRenderer> skeleton_renderer_;
   RenderCommand* pending_commands_;
-  bool owns_animation_state_data_;
 };
 
 }  // namespace spine

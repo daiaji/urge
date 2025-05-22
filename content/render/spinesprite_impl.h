@@ -19,7 +19,10 @@ class SpineSpriteImpl : public SpineSprite,
                         public GraphicsChild,
                         public Disposable {
  public:
-  SpineSpriteImpl(RenderScreenImpl* screen, scoped_refptr<ViewportImpl> parent);
+  SpineSpriteImpl(RenderScreenImpl* screen,
+                  spine::SkeletonData* skeleton_data,
+                  spine::AnimationStateData* animation_state_data,
+                  float default_mix);
   ~SpineSpriteImpl() override;
 
   SpineSpriteImpl(const SpineSpriteImpl&) = delete;
@@ -62,12 +65,11 @@ class SpineSpriteImpl : public SpineSprite,
 
   URGE_EXPORT_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
   URGE_EXPORT_ATTRIBUTE(Visible, bool);
-  URGE_EXPORT_ATTRIBUTE(X, int32_t);
-  URGE_EXPORT_ATTRIBUTE(Y, int32_t);
+  URGE_EXPORT_ATTRIBUTE(X, float);
+  URGE_EXPORT_ATTRIBUTE(Y, float);
   URGE_EXPORT_ATTRIBUTE(Z, int32_t);
   URGE_EXPORT_ATTRIBUTE(ZoomX, float);
   URGE_EXPORT_ATTRIBUTE(ZoomY, float);
-  URGE_EXPORT_ATTRIBUTE(Mix, float);
 
  private:
   void OnObjectDisposed() override;
@@ -78,6 +80,9 @@ class SpineSpriteImpl : public SpineSprite,
 
   DrawableNode node_;
   SpineSpriteAgent* agent_;
+  std::unique_ptr<spine::Skeleton> skeleton_;
+  std::unique_ptr<spine::AnimationState> animation_state_;
+  std::unique_ptr<spine::DiligentRenderer> renderer_;
 
   scoped_refptr<ViewportImpl> viewport_;
 };
