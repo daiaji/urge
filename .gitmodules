@@ -25,3 +25,9 @@
 [submodule "third_party/libyuv"]
 	path = third_party/libyuv
 	url = https://chromium.googlesource.com/libyuv/libyuv
+[submodule "third_party/opusfile"]
+	path = third_party/opusfile
+	url = https://github.com/xiph/opusfile.git
+[submodule "third_party/opus"]
+	path = third_party/opus
+	url = https://github.com/xiph/opus.git
