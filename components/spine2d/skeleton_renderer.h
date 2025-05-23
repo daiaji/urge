@@ -59,7 +59,7 @@ class DiligentRenderer {
 
   void Update(renderer::RenderContext* context, spine::Skeleton* skeleton);
   void Render(renderer::RenderContext* context,
-              Diligent::IBuffer* world_buffer,
+              Diligent::IBuffer** world_buffer,
               bool premultiplied_alpha);
 
  private:

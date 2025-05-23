@@ -114,6 +114,7 @@ target_link_libraries(engine_content
   engine_renderer
   components_filesystem
   components_fpslimiter
+  components_spine2drenderer
   sdl_image_loader
   sdl_ttf_render
   ocornut_imgui

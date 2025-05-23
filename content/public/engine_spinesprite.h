@@ -9,6 +9,7 @@
 #include "content/content_config.h"
 #include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
+#include "content/public/engine_spineevent.h"
 #include "content/public/engine_viewport.h"
 
 namespace content {
@@ -20,10 +21,11 @@ class URGE_RUNTIME_API SpineSprite : public base::RefCounted<SpineSprite> {
  public:
   virtual ~SpineSprite() = default;
 
-  /*--urge(name:initialize)--*/
+  /*--urge(name:initialize,optional:default_mix=0.0f)--*/
   static scoped_refptr<SpineSprite> New(ExecutionContext* execution_context,
                                         const std::string& atlas_filename,
                                         const std::string& skeleton_filename,
+                                        float default_mix,
                                         ExceptionState& exception_state);
 
   /*--urge(name:set_label)--*/
@@ -37,9 +39,10 @@ class URGE_RUNTIME_API SpineSprite : public base::RefCounted<SpineSprite> {
   virtual bool IsDisposed(ExceptionState& exception_state) = 0;
 
   /*--urge(name:update)--*/
-  virtual void Update(ExceptionState& exception_state) = 0;
+  virtual std::vector<scoped_refptr<SpineEvent>> Update(
+      ExceptionState& exception_state) = 0;
 
-  /*--urge(name:set_animation)--*/
+  /*--urge(name:set_animation,optional:loop=true)--*/
   virtual void SetAnimation(int32_t track_index,
                             const std::string& name,
                             bool loop,
@@ -47,7 +50,7 @@ class URGE_RUNTIME_API SpineSprite : public base::RefCounted<SpineSprite> {
 
   /*--urge(name:set_animation_alpha)--*/
   virtual void SetAnimationAlpha(int32_t track_index,
-                                 int32_t alpha,
+                                 float alpha,
                                  ExceptionState& exception_state) = 0;
 
   /*--urge(name:clear_animation)--*/
@@ -60,30 +63,9 @@ class URGE_RUNTIME_API SpineSprite : public base::RefCounted<SpineSprite> {
 
   /*--urge(name:set_bone_position)--*/
   virtual void SetBonePosition(const std::string& bone_name,
-                               int32_t x,
-                               int32_t y,
+                               float x,
+                               float y,
                                ExceptionState& exception_state) = 0;
-
-  /*--urge(name:event_trigger?,optional:peek=false)--*/
-  virtual bool GetEventTriggered(int32_t track_index,
-                                 const std::string& event_name,
-                                 bool peek,
-                                 ExceptionState& exception_state) = 0;
-
-  /*--urge(name:event_int_value)--*/
-  virtual int32_t GetEventIntValue(int32_t track_index,
-                                   const std::string& event_name,
-                                   ExceptionState& exception_state) = 0;
-
-  /*--urge(name:event_float_value)--*/
-  virtual float GetEventFloatValue(int32_t track_index,
-                                   const std::string& event_name,
-                                   ExceptionState& exception_state) = 0;
-
-  /*--urge(name:event_string_value)--*/
-  virtual std::string GetEventStringValue(int32_t track_index,
-                                          const std::string& event_name,
-                                          ExceptionState& exception_state) = 0;
 
   /*--urge(name:viewport)--*/
   URGE_EXPORT_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
@@ -105,6 +87,9 @@ class URGE_RUNTIME_API SpineSprite : public base::RefCounted<SpineSprite> {
 
   /*--urge(name:zoom_y)--*/
   URGE_EXPORT_ATTRIBUTE(ZoomY, float);
+
+  /*--urge(name:premultiplied_alpha)--*/
+  URGE_EXPORT_ATTRIBUTE(PremultipliedAlpha, bool);
 };
 
 }  // namespace content

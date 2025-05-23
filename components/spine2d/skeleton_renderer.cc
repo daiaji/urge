@@ -123,7 +123,7 @@ void GPURenderSkeletonCommandsInternal(renderer::RenderDevice* device,
                                        SpineTextureAgent* atlas,
                                        BlendMode blend_mode,
                                        bool premultiplied_alpha,
-                                       Diligent::IBuffer* world_buffer,
+                                       Diligent::IBuffer** world_buffer,
                                        uint32_t num_vertices,
                                        uint32_t vertices_offset) {
   auto& pipeline_set = device->GetPipelines()->spine2d;
@@ -131,7 +131,7 @@ void GPURenderSkeletonCommandsInternal(renderer::RenderDevice* device,
       RenderBlendTypeWrap(blend_mode, premultiplied_alpha));
 
   // Setup uniform params
-  agent->shader_binding->u_transform->Set(world_buffer);
+  agent->shader_binding->u_transform->Set(*world_buffer);
   agent->shader_binding->u_texture->Set(
       atlas->texture->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
 
@@ -155,6 +155,10 @@ void GPURenderSkeletonCommandsInternal(renderer::RenderDevice* device,
 }
 
 }  // namespace
+
+SpineExtension* getDefaultExtension() {
+  return new DefaultSpineExtension();
+}
 
 DiligentTextureLoader::DiligentTextureLoader(renderer::RenderDevice* device,
                                              base::ThreadWorker* worker,
@@ -187,14 +191,15 @@ void DiligentTextureLoader::load(AtlasPage& page, const String& path) {
     return;
   }
 
+  auto* agent = new SpineTextureAgent;
   page.width = atlas_surface->w;
   page.height = atlas_surface->h;
-  page.texture = new SpineTextureAgent;
+  page.texture = agent;
 
   base::ThreadWorker::PostTask(
-      worker_, base::BindOnce(&GPUCreateTextureInternal, device_, atlas_surface,
-                              page.texture, page.minFilter, page.magFilter,
-                              page.uWrap, page.vWrap));
+      worker_,
+      base::BindOnce(&GPUCreateTextureInternal, device_, atlas_surface, agent,
+                     page.minFilter, page.magFilter, page.uWrap, page.vWrap));
 }
 
 void DiligentTextureLoader::unload(void* texture) {
@@ -208,7 +213,7 @@ DiligentRenderer::DiligentRenderer(renderer::RenderDevice* device,
     : device_(device),
       worker_(worker),
       agent_(new SpineRendererAgent),
-      skeleton_renderer_(std::unique_ptr<SkeletonRenderer>()),
+      skeleton_renderer_(std::make_unique<SkeletonRenderer>()),
       pending_commands_(nullptr) {
   base::ThreadWorker::PostTask(
       worker_, base::BindOnce(&GPUCreateRendererDataInternal, device, agent_));
@@ -267,7 +272,7 @@ void DiligentRenderer::Update(renderer::RenderContext* context,
 }
 
 void DiligentRenderer::Render(renderer::RenderContext* context,
-                              Diligent::IBuffer* world_buffer,
+                              Diligent::IBuffer** world_buffer,
                               bool premultiplied_alpha) {
   uint32_t vertices_offset = 0;
   RenderCommand* command = pending_commands_;

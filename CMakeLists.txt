@@ -77,7 +77,6 @@ add_subdirectory(third_party/zlib)
 include_directories(third_party/zlib)
 
 ## Diligent Engine
-set(DILIGENT_LOAD_PIX_EVENT_RUNTIME ON)
 add_subdirectory(third_party/DiligentCore)
 include_directories(third_party/DiligentCore)
 

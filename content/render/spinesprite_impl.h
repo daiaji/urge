@@ -13,16 +13,50 @@
 
 namespace content {
 
-struct SpineSpriteAgent {};
+class SpineEventImpl : public SpineEvent {
+ public:
+  SpineEventImpl(spine::EventType type,
+                 spine::Event* event,
+                 spine::TrackEntry* track_entry);
+  ~SpineEventImpl() override;
+
+  SpineEventImpl(const SpineEventImpl&) = delete;
+  SpineEventImpl& operator=(const SpineEventImpl&) = delete;
+
+ public:
+  Type GetType(ExceptionState& exception_state) override;
+  std::string GetName(ExceptionState& exception_state) override;
+  int32_t GetTrackIndex(ExceptionState& exception_state) override;
+  float GetTime(ExceptionState& exception_state) override;
+  int32_t GetIntValue(ExceptionState& exception_state) override;
+  float GetFloatValue(ExceptionState& exception_state) override;
+  std::string GetStringValue(ExceptionState& exception_state) override;
+  float GetVolume(ExceptionState& exception_state) override;
+  float GetBalance(ExceptionState& exception_state) override;
+
+ private:
+  spine::EventType type_;
+  std::string name_;
+  int32_t track_index_;
+  float time_;
+  int32_t int_value_;
+  float float_value_;
+  std::string string_value_;
+  float volume_;
+  float balance_;
+};
 
 class SpineSpriteImpl : public SpineSprite,
                         public GraphicsChild,
-                        public Disposable {
+                        public Disposable,
+                        public spine::AnimationStateListenerObject {
  public:
-  SpineSpriteImpl(RenderScreenImpl* screen,
-                  spine::SkeletonData* skeleton_data,
-                  spine::AnimationStateData* animation_state_data,
-                  float default_mix);
+  SpineSpriteImpl(
+      RenderScreenImpl* screen,
+      std::unique_ptr<spine::Atlas> atlas,
+      std::unique_ptr<spine::DiligentTextureLoader> texture_loader,
+      std::unique_ptr<spine::SkeletonData> skeleton_data,
+      std::unique_ptr<spine::AnimationStateData> animation_state_data);
   ~SpineSpriteImpl() override;
 
   SpineSpriteImpl(const SpineSpriteImpl&) = delete;
@@ -33,43 +67,32 @@ class SpineSpriteImpl : public SpineSprite,
                 ExceptionState& exception_state) override;
   void Dispose(ExceptionState& exception_state) override;
   bool IsDisposed(ExceptionState& exception_state) override;
-  void Update(ExceptionState& exception_state) override;
+  std::vector<scoped_refptr<SpineEvent>> Update(
+      ExceptionState& exception_state) override;
   void SetAnimation(int32_t track_index,
                     const std::string& name,
                     bool loop,
                     ExceptionState& exception_state) override;
   void SetAnimationAlpha(int32_t track_index,
-                         int32_t alpha,
+                         float alpha,
                          ExceptionState& exception_state) override;
   void ClearAnimation(int32_t track_index,
                       ExceptionState& exception_state) override;
   void SetSkin(const std::vector<std::string>& skin_array,
                ExceptionState& exception_state) override;
   void SetBonePosition(const std::string& bone_name,
-                       int32_t x,
-                       int32_t y,
+                       float x,
+                       float y,
                        ExceptionState& exception_state) override;
-  bool GetEventTriggered(int32_t track_index,
-                         const std::string& event_name,
-                         bool peek,
-                         ExceptionState& exception_state) override;
-  int32_t GetEventIntValue(int32_t track_index,
-                           const std::string& event_name,
-                           ExceptionState& exception_state) override;
-  float GetEventFloatValue(int32_t track_index,
-                           const std::string& event_name,
-                           ExceptionState& exception_state) override;
-  std::string GetEventStringValue(int32_t track_index,
-                                  const std::string& event_name,
-                                  ExceptionState& exception_state) override;
 
-  URGE_EXPORT_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
-  URGE_EXPORT_ATTRIBUTE(Visible, bool);
-  URGE_EXPORT_ATTRIBUTE(X, float);
-  URGE_EXPORT_ATTRIBUTE(Y, float);
-  URGE_EXPORT_ATTRIBUTE(Z, int32_t);
-  URGE_EXPORT_ATTRIBUTE(ZoomX, float);
-  URGE_EXPORT_ATTRIBUTE(ZoomY, float);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Viewport, scoped_refptr<Viewport>);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Visible, bool);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(X, float);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Y, float);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(Z, int32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(ZoomX, float);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(ZoomY, float);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(PremultipliedAlpha, bool);
 
  private:
   void OnObjectDisposed() override;
@@ -78,13 +101,28 @@ class SpineSpriteImpl : public SpineSprite,
       DrawableNode::RenderStage stage,
       DrawableNode::RenderControllerParams* params);
 
+  void callback(spine::AnimationState* state,
+                spine::EventType type,
+                spine::TrackEntry* entry,
+                spine::Event* event) override;
+
   DrawableNode node_;
-  SpineSpriteAgent* agent_;
+
+  std::unique_ptr<spine::Atlas> atlas_;
+  std::unique_ptr<spine::DiligentTextureLoader> texture_loader_;
+  std::unique_ptr<spine::SkeletonData> skeleton_data_;
+  std::unique_ptr<spine::AnimationStateData> animation_state_data_;
+
   std::unique_ptr<spine::Skeleton> skeleton_;
   std::unique_ptr<spine::AnimationState> animation_state_;
   std::unique_ptr<spine::DiligentRenderer> renderer_;
+  std::unique_ptr<spine::Skin> skin_;
+
+  uint64_t last_ticks_;
+  std::vector<scoped_refptr<SpineEvent>> queued_event_;
 
   scoped_refptr<ViewportImpl> viewport_;
+  bool premultiplied_alpha_;
 };
 
 }  // namespace content
