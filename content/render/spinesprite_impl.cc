@@ -225,7 +225,7 @@ void SpineSpriteImpl::SetAnimationAlpha(int32_t track_index,
                                         ExceptionState& exception_state) {
   auto& tracks = animation_state_->getTracks();
 
-  if (track_index < 0 || track_index >= tracks.size())
+  if (track_index < 0 || track_index >= static_cast<int32_t>(tracks.size()))
     return exception_state.ThrowError(ExceptionCode::CONTENT_ERROR,
                                       "Invalid track index: %d", track_index);
 

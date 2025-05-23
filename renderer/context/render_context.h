@@ -22,7 +22,7 @@ class RenderContext {
   inline Diligent::IDeviceContext* operator*() { return context_; }
 
   // Scissor state stack
-  ScissorController* Scissor() const { return scissor_.get(); }
+  ScissorController* ScissorState() const { return scissor_.get(); }
 
  private:
   friend class RenderDevice;

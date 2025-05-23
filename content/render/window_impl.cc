@@ -368,7 +368,7 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
     if (!interact_region.width || !interact_region.height)
       return;
 
-    context->Scissor()->Push(interact_region);
+    context->ScissorState()->Push(interact_region);
 
     // Setup uniform params
     agent->shader_binding->u_transform->Set(*world_binding);
@@ -395,7 +395,7 @@ void GPURenderBackgroundLayerInternal(renderer::RenderDevice* device,
     draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
     (*context)->DrawIndexed(draw_indexed_attribs);
 
-    context->Scissor()->Pop();
+    context->ScissorState()->Pop();
   }
 }
 
@@ -422,7 +422,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       if (!interact_region.width || !interact_region.height)
         return;
 
-      context->Scissor()->Push(interact_region);
+      context->ScissorState()->Push(interact_region);
     }
 
     // Apply vertex index
@@ -463,7 +463,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       if (!interact_region.width || !interact_region.height)
         return;
 
-      context->Scissor()->Apply(interact_region);
+      context->ScissorState()->Apply(interact_region);
     }
 
     if (contents && agent->contents_draw_count) {
@@ -485,7 +485,7 @@ void GPURenderControlLayerInternal(renderer::RenderDevice* device,
       (*context)->DrawIndexed(draw_indexed_attribs);
     }
 
-    context->Scissor()->Pop();
+    context->ScissorState()->Pop();
   }
 }
 

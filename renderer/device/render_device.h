@@ -82,6 +82,10 @@ class RenderDevice {
            device_type_ == Diligent::RENDER_DEVICE_TYPE_GLES;
   }
 
+  // Managed mobile rendering context
+  void SuspendContext();
+  int32_t ResumeContext(Diligent::IDeviceContext* immediate_context);
+
  private:
   RenderDevice(base::WeakPtr<ui::Widget> window,
                const Diligent::SwapChainDesc& swapchain_desc,

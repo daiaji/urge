@@ -105,7 +105,7 @@ void GPURenderYUVInternal(renderer::RenderDevice* device,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Push scissor
-  context->Scissor()->Apply(target->size);
+  context->ScissorState()->Apply(target->size);
 
   // Setup uniform params
   agent->shader_binding->u_texture_y->Set(

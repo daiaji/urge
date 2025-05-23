@@ -11,7 +11,11 @@ set(COMPONENTS_FILESYSTEM_SRC
 )
 
 add_library(components_filesystem STATIC ${COMPONENTS_FILESYSTEM_SRC})
-target_link_libraries(components_filesystem PRIVATE physfs-static engine_base)
+target_link_libraries(components_filesystem
+ PUBLIC
+  engine_base
+  physfs-static
+)
 
 if (ENABLE_ADMENRI_BUILD_VERSION)
   target_link_libraries(components_filesystem PRIVATE admenri_arb)

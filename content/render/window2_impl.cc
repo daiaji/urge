@@ -222,7 +222,7 @@ void GPUCompositeWindowQuadsInternal(renderer::RenderDevice* device,
             render_target_view, clear_color,
             Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-        context->Scissor()->Apply(bound.Size());
+        context->ScissorState()->Apply(bound.Size());
         device->GetQuadIndex()->Allocate(quads.size() + 20);
 
         // Create binding
@@ -579,7 +579,7 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
   if (!scissor_region.width || !scissor_region.height)
     return;
 
-  context->Scissor()->Push(scissor_region);
+  context->ScissorState()->Push(scissor_region);
 
   if (agent->cursor_draw_count > 0) {
     // Setup texture
@@ -613,7 +613,7 @@ void GPURenderWindowQuadsInternal(renderer::RenderDevice* device,
     (*context)->DrawIndexed(draw_indexed_attribs);
   }
 
-  context->Scissor()->Pop();
+  context->ScissorState()->Pop();
 }
 
 }  // namespace

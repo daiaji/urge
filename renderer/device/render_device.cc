@@ -266,4 +266,65 @@ RenderDevice::~RenderDevice() {
     SDL_GL_DestroyContext(gl_context_);
 }
 
+void RenderDevice::SuspendContext() {
+#if defined(OS_ANDROID)
+  switch (device_type_) {
+    case Diligent::RENDER_DEVICE_TYPE_GLES: {
+      Diligent::RefCntAutoPtr<Diligent::IRenderDeviceGLES> es_device(
+          device_, Diligent::IID_RenderDeviceGLES);
+      es_device->Suspend();
+    } break;
+#if VULKAN_SUPPORTED
+    case Diligent::RENDER_DEVICE_TYPE_VULKAN:
+      swapchain_.Release();
+      break;
+#endif  // VULKAN_SUPPORTED
+    default:
+      break;
+  }
+#endif  // OS_ANDROID
+}
+
+int32_t RenderDevice::ResumeContext(
+    Diligent::IDeviceContext* immediate_context) {
+#if defined(OS_ANDROID)
+  SDL_PropertiesID window_properties =
+      SDL_GetWindowProperties(window_->AsSDLWindow());
+  void* android_native_window = SDL_GetPointerProperty(
+      window_properties, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
+
+  switch (device_type_) {
+    case Diligent::RENDER_DEVICE_TYPE_GLES: {
+      Diligent::RefCntAutoPtr<Diligent::IRenderDeviceGLES> es_device(
+          device_, Diligent::IID_RenderDeviceGLES);
+      return es_device->Resume(
+          static_cast<ANativeWindow*>(android_native_window));
+    }
+#if VULKAN_SUPPORTED
+    case Diligent::RENDER_DEVICE_TYPE_VULKAN: {
+      device_->IdleGPU();
+
+      Diligent::NativeWindow native_window;
+      native_window.pAWindow = android_native_window;
+
+#if ENGINE_DLL
+      auto GetEngineFactoryVk = Diligent::LoadGraphicsEngineVk();
+#endif
+      auto* factory = GetEngineFactoryVk();
+      factory->CreateSwapChainVk(device_, immediate_context, swapchain_desc_,
+                                 native_window, &swapchain_);
+
+      return swapchain_ ? EGL_SUCCESS : EGL_NOT_INITIALIZED;
+    }
+#endif  // VULKAN_SUPPORTED
+    default:
+      break;
+  }
+
+  return EGL_NOT_INITIALIZED;
+#else
+  return 0;
+#endif  // OS_ANDROID
+}
+
 }  // namespace renderer

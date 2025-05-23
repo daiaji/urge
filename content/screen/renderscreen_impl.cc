@@ -216,7 +216,7 @@ void GPUPresentScreenBufferInternal(
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Apply present scissor
-  agent->context->Scissor()->Apply(screen_size);
+  agent->context->ScissorState()->Apply(screen_size);
 
   // Start screen render
   if (agent->present_target) {
@@ -285,7 +285,7 @@ void GPUFrameBeginRenderPassInternal(RenderGraphicsAgent* agent,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Push scissor
-  agent->context->Scissor()->Push(resolution);
+  agent->context->ScissorState()->Push(resolution);
 }
 
 void GPUFrameEndRenderPassInternal(RenderGraphicsAgent* agent,
@@ -324,7 +324,7 @@ void GPUFrameEndRenderPassInternal(RenderGraphicsAgent* agent,
   }
 
   // Pop scissor
-  agent->context->Scissor()->Pop();
+  agent->context->ScissorState()->Pop();
 }
 
 void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
@@ -358,7 +358,7 @@ void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
 
   base::Vec2i resolution(agent->screen_buffer->GetDesc().Width,
                          agent->screen_buffer->GetDesc().Height);
-  agent->context->Scissor()->Push(resolution);
+  agent->context->ScissorState()->Push(resolution);
 
   // Apply brightness effect
   auto& pipeline_set = agent->device->GetPipelines()->alphatrans;
@@ -394,7 +394,7 @@ void GPURenderAlphaTransitionFrameInternal(RenderGraphicsAgent* agent,
   draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
   context->DrawIndexed(draw_indexed_attribs);
 
-  agent->context->Scissor()->Pop();
+  agent->context->ScissorState()->Pop();
 }
 
 void GPURenderVagueTransitionFrameInternal(
@@ -431,7 +431,7 @@ void GPURenderVagueTransitionFrameInternal(
 
   base::Vec2i resolution(agent->screen_buffer->GetDesc().Width,
                          agent->screen_buffer->GetDesc().Height);
-  agent->context->Scissor()->Push(resolution);
+  agent->context->ScissorState()->Push(resolution);
 
   // Apply brightness effect
   auto& pipeline_set = agent->device->GetPipelines()->mappedtrans;
@@ -470,7 +470,7 @@ void GPURenderVagueTransitionFrameInternal(
   draw_indexed_attribs.IndexType = renderer::QuadIndexCache::kValueType;
   context->DrawIndexed(draw_indexed_attribs);
 
-  agent->context->Scissor()->Pop();
+  agent->context->ScissorState()->Pop();
 }
 
 void GPUResizeSwapchainInternal(RenderGraphicsAgent* agent,
@@ -559,12 +559,14 @@ void RenderScreenImpl::ResumeRenderingContext() {
 #if defined(OS_ANDROID)
   base::ThreadWorker::PostTask(
       render_worker_, base::BindOnce(
-                          [](renderer::RenderDevice* device) {
-                            int32_t resume_result = device->ResumeContext();
+                          [](renderer::RenderDevice* device,
+                             renderer::RenderContext* immediate_context) {
+                            int32_t resume_result =
+                                device->ResumeContext(**immediate_context);
                             if (resume_result != EGL_SUCCESS)
                               LOG(INFO) << "Failed to resume EGL context.";
                           },
-                          GetDevice()));
+                          GetDevice(), GetContext()));
   base::ThreadWorker::WaitWorkerSynchronize(render_worker_);
 #endif  // OS_ANDROID
   limiter_.Reset();

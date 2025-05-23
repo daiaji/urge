@@ -107,7 +107,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
-  context.Scissor()->Push(dst_texture->size);
+  context.ScissorState()->Push(dst_texture->size);
 
   // Setup uniform params
   scheduler->base_binding()->u_transform->Set(dst_texture->world_buffer);
@@ -134,7 +134,7 @@ void GPUBlendBlitTextureInternal(CanvasScheduler* scheduler,
   context->DrawIndexed(draw_indexed_attribs);
 
   // Pop scissor region
-  context.Scissor()->Pop();
+  context.ScissorState()->Pop();
 }
 
 void GPUDestroyTextureInternal(TextureAgent* agent) {
@@ -226,7 +226,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
-  context.Scissor()->Push(agent->size);
+  context.ScissorState()->Push(agent->size);
 
   // Setup uniform params
   scheduler->color_binding()->u_transform->Set(agent->world_buffer);
@@ -252,7 +252,7 @@ void GPUCanvasGradientFillRectInternal(CanvasScheduler* scheduler,
   context->DrawIndexed(draw_indexed_attribs);
 
   // Pop scissor
-  context.Scissor()->Pop();
+  context.ScissorState()->Pop();
 }
 
 void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
@@ -327,7 +327,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
-  context.Scissor()->Push(agent->size);
+  context.ScissorState()->Push(agent->size);
 
   // Setup uniform params
   scheduler->base_binding()->u_transform->Set(agent->world_buffer);
@@ -356,7 +356,7 @@ void GPUCanvasDrawTextSurfaceInternal(CanvasScheduler* scheduler,
   context->DrawIndexed(draw_indexed_attribs);
 
   // Pop scissor
-  context.Scissor()->Pop();
+  context.ScissorState()->Pop();
 }
 
 void GPUCanvasHueChange(CanvasScheduler* scheduler,
@@ -395,7 +395,7 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
   scheduler->SetupRenderTarget(render_target_view, false);
 
   // Push scissor
-  context.Scissor()->Push(agent->size);
+  context.ScissorState()->Push(agent->size);
 
   // Setup uniform params
   agent->hue_binding->u_texture->Set(agent->effect_layer->GetDefaultView(
@@ -422,7 +422,7 @@ void GPUCanvasHueChange(CanvasScheduler* scheduler,
   context->DrawIndexed(draw_indexed_attribs);
 
   // Pop scissor
-  context.Scissor()->Pop();
+  context.ScissorState()->Pop();
 }
 
 }  // namespace

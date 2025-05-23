@@ -66,7 +66,7 @@ void GPUResetIntermediateLayer(renderer::RenderDevice* device,
 
 void GPUResetViewportRegion(renderer::RenderContext* context,
                             const base::Rect& region) {
-  context->Scissor()->Push(region);
+  context->ScissorState()->Push(region);
 }
 
 void GPUApplyViewportEffect(renderer::RenderDevice* device,
@@ -165,7 +165,7 @@ void GPUViewportProcessAfterRender(renderer::RenderDevice* device,
                            effect_region, color, tone);
 
   // Restore viewport region
-  context->Scissor()->Pop();
+  context->ScissorState()->Pop();
 }
 
 void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
@@ -182,7 +182,7 @@ void GPUFrameBeginRenderPassInternal(renderer::RenderDevice* device,
       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
   // Setup scissor region
-  context->Scissor()->Apply(scissor_region.Size());
+  context->ScissorState()->Apply(scissor_region.Size());
 }
 
 }  // namespace
