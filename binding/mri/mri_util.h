@@ -186,9 +186,8 @@ inline void MriCollectStrings(VALUE obj, std::vector<std::string>& out) {
 }
 
 inline VALUE MriGetEngineID(int argc, VALUE* argv, VALUE self) {
-  auto engine_id =
-      std::to_string(reinterpret_cast<uint64_t>(RTYPEDDATA_DATA(self)));
-  return rb_str_new(engine_id.data(), engine_id.size());
+  auto engine_id = reinterpret_cast<uint64_t>(RTYPEDDATA_DATA(self));
+  return ULL2NUM(engine_id);
 }
 
 template <int32_t id>

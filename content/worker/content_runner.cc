@@ -136,6 +136,9 @@ void ContentRunner::TickHandlerInternal() {
   // Update fps
   UpdateDisplayFPSInternal();
 
+  // Render GUI if need
+  bool handle_event = !RenderGUIInternal();
+
   // Poll event queue
   SDL_Event queued_event;
   while (SDL_PollEvent(&queued_event)) {
@@ -146,9 +149,6 @@ void ContentRunner::TickHandlerInternal() {
     // GUI event process
     if (!disable_gui_input_)
       ImGui_ImplSDL3_ProcessEvent(&queued_event);
-
-    // Render GUI if need
-    bool handle_event = !RenderGUIInternal();
 
     // Shortcut
     if (queued_event.type == SDL_EVENT_KEY_UP &&
@@ -267,7 +267,10 @@ bool ContentRunner::RenderSettingsGUIInternal() {
 }
 
 void ContentRunner::RenderFPSMonitorGUIInternal() {
-  if (ImGui::Begin("FPS")) {
+  if (ImGui::Begin("FPS Monitor")) {
+    // Draw current fps
+    double current_fps = fps_history_.back();
+    ImGui::Text("FPS: %.2f", current_fps);
     // Draw plot for fps monitor
     ImGui::PlotHistogram("##FPSDisplay", fps_history_.data(),
                          static_cast<int32_t>(fps_history_.size()), 0, nullptr,
@@ -359,7 +362,9 @@ void ContentRunner::CreateIMGUIContextInternal() {
 
   // Setup renderer backend
   Diligent::ImGuiDiligentCreateInfo imgui_create_info(
-      **render_device, render_device->GetSwapChain()->GetDesc());
+      **render_device,
+      render_device->GetSwapChain()->GetDesc().ColorBufferFormat,
+      Diligent::TEX_FORMAT_UNKNOWN);
   imgui_.reset(new Diligent::ImGuiDiligentRenderer(imgui_create_info));
 }
 

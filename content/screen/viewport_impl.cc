@@ -84,6 +84,9 @@ void GPUApplyViewportEffect(renderer::RenderDevice* device,
   box.MaxX = effect_region.x + effect_region.width;
   box.MaxY = effect_region.y + effect_region.height;
 
+  (*context)->SetRenderTargets(
+      0, nullptr, nullptr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
   Diligent::CopyTextureAttribs copy_texture_attribs;
   copy_texture_attribs.pSrcTexture = *screen_buffer;
   copy_texture_attribs.pSrcBox = &box;
