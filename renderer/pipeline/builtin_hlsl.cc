@@ -577,11 +577,6 @@ cbuffer WorldMatrixBuffer {
 struct Tilemap2Params {
   float4 OffsetAndTexSize;
   float4 AnimationOffsetAndTileSize;
-
-  float2 Offset;
-  float2 TexSize;
-  float2 AnimationOffset;  
-  float TileSize;
 };
 
 cbuffer Tilemap2UniformBuffer {
