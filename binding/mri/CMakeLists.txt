@@ -35,8 +35,6 @@ set(BINDING_MRI_SRC
 
   binding_patch.cc
   binding_patch.h
-
-  zlib_binding.c
 )
 
 add_library(binding_mri STATIC ${BINDING_MRI_SRC})

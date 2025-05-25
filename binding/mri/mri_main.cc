@@ -49,11 +49,6 @@
 #include "admenri/machineid/machineid.h"
 #endif
 
-extern "C" {
-void rb_call_builtin_inits();
-void Init_zlib();
-}
-
 namespace binding {
 
 content::ExecutionContext* g_current_execution_context = nullptr;
@@ -90,19 +85,20 @@ std::string InsertNewLines(const std::string& input, size_t interval) {
   return result;
 }
 
-void ParseExeceptionInfo(VALUE exception) {
+std::string ParseExeceptionInfo(VALUE exception) {
   VALUE exeception_name = rb_class_path(rb_obj_class(exception));
+  VALUE exception_message = rb_obj_as_string(exception);
   VALUE backtrace = rb_funcall2(exception, rb_intern("backtrace"), 0, NULL);
-  VALUE backtrace_front = rb_ary_entry(backtrace, 0);
+  VALUE backtrace_front = rb_str_new2("Unknown Location");
+  if (backtrace != Qnil)
+    backtrace_front = rb_ary_entry(backtrace, 0);
 
   VALUE format_errors =
-      rb_sprintf("%" PRIsVALUE ": %" PRIsVALUE " (%" PRIsVALUE ")",
-                 backtrace_front, exception, exeception_name);
+      rb_sprintf("%" PRIsVALUE " (%" PRIsVALUE ") :\n%" PRIsVALUE,
+                 backtrace_front, exeception_name, exception_message);
 
   std::string error_info = StringValueCStr(format_errors);
-  error_info = InsertNewLines(error_info, 128);
-  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Engine Error",
-                           error_info.c_str(), nullptr);
+  return InsertNewLines(error_info, 128);
 }
 
 void MriProcessReset() {
@@ -188,9 +184,15 @@ void BindingEngineMri::PreEarlyInitialization(
   ruby_init();
   ruby_init_loadpath();
 
-// Must static link ruby library (>= 3.0)
 #if RAPI_FULL >= 300
-  rb_call_builtin_inits();
+  std::vector<const char*> options = {profile->program_name.c_str(), "-e",
+                                      "\"\""};
+  void* node = ruby_options(options.size(), const_cast<char**>(options.data()));
+
+  int state;
+  bool valid = ruby_executable_node(node, &state);
+  if (valid)
+    state = ruby_exec_node(node);
 #endif  //! RAPI_FULL >= 300
 
   rb_enc_set_default_internal(rb_enc_from_encoding(rb_utf8_encoding()));
@@ -199,9 +201,7 @@ void BindingEngineMri::PreEarlyInitialization(
   MriInitException(profile->api_version >=
                    content::ContentProfile::APIVersion::RGSS3);
 
-  Init_zlib();
   InitCoreFileBinding();
-
   InitAudioBinding();
   InitBitmapBinding();
   InitColorBinding();
@@ -291,7 +291,7 @@ void BindingEngineMri::OnMainMessageLoopRun(
   if (exception_state.HadException()) {
     std::string error_message;
     exception_state.FetchException(error_message);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Engine Error",
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Scripts Error",
                              error_message.c_str(), nullptr);
   }
 }
@@ -299,8 +299,9 @@ void BindingEngineMri::OnMainMessageLoopRun(
 void BindingEngineMri::PostMainLoopRunning() {
   // Show exception info
   VALUE exception = rb_errinfo();
+  std::string exception_message;
   if (!NIL_P(exception) && !rb_obj_is_kind_of(exception, rb_eSystemExit))
-    ParseExeceptionInfo(exception);
+    exception_message = ParseExeceptionInfo(exception);
 
   // Clean up ruby vm
   ruby_cleanup(0);
@@ -309,6 +310,10 @@ void BindingEngineMri::PostMainLoopRunning() {
   g_current_execution_context = nullptr;
   GlobalModules empty_modules;
   std::swap(*MriGetGlobalModules(), empty_modules);
+
+  // Show message box for errors
+  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Scripts Error",
+                           exception_message.c_str(), nullptr);
 
   LOG(INFO) << "[Binding] Quit CRuby binding engine.";
 }
