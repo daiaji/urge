@@ -41,8 +41,7 @@ void ScissorController::Apply(const base::Rect& scissor) {
     render_scissor.top = scissor.y;
     render_scissor.right = scissor.x + scissor.width;
     render_scissor.bottom = scissor.y + scissor.height;
-    context_->SetScissorRects(1, &render_scissor, 1,
-                              render_scissor.bottom + render_scissor.top);
+    context_->SetScissorRects(1, &render_scissor, UINT32_MAX, UINT32_MAX);
   }
 }
 

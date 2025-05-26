@@ -312,8 +312,9 @@ void BindingEngineMri::PostMainLoopRunning() {
   std::swap(*MriGetGlobalModules(), empty_modules);
 
   // Show message box for errors
-  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Scripts Error",
-                           exception_message.c_str(), nullptr);
+  if (!exception_message.empty())
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Scripts Error",
+                             exception_message.c_str(), nullptr);
 
   LOG(INFO) << "[Binding] Quit CRuby binding engine.";
 }
