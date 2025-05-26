@@ -238,7 +238,9 @@ class MriBindGen:
             if match:
               scoped_refptr_object = match.group(1)
 
+            is_spec_object = False
             if vector_type.startswith("scoped_refptr"):
+              is_spec_object = True
               vector_type = "scoped_refptr"
 
             conv_func = {
@@ -252,7 +254,9 @@ class MriBindGen:
               "scoped_refptr": "MriCheckStructData<content::{}>(it, k{}DataType)".format(scoped_refptr_object, scoped_refptr_object),
             }
 
-            object_convertion += "std::vector<{}> {}_list;\n".format(vector_type, a_name)
+            spec_object_type = "scoped_refptr<content::{}>".format(scoped_refptr_object)
+
+            object_convertion += "std::vector<{}> {}_list;\n".format(spec_object_type if is_spec_object else vector_type, a_name)
             object_convertion += """
 if (rb_type({}) != RUBY_T_ARRAY) {{
   VALUE it = {};
