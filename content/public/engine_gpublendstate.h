@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef CONTENT_PUBLIC_ENGINE_GPUCOMMANDLIST_H_
-#define CONTENT_PUBLIC_ENGINE_GPUCOMMANDLIST_H_
+#ifndef CONTENT_PUBLIC_ENGINE_GPUBLENDSTATE_H_
+#define CONTENT_PUBLIC_ENGINE_GPUBLENDSTATE_H_
 
 #include "base/memory/ref_counted.h"
 #include "content/content_config.h"
@@ -14,13 +14,12 @@ namespace content {
 
 // IDL generator format:
 // Inhert: refcounted only.
-/*--urge(name:GPUCommandList)--*/
-class URGE_RUNTIME_API GPUCommandList
-    : public base::RefCounted<GPUCommandList> {
+/*--urge(name:GPUBlendState)--*/
+class URGE_RUNTIME_API GPUBlendState : public base::RefCounted<GPUBlendState> {
  public:
-  virtual ~GPUCommandList() = default;
+  virtual ~GPUBlendState() = default;
 };
 
 }  // namespace content
 
-#endif  //! CONTENT_PUBLIC_ENGINE_GPUCOMMANDLIST_H_
+#endif  //! CONTENT_PUBLIC_ENGINE_GPUBLENDSTATE_H_
