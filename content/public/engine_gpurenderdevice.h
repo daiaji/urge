@@ -9,9 +9,11 @@
 #include "content/content_config.h"
 #include "content/context/exception_state.h"
 #include "content/context/execution_context.h"
+#include "content/public/engine_gpublendstate.h"
 #include "content/public/engine_gpubuffer.h"
 #include "content/public/engine_gpufence.h"
 #include "content/public/engine_gpuimmutablesampler.h"
+#include "content/public/engine_gpulayoutelement.h"
 #include "content/public/engine_gpupipelineresource.h"
 #include "content/public/engine_gpupipelinesignature.h"
 #include "content/public/engine_gpupipelinestate.h"
@@ -19,6 +21,7 @@
 #include "content/public/engine_gpusampler.h"
 #include "content/public/engine_gpushader.h"
 #include "content/public/engine_gputexture.h"
+#include "content/public/engine_gputexturesubresdata.h"
 
 namespace content {
 
@@ -279,6 +282,84 @@ class URGE_RUNTIME_API GPURenderDevice
     QUERY_TYPE_NUM_TYPES,
   };
 
+  /*--urge(name:PrimitiveTopology)--*/
+  enum PrimitiveTopology {
+    PRIMITIVE_TOPOLOGY_UNDEFINED = 0,
+    PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+    PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
+    PRIMITIVE_TOPOLOGY_POINT_LIST,
+    PRIMITIVE_TOPOLOGY_LINE_LIST,
+    PRIMITIVE_TOPOLOGY_LINE_STRIP,
+    PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_ADJ,
+    PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_ADJ,
+    PRIMITIVE_TOPOLOGY_LINE_LIST_ADJ,
+    PRIMITIVE_TOPOLOGY_LINE_STRIP_ADJ,
+    PRIMITIVE_TOPOLOGY_1_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_2_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_5_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_6_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_7_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_8_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_9_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_10_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_11_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_12_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_13_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_14_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_15_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_16_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_17_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_18_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_19_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_20_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_21_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_22_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_23_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_24_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_25_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_26_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_27_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_28_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_29_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_30_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_31_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_32_CONTROL_POINT_PATCHLIST,
+    PRIMITIVE_TOPOLOGY_NUM_TOPOLOGIES,
+  };
+
+  /*--urge(name:FillMode)--*/
+  enum FillMode {
+    FILL_MODE_UNDEFINED = 0,
+    FILL_MODE_WIREFRAME,
+    FILL_MODE_SOLID,
+    FILL_MODE_NUM_MODES,
+  };
+
+  /*--urge(name:CullMode)--*/
+  enum CullMode {
+    CULL_MODE_UNDEFINED = 0,
+    CULL_MODE_NONE,
+    CULL_MODE_FRONT,
+    CULL_MODE_BACK,
+    CULL_MODE_NUM_MODES,
+  };
+
+  /*--urge(name:ComparisonFunction)--*/
+  enum ComparisonFunction {
+    COMPARISON_FUNC_UNKNOWN = 0,
+    COMPARISON_FUNC_NEVER,
+    COMPARISON_FUNC_LESS,
+    COMPARISON_FUNC_EQUAL,
+    COMPARISON_FUNC_LESS_EQUAL,
+    COMPARISON_FUNC_GREATER,
+    COMPARISON_FUNC_NOT_EQUAL,
+    COMPARISON_FUNC_GREATER_EQUAL,
+    COMPARISON_FUNC_ALWAYS,
+    COMPARISON_FUNC_NUM_FUNCTIONS,
+  };
+
   /*--urge(name:create_buffer)--*/
   virtual scoped_refptr<GPUBuffer> CreateBuffer(
       uint64_t size,
@@ -288,6 +369,18 @@ class URGE_RUNTIME_API GPURenderDevice
       BufferMode mode,
       uint32_t element_by_stride,
       uint64_t immediate_context_mask,
+      ExceptionState& exception_state) = 0;
+
+  /*--urge(name:create_buffer)--*/
+  virtual scoped_refptr<GPUBuffer> CreateBuffer(
+      uint64_t size,
+      BindFlags bind_flags,
+      Usage usage,
+      CPUAccessFlags cpu_access,
+      BufferMode mode,
+      uint32_t element_by_stride,
+      uint64_t immediate_context_mask,
+      const std::string& buffer_data,
       ExceptionState& exception_state) = 0;
 
   /*--urge(name:create_shader)--*/
@@ -315,6 +408,22 @@ class URGE_RUNTIME_API GPURenderDevice
       uint64_t immediate_context_mask,
       ExceptionState& exception_state) = 0;
 
+  /*--urge(name:create_texture)--*/
+  virtual scoped_refptr<GPUTexture> CreateTexture(
+      ResourceDimension dim,
+      uint32_t width,
+      uint32_t height,
+      uint32_t array_size_or_depth,
+      TextureFormat format,
+      uint32_t mip_levels,
+      uint32_t sample_count,
+      BindFlags bind_flags,
+      Usage usage,
+      CPUAccessFlags cpu_access,
+      uint64_t immediate_context_mask,
+      const std::vector<scoped_refptr<GPUTextureSubResData>>& subresources,
+      ExceptionState& exception_state) = 0;
+
   /*--urge(name:create_sampler)--*/
   virtual scoped_refptr<GPUSampler> CreateSampler(
       FilterType min_filter,
@@ -328,7 +437,28 @@ class URGE_RUNTIME_API GPURenderDevice
   /*--urge(name:create_graphics_pipeline_state)--*/
   virtual scoped_refptr<GPUPipelineState> CreateGraphicsPipelineState(
       const std::vector<scoped_refptr<GPUPipelineSignature>>& signatures,
-
+      bool alpha_to_coverage_enable,
+      bool independent_blend_enable,
+      const std::vector<scoped_refptr<GPUBlendState>>& rtv_blend_states,
+      FillMode fill_mode,
+      CullMode cull_mode,
+      bool front_counter_clockwise,
+      bool depth_clip_enable,
+      bool scissor_enable,
+      bool depth_enable,
+      bool depth_write_enable,
+      ComparisonFunction depth_func,
+      bool stencil_enable,
+      uint8_t stencil_read_mask,
+      uint8_t stencil_write_mask,
+      const std::vector<scoped_refptr<GPULayoutElement>>& input_layouts,
+      uint32_t sample_mask,
+      PrimitiveTopology primitive_topology,
+      uint8_t viewports_num,
+      uint8_t render_targets_num,
+      const std::vector<TextureFormat>& rtv_formats,
+      TextureFormat dsv_format,
+      bool readonly_dsv,
       scoped_refptr<GPUShader> vertex_shader,
       scoped_refptr<GPUShader> pixel_shader,
       scoped_refptr<GPUShader> domain_shader,
@@ -358,7 +488,7 @@ class URGE_RUNTIME_API GPURenderDevice
   virtual scoped_refptr<GPUPipelineSignature> CreatePipelineSignature(
       const std::vector<scoped_refptr<GPUPipelineResource>>& resources,
       const std::vector<scoped_refptr<GPUImmutableSampler>>& samplers,
-      uint32_t binding_index,
+      uint8_t binding_index,
       bool use_combined_texture_samplers,
       const std::string& combined_sampler_suffix,
       ExceptionState& exception_state) = 0;

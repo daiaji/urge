@@ -15,6 +15,7 @@
 #include "content/public/engine_gpuquery.h"
 #include "content/public/engine_gpuresourcebinding.h"
 #include "content/public/engine_gputexture.h"
+#include "content/public/engine_gputexturesubresdata.h"
 #include "content/public/engine_gputextureview.h"
 #include "content/public/engine_gpuviewport.h"
 
@@ -350,21 +351,7 @@ class URGE_RUNTIME_API GPUDeviceContext
                              uint32_t mip_level,
                              uint32_t slice,
                              scoped_refptr<GPUBox> box,
-                             const std::string& data,
-                             uint64_t stride,
-                             uint64_t depth_stride,
-                             ResourceStateTransitionMode texture_mode,
-                             ExceptionState& exception_state) = 0;
-
-  /*--urge(name:update_texture)--*/
-  virtual void UpdateTexture(scoped_refptr<GPUTexture> texture,
-                             uint32_t mip_level,
-                             uint32_t slice,
-                             scoped_refptr<GPUBox> box,
-                             scoped_refptr<GPUBuffer> data,
-                             uint64_t src_offset,
-                             uint64_t stride,
-                             uint64_t depth_stride,
+                             scoped_refptr<GPUTextureSubResData> data,
                              ResourceStateTransitionMode src_buffer_mode,
                              ResourceStateTransitionMode texture_mode,
                              ExceptionState& exception_state) = 0;
