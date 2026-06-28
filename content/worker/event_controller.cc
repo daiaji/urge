@@ -133,6 +133,23 @@ void EventController::DispatchEvent(const SDL_Event* event,
       out_event.select_length = -1;
       text_input_events_.push_back(out_event);
     } break;
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+    case SDL_EVENT_GAMEPAD_BUTTON_UP: {
+      auto& raw_event = event->gbutton;
+      gamepad_state_.connected = true;
+      UpdateGamepadButton(raw_event.button, raw_event.down);
+    } break;
+
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+      auto& raw_event = event->gaxis;
+      gamepad_state_.connected = true;
+      UpdateGamepadAxis(raw_event.axis, raw_event.value);
+    } break;
+
+    case SDL_EVENT_GAMEPAD_REMOVED:
+      ResetGamepadState();
+      break;
+
     default:
       break;
   }

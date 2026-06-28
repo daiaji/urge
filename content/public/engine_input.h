@@ -76,6 +76,30 @@ class URGE_OBJECT(Input) {
                        int32_t modifier,
                        bool repeat,
                        ExceptionState& exception_state) = 0;
+
+  /*--urge(name:gamepad_connected?)--*/
+  virtual bool IsGamepadConnected(ExceptionState& exception_state) = 0;
+
+  /*--urge(name:gamepad_rumble)--*/
+  virtual void RumbleGamepad(uint16_t low_freq,
+                             uint16_t high_freq,
+                             uint32_t duration_ms,
+                             ExceptionState& exception_state) = 0;
+
+  // mkxp-z style Input::Controller API
+  virtual std::string GetGamepadName(ExceptionState& exception_state) = 0;
+  virtual int32_t GetGamepadPowerLevel(ExceptionState& exception_state) = 0;
+  virtual std::vector<float> GetGamepadAxisLeft(ExceptionState& exception_state) = 0;
+  virtual std::vector<float> GetGamepadAxisRight(ExceptionState& exception_state) = 0;
+  virtual std::vector<float> GetGamepadAxisTrigger(ExceptionState& exception_state) = 0;
+  virtual bool GamepadPressEx(int32_t button, ExceptionState& exception_state) = 0;
+  virtual bool GamepadTriggerEx(int32_t button, ExceptionState& exception_state) = 0;
+  virtual bool GamepadRepeatEx(int32_t button, ExceptionState& exception_state) = 0;
+  virtual bool GamepadReleaseEx(int32_t button, ExceptionState& exception_state) = 0;
+  virtual int32_t GamepadRepeatCountEx(int32_t button, ExceptionState& exception_state) = 0;
+  virtual double GamepadButtonTimeEx(int32_t button, ExceptionState& exception_state) = 0;
+  virtual std::vector<uint8_t> GetGamepadRawButtonStates(ExceptionState& exception_state) = 0;
+  virtual std::vector<float> GetGamepadRawAxes(ExceptionState& exception_state) = 0;
 };
 
 }  // namespace content
