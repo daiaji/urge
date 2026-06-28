@@ -80,6 +80,34 @@ class KeyboardControllerImpl : public Input, public EngineObject {
                bool repeat,
                ExceptionState& exception_state) override;
 
+  // Gamepad support
+  void UpdateGamepad();
+  void PollGamepadState();
+  bool GamepadIsPressed(const std::string& sym);
+  int16_t GetGamepadAxisValue(int32_t axis);
+  std::string GetGamepadAxisName(int32_t axis);
+  std::string GetGamepadButtonName(int32_t button);
+  bool IsGamepadConnected(ExceptionState& exception_state) override;
+
+  // Rumble / force feedback
+  void RumbleGamepad(uint16_t low_freq,
+                     uint16_t high_freq,
+                     uint32_t duration_ms,
+                     ExceptionState& exception_state) override;
+
+  // ImGui settings page
+  void CreateButtonGUISettings();
+
+  // Ported from mkxp-z: configurable gamepad bindings
+  void SetGamepadBindingList(const GamepadBindingList& bindings);
+  const GamepadBindingList& GetGamepadBindingList() const;
+  GamepadBindingList GetDefaultGamepadBindings() const;
+  void ResetGamepadBindingsToDefault();
+
+  // Input capture (called from main thread after event dispatch)
+  void PollCapture();
+  void StartCaptureFor(const std::string& sym, int32_t next_idx = -1);
+
  private:
   void UpdateDir4Internal();
   void UpdateDir8Internal();
@@ -101,6 +129,35 @@ class KeyboardControllerImpl : public Input, public EngineObject {
   struct {
     int32_t active = 0;
   } dir8_state_;
+
+  // Single gamepad support (mkxp-z compatible, first gamepad only)
+  struct GamepadHandle {
+    SDL_Gamepad* pad = nullptr;
+    SDL_JoystickID id = 0;
+  };
+  std::vector<GamepadHandle> gamepads_;
+
+  // Merged state (OR across all connected gamepads)
+  int16_t gp_axes_[SDL_GAMEPAD_AXIS_COUNT] = {};
+  int16_t gp_axes_prev_[SDL_GAMEPAD_AXIS_COUNT] = {};
+  bool gp_buttons_[SDL_GAMEPAD_BUTTON_COUNT] = {};
+  bool gp_buttons_prev_[SDL_GAMEPAD_BUTTON_COUNT] = {};
+  int32_t gp_repeat_count_[SDL_GAMEPAD_BUTTON_COUNT] = {};
+  int32_t gp_axis_repeat_[4] = {};  // DOWN, LEFT, RIGHT, UP
+
+  // Configurable gamepad bindings (flat list, mkxp-z style)
+  GamepadBindingList gp_bindings_;
+
+  // Input capture state (for ImGui rebind UI)
+  std::string capture_target_;
+  GamepadSource capture_slot_;
+  bool is_capturing_ = false;
+  int32_t capture_next_idx_ = -1;
+
+  // Edge-detection baselines for capture
+  std::array<bool, SDL_SCANCODE_COUNT> capture_kb_baseline_{};
+  std::array<bool, SDL_GAMEPAD_BUTTON_COUNT> capture_gp_btn_baseline_{};
+  std::array<int16_t, SDL_GAMEPAD_AXIS_COUNT> capture_gp_axis_baseline_{};
 };
 
 }  // namespace content

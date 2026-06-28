@@ -76,6 +76,15 @@ class URGE_OBJECT(Input) {
                        int32_t modifier,
                        bool repeat,
                        ExceptionState& exception_state) = 0;
+
+  /*--urge(name:gamepad_connected?)--*/
+  virtual bool IsGamepadConnected(ExceptionState& exception_state) = 0;
+
+  /*--urge(name:gamepad_rumble)--*/
+  virtual void RumbleGamepad(uint16_t low_freq,
+                             uint16_t high_freq,
+                             uint32_t duration_ms,
+                             ExceptionState& exception_state) = 0;
 };
 
 }  // namespace content

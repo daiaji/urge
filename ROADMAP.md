@@ -342,8 +342,13 @@ Graphics.vsync_enabled = false  # 关闭 VSync（让 FreeSync 接管）
 - 移植自 mkxp-z 的 `SettingsMenu`
 - `GamepadBindingEntry` 扁平列表（Button / Axis 联合）
 - ImGui 设置页：表格展示 + PopupModal 捕获弹窗
+  - 左键添加绑定，右键清除绑定
+  - 捕获后自动跳转下一项
+  - 支持符号：A/B/C/X/Y/Z/L/R/方向/SHIFT/CTRL/START/BACK
 - 边缘检测捕获（基线法，只捕捉新按下的输入）
-- 独立 `_gp.cfg` 持久化文件，与键盘绑定文件分离
+- 独立 `_gp.txt` 持久化文件，纯文本可编辑格式
+  - `SYMBOL = Btn:INDEX` / `SYMBOL = Axis:INDEX:[+-]`
+  - 支持 `#` 注释，任意符号可手写配置（含 F 键、精英手柄拨片等）
 
 ---
 
@@ -679,4 +684,4 @@ CFG.to_hash                  # 所有配置的哈希表
 | **窗口可调整大小 / 固定宽高比** | `WinResizable` + `FixedAspectRatio` + `KeepRatio` |
 | **多手柄 / 2P 支持** | `vector<GamepadHandle>` 替代单手柄，按钮 OR 合并，轴取 max |
 | **手柄震动反馈** | `RumbleGamepad(low, high, ms)` 批量触发 `SDL_RumbleGamepad()` |
-| **手柄映射配置 + 持久化** | ImGui 设置页表格 + PopupModal 捕获弹窗，独立 `_gp.cfg` 持久化 |
+| **手柄映射配置 + 持久化** | ImGui 设置页表格 + PopupModal 捕获弹窗，独立 `_gp.txt` 纯文本持久化，右键清除，自动跳转 |

@@ -442,6 +442,9 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
     mouse_impl_->ProcessEvent(std::nullopt);
   }
 
+  // Poll gamepad for capture mode (main thread)
+  keyboard_impl_->PollCapture();
+
   // Render gui
   ImGui::Render();
 }

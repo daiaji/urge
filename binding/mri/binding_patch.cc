@@ -72,12 +72,40 @@ MRI_METHOD(input_is_repeated) {
   return v ? Qtrue : Qfalse;
 }
 
+MRI_METHOD(input_gamepad_connected) {
+  scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
+  content::ExceptionState exception_state;
+  bool v = input->IsGamepadConnected(exception_state);
+  MriProcessException(exception_state);
+  return v ? Qtrue : Qfalse;
+}
+
+MRI_METHOD(input_gamepad_rumble) {
+  scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
+  uint16_t low_freq, high_freq;
+  uint32_t duration_ms;
+  content::ExceptionState exception_state;
+
+  if (argc < 3)
+    return Qnil;
+
+  low_freq = static_cast<uint16_t>(NUM2INT(argv[0]));
+  high_freq = static_cast<uint16_t>(NUM2INT(argv[1]));
+  duration_ms = static_cast<uint32_t>(NUM2UINT(argv[2]));
+
+  input->RumbleGamepad(low_freq, high_freq, duration_ms, exception_state);
+  MriProcessException(exception_state);
+  return Qtrue;
+}
+
 void ApplyInputPatch() {
   VALUE klass = rb_const_get(rb_cObject, rb_intern("Input"));
 
   MriDefineModuleFunction(klass, "press?", input_is_pressed);
   MriDefineModuleFunction(klass, "trigger?", input_is_triggered);
   MriDefineModuleFunction(klass, "repeat?", input_is_repeated);
+  MriDefineModuleFunction(klass, "gamepad_connected?", input_gamepad_connected);
+  MriDefineModuleFunction(klass, "gamepad_rumble", input_gamepad_rumble);
 
   for (size_t i = 0; i < std::size(kKeyboardBindings); ++i) {
     auto& binding_set = kKeyboardBindings[i];
