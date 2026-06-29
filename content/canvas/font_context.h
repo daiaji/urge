@@ -47,7 +47,7 @@ struct ScopedFontData {
   TTF_HintingFlags font_hinting = kDefaultFontHinting;
   bool font_outline_crop = kDefaultFontOutlineCrop;
 
-  // Font substitution map: from_name → to_name
+  // Font substitution map: from_name → to_name (from INI FontSubs)
   std::map<std::string, std::string> font_subs;
 
   // Font family name → filename cache (populated at startup)

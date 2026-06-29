@@ -444,12 +444,8 @@ scoped_refptr<Rect> SurfaceImpl::TextSize(const std::string& str,
     return nullptr;
 
   int32_t w, h;
-  std::string spaced = str + " ";
-  TTF_GetStringSize(font, spaced.c_str(), spaced.size(), &w, &h);
-  int32_t ws;
-  TTF_GetStringSize(font, " ", 1, &ws, nullptr);
-  w -= ws;
-  return base::MakeRefCounted<RectImpl>(base::Rect(0, 0, std::max(0, w), h));
+  TTF_GetStringSize(font, str.c_str(), str.size(), &w, &h);
+  return base::MakeRefCounted<RectImpl>(base::Rect(0, 0, w, h));
 }
 
 std::string SurfaceImpl::DumpData(ExceptionState& exception_state) {

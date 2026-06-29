@@ -456,7 +456,7 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
   std::vector<std::string> load_names(name_);
   load_names.push_back(parent_->default_font);
 
-  // Apply font substitution
+  // Apply font substitution from INI FontSubs config
   auto& subs = parent_->font_subs;
   for (auto& name : load_names) {
     std::string lower(name);
