@@ -360,6 +360,9 @@ void ContentRunner::CheckResizeInternal() {
 }
 
 void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
+  // Scale ImGui fonts for HiDPI displays
+  ImGui::GetIO().FontGlobalScale = backing_scale_factor_;
+
   // Setup renderer new frame
   const Diligent::SwapChainDesc& swapchain_desc =
       execution_context_->render_device->GetSwapChain()->GetDesc();
@@ -748,7 +751,7 @@ void ContentRunner::CreateIMGUIContextInternal() {
   io.Fonts->TexMaxWidth = max_texture_size;
   io.Fonts->TexMaxHeight = max_texture_size;
   io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(font_data), font_data_size,
-                                 16.0f * window_scale, &font_config,
+                                 20.0f * window_scale, &font_config,
                                  io.Fonts->GetGlyphRangesChineseFull());
 
   // Setup Dear ImGui style
