@@ -160,11 +160,13 @@ int CalcPPEMForHeight(FT_Face ft_face, int height) {
 // Calculate ppem for a font, with VDMX -> formula fallback.
 // Applies font_scale after ppem calculation (not before).
 int CalculateFontPPEM(const void* font_data, int64_t font_size, int size, float font_scale) {
-  FT_Library ft_lib;
-  if (FT_Init_FreeType(&ft_lib) != 0)
-    return std::max(static_cast<int>(size * font_scale), 1);
+  static FT_Library cached_ft_lib = nullptr;
+  if (!cached_ft_lib)
+    if (FT_Init_FreeType(&cached_ft_lib) != 0)
+      return std::max(static_cast<int>(size * font_scale), 1);
 
   FT_Face ft_face;
+  FT_Library ft_lib = cached_ft_lib;
   if (FT_New_Memory_Face(ft_lib, static_cast<const FT_Byte*>(font_data),
                          static_cast<FT_Long>(font_size), 0, &ft_face) != 0) {
     FT_Done_FreeType(ft_lib);
@@ -181,9 +183,11 @@ int CalculateFontPPEM(const void* font_data, int64_t font_size, int size, float 
   }
 
   FT_Done_Face(ft_face);
-  FT_Done_FreeType(ft_lib);
 
   ppem = std::max(static_cast<int>(ppem * font_scale), 1);
+  const int MAX_PPEM = (1 << 16) - 1;
+  if (ppem > MAX_PPEM)
+    ppem = MAX_PPEM;
   return ppem;
 }
 
@@ -771,25 +775,23 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
     }
   }
 
-  // Final fallback: try every font in data_cache regardless of name
-  // This ensures text renders even when Font.default_name doesn't match
-  // any actual filename or family name in the Fonts/ directory.
-  for (const auto& entry : parent_->data_cache) {
-    auto it = font_cache.find(std::make_pair(entry.first, size_));
-    if (it != font_cache.end()) {
-      font_ = it->second;
-      return;
-    }
-    auto io = SDL_IOFromConstMem(entry.second.second, entry.second.first);
-    TTF_Font* font_obj = TTF_OpenFontIO(io, true, size_ * parent_->font_scale);
+  // Fallback: try internal embedded font
+  int64_t emb_size = 0;
+  const void* emb_data = parent_->GetUIDefaultFont(&emb_size);
+  if (emb_data && emb_size > 0) {
+    int32_t emb_ppem = CalculateFontPPEM(emb_data, emb_size, size_,
+                                          parent_->font_scale);
+    SDL_IOStream* io = SDL_IOFromConstMem(emb_data, emb_size);
+    TTF_Font* font_obj = TTF_OpenFontIO(io, true, emb_ppem);
     if (font_obj) {
       font_ = font_obj;
-      font_cache.emplace(std::make_pair(entry.first, size_), font_);
+      font_cache.emplace(std::make_pair(parent_->default_font, size_), font_);
+      parent_->size_to_ppem.emplace(
+          std::make_pair(parent_->default_font, size_), emb_ppem);
       return;
     }
   }
 
-  // Failed to load font
   std::string font_names;
   for (auto& it : name_)
     font_names = font_names + it + " ";

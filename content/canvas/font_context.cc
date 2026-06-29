@@ -21,9 +21,34 @@ std::string Utf16BeToUtf8(const char* data, size_t len) {
   std::string out;
   for (size_t i = 0; i + 1 < len; i += 2) {
     uint32_t cp = ((unsigned char)data[i] << 8) | (unsigned char)data[i + 1];
+    if (cp >= 0xD800 && cp <= 0xDBFF && i + 3 < len) {
+      uint32_t hi = cp - 0xD800;
+      uint32_t lo = ((unsigned char)data[i + 2] << 8) | (unsigned char)data[i + 3];
+      if (lo >= 0xDC00 && lo <= 0xDFFF) {
+        cp = 0x10000 + (hi << 10) + (lo - 0xDC00);
+        i += 2;
+      }
+    }
     if (cp < 0x80)       out += (char)cp;
     else if (cp < 0x800) { out += 0xC0 | (cp >> 6); out += 0x80 | (cp & 0x3F); }
-    else                 { out += 0xE0 | (cp >> 12); out += 0x80 | ((cp >> 6) & 0x3F); out += 0x80 | (cp & 0x3F); }
+    else if (cp < 0x10000) { out += 0xE0 | (cp >> 12); out += 0x80 | ((cp >> 6) & 0x3F); out += 0x80 | (cp & 0x3F); }
+    else                 { out += 0xF0 | (cp >> 18); out += 0x80 | ((cp >> 12) & 0x3F); out += 0x80 | ((cp >> 6) & 0x3F); out += 0x80 | (cp & 0x3F); }
+  }
+  return out;
+}
+
+// UTF-32BE to UTF-8 conversion for SFNT UCS-4 name records
+std::string Utf32BeToUtf8(const char* data, size_t len) {
+  std::string out;
+  for (size_t i = 0; i + 3 < len; i += 4) {
+    uint32_t cp = ((unsigned char)data[i] << 24) | ((unsigned char)data[i + 1] << 16) |
+                  ((unsigned char)data[i + 2] << 8) | (unsigned char)data[i + 3];
+    if (cp > 0x10FFFF)
+      continue;
+    if (cp < 0x80)       out += (char)cp;
+    else if (cp < 0x800) { out += 0xC0 | (cp >> 6); out += 0x80 | (cp & 0x3F); }
+    else if (cp < 0x10000) { out += 0xE0 | (cp >> 12); out += 0x80 | ((cp >> 6) & 0x3F); out += 0x80 | (cp & 0x3F); }
+    else                 { out += 0xF0 | (cp >> 18); out += 0x80 | ((cp >> 12) & 0x3F); out += 0x80 | ((cp >> 6) & 0x3F); out += 0x80 | (cp & 0x3F); }
   }
   return out;
 }
@@ -93,9 +118,13 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
               if (sfnt.name_id != TT_NAME_ID_FONT_FAMILY)
                 continue;
               std::string family;
-              if (sfnt.platform_id == TT_PLATFORM_MICROSOFT ||
+              if ((sfnt.platform_id == TT_PLATFORM_MICROSOFT &&
+                   sfnt.encoding_id == TT_MS_ID_UNICODE_CS) ||
                   sfnt.platform_id == TT_PLATFORM_APPLE_UNICODE)
                 family = Utf16BeToUtf8((const char*)sfnt.string, sfnt.string_len);
+              else if (sfnt.platform_id == TT_PLATFORM_MICROSOFT &&
+                       sfnt.encoding_id == TT_MS_ID_UCS_4)
+                family = Utf32BeToUtf8((const char*)sfnt.string, sfnt.string_len);
               else
                 family = std::string((const char*)sfnt.string, sfnt.string_len);
               if (family.empty())
