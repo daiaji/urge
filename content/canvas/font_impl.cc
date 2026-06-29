@@ -4,15 +4,267 @@
 
 #include "content/canvas/font_impl.h"
 
+#include <algorithm>
+#include <cmath>
 #include <map>
+#include <vector>
 
 #include "content/context/execution_context.h"
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_TRUETYPE_TAGS_H
+#include FT_TRUETYPE_TABLES_H
+#include FT_TRUETYPE_IDS_H
 
 namespace content {
 
 constexpr int32_t kOutlineSize = 1;
 
 namespace {
+
+// Byte-order helpers for big-endian VDMX fields
+inline uint16_t GetBEWord(const uint8_t* p) {
+  return (static_cast<uint16_t>(p[0]) << 8) | p[1];
+}
+
+inline int16_t GetBEShort(const uint8_t* p) {
+  return static_cast<int16_t>(GetBEWord(p));
+}
+
+// Try to load ppem from the VDMX table (matches Windows GDI behavior).
+// Returns 0 if no VDMX table or no matching entry.
+int LoadVDMX(FT_Face ft_face, int height) {
+  FT_ULong length = 0;
+  FT_Error err = FT_Load_Sfnt_Table(ft_face, TTAG_VDMX, 0, nullptr, &length);
+  if (err || length == 0)
+    return 0;
+
+  std::vector<uint8_t> buf(length);
+  err = FT_Load_Sfnt_Table(ft_face, TTAG_VDMX, 0, buf.data(), &length);
+  if (err)
+    return 0;
+
+  // VDMX_Header: version(2) + numRecs(2) + numRatios(2) = 6 bytes
+  if (length < 6)
+    return 0;
+
+  const uint8_t* data = buf.data();
+  uint16_t numRatios = GetBEWord(data + 4);
+
+  // Each Ratio is 4 bytes: bCharSet(1) + xRatio(1) + yStartRatio(1) + yEndRatio(1)
+  size_t ratio_table_offset = 6;
+  size_t ratio_table_size = numRatios * 4;
+  if (length < ratio_table_offset + ratio_table_size + numRatios * 2)
+    return 0;
+
+  // Find the matching ratio (device aspect ratio 1:1)
+  int found_idx = -1;
+  for (int i = 0; i < numRatios; ++i) {
+    const uint8_t* r = data + ratio_table_offset + i * 4;
+    uint8_t bCharSet = r[0];
+    uint8_t xRatio = r[1];
+    uint8_t yStartRatio = r[2];
+    uint8_t yEndRatio = r[3];
+
+    if (!bCharSet)
+      continue;
+
+    if ((xRatio == 0 && yStartRatio == 0 && yEndRatio == 0) ||
+        (xRatio == 1 && yStartRatio <= 1 && yEndRatio >= 1)) {
+      found_idx = i;
+      break;
+    }
+  }
+
+  if (found_idx < 0)
+    return 0;
+
+  // Read the group offset for this ratio
+  size_t offset_table_offset = ratio_table_offset + ratio_table_size;
+  uint16_t group_offset = GetBEWord(data + offset_table_offset + found_idx * 2);
+
+  // VDMX_group: recs(2) + startsz(1) + endsz(1) = 4 bytes
+  size_t group_start = group_offset;
+  if (group_start + 4 > length)
+    return 0;
+
+  const uint8_t* group_data = data + group_start;
+  uint16_t recs = GetBEWord(group_data);
+
+  // Each VDMX_vTable entry: yPelHeight(2) + yMax(2) + yMin(2) = 6 bytes
+  size_t vtable_start = group_start + 4;
+  if (vtable_start + recs * 6 > length)
+    return 0;
+
+  int ppem = 0;
+  for (int i = 0; i < recs; ++i) {
+    const uint8_t* entry = data + vtable_start + i * 6;
+    uint16_t yPelHeight = GetBEWord(entry);
+    int16_t yMax = GetBEShort(entry + 2);
+    int16_t yMin = GetBEShort(entry + 4);
+    int font_height = yMax + (-yMin);
+
+    if (font_height == height) {
+      ppem = yPelHeight;
+      break;
+    }
+    if (font_height > height) {
+      if (i > 0) {
+        const uint8_t* prev = data + vtable_start + (i - 1) * 6;
+        ppem = GetBEWord(prev);
+      }
+      break;
+    }
+  }
+
+  return ppem;
+}
+
+// Calculate ppem from font metrics (matches Windows GDI / Wine).
+// ppem = units_per_EM * height / (winAscent + winDescent)
+int CalcPPEMForHeight(FT_Face ft_face, int height) {
+  if (height == 0)
+    height = 16;
+
+  if (height < 0)
+    return -height;
+
+  TT_OS2* os2 = reinterpret_cast<TT_OS2*>(
+      FT_Get_Sfnt_Table(ft_face, FT_SFNT_OS2));
+  TT_HoriHeader* hori = reinterpret_cast<TT_HoriHeader*>(
+      FT_Get_Sfnt_Table(ft_face, FT_SFNT_HHEA));
+
+  int units;
+  if (os2 && (os2->usWinAscent + os2->usWinDescent) != 0) {
+    units = os2->usWinAscent + abs(static_cast<short>(os2->usWinDescent));
+  } else if (hori) {
+    units = hori->Ascender - hori->Descender;
+  } else {
+    return height;
+  }
+
+  if (units <= 0)
+    return height;
+
+  int ppem = static_cast<int>(
+      FT_MulDiv(ft_face->units_per_EM, height, units));
+
+  // If rounding overshoots, reduce ppem
+  if (ppem > 1 && FT_MulDiv(units, ppem, ft_face->units_per_EM) > height)
+    --ppem;
+
+  return std::max(ppem, 1);
+}
+
+// Calculate ppem for a font, with VDMX -> formula fallback.
+// Applies font_scale after ppem calculation (not before).
+int CalculateFontPPEM(const void* font_data, int64_t font_size, int size, float font_scale) {
+  FT_Library ft_lib;
+  if (FT_Init_FreeType(&ft_lib) != 0)
+    return std::max(static_cast<int>(size * font_scale), 1);
+
+  FT_Face ft_face;
+  if (FT_New_Memory_Face(ft_lib, static_cast<const FT_Byte*>(font_data),
+                         static_cast<FT_Long>(font_size), 0, &ft_face) != 0) {
+    FT_Done_FreeType(ft_lib);
+    return std::max(static_cast<int>(size * font_scale), 1);
+  }
+
+  int ppem = 0;
+  if (FT_IS_SCALABLE(ft_face)) {
+    ppem = LoadVDMX(ft_face, size);
+    if (!ppem)
+      ppem = CalcPPEMForHeight(ft_face, size);
+  } else {
+    ppem = size;
+  }
+
+  FT_Done_Face(ft_face);
+  FT_Done_FreeType(ft_lib);
+
+  ppem = std::max(static_cast<int>(ppem * font_scale), 1);
+  return ppem;
+}
+
+// Blend text surface onto outline surface with proper alpha compositing.
+// Matches RGSS behavior: prevents overlapping glyph edges from becoming
+// overly opaque, which would make outlines appear too heavy.
+void BlendTextSurface(SDL_Surface* txt_srf, const SDL_Rect& in_rect,
+                      const SDL_Color& txt_color,
+                      SDL_Surface* out_srf, const SDL_Rect& out_rect,
+                      const SDL_Color& out_color) {
+  if (in_rect.w <= 0 || in_rect.h <= 0)
+    return;
+
+  auto* txt_fmt = SDL_GetPixelFormatDetails(txt_srf->format);
+  auto* out_fmt = SDL_GetPixelFormatDetails(out_srf->format);
+
+  uint8_t* txt_start = static_cast<uint8_t*>(txt_srf->pixels) +
+                        in_rect.x * txt_fmt->bytes_per_pixel +
+                        in_rect.y * txt_srf->pitch;
+  uint8_t* out_start = static_cast<uint8_t*>(out_srf->pixels) +
+                        out_rect.x * out_fmt->bytes_per_pixel +
+                        out_rect.y * out_srf->pitch;
+
+  const float txt_r = txt_color.r;
+  const float txt_g = txt_color.g;
+  const float txt_b = txt_color.b;
+  const float out_r = out_color.r;
+  const float out_g = out_color.g;
+  const float out_b = out_color.b;
+
+  // Full-opacity pixel values for clamping
+  const uint32_t full_txt_pixel = SDL_MapRGBA(txt_fmt, nullptr,
+      txt_color.r, txt_color.g, txt_color.b, txt_color.a);
+  const uint32_t full_out_pixel = SDL_MapRGBA(out_fmt, nullptr,
+      out_color.r, out_color.g, out_color.b, out_color.a);
+
+  for (int i = 0; i < in_rect.h; ++i) {
+    uint32_t* txt_pixel = reinterpret_cast<uint32_t*>(txt_start + i * txt_srf->pitch);
+    uint32_t* out_pixel = reinterpret_cast<uint32_t*>(out_start + i * out_srf->pitch);
+    for (int j = 0; j < in_rect.w; ++j) {
+      const uint8_t txt_a = (*txt_pixel >> txt_fmt->Ashift) & 0xFF;
+      const uint8_t out_a = (*out_pixel >> out_fmt->Ashift) & 0xFF;
+
+      if (txt_a >= txt_color.a) {
+        // Text pixel is fully opaque — use it directly
+        *out_pixel = *txt_pixel;
+      } else if (out_a == 0) {
+        // Outline pixel is transparent — use text pixel
+        *out_pixel = *txt_pixel;
+      } else if (txt_a != 0) {
+        // Both have partial alpha — blend using RGSS formula
+        const int32_t co1 = static_cast<int32_t>(txt_a) * txt_color.a;
+        const int32_t co2 = static_cast<int32_t>(
+            std::min(out_a, out_color.a)) * (txt_color.a - txt_a);
+
+        const int32_t fa = co1 + co2;
+
+        const float fa_inv = 1.0f / fa;
+        const float co3 = co1 * fa_inv;
+        const float co4 = co2 * fa_inv;
+
+        const float txt_r_px = (*txt_pixel >> txt_fmt->Rshift) & 0xFF;
+        const float txt_g_px = (*txt_pixel >> txt_fmt->Gshift) & 0xFF;
+        const float txt_b_px = (*txt_pixel >> txt_fmt->Bshift) & 0xFF;
+
+        const uint8_t r = std::min<int>((txt_r_px * co3 + out_r * co4) + 0.001f, 255);
+        const uint8_t g = std::min<int>((txt_g_px * co3 + out_g * co4) + 0.001f, 255);
+        const uint8_t b = std::min<int>((txt_b_px * co3 + out_b * co4) + 0.001f, 255);
+        const uint8_t a = fa / txt_color.a;
+
+        *out_pixel = SDL_MapRGBA(out_fmt, nullptr, r, g, b, a);
+      } else if (out_a > out_color.a) {
+        // Text pixel is transparent but outline is over-opaque (SDL_ttf artifact)
+        *out_pixel = full_out_pixel;
+      }
+
+      ++txt_pixel;
+      ++out_pixel;
+    }
+  }
+}
 
 void RenderShadowSurface(SDL_Surface*& in, const SDL_Color& text_color) {
   if (in->w < 4 || in->h < 4)
@@ -46,14 +298,23 @@ TTF_Font* ReadFontFromMemory(
     const std::map<std::string, std::pair<int64_t, void*>>& mem_fonts,
     const std::string& path,
     int32_t size,
-    float font_scale) {
+    float font_scale,
+    int32_t* out_ppem = nullptr) {
   auto it = mem_fonts.find(path);
-  if (it != mem_fonts.end()) {
-    SDL_IOStream* io = SDL_IOFromConstMem(it->second.second, it->second.first);
-    return TTF_OpenFontIO(io, true, size * font_scale);
-  }
+  if (it == mem_fonts.end())
+    return nullptr;
 
-  return nullptr;
+  // Calculate ppem using FreeType
+  int ppem = CalculateFontPPEM(it->second.second, it->second.first,
+                                size, font_scale);
+
+  // Open font with SDL_ttf at calculated ppem
+  SDL_IOStream* io = SDL_IOFromConstMem(it->second.second, it->second.first);
+  TTF_Font* font = TTF_OpenFontIO(io, true, ppem);
+
+  if (out_ppem)
+    *out_ppem = ppem;
+  return font;
 }
 
 }  // namespace
@@ -345,16 +606,16 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
       return nullptr;
     }
 
-    // Crop text edges by outline size to match Enterbrain RGSS runtime behavior.
-    // Removes semi-transparent edge pixels that create visible seams
-    // when the text surface is composited onto the outline.
-    // Configurable via FontOutlineCrop; default true (Enterbrain behavior).
+    // Blend text onto outline with proper alpha compositing,
+    // preventing overlapping glyph edges from becoming overly opaque.
     int crop = parent_->font_outline_crop ? kOutlineSize : 0;
-    SDL_Rect src_rect = {crop, crop,
-                         text_surface->w - crop,
-                         text_surface->h - crop};
-    SDL_SetSurfaceBlendMode(text_surface, SDL_BLENDMODE_BLEND);
-    SDL_BlitSurface(text_surface, &src_rect, outline_surface, nullptr);
+    int double_outline = kOutlineSize * 2;
+    SDL_Rect in_rect = {kOutlineSize - crop, kOutlineSize - crop,
+                        text_surface->w - kOutlineSize,
+                        text_surface->h - kOutlineSize};
+    SDL_Rect out_rect = {double_outline - crop, double_outline - crop, 0, 0};
+    BlendTextSurface(text_surface, in_rect, font_color,
+                     outline_surface, out_rect, outline_color);
 
     SDL_DestroySurface(text_surface);
     text_surface = outline_surface;
@@ -495,14 +756,16 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
         return;
       }
 
-      // Load new font object
+      // Load new font object with ppem calculation
+      int32_t ppem = 0;
       TTF_Font* font_obj =
           ReadFontFromMemory(parent_->data_cache, font_name, size_,
-                             parent_->font_scale);
+                             parent_->font_scale, &ppem);
       if (font_obj) {
-        // Storage new font object
         font_ = font_obj;
         font_cache.emplace(std::make_pair(font_name, size_), font_);
+        parent_->size_to_ppem.emplace(
+            std::make_pair(font_name, size_), ppem);
         return;
       }
     }
@@ -556,14 +819,17 @@ void FontImpl::SetupFontFallbackInternal() {
     // Add fallback option
     TTF_AddFallbackFont(font_, it->second);
   } else {
-    // Create new size font object
+    // Create new size font object with ppem
+    int32_t ppem = 0;
     TTF_Font* font_obj =
         ReadFontFromMemory(parent_->data_cache, parent_->default_font, size_,
-                           parent_->font_scale);
+                           parent_->font_scale, &ppem);
     if (font_obj) {
       TTF_AddFallbackFont(font_, font_obj);
       font_cache.emplace(std::make_pair(parent_->default_font, size_),
                          font_obj);
+      parent_->size_to_ppem.emplace(
+          std::make_pair(parent_->default_font, size_), ppem);
     }
   }
 }

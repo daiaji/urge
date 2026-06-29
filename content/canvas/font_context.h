@@ -55,6 +55,7 @@ struct ScopedFontData {
   std::map<std::string, std::string> family_name_cache;
 
   std::map<std::pair<std::string, int32_t>, TTF_Font*> font_cache;
+  std::map<std::pair<std::string, int32_t>, int32_t> size_to_ppem;
   std::map<std::string, std::pair<int64_t, void*>> data_cache;
   TTF_Font* internal_font = nullptr;
 
