@@ -8,6 +8,7 @@
 
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_timer.h"
+#include "SDL3/SDL_video.h"
 #include "magic_enum/magic_enum.hpp"
 
 #include "Common/interface/BasicMath.hpp"
@@ -98,6 +99,12 @@ void RenderScreenImpl::CreateButtonGUISettings() {
             ->i18n_profile->GetI18NString(IDS_GRAPHICS_KEEP_RATIO, "Keep Ratio")
             .c_str(),
         &settings_profile.keep_ratio);
+
+    // Integer Scaling (requires keep_ratio)
+    ImGui::BeginDisabled(!settings_profile.keep_ratio);
+    ImGui::Checkbox("Integer Scaling",
+                    &settings_profile.integer_scaling);
+    ImGui::EndDisabled();
 
     // Skip Frame
     ImGui::Checkbox(
@@ -320,7 +327,12 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
                                     uint32_t height,
                                     ExceptionState& exception_state) {
   context()->resolution = base::Vec2i(width, height);
-  rebuild_buffers_pending_ = true;
+  GPUResetScreenBufferInternal();
+
+  if (context()->engine_profile->fixed_aspect_ratio) {
+    float ratio = static_cast<float>(width) / static_cast<float>(height);
+    SDL_SetWindowAspectRatio(context()->window->AsSDLWindow(), ratio, ratio);
+  }
 }
 
 void RenderScreenImpl::Reset(ExceptionState& exception_state) {
@@ -449,6 +461,27 @@ URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     RenderScreenImpl,
     { return context()->engine_profile->keep_ratio; },
     { context()->engine_profile->keep_ratio = value; });
+
+URGE_DEFINE_OVERRIDE_ATTRIBUTE(
+    IntegerScaling,
+    bool,
+    RenderScreenImpl,
+    { return context()->engine_profile->integer_scaling; },
+    { context()->engine_profile->integer_scaling = value; });
+
+URGE_DEFINE_OVERRIDE_ATTRIBUTE(
+    SmoothScaling,
+    int32_t,
+    RenderScreenImpl,
+    { return context()->engine_profile->smooth_scaling; },
+    { context()->engine_profile->smooth_scaling = value; });
+
+URGE_DEFINE_OVERRIDE_ATTRIBUTE(
+    SmoothScalingDown,
+    int32_t,
+    RenderScreenImpl,
+    { return context()->engine_profile->smooth_scaling_down; },
+    { context()->engine_profile->smooth_scaling_down = value; });
 
 URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     BackgroundRunning,

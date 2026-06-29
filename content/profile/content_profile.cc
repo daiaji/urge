@@ -239,6 +239,18 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetBoolean("Renderer", "BackgroundRunning", background_running);
   smooth_scale_present = reader->GetBoolean("Renderer", "SmoothScalePresent",
                                             smooth_scale_present);
+  smooth_scaling =
+      reader->GetInteger("Renderer", "SmoothScaling", smooth_scaling);
+  smooth_scaling_down =
+      reader->GetInteger("Renderer", "SmoothScalingDown", smooth_scaling_down);
+  integer_scaling =
+      reader->GetBoolean("Renderer", "IntegerScaling", integer_scaling);
+  sync_to_refresh_rate =
+      reader->GetBoolean("Renderer", "SyncToRefreshRate", sync_to_refresh_rate);
+  win_resizable =
+      reader->GetBoolean("Renderer", "WinResizable", win_resizable);
+  fixed_aspect_ratio =
+      reader->GetBoolean("Renderer", "FixedAspectRatio", fixed_aspect_ratio);
 
   // Font
   font_scale = reader->GetFloat("Engine", "FontScale", font_scale);

@@ -138,6 +138,15 @@ class URGE_OBJECT(Graphics) {
   /*--urge(name:keep_ratio)--*/
   URGE_EXPORT_ATTRIBUTE(KeepRatio, bool);
 
+  /*--urge(name:integer_scaling)--*/
+  URGE_EXPORT_ATTRIBUTE(IntegerScaling, bool);
+
+  /*--urge(name:smooth_scaling)--*/
+  URGE_EXPORT_ATTRIBUTE(SmoothScaling, int32_t);
+
+  /*--urge(name:smooth_scaling_down)--*/
+  URGE_EXPORT_ATTRIBUTE(SmoothScalingDown, int32_t);
+
   /*--urge(name:background_running)--*/
   URGE_EXPORT_ATTRIBUTE(BackgroundRunning, bool);
 

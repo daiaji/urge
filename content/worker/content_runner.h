@@ -77,7 +77,7 @@ class ContentRunner {
   void CreateRenderComponents();
   void TickHandlerInternal(Diligent::ITexture* present_buffer);
   void UpdateDisplayFPSInternal();
-  void UpdateWindowViewportInternal();
+  void CheckResizeInternal();
   void RenderGUIInternal(Diligent::ITexture* present_buffer);
   void RenderSettingsGUIInternal();
   void RenderFPSMonitorGUIInternal();
@@ -117,6 +117,8 @@ class ContentRunner {
   bool background_running_;
   bool show_settings_menu_;
   bool show_fps_monitor_;
+  float backing_scale_factor_ = 1.0f;
+  float display_refresh_rate_ = 0.0f;
 
   // Console state
   std::string console_input_buffer_;

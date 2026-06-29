@@ -231,8 +231,8 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
   // Create imgui context
   CreateIMGUIContextInternal();
 
-  // Initialize viewport
-  UpdateWindowViewportInternal();
+  // Initialize viewport & backing scale
+  CheckResizeInternal();
 
   // Background watch
   if (!SDL_AddEventWatch(&ContentRunner::EventWatchHandlerInternal, this)) {
@@ -295,8 +295,8 @@ void ContentRunner::TickHandlerInternal(Diligent::ITexture* present_buffer) {
   // Update fps
   UpdateDisplayFPSInternal();
 
-  // Update swapchain & viewport
-  UpdateWindowViewportInternal();
+  // Update swapchain & backing scale
+  CheckResizeInternal();
 
   // Render engine primitive UI
   RenderGUIInternal(present_buffer);
@@ -340,14 +340,20 @@ void ContentRunner::UpdateDisplayFPSInternal() {
   }
 }
 
-void ContentRunner::UpdateWindowViewportInternal() {
+void ContentRunner::CheckResizeInternal() {
   auto& window = execution_context_->window;
-  const auto window_size = window->GetSize();
   auto* swapchain = render_device_->GetSwapChain();
+  const auto window_size = window->GetSize();
 
+  // Update backing scale factor (physical / logical)
+  int32_t pixel_w, pixel_h;
+  SDL_GetWindowSizeInPixels(window->AsSDLWindow(), &pixel_w, &pixel_h);
+  backing_scale_factor_ =
+      (window_size.x > 0) ? static_cast<float>(pixel_w) / window_size.x : 1.0f;
+
+  // Resize swapchain to match logical window size
   if (window_size.x != static_cast<int32_t>(swapchain->GetDesc().Width) ||
       window_size.y != static_cast<int32_t>(swapchain->GetDesc().Height)) {
-    // Resize screen surface
     swapchain->Resize(window_size.x, window_size.y,
                       Diligent::SURFACE_TRANSFORM_OPTIMAL);
   }
@@ -400,21 +406,33 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
         base::Vec2i(client_max.x - client_min.x, client_max.y - client_min.y);
     const auto screen_size = execution_context_->resolution;
 
-    const float window_ratio =
-        static_cast<float>(window_size.x) / window_size.y;
-    const float screen_ratio =
-        static_cast<float>(screen_size.x) / screen_size.y;
-
     ImVec2 display_size(window_size.x, window_size.y);
-    if (screen_ratio > window_ratio)
-      display_size.y = display_size.x / screen_ratio;
-    if (screen_ratio < window_ratio)
-      display_size.x = display_size.y * screen_ratio;
+    ImVec2 display_pos(client_min.x, client_min.y);
 
-    ImVec2 display_pos((window_size.x - display_size.x) / 2.0f,
-                       (window_size.y - display_size.y) / 2.0f);
-    display_pos.x += client_min.x;
-    display_pos.y += client_min.y;
+    if (profile_->keep_ratio) {
+      if (profile_->integer_scaling) {
+        int sx = static_cast<int>(window_size.x / screen_size.x);
+        int sy = static_cast<int>(window_size.y / screen_size.y);
+        int s = std::max(std::min(sx, sy), 1);
+        display_size.x = static_cast<float>(screen_size.x * s);
+        display_size.y = static_cast<float>(screen_size.y * s);
+        display_pos.x += (window_size.x - display_size.x) / 2.0f;
+        display_pos.y += (window_size.y - display_size.y) / 2.0f;
+      } else {
+        const float window_ratio =
+            static_cast<float>(window_size.x) / window_size.y;
+        const float screen_ratio =
+            static_cast<float>(screen_size.x) / screen_size.y;
+
+        if (screen_ratio > window_ratio)
+          display_size.y = display_size.x / screen_ratio;
+        if (screen_ratio < window_ratio)
+          display_size.x = display_size.y * screen_ratio;
+
+        display_pos.x += (window_size.x - display_size.x) / 2.0f;
+        display_pos.y += (window_size.y - display_size.y) / 2.0f;
+      }
+    }
 
     // Viewer image component
     auto* screen_image_view =
@@ -742,11 +760,19 @@ void ContentRunner::CreateIMGUIContextInternal() {
   // Setup renderer backend
   Diligent::ImGuiDiligentCreateInfo imgui_create_info(
       **render_device, render_device->GetSwapChain()->GetDesc());
-  imgui_create_info.MinFilter = profile_->smooth_scale_present
-                                    ? Diligent::FILTER_TYPE_LINEAR
-                                    : Diligent::FILTER_TYPE_POINT;
-  imgui_create_info.MagFilter = imgui_create_info.MinFilter;
-  imgui_create_info.MipFilter = imgui_create_info.MagFilter;
+
+  auto FilterFromConfig = [](int cfg) {
+    return cfg > 0 ? Diligent::FILTER_TYPE_LINEAR : Diligent::FILTER_TYPE_POINT;
+  };
+  imgui_create_info.MinFilter =
+      profile_->smooth_scale_present || profile_->smooth_scaling_down > 0
+          ? Diligent::FILTER_TYPE_LINEAR
+          : Diligent::FILTER_TYPE_POINT;
+  imgui_create_info.MagFilter =
+      profile_->smooth_scale_present || profile_->smooth_scaling > 0
+          ? Diligent::FILTER_TYPE_LINEAR
+          : Diligent::FILTER_TYPE_POINT;
+  imgui_create_info.MipFilter = FilterFromConfig(profile_->smooth_scaling);
   imgui_ = std::make_unique<Diligent::ImGuiDiligentRenderer>(imgui_create_info);
 }
 
