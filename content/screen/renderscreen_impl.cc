@@ -998,7 +998,6 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
   auto* quad_index = **context()->render.quad_index;
   auto index_type = context()->render.quad_index->GetIndexType();
 
-  auto& loader = *context()->render.pipeline_loader;
   // states already declared above
 
   // Helper: set viewport for given size

@@ -211,16 +211,10 @@ void BlendTextSurface(SDL_Surface* txt_srf, const SDL_Rect& in_rect,
                         out_rect.x * out_fmt->bytes_per_pixel +
                         out_rect.y * out_srf->pitch;
 
-  const float txt_r = txt_color.r;
-  const float txt_g = txt_color.g;
-  const float txt_b = txt_color.b;
   const float out_r = out_color.r;
   const float out_g = out_color.g;
   const float out_b = out_color.b;
 
-  // Full-opacity pixel values for clamping
-  const uint32_t full_txt_pixel = SDL_MapRGBA(txt_fmt, nullptr,
-      txt_color.r, txt_color.g, txt_color.b, txt_color.a);
   const uint32_t full_out_pixel = SDL_MapRGBA(out_fmt, nullptr,
       out_color.r, out_color.g, out_color.b, out_color.a);
 

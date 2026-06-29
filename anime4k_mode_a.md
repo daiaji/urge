@@ -62,13 +62,11 @@ Game (640×480)
 
 ## 已知问题
 
-### P0 — 崩溃 ✅ 已修复
+### P0 — 崩溃
 
 - `GPURunModeAPassesInternal` 存在 SIGSEGV
-- **根因**：入口 null 检查不完全，只检查了 4 个 PSO，遗漏了 restore_pass1~6、upscale_pass0~4、enhance 共 13 个 PSO，
-  以及 mode_a_binding 的子绑定（`u_texture`/`u_params`）和 restore 中间纹理（逐个未检查）
-- **修复**：`content/screen/renderscreen_impl.cc:950` — 将所有 17 个 PSO、4 个 binding 子变量、
-  以及 7 个 restore 中间纹理逐个纳入 null 检查，任一不满足即提前 return
+- 疑似 Pipeline State 或 texture 为 null 时未跳过
+- 已添加初步 null 检查，需验证
 
 ### P1 — 多纹理约束
 

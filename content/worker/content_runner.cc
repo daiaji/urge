@@ -735,7 +735,6 @@ void ContentRunner::UpdateEventInternal() {
         }
       }
     } else if (queued_event.type == SDL_EVENT_GAMEPAD_REMOVED) {
-      SDL_JoystickID id = queued_event.gdevice.which;
       if (event_controller_->gamepad_handle()) {
         SDL_CloseGamepad(event_controller_->gamepad_handle());
         event_controller_->set_gamepad_handle(nullptr);
