@@ -371,7 +371,7 @@ void CanvasImpl::SubmitQueuedCommands() {
       case CommandID::DRAW_TEXT: {
         const auto* c = static_cast<Command_DrawText*>(command_sequence);
         GPUCanvasDrawTextSurfaceInternal(c->region, c->text, c->opacity,
-                                         c->align);
+                                         c->align, c->outline);
       } break;
       default:
         NOTREACHED();
@@ -719,6 +719,7 @@ void CanvasImpl::DrawText(int32_t x,
   command->text = text_surface;  // Transient surface object
   command->opacity = static_cast<float>(font_opacity);
   command->align = align;
+  command->outline = font_obj->Outlined() ? 1 : 0;
 
   InvalidateSurfaceCache();
 }
@@ -767,8 +768,14 @@ scoped_refptr<Rect> CanvasImpl::TextSize(const std::string& str,
     return nullptr;
 
   int32_t w, h;
-  TTF_GetStringSize(font, str.c_str(), str.size(), &w, &h);
-  return base::MakeRefCounted<RectImpl>(base::Rect(0, 0, w, h));
+  // Append space and subtract its width to compensate for FreeType
+  // overestimating the last character's width.
+  std::string spaced = str + " ";
+  TTF_GetStringSize(font, spaced.c_str(), spaced.size(), &w, &h);
+  int32_t ws;
+  TTF_GetStringSize(font, " ", 1, &ws, nullptr);
+  w -= ws;
+  return base::MakeRefCounted<RectImpl>(base::Rect(0, 0, std::max(0, w), h));
 }
 
 scoped_refptr<Surface> CanvasImpl::CreateSurface(
@@ -1324,7 +1331,8 @@ void CanvasImpl::GPUCanvasGradientFillRectInternal(const base::Rect& region,
 void CanvasImpl::GPUCanvasDrawTextSurfaceInternal(const base::Rect& region,
                                                   SDL_Surface* text,
                                                   float opacity,
-                                                  int32_t align) {
+                                                  int32_t align,
+                                                  int32_t outline) {
   auto* scheduler = context()->canvas_scheduler;
   auto& render_device = *scheduler->GetRenderDevice();
   auto* render_context = scheduler->GetDiscreteRenderContext();
@@ -1353,6 +1361,7 @@ void CanvasImpl::GPUCanvasDrawTextSurfaceInternal(const base::Rect& region,
   base::Vec4 blend_alpha;
   blend_alpha.w = opacity / 255.0f;
 
+  int32_t outline_px = outline ? 1 : 0;
   int32_t align_x = region.x,
           align_y = region.y + (region.height - text->h) / 2;
   switch (align) {
@@ -1360,10 +1369,10 @@ void CanvasImpl::GPUCanvasDrawTextSurfaceInternal(const base::Rect& region,
     case 0:  // Left
       break;
     case 1:  // Center
-      align_x += (region.width - text->w) / 2;
+      align_x += (region.width - text->w + outline_px) / 2;
       break;
     case 2:  // Right
-      align_x += region.width - text->w;
+      align_x += region.width - text->w - outline_px;
       break;
   }
 

@@ -19,6 +19,8 @@ std::pair<int64_t, void*> ReadFontToMemory(SDL_IOStream* io) {
 
 }  // namespace
 
+namespace content {
+
 ScopedFontData::ScopedFontData(filesystem::IOService* io,
                                const std::string& default_font_name)
     : default_color(base::MakeRefCounted<ColorImpl>(

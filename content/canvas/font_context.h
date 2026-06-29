@@ -47,6 +47,9 @@ struct ScopedFontData {
   TTF_HintingFlags font_hinting = kDefaultFontHinting;
   bool font_outline_crop = kDefaultFontOutlineCrop;
 
+  // Font substitution map: from_name → to_name
+  std::map<std::string, std::string> font_subs;
+
   std::map<std::pair<std::string, int32_t>, TTF_Font*> font_cache;
   std::map<std::string, std::pair<int64_t, void*>> data_cache;
   TTF_Font* internal_font = nullptr;

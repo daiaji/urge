@@ -34,6 +34,8 @@ class FontImpl : public Font {
                           uint8_t* font_opacity,
                           ExceptionState& exception_state);
 
+  bool Outlined() const { return outline_; }
+
  protected:
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Name, std::vector<std::string>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Size, uint32_t);

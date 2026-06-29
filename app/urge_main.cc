@@ -274,6 +274,18 @@ int main(int argc, char* argv[]) {
         static_cast<TTF_HintingFlags>(profile->font_hinting);
     font_context->font_outline_crop = profile->font_outline_crop;
 
+    // Parse font substitution entries ("From>To") from INI
+    for (const auto& entry : profile->font_subs) {
+      size_t sep = entry.find('>');
+      if (sep != std::string::npos) {
+        std::string from = entry.substr(0, sep);
+        std::string to = entry.substr(sep + 1);
+        std::transform(from.begin(), from.end(), from.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        font_context->font_subs[from] = to;
+      }
+    }
+
     {
       // Initialize engine main widget
       std::unique_ptr<ui::Widget> widget(new ui::Widget);

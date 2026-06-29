@@ -260,6 +260,26 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   font_outline_crop =
       reader->GetBoolean("Engine", "FontOutlineCrop", font_outline_crop);
 
+  {
+    std::string subs_line = reader->Get("Engine", "FontSubs", "");
+    if (!subs_line.empty()) {
+      size_t pos = 0;
+      while (pos < subs_line.size()) {
+        size_t comma = subs_line.find(',', pos);
+        std::string entry = subs_line.substr(pos, comma - pos);
+        if (!entry.empty()) {
+          entry.erase(0, entry.find_first_not_of(" \t"));
+          entry.erase(entry.find_last_not_of(" \t") + 1);
+          if (!entry.empty())
+            font_subs.push_back(entry);
+        }
+        if (comma == std::string::npos)
+          break;
+        pos = comma + 1;
+      }
+    }
+  }
+
   // Platform
   debugging_console =
       reader->GetBoolean("Platform", "DebuggingConsole", debugging_console);
