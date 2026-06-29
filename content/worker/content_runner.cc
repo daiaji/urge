@@ -615,6 +615,28 @@ void ContentRunner::UpdateEventInternal() {
       }
     }
 
+    // Gamepad lifecycle (event-driven, no polling)
+    if (queued_event.type == SDL_EVENT_GAMEPAD_ADDED) {
+      SDL_JoystickID id = queued_event.gdevice.which;
+      if (!event_controller_->gamepad_handle()) {
+        SDL_Gamepad* pad = SDL_OpenGamepad(id);
+        if (pad) {
+          event_controller_->set_gamepad_handle(pad);
+          event_controller_->SetGamepadConnected(true);
+          LOG(INFO) << "[Gamepad] Opened: "
+                     << SDL_GetGamepadName(pad);
+        }
+      }
+    } else if (queued_event.type == SDL_EVENT_GAMEPAD_REMOVED) {
+      SDL_JoystickID id = queued_event.gdevice.which;
+      if (event_controller_->gamepad_handle()) {
+        SDL_CloseGamepad(event_controller_->gamepad_handle());
+        event_controller_->set_gamepad_handle(nullptr);
+        event_controller_->ResetGamepadState();
+        LOG(INFO) << "[Gamepad] Removed.";
+      }
+    }
+
     // Game input process
     const auto window_size = execution_context_->window->GetSize();
     const auto screen_size = execution_context_->resolution;

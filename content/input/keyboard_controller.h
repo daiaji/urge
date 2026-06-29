@@ -6,6 +6,9 @@
 #define CONTENT_INPUT_KEYBOARD_CONTROLLER_H_
 
 #include <optional>
+#include <unordered_map>
+
+#include "SDL3/SDL_gamepad.h"
 
 #include "content/context/engine_object.h"
 #include "content/profile/content_profile.h"
@@ -18,16 +21,25 @@ namespace content {
 
 class KeyboardControllerImpl : public Input, public EngineObject {
  public:
-  struct KeyBinding {
-    std::string sym;
-    SDL_Scancode scancode;
+  // Unified binding source (keyboard + gamepad, mkxp-z style)
+  struct BindingSource {
+    enum class Type : uint8_t { Invalid, Key, GamepadButton, GamepadAxis };
+    Type type = Type::Invalid;
+    uint16_t code = 0;  // SDL_Scancode or SDL_GamepadButton or SDL_GamepadAxis
+    int8_t dir = 0;     // for axis: -1 or +1
 
-    bool operator==(const KeyBinding& other) const {
-      return sym == other.sym && scancode == other.scancode;
+    bool operator==(const BindingSource& o) const {
+      return type == o.type && code == o.code && dir == o.dir;
     }
+    bool operator!=(const BindingSource& o) const { return !(*this == o); }
   };
 
-  using KeySymMap = std::vector<KeyBinding>;
+  struct BindingEntry {
+    std::string sym;
+    BindingSource source;
+  };
+  using BindingList = std::vector<BindingEntry>;
+
   struct KeyState {
     bool pressed = false;
     bool trigger = false;
@@ -42,7 +54,7 @@ class KeyboardControllerImpl : public Input, public EngineObject {
   KeyboardControllerImpl& operator=(const KeyboardControllerImpl&) = delete;
 
   void ProcessEvent(const std::optional<EventController::KeyEventData>& event);
-  void ApplyKeySymBinding(const KeySymMap& keysyms);
+  void ApplyKeyBinding(const BindingList& bindings);
 
  public:
   void Update(ExceptionState& exception_state) override;
@@ -80,13 +92,8 @@ class KeyboardControllerImpl : public Input, public EngineObject {
                bool repeat,
                ExceptionState& exception_state) override;
 
-  // Gamepad support
-  void UpdateGamepad();
-  void PollGamepadState();
+  // Gamepad support (event-driven, reads from EventController)
   bool GamepadIsPressed(const std::string& sym);
-  int16_t GetGamepadAxisValue(int32_t axis);
-  std::string GetGamepadAxisName(int32_t axis);
-  std::string GetGamepadButtonName(int32_t button);
   bool IsGamepadConnected(ExceptionState& exception_state) override;
 
   // Rumble / force feedback
@@ -98,15 +105,35 @@ class KeyboardControllerImpl : public Input, public EngineObject {
   // ImGui settings page
   void CreateButtonGUISettings();
 
-  // Ported from mkxp-z: configurable gamepad bindings
-  void SetGamepadBindingList(const GamepadBindingList& bindings);
-  const GamepadBindingList& GetGamepadBindingList() const;
-  GamepadBindingList GetDefaultGamepadBindings() const;
-  void ResetGamepadBindingsToDefault();
+  // Configurable bindings (unified)
+  void SetBindingList(const BindingList& bindings);
+  const BindingList& GetBindingList() const;
+  BindingList GetDefaultBindings() const;
+  void ResetBindingsToDefault();
 
   // Input capture (called from main thread after event dispatch)
   void PollCapture();
   void StartCaptureFor(const std::string& sym, int32_t next_idx = -1);
+
+  // mkxp-z style raw gamepad access
+  int16_t GetGamepadAxisValue(int32_t axis);
+  std::string GetGamepadAxisName(int32_t axis);
+  std::string GetGamepadButtonName(int32_t button);
+  std::string GetGamepadName(ExceptionState& exception_state) override;
+  int32_t GetGamepadPowerLevel(ExceptionState& exception_state) override;
+  std::vector<float> GetGamepadAxisLeft(ExceptionState& exception_state) override;
+  std::vector<float> GetGamepadAxisRight(ExceptionState& exception_state) override;
+  std::vector<float> GetGamepadAxisTrigger(ExceptionState& exception_state) override;
+  bool GamepadPressEx(int32_t button, ExceptionState& exception_state) override;
+  bool GamepadTriggerEx(int32_t button, ExceptionState& exception_state) override;
+  bool GamepadRepeatEx(int32_t button, ExceptionState& exception_state) override;
+  bool GamepadReleaseEx(int32_t button, ExceptionState& exception_state) override;
+  int32_t GamepadRepeatCountEx(int32_t button, ExceptionState& exception_state) override;
+  double GamepadButtonTimeEx(int32_t button, ExceptionState& exception_state) override;
+  std::vector<uint8_t> GetGamepadRawButtonStates(
+      ExceptionState& exception_state) override;
+  std::vector<float> GetGamepadRawAxes(
+      ExceptionState& exception_state) override;
 
  private:
   void UpdateDir4Internal();
@@ -114,8 +141,10 @@ class KeyboardControllerImpl : public Input, public EngineObject {
 
   void TryReadBindingsInternal();
   void StorageBindingsInternal();
+  void LoadBindingsInternal();
+  void SaveBindingsInternal();
 
-  KeySymMap key_bindings_;
+  BindingList bindings_;
 
   std::array<bool, SDL_SCANCODE_COUNT> raw_states_;
   std::array<KeyState, SDL_SCANCODE_COUNT> key_states_;
@@ -130,27 +159,24 @@ class KeyboardControllerImpl : public Input, public EngineObject {
     int32_t active = 0;
   } dir8_state_;
 
-  // Single gamepad support (mkxp-z compatible, first gamepad only)
-  struct GamepadHandle {
-    SDL_Gamepad* pad = nullptr;
-    SDL_JoystickID id = 0;
-  };
-  std::vector<GamepadHandle> gamepads_;
-
-  // Merged state (OR across all connected gamepads)
+  // Gamepad state (copied from EventController each frame for edge detection)
   int16_t gp_axes_[SDL_GAMEPAD_AXIS_COUNT] = {};
   int16_t gp_axes_prev_[SDL_GAMEPAD_AXIS_COUNT] = {};
   bool gp_buttons_[SDL_GAMEPAD_BUTTON_COUNT] = {};
   bool gp_buttons_prev_[SDL_GAMEPAD_BUTTON_COUNT] = {};
   int32_t gp_repeat_count_[SDL_GAMEPAD_BUTTON_COUNT] = {};
   int32_t gp_axis_repeat_[4] = {};  // DOWN, LEFT, RIGHT, UP
+  bool gp_connected_ = false;
 
-  // Configurable gamepad bindings (flat list, mkxp-z style)
-  GamepadBindingList gp_bindings_;
+  // Gamepad raw state (for mkxp-z style ex query)
+  bool gp_raw_buttons_old_[SDL_GAMEPAD_BUTTON_COUNT] = {};
+  int32_t gp_raw_button_repeat_count_ = 0;
+  int32_t gp_raw_button_repeating_ = -1;
+  uint64_t gp_raw_button_repeat_time_ = 0;
 
   // Input capture state (for ImGui rebind UI)
   std::string capture_target_;
-  GamepadSource capture_slot_;
+  BindingSource capture_slot_;
   bool is_capturing_ = false;
   int32_t capture_next_idx_ = -1;
 

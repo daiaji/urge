@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "SDL3/SDL_events.h"
+#include "SDL3/SDL_gamepad.h"
 
 #include "base/math/rectangle.h"
 #include "content/public/engine_keyevent.h"
@@ -70,6 +71,13 @@ class EventController {
     int32_t select_length;
   };
 
+  // Event-driven gamepad state (mkxp-z style)
+  struct GamepadState {
+    bool connected = false;
+    int16_t axes[SDL_GAMEPAD_AXIS_COUNT] = {};
+    bool buttons[SDL_GAMEPAD_BUTTON_COUNT] = {};
+  };
+
   EventController();
   ~EventController();
 
@@ -95,11 +103,33 @@ class EventController {
     return text_input_events_;
   }
 
+  // Gamepad state (updated by events, read by input system)
+  const GamepadState& gamepad_state() const { return gamepad_state_; }
+  void SetGamepadConnected(bool connected) { gamepad_state_.connected = connected; }
+  void UpdateGamepadButton(int button, bool down) {
+    if (button >= 0 && button < SDL_GAMEPAD_BUTTON_COUNT)
+      gamepad_state_.buttons[button] = down;
+  }
+  void UpdateGamepadAxis(int axis, int16_t value) {
+    if (axis >= 0 && axis < SDL_GAMEPAD_AXIS_COUNT)
+      gamepad_state_.axes[axis] = value;
+  }
+  void ResetGamepadState() {
+    gamepad_state_ = GamepadState{};
+  }
+
+  // Gamepad handle lifecycle (managed by ContentRunner)
+  SDL_Gamepad* gamepad_handle() const { return gamepad_handle_; }
+  void set_gamepad_handle(SDL_Gamepad* handle) { gamepad_handle_ = handle; }
+
  private:
   std::vector<KeyEventData> key_events_;
   std::vector<MouseEventData> mouse_events_;
   std::vector<TouchEventData> touch_events_;
   std::vector<TextInputEventData> text_input_events_;
+
+  GamepadState gamepad_state_;
+  SDL_Gamepad* gamepad_handle_ = nullptr;
 };
 
 }  // namespace content
