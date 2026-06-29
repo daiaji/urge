@@ -63,6 +63,10 @@ ContentRunner::ContentRunner(ContentProfile* profile,
 }
 
 ContentRunner::~ContentRunner() {
+  // Flush pending GPU commands before destroying context
+  if (device_context_)
+    device_context_->Flush();
+
   // Remove watch
   SDL_RemoveEventWatch(&ContentRunner::EventWatchHandlerInternal, this);
 
@@ -243,8 +247,8 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
   // Create imgui context
   CreateIMGUIContextInternal();
 
-  // Initialize viewport
-  UpdateWindowViewportInternal();
+  // Initialize viewport & backing scale
+  CheckResizeInternal();
 
   // Background watch
   if (!SDL_AddEventWatch(&ContentRunner::EventWatchHandlerInternal, this)) {
@@ -289,7 +293,8 @@ void ContentRunner::CreateRenderComponents() {
   // Pipeline states
   auto* loader = execution_context_->render.pipeline_loader.get();
   execution_context_->render.pipeline_states =
-      std::make_unique<PipelineCollection>(loader);
+      std::make_unique<PipelineCollection>(
+          loader, **execution_context_->render_device);
 }
 
 void ContentRunner::TickHandlerInternal(Diligent::ITexture* present_buffer) {
@@ -307,8 +312,8 @@ void ContentRunner::TickHandlerInternal(Diligent::ITexture* present_buffer) {
   // Update fps
   UpdateDisplayFPSInternal();
 
-  // Update swapchain & viewport
-  UpdateWindowViewportInternal();
+  // Update swapchain & backing scale
+  CheckResizeInternal();
 
   // Render engine primitive UI
   RenderGUIInternal(present_buffer);
@@ -352,23 +357,36 @@ void ContentRunner::UpdateDisplayFPSInternal() {
   }
 }
 
-void ContentRunner::UpdateWindowViewportInternal() {
+void ContentRunner::CheckResizeInternal() {
   auto& window = execution_context_->window;
-  const auto window_size = window->GetSize();
   auto* swapchain = render_device_->GetSwapChain();
+  if (!swapchain)
+    return;
+  const auto window_size = window->GetSize();
 
+  // Update backing scale factor (physical / logical)
+  int32_t pixel_w, pixel_h;
+  SDL_GetWindowSizeInPixels(window->AsSDLWindow(), &pixel_w, &pixel_h);
+  backing_scale_factor_ =
+      (window_size.x > 0) ? static_cast<float>(pixel_w) / window_size.x : 1.0f;
+
+  // Resize swapchain to match logical window size
   if (window_size.x != static_cast<int32_t>(swapchain->GetDesc().Width) ||
       window_size.y != static_cast<int32_t>(swapchain->GetDesc().Height)) {
-    // Resize screen surface
     swapchain->Resize(window_size.x, window_size.y,
                       Diligent::SURFACE_TRANSFORM_OPTIMAL);
   }
 }
 
 void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
+  // Scale ImGui fonts for HiDPI displays
+  ImGui::GetIO().FontGlobalScale = backing_scale_factor_;
+
   // Setup renderer new frame
-  const Diligent::SwapChainDesc& swapchain_desc =
-      execution_context_->render_device->GetSwapChain()->GetDesc();
+  auto* swapchain = execution_context_->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
+  const Diligent::SwapChainDesc& swapchain_desc = swapchain->GetDesc();
   imgui_->NewFrame(swapchain_desc.Width, swapchain_desc.Height,
                    swapchain_desc.PreTransform);
 
@@ -412,21 +430,33 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
         base::Vec2i(client_max.x - client_min.x, client_max.y - client_min.y);
     const auto screen_size = execution_context_->resolution;
 
-    const float window_ratio =
-        static_cast<float>(window_size.x) / window_size.y;
-    const float screen_ratio =
-        static_cast<float>(screen_size.x) / screen_size.y;
-
     ImVec2 display_size(window_size.x, window_size.y);
-    if (screen_ratio > window_ratio)
-      display_size.y = display_size.x / screen_ratio;
-    if (screen_ratio < window_ratio)
-      display_size.x = display_size.y * screen_ratio;
+    ImVec2 display_pos(client_min.x, client_min.y);
 
-    ImVec2 display_pos((window_size.x - display_size.x) / 2.0f,
-                       (window_size.y - display_size.y) / 2.0f);
-    display_pos.x += client_min.x;
-    display_pos.y += client_min.y;
+    if (profile_->keep_ratio) {
+      if (profile_->integer_scaling) {
+        int sx = static_cast<int>(window_size.x / screen_size.x);
+        int sy = static_cast<int>(window_size.y / screen_size.y);
+        int s = std::max(std::min(sx, sy), 1);
+        display_size.x = static_cast<float>(screen_size.x * s);
+        display_size.y = static_cast<float>(screen_size.y * s);
+        display_pos.x += (window_size.x - display_size.x) / 2.0f;
+        display_pos.y += (window_size.y - display_size.y) / 2.0f;
+      } else {
+        const float window_ratio =
+            static_cast<float>(window_size.x) / window_size.y;
+        const float screen_ratio =
+            static_cast<float>(screen_size.x) / screen_size.y;
+
+        if (screen_ratio > window_ratio)
+          display_size.y = display_size.x / screen_ratio;
+        if (screen_ratio < window_ratio)
+          display_size.x = display_size.y * screen_ratio;
+
+        display_pos.x += (window_size.x - display_size.x) / 2.0f;
+        display_pos.y += (window_size.y - display_size.y) / 2.0f;
+      }
+    }
 
     // Viewer image component
     auto* screen_image_view =
@@ -459,6 +489,9 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
     mouse_impl_->ProcessEvent(std::nullopt);
   }
 
+  // Poll gamepad for capture mode (main thread)
+  keyboard_impl_->PollCapture();
+
   // Render gui
   ImGui::Render();
 }
@@ -481,6 +514,16 @@ void ContentRunner::RenderSettingsGUIInternal() {
 
     // Engine Info
     DrawEngineInfoGUI(execution_context_->i18n_profile);
+
+    ImGui::Separator();
+    if (ImGui::Button("Reset All Settings")) {
+      profile_->ResetAudioDefaults();
+      if (execution_context_->audio_server)
+        execution_context_->audio_server->SetVolume(profile_->audio_volume);
+      profile_->ResetRendererDefaults();
+      keyboard_impl_->ResetBindingsToDefault();
+      profile_->SaveConfigure();
+    }
   }
   ImGui::End();
 }
@@ -498,9 +541,47 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
   ImGui::End();
 }
 
+
+int ContentRunner::ConsoleInputCallback(ImGuiInputTextCallbackData* data) {
+  auto* runner = static_cast<ContentRunner*>(data->UserData);
+  if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) {
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.KeyCtrl)
+      return 0;
+    auto& h = runner->console_history_;
+    auto& p = runner->console_history_pos_;
+    if (data->EventKey == ImGuiKey_UpArrow && !h.empty()) {
+      if (p == -1)
+        p = static_cast<int>(h.size()) - 1;
+      else if (p > 0)
+        p--;
+      data->DeleteChars(0, data->BufTextLen);
+      data->InsertChars(0, h[p].c_str());
+      data->BufDirty = true;
+    } else if (data->EventKey == ImGuiKey_DownArrow) {
+      if (p >= 0) {
+        p++;
+        if (p < static_cast<int>(h.size())) {
+          data->DeleteChars(0, data->BufTextLen);
+          data->InsertChars(0, h[p].c_str());
+          data->BufDirty = true;
+        } else {
+          data->DeleteChars(0, data->BufTextLen);
+          p = -1;
+          data->BufDirty = true;
+        }
+      }
+    }
+    return 0;
+  }
+  return 0;
+// Console input callback for ImGui
+}
 void ContentRunner::RenderConsoleGUIInternal() {
-  const auto& sc_desc =
-      execution_context_->render_device->GetSwapChain()->GetDesc();
+  auto* swapchain = execution_context_->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
+  const auto& sc_desc = swapchain->GetDesc();
   float win_w = static_cast<float>(sc_desc.Width);
   float win_h = static_cast<float>(sc_desc.Height);
 
@@ -524,39 +605,26 @@ void ContentRunner::RenderConsoleGUIInternal() {
     }
     ImGui::EndChild();
 
-    // Input area (CallbackHistory not supported with Multiline per ImGui assert)
-    ImGuiInputTextFlags iflags = ImGuiInputTextFlags_EnterReturnsTrue;
+    // Input area
+    // CtrlEnterForNewLine: Enter submits, Ctrl+Enter adds newline
+    ImGuiInputTextFlags iflags =
+        ImGuiInputTextFlags_EnterReturnsTrue |
+        ImGuiInputTextFlags_CtrlEnterForNewLine |
+        ImGuiInputTextFlags_CallbackHistory;
 
     if (ImGui::InputTextMultiline(
             "##console_in", &console_input_buffer_,
-            ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags)) {
+            ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags,
+            &ConsoleInputCallback, this)) {
+      // Trim trailing newline added by InputTextMultiline on Enter
+      while (!console_input_buffer_.empty() &&
+             (console_input_buffer_.back() == '\n' ||
+              console_input_buffer_.back() == '\r'))
+        console_input_buffer_.pop_back();
       ExecuteConsoleCommand(console_input_buffer_);
       console_input_buffer_.clear();
       console_history_pos_ = -1;
       execution_context_->console.scroll_to_bottom = true;
-    }
-
-    // Manual history navigation (Up/Down)
-    if (ImGui::IsItemActive()) {
-      if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-        if (!console_history_.empty()) {
-          if (console_history_pos_ == -1)
-            console_history_pos_ = console_history_.size() - 1;
-          else if (console_history_pos_ > 0)
-            console_history_pos_--;
-          console_input_buffer_ = console_history_[console_history_pos_];
-        }
-      } else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-        if (console_history_pos_ >= 0) {
-          console_history_pos_++;
-          if (console_history_pos_ < (int)console_history_.size())
-            console_input_buffer_ = console_history_[console_history_pos_];
-          else {
-            console_input_buffer_.clear();
-            console_history_pos_ = -1;
-          }
-        }
-      }
     }
 
     if (!ImGui::IsAnyItemActive())
@@ -566,8 +634,8 @@ void ContentRunner::RenderConsoleGUIInternal() {
 }
 
 void ContentRunner::ExecuteConsoleCommand(const std::string& code) {
-  auto& output = execution_context_->console.output;
-  output.push_back(">>> " + code);
+  auto& console = execution_context_->console;
+  console.Push("[Input] >>> " + code);
 
   if (code.empty())
     return;
@@ -577,13 +645,13 @@ void ContentRunner::ExecuteConsoleCommand(const std::string& code) {
     console_history_.pop_front();
 
   if (!execution_context_->eval_ruby) {
-    output.push_back("(eval not available)");
+    console.Push("[Result] (eval not available)");
     return;
   }
 
   std::string result = execution_context_->eval_ruby(code);
   if (!result.empty())
-    output.push_back(result);
+    console.Push("[Result] " + result);
 }
 
 void ContentRunner::UpdateEventInternal() {
@@ -635,6 +703,28 @@ void ContentRunner::UpdateEventInternal() {
       } else if (queued_event.key.scancode == SDL_SCANCODE_F12) {
         if (!profile_->disable_reset)
           binding_reset_flag_.store(1);
+      }
+    }
+
+    // Gamepad lifecycle (event-driven, no polling)
+    if (queued_event.type == SDL_EVENT_GAMEPAD_ADDED) {
+      SDL_JoystickID id = queued_event.gdevice.which;
+      if (!event_controller_->gamepad_handle()) {
+        SDL_Gamepad* pad = SDL_OpenGamepad(id);
+        if (pad) {
+          event_controller_->set_gamepad_handle(pad);
+          event_controller_->SetGamepadConnected(true);
+          LOG(INFO) << "[Gamepad] Opened: "
+                     << SDL_GetGamepadName(pad);
+        }
+      }
+    } else if (queued_event.type == SDL_EVENT_GAMEPAD_REMOVED) {
+      SDL_JoystickID id = queued_event.gdevice.which;
+      if (event_controller_->gamepad_handle()) {
+        SDL_CloseGamepad(event_controller_->gamepad_handle());
+        event_controller_->set_gamepad_handle(nullptr);
+        event_controller_->ResetGamepadState();
+        LOG(INFO) << "[Gamepad] Removed.";
       }
     }
 
@@ -732,8 +822,24 @@ void ContentRunner::CreateIMGUIContextInternal() {
   io.Fonts->TexMaxWidth = max_texture_size;
   io.Fonts->TexMaxHeight = max_texture_size;
   io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(font_data), font_data_size,
-                                 16.0f * window_scale, &font_config,
+                                 20.0f * window_scale, &font_config,
                                  io.Fonts->GetGlyphRangesChineseFull());
+
+  // Merge CJK font for Chinese/Japanese glyph support in ImGui Console
+  // Reuse fonts already loaded by the game's font context
+  auto& data_cache = execution_context_->font_context->data_cache;
+  std::string default_key = execution_context_->font_context->default_font;
+  for (auto& [name, pair] : data_cache) {
+    if (name == default_key)
+      continue;
+    ImFontConfig cjk_config;
+    cjk_config.FontDataOwnedByAtlas = false;
+    cjk_config.MergeMode = true;
+    io.Fonts->AddFontFromMemoryTTF(pair.second, pair.first,
+                                   20.0f * window_scale, &cjk_config,
+                                   io.Fonts->GetGlyphRangesChineseFull());
+    break;
+  }
 
   // Setup Dear ImGui style
   ImGui::StyleColorsClassic();
@@ -744,11 +850,19 @@ void ContentRunner::CreateIMGUIContextInternal() {
   // Setup renderer backend
   Diligent::ImGuiDiligentCreateInfo imgui_create_info(
       **render_device, render_device->GetSwapChain()->GetDesc());
-  imgui_create_info.MinFilter = profile_->smooth_scale_present
-                                    ? Diligent::FILTER_TYPE_LINEAR
-                                    : Diligent::FILTER_TYPE_POINT;
-  imgui_create_info.MagFilter = imgui_create_info.MinFilter;
-  imgui_create_info.MipFilter = imgui_create_info.MagFilter;
+
+  auto FilterFromConfig = [](int cfg) {
+    return cfg > 0 ? Diligent::FILTER_TYPE_LINEAR : Diligent::FILTER_TYPE_POINT;
+  };
+  imgui_create_info.MinFilter =
+      profile_->smooth_scale_present || profile_->smooth_scaling_down > 0
+          ? Diligent::FILTER_TYPE_LINEAR
+          : Diligent::FILTER_TYPE_POINT;
+  imgui_create_info.MagFilter =
+      profile_->smooth_scale_present || profile_->smooth_scaling > 0
+          ? Diligent::FILTER_TYPE_LINEAR
+          : Diligent::FILTER_TYPE_POINT;
+  imgui_create_info.MipFilter = FilterFromConfig(profile_->smooth_scaling);
   imgui_ = std::make_unique<Diligent::ImGuiDiligentRenderer>(imgui_create_info);
 }
 

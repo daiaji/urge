@@ -40,6 +40,7 @@ struct ScopedFontData {
   scoped_refptr<ColorImpl> default_color = nullptr;
   scoped_refptr<ColorImpl> default_out_color = nullptr;
   scoped_refptr<ColorImpl> default_gradient_color = nullptr;
+  scoped_refptr<ColorImpl> default_shadow_color = nullptr;
 
   // Font rendering preferences (INI overridable, RGSS defaults)
   float font_scale = kDefaultFontScale;
@@ -47,7 +48,15 @@ struct ScopedFontData {
   TTF_HintingFlags font_hinting = kDefaultFontHinting;
   bool font_outline_crop = kDefaultFontOutlineCrop;
 
+  // Font substitution map: from_name → to_name (from INI FontSubs)
+  std::map<std::string, std::string> font_subs;
+
+  // Font family name → filename cache (populated at startup)
+  // Maps lowercase family names like "simhei" → "SimHei.ttf"
+  std::map<std::string, std::string> family_name_cache;
+
   std::map<std::pair<std::string, int32_t>, TTF_Font*> font_cache;
+  std::map<std::pair<std::string, int32_t>, int32_t> size_to_ppem;
   std::map<std::string, std::pair<int64_t, void*>> data_cache;
   TTF_Font* internal_font = nullptr;
 

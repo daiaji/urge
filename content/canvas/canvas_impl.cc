@@ -371,7 +371,7 @@ void CanvasImpl::SubmitQueuedCommands() {
       case CommandID::DRAW_TEXT: {
         const auto* c = static_cast<Command_DrawText*>(command_sequence);
         GPUCanvasDrawTextSurfaceInternal(c->region, c->text, c->opacity,
-                                         c->align);
+                                         c->align, c->outline);
       } break;
       default:
         NOTREACHED();
@@ -719,6 +719,7 @@ void CanvasImpl::DrawText(int32_t x,
   command->text = text_surface;  // Transient surface object
   command->opacity = static_cast<float>(font_opacity);
   command->align = align;
+  command->outline = 0;
 
   InvalidateSurfaceCache();
 }
@@ -1324,7 +1325,8 @@ void CanvasImpl::GPUCanvasGradientFillRectInternal(const base::Rect& region,
 void CanvasImpl::GPUCanvasDrawTextSurfaceInternal(const base::Rect& region,
                                                   SDL_Surface* text,
                                                   float opacity,
-                                                  int32_t align) {
+                                                  int32_t align,
+                                                  int32_t outline) {
   auto* scheduler = context()->canvas_scheduler;
   auto& render_device = *scheduler->GetRenderDevice();
   auto* render_context = scheduler->GetDiscreteRenderContext();
