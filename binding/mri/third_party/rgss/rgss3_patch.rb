@@ -973,6 +973,7 @@ module RPG
 
 end
 
-require_relative "rgss3_compat"
+# require_relative is NOT used here — inject rgss3_compat.rb as a separate
+# script entry via rm-toolkit --inject-script instead.
 
 end # RPG

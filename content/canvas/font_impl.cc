@@ -14,7 +14,7 @@ constexpr int32_t kOutlineSize = 1;
 
 namespace {
 
-void RenderShadowSurface(SDL_Surface*& in) {
+void RenderShadowSurface(SDL_Surface*& in, const SDL_Color& text_color) {
   if (in->w < 4 || in->h < 4)
     return;
 
@@ -27,8 +27,13 @@ void RenderShadowSurface(SDL_Surface*& in) {
   auto* pixels = static_cast<uint32_t*>(dest->pixels);
   auto pitch = dest->pitch / 4;
   for (int32_t y = 0; y < dest->h; ++y)
-    for (int32_t x = 0; x < dest->w; ++x)
-      pixels[x + y * pitch] &= 0xFF000000;
+    for (int32_t x = 0; x < dest->w; ++x) {
+      uint32_t a = (pixels[x + y * pitch] >> 24) & 0xFF;
+      pixels[x + y * pitch] = (a << 24) |
+          ((uint32_t)(a * text_color.r / 255) << 16) |
+          ((uint32_t)(a * text_color.g / 255) << 8) |
+          ((uint32_t)(a * text_color.b / 255));
+    }
 
   SDL_SetSurfaceBlendMode(dest, SDL_BLENDMODE_BLEND);
   SDL_BlitSurface(in, nullptr, dest, nullptr);
@@ -274,10 +279,7 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
   SDL_Color font_color = color_impl->AsSDLColor();
   SDL_Color outline_color = out_color_impl->AsSDLColor();
   if (font_opacity)
-    *font_opacity = font_color.a;
-
-  font_color.a = 255;
-  outline_color.a = 255;
+    *font_opacity = 255;
 
   SDL_Surface* text_surface =
       solid_
@@ -360,7 +362,7 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
 
   EnsureFontSurfaceFormatInternal(text_surface);
   if (shadow_)
-    RenderShadowSurface(text_surface);
+    RenderShadowSurface(text_surface, font_color);
 
   return text_surface;
 }
@@ -453,6 +455,18 @@ URGE_DEFINE_OVERRIDE_ATTRIBUTE(
 void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
   std::vector<std::string> load_names(name_);
   load_names.push_back(parent_->default_font);
+
+  // Apply font substitution
+  auto& subs = parent_->font_subs;
+  for (auto& name : load_names) {
+    std::string lower(name);
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    auto sub_it = subs.find(lower);
+    if (sub_it != subs.end()) {
+      name = sub_it->second;
+    }
+  }
 
   auto& font_cache = parent_->font_cache;
   if (size_ >= 6 && size_ <= 96) {

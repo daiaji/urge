@@ -125,6 +125,9 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Fullscreen, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Skipframe, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(KeepRatio, bool);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(IntegerScaling, bool);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(SmoothScaling, int32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(SmoothScalingDown, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(BackgroundRunning, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Ox, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Oy, int32_t);

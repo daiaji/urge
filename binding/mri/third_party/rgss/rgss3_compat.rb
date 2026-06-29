@@ -1,8 +1,8 @@
 # RGSS3 behavior compatibility layer.
 # Bridges the gap between URGE's generic C++ APIs and VX Ace's expected behaviors.
 #
-# To use: this file is auto-loaded via rgss3_patch.rb's require_relative.
-# Or require it directly in your script editor.
+# To use: inject via: rm-toolkit --inject-script 1:rgss3_compat.rb
+# (place it right after rgss3_patch.rb in the script array)
 
 class << Graphics
   alias :original_resize_screen :resize_screen

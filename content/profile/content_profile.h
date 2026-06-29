@@ -84,6 +84,7 @@ class ContentProfile {
   bool font_kerning = true;
   int32_t font_hinting = 3;
   bool font_outline_crop = true;
+  std::vector<std::string> font_subs;
 
   // Platform
   bool debugging_console = false;
