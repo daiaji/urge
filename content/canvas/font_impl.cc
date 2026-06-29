@@ -468,6 +468,23 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
     }
   }
 
+  // Resolve names to filenames: no extension → family name only
+  auto& name_cache = parent_->family_name_cache;
+  for (auto& name : load_names) {
+    if (name.empty())
+      continue;
+    // Already a filename with extension
+    if (name.find('.') != std::string::npos)
+      continue;
+    // Treat as family name → look up in family_name_cache
+    std::string lower(name);
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    auto cached = name_cache.find(lower);
+    if (cached != name_cache.end())
+      name = cached->second;
+  }
+
   auto& font_cache = parent_->font_cache;
   if (size_ >= 6 && size_ <= 96) {
     for (const auto& font_name : load_names) {
@@ -488,6 +505,24 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
         font_cache.emplace(std::make_pair(font_name, size_), font_);
         return;
       }
+    }
+  }
+
+  // Final fallback: try every font in data_cache regardless of name
+  // This ensures text renders even when Font.default_name doesn't match
+  // any actual filename or family name in the Fonts/ directory.
+  for (const auto& entry : parent_->data_cache) {
+    auto it = font_cache.find(std::make_pair(entry.first, size_));
+    if (it != font_cache.end()) {
+      font_ = it->second;
+      return;
+    }
+    auto io = SDL_IOFromConstMem(entry.second.second, entry.second.first);
+    TTF_Font* font_obj = TTF_OpenFontIO(io, true, size_ * parent_->font_scale);
+    if (font_obj) {
+      font_ = font_obj;
+      font_cache.emplace(std::make_pair(entry.first, size_), font_);
+      return;
     }
   }
 
