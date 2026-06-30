@@ -161,12 +161,30 @@ void BindingEngineMri::PreEarlyInitialization(
   ruby_init();
   ruby_init_loadpath();
 
-#if RAPI_FULL >= 300
-  rb_call_builtin_inits();
-#endif  //! RAPI_FULL >= 300
-
   rb_enc_set_default_internal(rb_enc_from_encoding(rb_utf8_encoding()));
   rb_enc_set_default_external(rb_enc_from_encoding(rb_utf8_encoding()));
+
+  // rb_call_builtin_inits is hidden in Ruby shared library on Linux
+  // (not in .dynsym due to -fvisibility=hidden).
+  // Try dlsym first; fall back to dladdr + build-time extracted offset.
+#if defined(OS_LINUX)
+  #include <dlfcn.h>
+  auto fn = (void (*)())dlsym(RTLD_DEFAULT, "rb_call_builtin_inits");
+  if (!fn) {
+    #include "mri_builtin_offset.h"
+    #ifdef MRI_BUILTIN_INITS_OFFSET
+      Dl_info info;
+      dladdr((void*)ruby_init, &info);
+      fn = (void (*)())((uintptr_t)info.dli_fbase + MRI_BUILTIN_INITS_OFFSET);
+    #else
+      #error "MRI_BUILTIN_INITS_OFFSET undefined. Install binutils or configure manually."
+    #endif
+  }
+  if (fn)
+    fn();
+#elif RAPI_FULL >= 300
+  rb_call_builtin_inits();
+#endif
 
   // internal exception
   MriInitException(profile->api_version >=

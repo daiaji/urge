@@ -59,10 +59,11 @@ else()
 
   message(STATUS "[Binding] Ruby Include Path: ${RUBY_INCLUDE_PATH}")
   message(STATUS "[Binding] Ruby Library: ${RUBY_LIBRARY_PATH}")
-  
+
   set_target_properties(mri_ruby PROPERTIES
                         IMPORTED_LOCATION "${RUBY_LIBRARY_PATH}"
                         INTERFACE_INCLUDE_DIRECTORIES "${RUBY_INCLUDE_PATH}")
+
 endif()
 
 #--------------------------------------------------------------------------------
@@ -123,6 +124,31 @@ target_link_libraries(binding_mri
   mri_ruby
   rb_zlib
 )
+
+#----------------------------------------------------------------------
+# Generate rb_call_builtin_inits offset for Linux (symbol hidden in .so)
+#----------------------------------------------------------------------
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(MRI_BUILTIN_OFFSET_HEADER
+      "${CMAKE_CURRENT_BINARY_DIR}/mri_builtin_offset.h")
+
+  set(MRI_OFFSET_SCRIPT
+      "${CMAKE_CURRENT_SOURCE_DIR}/cmake_extract_builtin_offset.cmake")
+
+  add_custom_command(
+    OUTPUT ${MRI_BUILTIN_OFFSET_HEADER}
+    COMMAND ${CMAKE_COMMAND} -DOUTPUT_FILE=${MRI_BUILTIN_OFFSET_HEADER}
+            -DRUBY_LIBRARY="${RUBY_LIBRARY_PATH}"
+            -P ${MRI_OFFSET_SCRIPT}
+    DEPENDS "${RUBY_LIBRARY_PATH}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cmake_extract_builtin_offset.cmake"
+    COMMENT "[Binding] Extracting rb_call_builtin_inits offset"
+  )
+
+  add_custom_target(mri_builtin_offset DEPENDS ${MRI_BUILTIN_OFFSET_HEADER})
+  add_dependencies(binding_mri mri_builtin_offset)
+  target_include_directories(binding_mri PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+endif()
 
 if (MRI_ENABLE_LIBFFI)
   target_link_libraries(binding_mri PUBLIC rb_ffi)

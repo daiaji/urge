@@ -7,6 +7,8 @@
 #include "imgui/backends/imgui_impl_sdl3.h"
 #include "imgui/imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
+#include <algorithm>
+
 #include "magic_enum/magic_enum.hpp"
 
 #include "components/version/version.h"
@@ -163,9 +165,12 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
                                          I18NProfile* i18n_profile,
                                          base::WeakPtr<ui::Widget> window) {
   // Initialize components
+  std::string driver_backend = profile_->driver_backend;
+  std::transform(driver_backend.begin(), driver_backend.end(),
+                 driver_backend.begin(), ::toupper);
   auto [render_device, render_context] = renderer::RenderDevice::Create(
       window,
-      magic_enum::enum_cast<renderer::DriverType>(profile_->driver_backend)
+      magic_enum::enum_cast<renderer::DriverType>(driver_backend)
           .value_or(renderer::DriverType::UNDEFINED),
       profile_->render_validation);
   if (!render_device || !render_context) {
