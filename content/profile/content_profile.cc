@@ -228,6 +228,7 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
 
   // Audio
   audio_volume = reader->GetFloat("Audio", "Volume", audio_volume);
+  midi_soundfont = reader->Get("Audio", "SoundFont", midi_soundfont);
 
   // Renderer
   driver_backend = reader->Get("Renderer", "Backend", driver_backend);
@@ -239,6 +240,8 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetBoolean("Renderer", "LargeDrawIndex", u32_draw_index);
   frame_rate = reader->GetInteger("Renderer", "FrameRate",
                                   (api_version == APIVersion::RGSS1) ? 40 : 60);
+  vsync = reader->GetInteger("Renderer", "VSync", vsync);
+  keep_ratio = reader->GetBoolean("Renderer", "KeepRatio", keep_ratio);
   allow_skip_frame =
       reader->GetBoolean("Renderer", "AllowSkipFrame", allow_skip_frame);
   fullscreen = reader->GetBoolean("Renderer", "Fullscreen", fullscreen);
@@ -340,6 +343,8 @@ void ContentProfile::SaveConfigure() {
   fprintf(fp, "I18nXMLPath=%s\n", i18n_xml_path.c_str());
   fprintf(fp, "\n[Audio]\n");
   fprintf(fp, "Volume=%.2f\n", audio_volume);
+  if (!midi_soundfont.empty())
+    fprintf(fp, "SoundFont=%s\n", midi_soundfont.c_str());
   fprintf(fp, "\n[Renderer]\n");
   fprintf(fp, "Backend=%s\n", driver_backend.c_str());
   fprintf(fp, "RenderValidation=%s\n", render_validation ? "true" : "false");

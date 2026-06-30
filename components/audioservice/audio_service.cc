@@ -5,12 +5,14 @@
 #include "components/audioservice/audio_service.h"
 
 #include <array>
+#include <memory>
 
 #include "miniaudio/decoders/libopus/miniaudio_libopus.h"
 #include "miniaudio/decoders/libvorbis/miniaudio_libvorbis.h"
 #include "physfs.h"
 
 #include "components/audioservice/audio_stream.h"
+#include "components/audioservice/midi_player.h"
 #include "components/audioservice/sound_emit.h"
 
 #ifndef MA_NO_DEVICE_IO
@@ -31,6 +33,7 @@ struct ServiceKernelData {
   ma_engine_config engine_config;
   ma_engine engine;
   ma_log logger;
+  std::unique_ptr<MidiPlayer> midi_player;
 };
 
 static ma_result VFSOpen(ma_vfs* pVFS,
@@ -249,6 +252,9 @@ std::unique_ptr<AudioService> AudioService::Create(
   CHECK(ma_engine_init(&kernel_data->engine_config, &kernel_data->engine) ==
         MA_SUCCESS);
 
+  // MIDI player (may be null if FluidSynth unavailable)
+  kernel_data->midi_player = std::make_unique<MidiPlayer>();
+
   // Create audio stream
   kernel_data->engine_stream =
       SDL_CreateAudioStream(&device_spec, &device_spec);
@@ -269,7 +275,8 @@ std::unique_ptr<AudioService> AudioService::Create(
 }
 
 std::unique_ptr<AudioStream> AudioService::CreateStream() {
-  return std::unique_ptr<AudioStream>(new AudioStream(&kernel_->engine));
+  return std::unique_ptr<AudioStream>(
+      new AudioStream(&kernel_->engine, kernel_->midi_player.get()));
 }
 
 std::unique_ptr<SoundEmit> AudioService::CreateEmitter() {
@@ -298,6 +305,15 @@ SDL_AudioDeviceID AudioService::GetDeviceID() const {
 
 ma_engine* AudioService::GetRawEngine() {
   return &kernel_->engine;
+}
+
+void AudioService::SetSoundFont(const std::string& sf2_path) {
+  if (kernel_->midi_player)
+    kernel_->midi_player->SetSoundFont(sf2_path);
+}
+
+bool AudioService::HasMIDI() const {
+  return kernel_->midi_player && kernel_->midi_player->IsAvailable();
 }
 
 AudioService::AudioService(ServiceKernelData* kernel) : kernel_(kernel) {}

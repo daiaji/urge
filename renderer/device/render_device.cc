@@ -26,10 +26,10 @@
 #include "Graphics/GraphicsEngineWebGPU/interface/EngineFactoryWebGPU.h"
 #endif  //! WEBGPU_SUPPORTED
 #include "Primitives/interface/DebugOutput.h"
+#include <third_party/DiligentCore/Platforms/interface/NativeWindow.h>
 
 #if PLATFORM_WEB
 #include <emscripten/html5_webgpu.h>
-#include <third_party/DiligentCore/Platforms/Emscripten/interface/EmscriptenNativeWindow.h>
 #endif
 
 #include "base/debug/logging.h"
@@ -37,18 +37,11 @@
 
 #if defined(OS_ANDROID)
 #include "Graphics/GraphicsEngineOpenGL/interface/RenderDeviceGLES.h"
-#include <third_party/DiligentCore/Platforms/Android/interface/AndroidNativeWindow.h>
 #elif defined(OS_MACOSX)
 #include <objc/objc.h>
 #include <objc/message.h>
 #include <objc/runtime.h>
-#include <third_party/DiligentCore/Platforms/Apple/interface/MacOSNativeWindow.h>
-#elif defined(OS_WIN)
-#include <third_party/DiligentCore/Platforms/Win32/interface/Win32NativeWindow.h>
-#elif defined(OS_LINUX)
-#include <third_party/DiligentCore/Platforms/Linux/interface/LinuxNativeWindow.h>
 #endif
-
 
 namespace renderer {
 
@@ -94,14 +87,13 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
   Diligent::SetDebugMessageCallback(DebugMessageOutputFunc);
 
   // Setup native window
-  // Diligent::NativeWindow native_window;
+  Diligent::NativeWindow native_window;
   SDL_PropertiesID window_properties =
       SDL_GetWindowProperties(window_target->AsSDLWindow());
 
   // Setup specific platform window handle
   SDL_GLContext glcontext = nullptr;
 #if defined(OS_WIN)
-  Diligent::Win32NativeWindow native_window;
   native_window.hWnd = SDL_GetPointerProperty(
       window_properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
 #elif defined(OS_LINUX)
@@ -144,16 +136,13 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
     return CreateDeviceResult(nullptr, nullptr);
   }
 #elif defined(OS_ANDROID)
-  Diligent::AndroidNativeWindow native_window;
   native_window.pAWindow = SDL_GetPointerProperty(
       window_properties, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);
 #elif defined(OS_EMSCRIPTEN)
-  Diligent::EmscriptenNativeWindow native_window;
   native_window.pCanvasId = SDL_GetStringProperty(
       window_properties, SDL_PROP_WINDOW_EMSCRIPTEN_CANVAS_ID_STRING,
       "#canvas");
 #elif defined(OS_MACOSX)
-  Diligent::MacOSNativeWindow native_window;
   glcontext = SDL_GL_CreateContext(window_target->AsSDLWindow());
   if (glcontext == nullptr) {
     LOG(ERROR) << "[Renderer] SDL_GL_CreateContext failed: " << SDL_GetError();

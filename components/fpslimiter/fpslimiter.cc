@@ -43,7 +43,13 @@ void FPSLimiter::SetDisabled(bool disable) {
 }
 
 void FPSLimiter::SetFrameRate(int frame_rate) {
-  ticks_per_frame_ = tick_freq_ / frame_rate;
+  if (frame_rate == 0) {
+    ticks_per_frame_ = 0;
+    SetDisabled(true);
+  } else {
+    SetDisabled(false);
+    ticks_per_frame_ = tick_freq_ / frame_rate;
+  }
 }
 
 void FPSLimiter::Delay() {

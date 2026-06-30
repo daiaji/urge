@@ -1,16 +1,15 @@
-// Copyright 2018-2025 Admenri.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
 #ifndef COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_
 #define COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_
 
 #include <stdint.h>
 #include <string>
+#include <vector>
 
 #include "miniaudio.h"
 
 namespace audioservice {
+
+class MidiPlayer;
 
 class AudioStream {
  public:
@@ -30,7 +29,6 @@ class AudioStream {
   uint64_t Pos();
 
   // Pause and resume audio stream.
-  // Using for me watcher.
   bool IsPlaying();
   bool IsPausing();
   void Pause();
@@ -42,15 +40,27 @@ class AudioStream {
 
  private:
   friend class AudioService;
-  AudioStream(ma_engine* engine);
+  AudioStream(ma_engine* engine, MidiPlayer* midi_player);
+
+  ma_result PlayMIDI(const std::string& filename,
+                     int32_t volume,
+                     int32_t pitch,
+                     uint64_t pos);
 
   ma_engine* engine_;
+  MidiPlayer* midi_player_;
   std::string filename_;
   ma_sound handle_;
   ma_uint64 cursor_;
   ma_bool32 looping_;
+
+  // PCM buffer for MIDI playback (keeps memory alive)
+  std::vector<float> midi_pcm_;
+  // In-memory WAV wrapper around midi_pcm_ (miniaudio decoder does NOT copy it)
+  uint8_t* midi_wav_buf_ = nullptr;
+  ma_decoder midi_decoder_;
 };
 
 }  // namespace audioservice
 
-#endif  //! COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_
+#endif  // !COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_

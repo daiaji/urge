@@ -7,8 +7,26 @@
 
 #include <memory>
 
+// Suppress warnings in third-party websocketpp headers
+#pragma warning(push)
+#pragma warning(disable : 4127)
+// Ensure C++11 features are used to avoid Boost dependency
+#ifndef _WEBSOCKETPP_CPP11_INTERNAL_
+#define _WEBSOCKETPP_CPP11_INTERNAL_
+#endif
+#ifndef _WEBSOCKETPP_CPP11_RANDOM_DEVICE_
+#define _WEBSOCKETPP_CPP11_RANDOM_DEVICE_
+#endif
+#ifndef _WEBSOCKETPP_CPP11_TYPE_TRAITS_
+#define _WEBSOCKETPP_CPP11_TYPE_TRAITS_
+#endif
+#ifndef ASIO_STANDALONE
+#define ASIO_STANDALONE
+#endif
+
 #include "websocketpp/client.hpp"
 #include "websocketpp/config/asio_no_tls_client.hpp"
+#pragma warning(pop)
 
 #include "content/context/engine_object.h"
 #include "content/public/engine_websocket.h"

@@ -9,6 +9,8 @@
   <translation id="20006">允许跳帧</translation>
   <translation id="20007">全屏</translation>
   <translation id="20008">后台运行</translation>
+  <translation id="20009">垂直同步</translation>
+  <translation id="20010">目标帧率</translation>
   <translation id="30001">按键设置</translation>
   <translation id="30002">添加</translation>
   <translation id="30003">移除</translation>
@@ -17,4 +19,7 @@
   <translation id="40001">音频设置</translation>
   <translation id="40002">音量</translation>
   <translation id="50001">关于信息</translation>
+  <translation id="60001">输入设置</translation>
+  <translation id="60002">左侧点击绑定槽位进行重绑定，右侧点击清除绑定</translation>
+  <translation id="60003">未连接手柄。连接手柄后即可配置绑定。</translation>
 </translationbundle>

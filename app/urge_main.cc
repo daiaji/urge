@@ -7,6 +7,7 @@
 #include "SDL3/SDL_main.h"
 #include "SDL3/SDL_messagebox.h"
 #include "SDL3/SDL_stdinc.h"
+#include "SDL3/SDL_video.h"
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
 #include "spdlog/sinks/android_sink.h"
@@ -304,7 +305,7 @@ int main(int argc, char* argv[]) {
       widget_params.opengl = true;
 #endif
       widget_params.size = profile->window_size;
-      widget_params.resizable = true;
+      widget_params.resizable = profile->win_resizable;
       widget_params.hpixeldensity =
 #if !defined(OS_EMSCRIPTEN)
           true;
@@ -320,6 +321,23 @@ int main(int argc, char* argv[]) {
       widget_params.title = profile->window_title;
       widget->Init(std::move(widget_params));
 
+      // Apply fixed aspect ratio from config
+      if (profile->fixed_aspect_ratio) {
+        float game_ratio = static_cast<float>(profile->resolution.x) /
+                           static_cast<float>(profile->resolution.y);
+        SDL_SetWindowAspectRatio(widget->AsSDLWindow(), game_ratio, game_ratio);
+      }
+
+      // Get display refresh rate for syncToRefreshrate
+      float display_refresh_rate = 0.0f;
+      {
+        SDL_DisplayID display =
+            SDL_GetDisplayForWindow(widget->AsSDLWindow());
+        const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display);
+        if (mode)
+          display_refresh_rate = mode->refresh_rate;
+      }
+
       // Setup content runner module
       content::ContentRunner::InitParams content_params;
       content_params.profile = profile.get();
@@ -327,6 +345,7 @@ int main(int argc, char* argv[]) {
       content_params.font_context = font_context.get();
       content_params.i18n_profile = i18n_profile.get();
       content_params.window = widget->AsWeakPtr();
+      content_params.display_refresh_rate = display_refresh_rate;
       content_params.entry = std::make_unique<binding::BindingEngineMri>();
 
       std::unique_ptr<content::ContentRunner> runner =
