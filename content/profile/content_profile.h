@@ -30,6 +30,9 @@ class ContentProfile {
 
   void LoadCommandLine(int32_t argc, char** argv);
   bool LoadConfigure(const std::string& app);
+  void SaveConfigure();
+  void ResetAudioDefaults();
+  void ResetRendererDefaults();
 
   // App
   std::vector<std::string> args;
@@ -54,6 +57,9 @@ class ContentProfile {
   bool disable_settings = false;
   bool disable_fps_monitor = false;
   bool disable_reset = false;
+
+  // Audio
+  float audio_volume = 1.0f;
 
   // Renderer
   std::string driver_backend = "UNDEFINED";
@@ -103,6 +109,7 @@ class ContentProfile {
 
  private:
   SDL_IOStream* ini_stream_;
+  std::string ini_path_;
 };
 
 }  // namespace content

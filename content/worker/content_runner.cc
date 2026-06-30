@@ -495,6 +495,16 @@ void ContentRunner::RenderSettingsGUIInternal() {
 
     // Engine Info
     DrawEngineInfoGUI(execution_context_->i18n_profile);
+
+    ImGui::Separator();
+    if (ImGui::Button("Reset All Settings")) {
+      profile_->ResetAudioDefaults();
+      if (execution_context_->audio_server)
+        execution_context_->audio_server->SetVolume(profile_->audio_volume);
+      profile_->ResetRendererDefaults();
+      keyboard_impl_->ResetBindingsToDefault();
+      profile_->SaveConfigure();
+    }
   }
   ImGui::End();
 }
