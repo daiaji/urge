@@ -90,6 +90,9 @@ class URGE_OBJECT(Graphics) {
   virtual scoped_refptr<Rect> GetWindowRect(
       ExceptionState& exception_state) = 0;
 
+  /*--urge(name:center)--*/
+  virtual void Center(ExceptionState& exception_state) = 0;
+
   /*--urge(name:display_id)--*/
   virtual uint32_t GetDisplayID(ExceptionState& exception_state) = 0;
 

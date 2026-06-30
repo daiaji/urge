@@ -341,6 +341,18 @@ void RenderScreenImpl::MoveWindow(int32_t x,
   SDL_SetWindowPosition(window, x, y);
 }
 
+void RenderScreenImpl::Center(ExceptionState& exception_state) {
+  auto* window = context()->window->AsSDLWindow();
+  SDL_DisplayID display = SDL_GetDisplayForWindow(window);
+  SDL_Rect display_bounds;
+  SDL_GetDisplayBounds(display, &display_bounds);
+  int win_w, win_h;
+  SDL_GetWindowSize(window, &win_w, &win_h);
+  int cx = display_bounds.x + (display_bounds.w - win_w) / 2;
+  int cy = display_bounds.y + (display_bounds.h - win_h) / 2;
+  SDL_SetWindowPosition(window, cx, cy);
+}
+
 scoped_refptr<Rect> RenderScreenImpl::GetWindowRect(
     ExceptionState& exception_state) {
   auto* window = context()->window->AsSDLWindow();

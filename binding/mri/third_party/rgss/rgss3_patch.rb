@@ -973,4 +973,6 @@ module RPG
 
 end
 
+require_relative "rgss3_compat"
+
 end # RPG

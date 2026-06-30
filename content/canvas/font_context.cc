@@ -6,9 +6,52 @@
 
 #include "content/resource/embed.ttf.bin"
 
-namespace content {
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_SFNT_NAMES_H
+#include FT_TRUETYPE_IDS_H
+
+#include <vector>
+#include <string>
 
 namespace {
+
+// Minimal UTF-16BE to UTF-8 conversion for SFNT name records
+std::string Utf16BeToUtf8(const char* data, size_t len) {
+  std::string out;
+  for (size_t i = 0; i + 1 < len; i += 2) {
+    uint32_t cp = ((unsigned char)data[i] << 8) | (unsigned char)data[i + 1];
+    if (cp >= 0xD800 && cp <= 0xDBFF && i + 3 < len) {
+      uint32_t hi = cp - 0xD800;
+      uint32_t lo = ((unsigned char)data[i + 2] << 8) | (unsigned char)data[i + 3];
+      if (lo >= 0xDC00 && lo <= 0xDFFF) {
+        cp = 0x10000 + (hi << 10) + (lo - 0xDC00);
+        i += 2;
+      }
+    }
+    if (cp < 0x80)       out += (char)cp;
+    else if (cp < 0x800) { out += 0xC0 | (cp >> 6); out += 0x80 | (cp & 0x3F); }
+    else if (cp < 0x10000) { out += 0xE0 | (cp >> 12); out += 0x80 | ((cp >> 6) & 0x3F); out += 0x80 | (cp & 0x3F); }
+    else                 { out += 0xF0 | (cp >> 18); out += 0x80 | ((cp >> 12) & 0x3F); out += 0x80 | ((cp >> 6) & 0x3F); out += 0x80 | (cp & 0x3F); }
+  }
+  return out;
+}
+
+// UTF-32BE to UTF-8 conversion for SFNT UCS-4 name records
+std::string Utf32BeToUtf8(const char* data, size_t len) {
+  std::string out;
+  for (size_t i = 0; i + 3 < len; i += 4) {
+    uint32_t cp = ((unsigned char)data[i] << 24) | ((unsigned char)data[i + 1] << 16) |
+                  ((unsigned char)data[i + 2] << 8) | (unsigned char)data[i + 3];
+    if (cp > 0x10FFFF)
+      continue;
+    if (cp < 0x80)       out += (char)cp;
+    else if (cp < 0x800) { out += 0xC0 | (cp >> 6); out += 0x80 | (cp & 0x3F); }
+    else if (cp < 0x10000) { out += 0xE0 | (cp >> 12); out += 0x80 | ((cp >> 6) & 0x3F); out += 0x80 | (cp & 0x3F); }
+    else                 { out += 0xF0 | (cp >> 18); out += 0x80 | ((cp >> 12) & 0x3F); out += 0x80 | ((cp >> 6) & 0x3F); out += 0x80 | (cp & 0x3F); }
+  }
+  return out;
+}
 
 std::pair<int64_t, void*> ReadFontToMemory(SDL_IOStream* io) {
   int64_t font_size = SDL_GetIOSize(io);
@@ -18,6 +61,8 @@ std::pair<int64_t, void*> ReadFontToMemory(SDL_IOStream* io) {
 }
 
 }  // namespace
+
+namespace content {
 
 ScopedFontData::ScopedFontData(filesystem::IOService* io,
                                const std::string& default_font_name)
@@ -43,7 +88,7 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
   default_font = file;
 
   LOG(INFO) << "[Font] Search Path: " << dir;
-  LOG(INFO) << "[Font] Default Font: " << file;
+  LOG(INFO) << "[Font] Default Font: \"" << file << "\" (from path: \"" << filename << "\")";
 
   // Load all font to memory as cache
   std::vector<std::string> font_files = io->EnumDir(dir);
@@ -55,17 +100,73 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
     SDL_IOStream* font_stream = io->OpenReadRaw(filepath, nullptr);
     if (font_stream) {
       // Cached in memory
-      data_cache.emplace(it, ReadFontToMemory(font_stream));
+      auto& entry = data_cache.emplace(it, ReadFontToMemory(font_stream)).first->second;
 
       // Close i/o stream
       SDL_CloseIO(font_stream);
+
+      // Read all SFNT family names using FreeType for robust name→filename lookup
+      FT_Library ft_lib;
+      if (FT_Init_FreeType(&ft_lib) == 0) {
+        FT_Face ft_face;
+        if (FT_New_Memory_Face(ft_lib, (FT_Byte*)entry.second, entry.first, 0, &ft_face) == 0) {
+          if (FT_IS_SFNT(ft_face)) {
+            for (unsigned int i = 0, n = FT_Get_Sfnt_Name_Count(ft_face); i < n; ++i) {
+              FT_SfntName sfnt;
+              if (FT_Get_Sfnt_Name(ft_face, i, &sfnt))
+                continue;
+              if (sfnt.name_id != TT_NAME_ID_FONT_FAMILY)
+                continue;
+              std::string family;
+              if ((sfnt.platform_id == TT_PLATFORM_MICROSOFT &&
+                   sfnt.encoding_id == TT_MS_ID_UNICODE_CS) ||
+                  sfnt.platform_id == TT_PLATFORM_APPLE_UNICODE)
+                family = Utf16BeToUtf8((const char*)sfnt.string, sfnt.string_len);
+              else if (sfnt.platform_id == TT_PLATFORM_MICROSOFT &&
+                       sfnt.encoding_id == TT_MS_ID_UCS_4)
+                family = Utf32BeToUtf8((const char*)sfnt.string, sfnt.string_len);
+              else
+                family = std::string((const char*)sfnt.string, sfnt.string_len);
+              if (family.empty())
+                continue;
+              std::string lower(family);
+              std::transform(lower.begin(), lower.end(), lower.begin(),
+                             [](unsigned char c) { return std::tolower(c); });
+              family_name_cache.emplace(lower, it);
+              LOG(INFO) << "[Font] Family name: \"" << family << "\" → " << it;
+            }
+          }
+          FT_Done_Face(ft_face);
+        }
+        FT_Done_FreeType(ft_lib);
+      }
 
       LOG(INFO) << "[Font] Loaded Font: " << it;
     }
   }
 
   // Load internal font if default missing
+  // Try exact match first, then case-insensitive fallback (for Windows)
   auto default_font_it = data_cache.find(default_font);
+  if (default_font_it == data_cache.end()) {
+    // Case-insensitive fallback (Windows filesystem may differ from INI case)
+    if (!default_font.empty()) {
+      std::string lower_default(default_font);
+      std::transform(lower_default.begin(), lower_default.end(), lower_default.begin(),
+                     [](unsigned char c) { return std::tolower(c); });
+      for (auto it = data_cache.begin(); it != data_cache.end(); ++it) {
+        std::string lower_key(it->first);
+        std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        if (lower_key == lower_default) {
+          default_font_it = it;
+          default_font = it->first;
+          break;
+        }
+      }
+    }
+  }
+
   if (default_font_it == data_cache.end()) {
     LOG(INFO) << "[Font] Default font missing, use internal font for instead.";
 
@@ -86,7 +187,12 @@ ScopedFontData::~ScopedFontData() {
 }
 
 bool ScopedFontData::IsFontExisted(const std::string& name) {
-  return data_cache.find(name) != data_cache.end();
+  if (data_cache.find(name) != data_cache.end())
+    return true;
+  std::string lower(name);
+  std::transform(lower.begin(), lower.end(), lower.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return family_name_cache.find(lower) != family_name_cache.end();
 }
 
 const void* ScopedFontData::GetUIDefaultFont(int64_t* font_size) {

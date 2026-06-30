@@ -57,6 +57,10 @@ int MriParseArgsTo(int argc, VALUE* argv, const char* fmt, ...) {
         break;
       case 'i': {
         int32_t* ptr = va_arg(args_iter, int32_t*);
+        if (is_arg_optional && rb_type(arg_element) == RUBY_T_NIL) {
+          ++count;
+          break;
+        }
         switch (rb_type(arg_element)) {
           case RUBY_T_FLOAT:
           case RUBY_T_BIGNUM:
@@ -72,6 +76,10 @@ int MriParseArgsTo(int argc, VALUE* argv, const char* fmt, ...) {
         break;
       case 'u': {
         uint32_t* ptr = va_arg(args_iter, uint32_t*);
+        if (is_arg_optional && rb_type(arg_element) == RUBY_T_NIL) {
+          ++count;
+          break;
+        }
         switch (rb_type(arg_element)) {
           case RUBY_T_FLOAT:
           case RUBY_T_BIGNUM:
@@ -87,6 +95,10 @@ int MriParseArgsTo(int argc, VALUE* argv, const char* fmt, ...) {
         break;
       case 'l': {
         int64_t* ptr = va_arg(args_iter, int64_t*);
+        if (is_arg_optional && rb_type(arg_element) == RUBY_T_NIL) {
+          ++count;
+          break;
+        }
         switch (rb_type(arg_element)) {
           case RUBY_T_FLOAT:
           case RUBY_T_BIGNUM:
@@ -102,6 +114,10 @@ int MriParseArgsTo(int argc, VALUE* argv, const char* fmt, ...) {
         break;
       case 'p': {
         uint64_t* ptr = va_arg(args_iter, uint64_t*);
+        if (is_arg_optional && rb_type(arg_element) == RUBY_T_NIL) {
+          ++count;
+          break;
+        }
         switch (rb_type(arg_element)) {
           case RUBY_T_FLOAT:
           case RUBY_T_BIGNUM:
@@ -125,7 +141,10 @@ int MriParseArgsTo(int argc, VALUE* argv, const char* fmt, ...) {
         break;
       case 'f': {
         double* ptr = va_arg(args_iter, double*);
-
+        if (is_arg_optional && rb_type(arg_element) == RUBY_T_NIL) {
+          ++count;
+          break;
+        }
         switch (rb_type(arg_element)) {
           case RUBY_T_FLOAT:
             *ptr = RFLOAT_VALUE(arg_element);
