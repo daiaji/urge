@@ -533,8 +533,8 @@ URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     },
     {
       DISPOSE_CHECK;
-      if (repeat_.x != value) {
-        repeat_.x = value;
+      if (repeat_.x != static_cast<int32_t>(value)) {
+        repeat_.x = static_cast<int32_t>(value);
         map_buffer_dirty_ = true;
       }
     });
@@ -549,8 +549,8 @@ URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     },
     {
       DISPOSE_CHECK;
-      if (repeat_.y != value) {
-        repeat_.y = value;
+      if (repeat_.y != static_cast<int32_t>(value)) {
+        repeat_.y = static_cast<int32_t>(value);
         map_buffer_dirty_ = true;
       }
     });

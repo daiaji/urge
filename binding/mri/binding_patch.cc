@@ -107,9 +107,58 @@ void ApplyMousePatch() {
                  INT2FIX(kMouseButtonSets[i].button_id));
 }
 
+MRI_METHOD(console_write) {
+  if (argc < 1)
+    return Qnil;
+
+  std::string text;
+  for (int i = 0; i < argc; ++i) {
+    VALUE str = rb_obj_as_string(argv[i]);
+    if (!text.empty()) text += "\t";
+    text += std::string(RSTRING_PTR(str), RSTRING_LEN(str));
+  }
+
+  auto* ctx = MriGetCurrentContext();
+  if (ctx)
+    ctx->console.output.push_back(text);
+
+  return Qnil;
+}
+
+MRI_METHOD(console_puts) {
+  if (argc < 1)
+    return Qnil;
+
+  for (int i = 0; i < argc; ++i) {
+    VALUE str = rb_obj_as_string(argv[i]);
+    std::string s(RSTRING_PTR(str), RSTRING_LEN(str));
+    auto* ctx = MriGetCurrentContext();
+    if (ctx)
+      ctx->console.output.push_back(s);
+  }
+
+  return Qnil;
+}
+
+MRI_METHOD(console_clear) {
+  auto* ctx = MriGetCurrentContext();
+  if (ctx)
+    ctx->console.output.clear();
+  return Qnil;
+}
+
+void ApplyConsolePatch() {
+  VALUE klass = rb_define_module("Console");
+
+  MriDefineModuleFunction(klass, "write", console_write);
+  MriDefineModuleFunction(klass, "puts", console_puts);
+  MriDefineModuleFunction(klass, "clear", console_clear);
+}
+
 void MriApplyBindingPatch() {
   ApplyInputPatch();
   ApplyMousePatch();
+  ApplyConsolePatch();
 }
 
 }  // namespace binding

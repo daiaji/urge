@@ -30,6 +30,9 @@ class ContentProfile {
 
   void LoadCommandLine(int32_t argc, char** argv);
   bool LoadConfigure(const std::string& app);
+  void SaveConfigure();
+  void ResetAudioDefaults();
+  void ResetRendererDefaults();
 
   // App
   std::vector<std::string> args;
@@ -55,6 +58,10 @@ class ContentProfile {
   bool disable_fps_monitor = false;
   bool disable_reset = false;
 
+  // Audio
+  float audio_volume = 1.0f;
+  std::string midi_soundfont;
+
   // Renderer
   std::string driver_backend = "UNDEFINED";
   int32_t pipeline_default_sampler = 0;
@@ -72,12 +79,29 @@ class ContentProfile {
   bool allow_skip_frame = true;
   bool background_running = true;
   bool smooth_scale_present = false;
+  int32_t smooth_scaling = 0;        // 0=Nearest, 1=Bilinear (up-scale)
+  int32_t smooth_scaling_down = 0;   // 0=Nearest, 1=Bilinear (down-scale)
+  bool integer_scaling = false;      // Integer multiple scaling
+  int32_t scaling_mode = 0;          // Scaling algorithm for post-process
+                                     // 0=Bilinear, 1=Nearest, 2=Lanczos3, 3=Bicubic
+  float scaling_ar_strength = 0.5f;  // Anti-ringing strength (Lanczos3)
+  float scaling_bicubic_b = 0.33f;   // Bicubic B (Mitchell-Netravali)
+  float scaling_bicubic_c = 0.33f;   // Bicubic C (Mitchell-Netravali)
+  bool cas_enabled = false;          // CAS contrast adaptive sharpening
+  float cas_sharpness = 0.4f;        // CAS sharpness (0-1)
+  float scaling_sobel_strength = 1.0f; // Sobel adaptive strength
+  float scaling_warp_strength = 0.0f;  // Thin warp strength (0=off)
+  float scaling_darken_strength = 0.0f; // Line darken strength (0=off)
+  bool sync_to_refresh_rate = false;
+  bool win_resizable = true;
+  bool fixed_aspect_ratio = true;
 
   // Font
   float font_scale = 0.9f;
   bool font_kerning = true;
   int32_t font_hinting = 3;
   bool font_outline_crop = true;
+  std::vector<std::string> font_subs;
 
   // Platform
   bool debugging_console = false;
@@ -86,6 +110,7 @@ class ContentProfile {
 
  private:
   SDL_IOStream* ini_stream_;
+  std::string ini_path_;
 };
 
 }  // namespace content

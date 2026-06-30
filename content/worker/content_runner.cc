@@ -6,6 +6,9 @@
 
 #include "imgui/backends/imgui_impl_sdl3.h"
 #include "imgui/imgui.h"
+#include "imgui/misc/cpp/imgui_stdlib.h"
+#include <algorithm>
+
 #include "magic_enum/magic_enum.hpp"
 
 #include "components/version/version.h"
@@ -150,6 +153,7 @@ void ContentRunner::RunMainLoop() {
 
 std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
   auto* runner = new ContentRunner(params.profile, std::move(params.entry));
+  runner->display_refresh_rate_ = params.display_refresh_rate;
   if (!runner->InitializeComponents(params.io_service, params.font_context,
                                     params.i18n_profile, params.window))
     return nullptr;
@@ -162,9 +166,12 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
                                          I18NProfile* i18n_profile,
                                          base::WeakPtr<ui::Widget> window) {
   // Initialize components
+  std::string driver_backend = profile_->driver_backend;
+  std::transform(driver_backend.begin(), driver_backend.end(),
+                 driver_backend.begin(), ::toupper);
   auto [render_device, render_context] = renderer::RenderDevice::Create(
       window,
-      magic_enum::enum_cast<renderer::DriverType>(profile_->driver_backend)
+      magic_enum::enum_cast<renderer::DriverType>(driver_backend)
           .value_or(renderer::DriverType::UNDEFINED),
       profile_->render_validation);
   if (!render_device || !render_context) {
@@ -220,6 +227,12 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
       &ContentRunner::TickHandlerInternal, base::Unretained(this)));
   execution_context_->screen_drawable_node =
       graphics_impl_->GetDrawableController();
+
+  // Apply sync to refresh rate
+  if (profile_->sync_to_refresh_rate && display_refresh_rate_ > 0.0f) {
+    graphics_impl_->SyncToRefreshRate(
+        static_cast<int32_t>(display_refresh_rate_));
+  }
 
   // Other modules
   keyboard_impl_ =
@@ -373,6 +386,10 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
   if (show_fps_monitor_)
     RenderFPSMonitorGUIInternal();
 
+  // Render console overlay
+  if (execution_context_->console.show)
+    RenderConsoleGUIInternal();
+
   // Present game window
   ImGui::SetNextWindowPos(ImVec2(0, 0));
   ImGui::SetNextWindowSize(ImVec2(swapchain_desc.Width, swapchain_desc.Height));
@@ -459,6 +476,9 @@ void ContentRunner::RenderSettingsGUIInternal() {
     // Audio settings
     audio_impl_->CreateButtonGUISettings();
 
+    // Input settings (keyboard + gamepad bindings)
+    keyboard_impl_->CreateButtonGUISettings();
+
     // Engine Info
     DrawEngineInfoGUI(execution_context_->i18n_profile);
   }
@@ -478,21 +498,120 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
   ImGui::End();
 }
 
+void ContentRunner::RenderConsoleGUIInternal() {
+  const auto& sc_desc =
+      execution_context_->render_device->GetSwapChain()->GetDesc();
+  float win_w = static_cast<float>(sc_desc.Width);
+  float win_h = static_cast<float>(sc_desc.Height);
+
+  ImGui::SetNextWindowPos(ImVec2(0, win_h * 0.55f), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowSize(ImVec2(win_w, win_h * 0.45f), ImGuiCond_FirstUseEver);
+
+  ImGuiWindowFlags wflags = ImGuiWindowFlags_NoCollapse |
+                            ImGuiWindowFlags_NoTitleBar |
+                            ImGuiWindowFlags_NoFocusOnAppearing;
+  if (ImGui::Begin("##Console", &execution_context_->console.show, wflags)) {
+    // Output area
+    ImVec2 out_size(0, -ImGui::GetTextLineHeightWithSpacing() * 3 -
+                           ImGui::GetStyle().ItemSpacing.y);
+    if (ImGui::BeginChild("##console_out", out_size, ImGuiChildFlags_Border)) {
+      for (const auto& line : execution_context_->console.output)
+        ImGui::TextUnformatted(line.c_str());
+      if (execution_context_->console.scroll_to_bottom) {
+        ImGui::SetScrollHereY(1.0f);
+        execution_context_->console.scroll_to_bottom = false;
+      }
+    }
+    ImGui::EndChild();
+
+    // Input area (CallbackHistory not supported with Multiline per ImGui assert)
+    ImGuiInputTextFlags iflags = ImGuiInputTextFlags_EnterReturnsTrue;
+
+    if (ImGui::InputTextMultiline(
+            "##console_in", &console_input_buffer_,
+            ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags)) {
+      ExecuteConsoleCommand(console_input_buffer_);
+      console_input_buffer_.clear();
+      console_history_pos_ = -1;
+      execution_context_->console.scroll_to_bottom = true;
+    }
+
+    // Manual history navigation (Up/Down)
+    if (ImGui::IsItemActive()) {
+      if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+        if (!console_history_.empty()) {
+          if (console_history_pos_ == -1)
+            console_history_pos_ = console_history_.size() - 1;
+          else if (console_history_pos_ > 0)
+            console_history_pos_--;
+          console_input_buffer_ = console_history_[console_history_pos_];
+        }
+      } else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+        if (console_history_pos_ >= 0) {
+          console_history_pos_++;
+          if (console_history_pos_ < (int)console_history_.size())
+            console_input_buffer_ = console_history_[console_history_pos_];
+          else {
+            console_input_buffer_.clear();
+            console_history_pos_ = -1;
+          }
+        }
+      }
+    }
+
+    if (!ImGui::IsAnyItemActive())
+      ImGui::SetKeyboardFocusHere(0);
+  }
+  ImGui::End();
+}
+
+void ContentRunner::ExecuteConsoleCommand(const std::string& code) {
+  auto& output = execution_context_->console.output;
+  output.push_back(">>> " + code);
+
+  if (code.empty())
+    return;
+
+  console_history_.push_back(code);
+  if (console_history_.size() > 50)
+    console_history_.pop_front();
+
+  if (!execution_context_->eval_ruby) {
+    output.push_back("(eval not available)");
+    return;
+  }
+
+  std::string result = execution_context_->eval_ruby(code);
+  if (!result.empty())
+    output.push_back(result);
+}
+
 void ContentRunner::UpdateEventInternal() {
   // Clear pending events
   event_controller_->ClearPendingEvents();
 
   // Poll event queue
-  SDL_Event queued_event;
+  SDL_Event queued_event = {};
   while (SDL_PollEvent(&queued_event)
 #if !defined(OS_EMSCRIPTEN)
          || background_running_
 #endif  //! OS_EMSCRIPTEN
   ) {
+    const bool got_event = (queued_event.type != 0);
+
     // Quit event
-    if (queued_event.type == SDL_EVENT_QUIT) {
+    if (got_event && queued_event.type == SDL_EVENT_QUIT) {
       binding_quit_flag_.store(1);
       break;
+    }
+
+    // Only process event data if SDL_PollEvent filled the struct
+    if (!got_event) {
+      if (background_running_) {
+        SDL_Delay(16);
+        queued_event = {};
+      }
+      continue;
     }
 
     // GUI event process
@@ -508,6 +627,11 @@ void ContentRunner::UpdateEventInternal() {
       } else if (queued_event.key.scancode == SDL_SCANCODE_F2) {
         show_fps_monitor_ =
             !show_fps_monitor_ && !profile_->disable_fps_monitor;
+      } else if (queued_event.key.scancode == SDL_SCANCODE_GRAVE) {
+        execution_context_->console.show =
+            !execution_context_->console.show;
+        if (!execution_context_->console.show)
+          console_input_buffer_.clear();
       } else if (queued_event.key.scancode == SDL_SCANCODE_F12) {
         if (!profile_->disable_reset)
           binding_reset_flag_.store(1);
@@ -527,7 +651,8 @@ bool ContentRunner::EventWatchHandlerInternal(void* userdata,
   ContentRunner* self = static_cast<ContentRunner*>(userdata);
 #if !defined(OS_ANDROID)
   if (self->profile_->background_running)
-    return true;
+
+  return true;
 #endif
 
   const bool is_focus_lost =
@@ -581,7 +706,7 @@ void ContentRunner::CreateIMGUIContextInternal() {
   ImGuiIO& io = ImGui::GetIO();
   io.IniFilename = nullptr;
   io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
+      ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
   // Apply DPI Settings

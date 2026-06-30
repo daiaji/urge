@@ -103,9 +103,9 @@ MRI_METHOD(MRI_RGSSMain) {
       gc_required = false;
     }
 
-    rb_rescue2(reinterpret_cast<VALUE (*)(ANYARGS)>(RescueCallBlock),
+    rb_rescue2(RescueCallBlock,
                rb_block_proc(),
-               reinterpret_cast<VALUE (*)(ANYARGS)>(RescueException),
+               RescueException,
                (VALUE)&exception, rb_eException, nullptr);
 
     if (NIL_P(exception))
@@ -161,12 +161,30 @@ void BindingEngineMri::PreEarlyInitialization(
   ruby_init();
   ruby_init_loadpath();
 
-#if RAPI_FULL >= 300
-  rb_call_builtin_inits();
-#endif  //! RAPI_FULL >= 300
-
   rb_enc_set_default_internal(rb_enc_from_encoding(rb_utf8_encoding()));
   rb_enc_set_default_external(rb_enc_from_encoding(rb_utf8_encoding()));
+
+  // rb_call_builtin_inits is hidden in Ruby shared library on Linux
+  // (not in .dynsym due to -fvisibility=hidden).
+  // Try dlsym first; fall back to dladdr + build-time extracted offset.
+#if defined(OS_LINUX)
+  #include <dlfcn.h>
+  auto fn = (void (*)())dlsym(RTLD_DEFAULT, "rb_call_builtin_inits");
+  if (!fn) {
+    #include "mri_builtin_offset.h"
+    #ifdef MRI_BUILTIN_INITS_OFFSET
+      Dl_info info;
+      dladdr((void*)ruby_init, &info);
+      fn = (void (*)())((uintptr_t)info.dli_fbase + MRI_BUILTIN_INITS_OFFSET);
+    #else
+      #error "MRI_BUILTIN_INITS_OFFSET undefined. Install binutils or configure manually."
+    #endif
+  }
+  if (fn)
+    fn();
+#elif RAPI_FULL >= 300
+  rb_call_builtin_inits();
+#endif
 
   // internal exception
   MriInitException(profile->api_version >=
@@ -226,6 +244,28 @@ void BindingEngineMri::OnMainMessageLoopRun(
   MriGetGlobalModules()->Mouse = module_context->mouse;
   MriGetGlobalModules()->URGE = module_context->engine;
 
+  // Console eval callback (evaluates Ruby code, returns result as string)
+  execution->eval_ruby = [](const std::string& code) -> std::string {
+    int state = 0;
+    VALUE result = rb_eval_string_protect(code.c_str(), &state);
+    if (state) {
+      VALUE err = rb_errinfo();
+      VALUE msg = rb_funcall(err, rb_intern("message"), 0);
+      VALUE full = rb_str_plus(msg, rb_str_new_cstr("\n"));
+      VALUE bt = rb_funcall(err, rb_intern("backtrace"), 0);
+      if (!NIL_P(bt)) {
+        VALUE bt_text = rb_funcall(bt, rb_intern("first"), 1, INT2FIX(5));
+        full = rb_str_plus(full, rb_funcall(bt_text, rb_intern("join"), 1, rb_str_new_cstr("\n")));
+      }
+      rb_set_errinfo(Qnil);
+      return std::string(RSTRING_PTR(full), RSTRING_LEN(full));
+    }
+    if (result == Qnil)
+      return "=> nil";
+    VALUE str = rb_obj_as_string(result);
+    return "=> " + std::string(RSTRING_PTR(str), RSTRING_LEN(str));
+  };
+
   // Run packed scripts
   content::ExceptionState exception_state;
   LoadPackedScripts(profile_, exception_state);
@@ -234,6 +274,21 @@ void BindingEngineMri::OnMainMessageLoopRun(
     exception_state.FetchException(error_message);
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE",
                              error_message.c_str(), nullptr);
+  }
+
+  // Debug: log any Ruby exception info
+  VALUE rb_ex = rb_errinfo();
+  if (!NIL_P(rb_ex) && !rb_obj_is_kind_of(rb_ex, rb_eSystemExit)) {
+    VALUE msg = rb_funcall(rb_ex, rb_intern("message"), 0);
+    VALUE bt  = rb_funcall(rb_ex, rb_intern("backtrace"), 0);
+    std::string msg_str = StringValueCStr(msg);
+    std::string bt_str;
+    if (!NIL_P(bt)) {
+      VALUE bt_val = rb_funcall(bt, rb_intern("join"), 1, rb_str_new_cstr("\n"));
+      bt_str.assign(RSTRING_PTR(bt_val), RSTRING_LEN(bt_val));
+    }
+    LOG(ERROR) << "[Binding] Ruby exception: " << msg_str;
+    LOG(ERROR) << "[Binding] Backtrace:\n" << bt_str;
   }
 }
 

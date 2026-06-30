@@ -37,7 +37,8 @@ RenderScreenImpl::RenderScreenImpl(ExecutionContext* execution_context,
       frozen_(false),
       brightness_(255),
       frame_count_(0),
-      frame_rate_(frame_rate) {
+      frame_rate_(frame_rate > 0 ? frame_rate : 60),
+      unlimited_fps_(frame_rate == 0) {
   // Setup render device on render thread if possible
   GPUCreateGraphicsHostInternal();
 
@@ -92,6 +93,33 @@ void RenderScreenImpl::CreateButtonGUISettings() {
         adapter_info.VendorId);
     ImGui::Separator();
 
+    // VSync
+    bool vsync_enabled = settings_profile.vsync != 0;
+    ImGui::Checkbox(
+        context()
+            ->i18n_profile->GetI18NString(IDS_GRAPHICS_VSYNC, "VSync")
+            .c_str(),
+        &vsync_enabled);
+    settings_profile.vsync = vsync_enabled ? 1 : 0;
+
+    // Frame Rate
+    static int32_t frame_rate_tmp = static_cast<int32_t>(frame_rate_);
+    frame_rate_tmp = unlimited_fps_ ? 0 : static_cast<int32_t>(frame_rate_);
+    ImGui::SliderInt(
+        context()
+            ->i18n_profile->GetI18NString(IDS_GRAPHICS_FRAME_RATE, "Frame Rate")
+            .c_str(),
+        &frame_rate_tmp, 0, 360);
+    if (frame_rate_tmp == 0 && !unlimited_fps_) {
+      unlimited_fps_ = true;
+      limiter_.SetDisabled(true);
+    } else if (frame_rate_tmp > 0) {
+      unlimited_fps_ = false;
+      frame_rate_ = static_cast<uint32_t>(frame_rate_tmp);
+      limiter_.SetDisabled(false);
+      limiter_.SetFrameRate(frame_rate_);
+    }
+
     // Keep Ratio
     ImGui::Checkbox(
         context()
@@ -128,6 +156,11 @@ void RenderScreenImpl::CreateButtonGUISettings() {
 }
 
 void RenderScreenImpl::Update(ExceptionState& exception_state) {
+  if (rebuild_buffers_pending_) {
+    GPUResetScreenBufferInternal();
+    rebuild_buffers_pending_ = false;
+  }
+
   const bool frozen_render = frozen_;
   const bool need_skip_frame = limiter_.RequireFrameSkip() &&
                                context()->engine_profile->allow_skip_frame;
@@ -315,7 +348,7 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
                                     uint32_t height,
                                     ExceptionState& exception_state) {
   context()->resolution = base::Vec2i(width, height);
-  GPUResetScreenBufferInternal();
+  rebuild_buffers_pending_ = true;
 }
 
 void RenderScreenImpl::Reset(ExceptionState& exception_state) {
@@ -327,6 +360,7 @@ void RenderScreenImpl::Reset(ExceptionState& exception_state) {
                         ContentProfile::APIVersion::RGSS1
                     ? 40
                     : 60;
+  unlimited_fps_ = false;
   brightness_ = 255;
   FrameReset(exception_state);
 }
@@ -403,14 +437,30 @@ GPU::ValueType RenderScreenImpl::GetInternalIndexType(
   return static_cast<GPU::ValueType>(quad_index->GetIndexType());
 }
 
+void RenderScreenImpl::SyncToRefreshRate(int32_t refresh_rate) {
+  if (refresh_rate > 0) {
+    unlimited_fps_ = false;
+    frame_rate_ = static_cast<uint32_t>(refresh_rate);
+    context()->engine_profile->vsync = 1;
+    limiter_.SetDisabled(true);
+  }
+}
+
 URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     FrameRate,
     uint32_t,
     RenderScreenImpl,
     { return frame_rate_; },
     {
-      frame_rate_ = value;
-      limiter_.SetFrameRate(frame_rate_);
+      if (value == 0) {
+        unlimited_fps_ = true;
+        limiter_.SetDisabled(true);
+      } else {
+        unlimited_fps_ = false;
+        frame_rate_ = value;
+        limiter_.SetDisabled(false);
+        limiter_.SetFrameRate(frame_rate_);
+      }
     });
 
 URGE_DEFINE_OVERRIDE_ATTRIBUTE(

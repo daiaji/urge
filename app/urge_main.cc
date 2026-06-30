@@ -7,6 +7,7 @@
 #include "SDL3/SDL_main.h"
 #include "SDL3/SDL_messagebox.h"
 #include "SDL3/SDL_stdinc.h"
+#include "SDL3/SDL_video.h"
 #include "SDL3_image/SDL_image.h"
 #include "SDL3_ttf/SDL_ttf.h"
 #include "spdlog/sinks/android_sink.h"
@@ -19,6 +20,8 @@
 #include "content/canvas/font_context.h"
 #include "content/profile/i18n_profile.h"
 #include "content/worker/content_runner.h"
+#include "base/debug/crash_handler.h"
+#include "base/platform/console.h"
 #include "ui/widget/widget.h"
 
 #if HAVE_ARB_ENCRYPTO_SUPPORT
@@ -73,37 +76,17 @@ int SetupAndroidStudioTransfer() {
 
 #endif
 
-#if defined(OS_WIN)
-#include <windows.h>
-
-void CreateConsoleWin() {
-  if (::GetConsoleWindow())
-    return;
-
-  if (!::AttachConsole(ATTACH_PARENT_PROCESS)) {
-    ::AllocConsole();
-    ::SetConsoleCP(CP_UTF8);
-    ::SetConsoleOutputCP(CP_UTF8);
-    ::SetConsoleTitleW(L"URGE Debugging Console");
-  }
-
-  // Redirect std handle
-  std::freopen("CONIN$", "rb", stdin);
-  std::freopen("CONOUT$", "wb", stdout);
-  std::freopen("CONOUT$", "wb", stderr);
-}
-#endif
-
 int main(int argc, char* argv[]) {
-#if defined(OS_WIN)
-  // Allocate console if need
+  // Ensure console is available for stdout/stderr (no-op on most platforms)
+  platform::EnsureConsole();
+
+  bool show_console = false;
   for (int i = 0; i < argc; ++i) {
     if (!std::strcmp(argv[i], "console")) {
-      CreateConsoleWin();
+      show_console = true;
       break;
     }
   }
-#endif  //! defined(OS_WIN)
 
 #if defined(OS_ANDROID)
   SetupAndroidStudioTransfer();
@@ -161,6 +144,12 @@ int main(int argc, char* argv[]) {
   // Initialize filesystem
   std::unique_ptr<filesystem::IOService> io_service =
       filesystem::IOService::Create(argv[0]);
+  if (!io_service) {
+    LOG(ERROR) << "[App] Failed to initialize filesystem (PHYSFS).";
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE",
+                             "Failed to initialize filesystem.", nullptr);
+    return 1;
+  }
   io_service->AddLoadPath(reinterpret_cast<const char*>(current_path.c_str()),
                           "", false);
   io_service->SetWritePath(reinterpret_cast<const char*>(current_path.c_str()));
@@ -192,11 +181,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-#if defined(OS_WIN)
-  // Create console on windows
-  if (profile->debugging_console)
-    CreateConsoleWin();
-#endif
+  // Show/hide console window based on config or command-line arg
+  platform::SetConsoleVisible(show_console || profile->debugging_console);
 
   // Create spdlog logger
 #if defined(OS_ANDROID)
@@ -208,21 +194,43 @@ int main(int argc, char* argv[]) {
       std::make_shared<spdlog::sinks::basic_file_sink_mt>(app + ".log", true);
   file_sink->set_level(spdlog::level::trace);
 #else
+  std::vector<spdlog::sink_ptr> logger_sinks;
+
+  // Always add stdout sink (terminal output)
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   console_sink->set_pattern("[%^%l%$] %v");
+  logger_sinks.push_back(console_sink);
+
+  // Conditionally add file sink
+  if (profile->save_log) {
+    auto file_sink =
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Engine.log", false);
+    file_sink->set_pattern("[%^%l%$] %v");
+    file_sink->set_level(spdlog::level::trace);
+    logger_sinks.push_back(file_sink);
+  }
 #endif
 
-  spdlog::sinks_init_list logger_sinks = {
-#if defined(OS_ANDROID)
-      android_sink,
-      file_sink,
-#else
-      console_sink,
-#endif
-  };
-
-  spdlog::logger logger_sink("urgecore", logger_sinks);
+  spdlog::logger logger_sink("urgecore", logger_sinks.begin(), logger_sinks.end());
+  logger_sink.flush_on(spdlog::level::info);
   base::logging::InitWithLogger(&logger_sink);
+
+  // Open crash-safe log file (signal handlers installed later after Ruby init)
+  base::debug::OpenCrashLogFile("crash.log");
+
+  // Create console logger (user-facing output: Console.log + terminal)
+  {
+    auto console_file_sink =
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Console.log", false);
+    console_file_sink->set_pattern("[%^%l%$] %v");
+    auto console_stdout_sink =
+        std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    console_stdout_sink->set_pattern("[%^%l%$] %v");
+    static spdlog::logger console_logger("console",
+                                         {console_stdout_sink, console_file_sink});
+    console_logger.flush_on(spdlog::level::info);
+    base::logging::InitConsoleLogger(&console_logger);
+  }
 
   LOG(INFO) << "[App] Current Path: "
             << reinterpret_cast<const char*>(current_path.c_str());
@@ -254,8 +262,22 @@ int main(int argc, char* argv[]) {
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
   SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "1");
 
-  SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-  TTF_Init();
+#if defined(OS_LINUX)
+  // Diligent Engine requires X11 on Linux; prefer X11 driver
+  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11");
+#endif
+
+  if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO |
+                SDL_INIT_GAMEPAD)) {
+    LOG(ERROR) << "[App] Failed to initialize SDL: " << SDL_GetError();
+    return 1;
+  }
+  if (!TTF_Init()) {
+    LOG(ERROR) << "[App] Failed to initialize SDL_ttf: " << SDL_GetError();
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE",
+                             "Failed to initialize SDL_ttf.", nullptr);
+    return 1;
+  }
 
   {
     // Initialize i18n profile
@@ -274,15 +296,28 @@ int main(int argc, char* argv[]) {
         static_cast<TTF_HintingFlags>(profile->font_hinting);
     font_context->font_outline_crop = profile->font_outline_crop;
 
+    // Parse font substitution entries ("From>To") from INI
+    for (const auto& entry : profile->font_subs) {
+      size_t sep = entry.find('>');
+      if (sep != std::string::npos) {
+        std::string from = entry.substr(0, sep);
+        std::string to = entry.substr(sep + 1);
+        std::transform(from.begin(), from.end(), from.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        font_context->font_subs[from] = to;
+      }
+    }
+
     {
       // Initialize engine main widget
       std::unique_ptr<ui::Widget> widget(new ui::Widget);
       ui::Widget::InitParams widget_params;
 #if defined(OS_LINUX)
-      widget_params.opengl = profile->driver_backend == "OPENGL";
+      // Linux fallback chain ends at OPENGL, always enable GLX window support
+      widget_params.opengl = true;
 #endif
       widget_params.size = profile->window_size;
-      widget_params.resizable = true;
+      widget_params.resizable = profile->win_resizable;
       widget_params.hpixeldensity =
 #if !defined(OS_EMSCRIPTEN)
           true;
@@ -298,6 +333,23 @@ int main(int argc, char* argv[]) {
       widget_params.title = profile->window_title;
       widget->Init(std::move(widget_params));
 
+      // Apply fixed aspect ratio from config
+      if (profile->fixed_aspect_ratio) {
+        float game_ratio = static_cast<float>(profile->resolution.x) /
+                           static_cast<float>(profile->resolution.y);
+        SDL_SetWindowAspectRatio(widget->AsSDLWindow(), game_ratio, game_ratio);
+      }
+
+      // Get display refresh rate for syncToRefreshrate
+      float display_refresh_rate = 0.0f;
+      {
+        SDL_DisplayID display =
+            SDL_GetDisplayForWindow(widget->AsSDLWindow());
+        const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display);
+        if (mode)
+          display_refresh_rate = mode->refresh_rate;
+      }
+
       // Setup content runner module
       content::ContentRunner::InitParams content_params;
       content_params.profile = profile.get();
@@ -305,6 +357,7 @@ int main(int argc, char* argv[]) {
       content_params.font_context = font_context.get();
       content_params.i18n_profile = i18n_profile.get();
       content_params.window = widget->AsWeakPtr();
+      content_params.display_refresh_rate = display_refresh_rate;
       content_params.entry = std::make_unique<binding::BindingEngineMri>();
 
       std::unique_ptr<content::ContentRunner> runner =
