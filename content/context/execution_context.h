@@ -5,7 +5,10 @@
 #ifndef CONTENT_CONTEXT_EXECUTION_CONTEXT_H_
 #define CONTENT_CONTEXT_EXECUTION_CONTEXT_H_
 
+#include <functional>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "components/audioservice/audio_service.h"
 #include "components/filesystem/io_service.h"
@@ -50,6 +53,16 @@ struct ExecutionContext {
 #if !defined(OS_EMSCRIPTEN)
   network::NetworkService* network_service = nullptr;
 #endif
+
+  // Console overlay state (shared between content runner and Ruby bindings)
+  struct {
+    std::vector<std::string> output;
+    bool show = false;
+    bool scroll_to_bottom = false;
+  } console;
+
+  // Ruby eval callback (set by MRI binding, called from content runner console)
+  std::function<std::string(const std::string&)> eval_ruby;
 
   ExecutionContext();
   ~ExecutionContext();

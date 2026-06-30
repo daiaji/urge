@@ -161,6 +161,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   FrameTickHandler frame_tick_handler_;
 
   bool frozen_;
+  bool rebuild_buffers_pending_ = false;
   int32_t brightness_;
   uint64_t frame_count_;
   uint32_t frame_rate_;

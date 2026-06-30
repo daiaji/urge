@@ -226,6 +226,28 @@ void BindingEngineMri::OnMainMessageLoopRun(
   MriGetGlobalModules()->Mouse = module_context->mouse;
   MriGetGlobalModules()->URGE = module_context->engine;
 
+  // Console eval callback (evaluates Ruby code, returns result as string)
+  execution->eval_ruby = [](const std::string& code) -> std::string {
+    int state = 0;
+    VALUE result = rb_eval_string_protect(code.c_str(), &state);
+    if (state) {
+      VALUE err = rb_errinfo();
+      VALUE msg = rb_funcall(err, rb_intern("message"), 0);
+      VALUE full = rb_str_plus(msg, rb_str_new_cstr("\n"));
+      VALUE bt = rb_funcall(err, rb_intern("backtrace"), 0);
+      if (!NIL_P(bt)) {
+        VALUE bt_text = rb_funcall(bt, rb_intern("first"), 1, INT2FIX(5));
+        full = rb_str_plus(full, rb_funcall(bt_text, rb_intern("join"), 1, rb_str_new_cstr("\n")));
+      }
+      rb_set_errinfo(Qnil);
+      return std::string(RSTRING_PTR(full), RSTRING_LEN(full));
+    }
+    if (result == Qnil)
+      return "=> nil";
+    VALUE str = rb_obj_as_string(result);
+    return "=> " + std::string(RSTRING_PTR(str), RSTRING_LEN(str));
+  };
+
   // Run packed scripts
   content::ExceptionState exception_state;
   LoadPackedScripts(profile_, exception_state);

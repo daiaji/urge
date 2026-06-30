@@ -128,6 +128,11 @@ void RenderScreenImpl::CreateButtonGUISettings() {
 }
 
 void RenderScreenImpl::Update(ExceptionState& exception_state) {
+  if (rebuild_buffers_pending_) {
+    GPUResetScreenBufferInternal();
+    rebuild_buffers_pending_ = false;
+  }
+
   const bool frozen_render = frozen_;
   const bool need_skip_frame = limiter_.RequireFrameSkip() &&
                                context()->engine_profile->allow_skip_frame;
@@ -315,7 +320,7 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
                                     uint32_t height,
                                     ExceptionState& exception_state) {
   context()->resolution = base::Vec2i(width, height);
-  GPUResetScreenBufferInternal();
+  rebuild_buffers_pending_ = true;
 }
 
 void RenderScreenImpl::Reset(ExceptionState& exception_state) {

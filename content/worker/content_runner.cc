@@ -6,6 +6,7 @@
 
 #include "imgui/backends/imgui_impl_sdl3.h"
 #include "imgui/imgui.h"
+#include "imgui/misc/cpp/imgui_stdlib.h"
 #include "magic_enum/magic_enum.hpp"
 
 #include "components/version/version.h"
@@ -373,6 +374,10 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
   if (show_fps_monitor_)
     RenderFPSMonitorGUIInternal();
 
+  // Render console overlay
+  if (execution_context_->console.show)
+    RenderConsoleGUIInternal();
+
   // Present game window
   ImGui::SetNextWindowPos(ImVec2(0, 0));
   ImGui::SetNextWindowSize(ImVec2(swapchain_desc.Width, swapchain_desc.Height));
@@ -481,6 +486,94 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
   ImGui::End();
 }
 
+void ContentRunner::RenderConsoleGUIInternal() {
+  const auto& sc_desc =
+      execution_context_->render_device->GetSwapChain()->GetDesc();
+  float win_w = static_cast<float>(sc_desc.Width);
+  float win_h = static_cast<float>(sc_desc.Height);
+
+  ImGui::SetNextWindowPos(ImVec2(0, win_h * 0.55f), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowSize(ImVec2(win_w, win_h * 0.45f), ImGuiCond_FirstUseEver);
+
+  ImGuiWindowFlags wflags = ImGuiWindowFlags_NoCollapse |
+                            ImGuiWindowFlags_NoTitleBar |
+                            ImGuiWindowFlags_NoFocusOnAppearing;
+  if (ImGui::Begin("##Console", &execution_context_->console.show, wflags)) {
+    // Output area
+    ImVec2 out_size(0, -ImGui::GetTextLineHeightWithSpacing() * 3 -
+                           ImGui::GetStyle().ItemSpacing.y);
+    if (ImGui::BeginChild("##console_out", out_size, ImGuiChildFlags_Border)) {
+      for (const auto& line : execution_context_->console.output)
+        ImGui::TextUnformatted(line.c_str());
+      if (execution_context_->console.scroll_to_bottom) {
+        ImGui::SetScrollHereY(1.0f);
+        execution_context_->console.scroll_to_bottom = false;
+      }
+    }
+    ImGui::EndChild();
+
+    // Input area (CallbackHistory not supported with Multiline per ImGui assert)
+    ImGuiInputTextFlags iflags = ImGuiInputTextFlags_EnterReturnsTrue;
+
+    if (ImGui::InputTextMultiline(
+            "##console_in", &console_input_buffer_,
+            ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags)) {
+      ExecuteConsoleCommand(console_input_buffer_);
+      console_input_buffer_.clear();
+      console_history_pos_ = -1;
+      execution_context_->console.scroll_to_bottom = true;
+    }
+
+    // Manual history navigation (Up/Down)
+    if (ImGui::IsItemActive()) {
+      if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+        if (!console_history_.empty()) {
+          if (console_history_pos_ == -1)
+            console_history_pos_ = console_history_.size() - 1;
+          else if (console_history_pos_ > 0)
+            console_history_pos_--;
+          console_input_buffer_ = console_history_[console_history_pos_];
+        }
+      } else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+        if (console_history_pos_ >= 0) {
+          console_history_pos_++;
+          if (console_history_pos_ < (int)console_history_.size())
+            console_input_buffer_ = console_history_[console_history_pos_];
+          else {
+            console_input_buffer_.clear();
+            console_history_pos_ = -1;
+          }
+        }
+      }
+    }
+
+    if (!ImGui::IsAnyItemActive())
+      ImGui::SetKeyboardFocusHere(0);
+  }
+  ImGui::End();
+}
+
+void ContentRunner::ExecuteConsoleCommand(const std::string& code) {
+  auto& output = execution_context_->console.output;
+  output.push_back(">>> " + code);
+
+  if (code.empty())
+    return;
+
+  console_history_.push_back(code);
+  if (console_history_.size() > 50)
+    console_history_.pop_front();
+
+  if (!execution_context_->eval_ruby) {
+    output.push_back("(eval not available)");
+    return;
+  }
+
+  std::string result = execution_context_->eval_ruby(code);
+  if (!result.empty())
+    output.push_back(result);
+}
+
 void ContentRunner::UpdateEventInternal() {
   // Clear pending events
   event_controller_->ClearPendingEvents();
@@ -511,6 +604,11 @@ void ContentRunner::UpdateEventInternal() {
       } else if (queued_event.key.scancode == SDL_SCANCODE_F2) {
         show_fps_monitor_ =
             !show_fps_monitor_ && !profile_->disable_fps_monitor;
+      } else if (queued_event.key.scancode == SDL_SCANCODE_GRAVE) {
+        execution_context_->console.show =
+            !execution_context_->console.show;
+        if (!execution_context_->console.show)
+          console_input_buffer_.clear();
       } else if (queued_event.key.scancode == SDL_SCANCODE_F12) {
         if (!profile_->disable_reset)
           binding_reset_flag_.store(1);

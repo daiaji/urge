@@ -5,6 +5,10 @@
 #ifndef CONTENT_WORKER_CONTENT_RUNNER_H_
 #define CONTENT_WORKER_CONTENT_RUNNER_H_
 
+#include <deque>
+#include <string>
+#include <vector>
+
 #include "imgui/backends/imgui_impl_diligent.h"
 
 #include "base/worker/thread_worker.h"
@@ -77,6 +81,8 @@ class ContentRunner {
   void RenderGUIInternal(Diligent::ITexture* present_buffer);
   void RenderSettingsGUIInternal();
   void RenderFPSMonitorGUIInternal();
+  void RenderConsoleGUIInternal();
+  void ExecuteConsoleCommand(const std::string& code);
 
   void UpdateEventInternal();
 
@@ -111,6 +117,11 @@ class ContentRunner {
   bool background_running_;
   bool show_settings_menu_;
   bool show_fps_monitor_;
+
+  // Console state
+  std::string console_input_buffer_;
+  std::deque<std::string> console_history_;
+  int console_history_pos_ = -1;
 
   uint64_t last_tick_;
   int64_t total_delta_;
