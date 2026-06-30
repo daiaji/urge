@@ -215,6 +215,19 @@ class Binding_BitmapFilter : public RenderBindingBase {
   Binding_BitmapFilter(ShaderBinding* binding);
 };
 
+class Binding_Anime4KEnhance : public RenderBindingBase {
+ public:
+  Binding_Anime4KEnhance() = default;
+
+  RRefPtr<ShaderVariable> u_texture;
+  RRefPtr<ShaderVariable> u_gauss_texture;
+  RRefPtr<ShaderVariable> u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_Anime4KEnhance(ShaderBinding* binding);
+};
+
 class Binding_YUV : public RenderBindingBase {
  public:
   Binding_YUV() = default;
@@ -226,6 +239,29 @@ class Binding_YUV : public RenderBindingBase {
  private:
   friend class RenderBindingBase;
   Binding_YUV(ShaderBinding* binding);
+};
+
+class Binding_Upscale : public RenderBindingBase {
+ public:
+  struct ScalingParams {
+    base::Vec2 input_size;
+    base::Vec2 output_size;
+    base::Vec2 input_pt;
+    base::Vec2 output_pt;
+    uint32_t mode;
+    float ar_strength;
+    float bicubic_b;
+    float bicubic_c;
+  };
+
+  Binding_Upscale() = default;
+
+  RRefPtr<ShaderVariable> u_texture;
+  RRefPtr<ShaderVariable> u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_Upscale(ShaderBinding* binding);
 };
 
 }  // namespace renderer

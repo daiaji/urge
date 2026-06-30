@@ -47,6 +47,8 @@ struct PipelineCollection {
   PipelineObject vague_transition;
 
   PipelineObject yuv;
+  PipelineObject upscale;
+  PipelineObject anime4k_enhance;
 
   PipelineObject window;
   PipelineObject window_with_stencil;

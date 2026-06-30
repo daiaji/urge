@@ -42,6 +42,13 @@ class RenderScreenImpl : public Graphics, public EngineObject {
     renderer::QuadBatch transition_quads;
     renderer::Binding_AlphaTrans transition_binding_alpha;
     renderer::Binding_VagueTrans transition_binding_vague;
+
+    RRefPtr<Diligent::ITexture> upscale_buffer;
+    RRefPtr<Diligent::IBuffer> upscale_params_buffer;
+    renderer::Binding_Upscale upscale_binding;
+
+    RRefPtr<Diligent::ITexture> enhanced_tex;
+    renderer::Binding_Upscale anime4k_enhance_binding;
   };
 
   RenderScreenImpl(ExecutionContext* execution_context, uint32_t frame_rate);
@@ -129,6 +136,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(IntegerScaling, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(SmoothScaling, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(SmoothScalingDown, int32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(ScalingMode, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(BackgroundRunning, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Ox, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Oy, int32_t);
@@ -157,6 +165,10 @@ class RenderScreenImpl : public Graphics, public EngineObject {
       Diligent::ITextureView* trans_mapping,
       float progress,
       float vague);
+
+  void GPUScalingPassInternal(Diligent::IDeviceContext* render_context);
+  void GPURecreateUpscaleBufferInternal();
+  void GPURecreateAnime4KTargetsInternal();
 
   GPUData gpu_;
   DrawNodeController controller_;
