@@ -3,6 +3,25 @@
 #
 # To use: inject via: rm-toolkit --inject-script 1:rgss3_compat.rb
 # (place it right after rgss3_patch.rb in the script array)
+#
+# Requires urge_compat.rb loaded first for generic aliases.
+# Loading order: urge_compat.rb → ruby1{8,9}_compat.rb → rgss*_patch.rb → rgss3_compat.rb
+
+RGSS_VERSION = "3.0.1"
+
+# --- Kernel#msgbox / msgbox_p ---
+# RGSS3 kernel functions for popup messages.
+# Currently logs to Console; upgrade to native MessageBox when
+# C++ binding for URGE.alert / SDL_ShowSimpleMessageBox is wired.
+module Kernel
+  def msgbox(*args)
+    Console.puts(*args)
+  end
+
+  def msgbox_p(*args)
+    Console.puts(*args.map(&:inspect))
+  end
+end
 
 class << Graphics
   alias :original_resize_screen :resize_screen
@@ -13,16 +32,14 @@ class << Graphics
   end
 end
 
-# --- Bitmap#text_size space compensation ---
-# FreeType sometimes overestimates the last character's width;
-# appending a space and subtracting its width improves accuracy.
+# --- Bitmap#text_size ---
+# C++ textSize already performs "str + space" width compensation internally.
+# No additional Ruby-level adjustment needed.
 class Bitmap
   alias :original_text_size :text_size
   def text_size(str)
     return original_text_size(str) unless str.is_a?(String)
-    w = original_text_size(str + " ")
-    ws = original_text_size(" ")
-    Rect.new(0, 0, [w.width - ws.width, 0].max, w.height)
+    original_text_size(str)
   end
 end
 
@@ -54,14 +71,9 @@ class Bitmap
     tw = text_size(str).width
     if tw > 0 && tw > w
       zoom = w.to_f / tw
-      # Render to temp bitmap at original size, then stretch_blt squeezed
       temp = Bitmap.new(tw, h)
       temp.font = font.clone
-      case align
-      when 0 then temp.draw_text(0, 0, tw, h, str, 0)
-      when 1 then temp.draw_text(0, 0, tw, h, str, 1)
-      when 2 then temp.draw_text(0, 0, tw, h, str, 2)
-      end
+      temp.original_draw_text(0, 0, tw, h, str, 0)
       stretch_blt(Rect.new(x, y, (tw * zoom).to_i, h), temp, temp.rect)
       temp.dispose
       return
@@ -75,6 +87,7 @@ class Bitmap
       x += w - tw - outline_w * 2
     end
 
-    original_draw_text(x, y, w, h, str, align)
+    # Pass align=0 (Left) because x is already adjusted above.
+    original_draw_text(x, y, w, h, str, 0)
   end
 end
