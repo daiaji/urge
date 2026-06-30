@@ -240,6 +240,14 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   smooth_scale_present = reader->GetBoolean("Renderer", "SmoothScalePresent",
                                             smooth_scale_present);
 
+  // Font
+  font_scale = reader->GetFloat("Engine", "FontScale", font_scale);
+  font_kerning = reader->GetBoolean("Engine", "FontKerning", font_kerning);
+  font_hinting =
+      reader->GetInteger("Engine", "FontHinting", font_hinting);
+  font_outline_crop =
+      reader->GetBoolean("Engine", "FontOutlineCrop", font_outline_crop);
+
   // Platform
   debugging_console =
       reader->GetBoolean("Platform", "DebuggingConsole", debugging_console);
