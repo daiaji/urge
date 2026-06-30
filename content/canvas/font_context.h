@@ -6,6 +6,7 @@
 #define CONTENT_CANVAS_FONT_CONTEXT_H_
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,15 @@
 #include "content/content_config.h"
 
 namespace content {
+
+constexpr float kDefaultFontScale = 0.9f;
+constexpr bool kDefaultFontKerning = true;
+constexpr TTF_HintingFlags kDefaultFontHinting = TTF_HINTING_NONE;
+constexpr bool kDefaultFontOutlineCrop = true;
+
+// Global font families forced to solid (non-anti-aliased) outline rendering.
+// Matches mkxp-z solidFonts config. Default empty — RGSS never presets any.
+const std::set<std::string> kSolidFontFamilies = {};
 
 struct ScopedFontData {
   std::string default_font;
@@ -30,6 +40,12 @@ struct ScopedFontData {
   scoped_refptr<ColorImpl> default_color = nullptr;
   scoped_refptr<ColorImpl> default_out_color = nullptr;
   scoped_refptr<ColorImpl> default_gradient_color = nullptr;
+
+  // Font rendering preferences (INI overridable, RGSS defaults)
+  float font_scale = kDefaultFontScale;
+  bool font_kerning = kDefaultFontKerning;
+  TTF_HintingFlags font_hinting = kDefaultFontHinting;
+  bool font_outline_crop = kDefaultFontOutlineCrop;
 
   std::map<std::pair<std::string, int32_t>, TTF_Font*> font_cache;
   std::map<std::string, std::pair<int64_t, void*>> data_cache;

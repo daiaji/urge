@@ -73,6 +73,12 @@ class ContentProfile {
   bool background_running = true;
   bool smooth_scale_present = false;
 
+  // Font
+  float font_scale = 0.9f;
+  bool font_kerning = true;
+  int32_t font_hinting = 3;
+  bool font_outline_crop = true;
+
   // Platform
   bool debugging_console = false;
   bool disable_ime = false;

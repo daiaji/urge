@@ -11,7 +11,6 @@
 namespace content {
 
 constexpr int32_t kOutlineSize = 1;
-constexpr float kFontRealScale = 0.9f;
 
 namespace {
 
@@ -41,11 +40,12 @@ void RenderShadowSurface(SDL_Surface*& in) {
 TTF_Font* ReadFontFromMemory(
     const std::map<std::string, std::pair<int64_t, void*>>& mem_fonts,
     const std::string& path,
-    int32_t size) {
+    int32_t size,
+    float font_scale) {
   auto it = mem_fonts.find(path);
   if (it != mem_fonts.end()) {
     SDL_IOStream* io = SDL_IOFromConstMem(it->second.second, it->second.first);
-    return TTF_OpenFontIO(io, true, size * kFontRealScale);
+    return TTF_OpenFontIO(io, true, size * font_scale);
   }
 
   return nullptr;
@@ -255,6 +255,9 @@ TTF_Font* FontImpl::GetCanonicalFont(ExceptionState& exception_state) {
     font_style |= TTF_STYLE_ITALIC;
   TTF_SetFontStyle(font_, font_style);
 
+  TTF_SetFontKerning(font_, parent_->font_kerning ? 1 : 0);
+  TTF_SetFontHinting(font_, parent_->font_hinting);
+
   return font_;
 }
 
@@ -325,7 +328,10 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
     // Outline shape render
     SDL_Surface* outline_surface = nullptr;
     TTF_SetFontOutline(font, kOutlineSize);
-    outline_surface = solid_
+
+    // Per-instance solid attribute or global font family preset
+    bool use_solid = solid_ || kSolidFontFamilies.count(name_.front()) > 0;
+    outline_surface = use_solid
                           ? TTF_RenderText_Solid(font, text.c_str(),
                                                  text.size(), outline_color)
                           : TTF_RenderText_Blended(font, text.c_str(),
@@ -337,15 +343,16 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
       return nullptr;
     }
 
-    // Make outline text surface
-    SDL_Rect out_rect = {
-        kOutlineSize,
-        kOutlineSize,
-        text_surface->w,
-        text_surface->h,
-    };
+    // Crop text edges by outline size to match Enterbrain RGSS runtime behavior.
+    // Removes semi-transparent edge pixels that create visible seams
+    // when the text surface is composited onto the outline.
+    // Configurable via FontOutlineCrop; default true (Enterbrain behavior).
+    int crop = parent_->font_outline_crop ? kOutlineSize : 0;
+    SDL_Rect src_rect = {crop, crop,
+                         text_surface->w - crop,
+                         text_surface->h - crop};
     SDL_SetSurfaceBlendMode(text_surface, SDL_BLENDMODE_BLEND);
-    SDL_BlitSurface(text_surface, nullptr, outline_surface, &out_rect);
+    SDL_BlitSurface(text_surface, &src_rect, outline_surface, nullptr);
 
     SDL_DestroySurface(text_surface);
     text_surface = outline_surface;
@@ -459,7 +466,8 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
 
       // Load new font object
       TTF_Font* font_obj =
-          ReadFontFromMemory(parent_->data_cache, font_name, size_);
+          ReadFontFromMemory(parent_->data_cache, font_name, size_,
+                             parent_->font_scale);
       if (font_obj) {
         // Storage new font object
         font_ = font_obj;
@@ -501,7 +509,8 @@ void FontImpl::SetupFontFallbackInternal() {
   } else {
     // Create new size font object
     TTF_Font* font_obj =
-        ReadFontFromMemory(parent_->data_cache, parent_->default_font, size_);
+        ReadFontFromMemory(parent_->data_cache, parent_->default_font, size_,
+                           parent_->font_scale);
     if (font_obj) {
       TTF_AddFallbackFont(font_, font_obj);
       font_cache.emplace(std::make_pair(parent_->default_font, size_),

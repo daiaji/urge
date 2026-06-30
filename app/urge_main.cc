@@ -267,6 +267,13 @@ int main(int argc, char* argv[]) {
     auto font_context = std::make_unique<content::ScopedFontData>(
         io_service.get(), profile->default_font_path);
 
+    // Apply font rendering preferences from INI
+    font_context->font_scale = profile->font_scale;
+    font_context->font_kerning = profile->font_kerning;
+    font_context->font_hinting =
+        static_cast<TTF_HintingFlags>(profile->font_hinting);
+    font_context->font_outline_crop = profile->font_outline_crop;
+
     {
       // Initialize engine main widget
       std::unique_ptr<ui::Widget> widget(new ui::Widget);
