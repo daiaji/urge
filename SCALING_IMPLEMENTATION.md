@@ -20,9 +20,9 @@
 | 1.1 | Lanczos3 缩放 | ✅ **完成** | |
 | 1.2 | Bicubic 缩放 | ✅ **完成** | |
 | 1.3 | Anime4K DoG | ✅ **完成** | **单 Pass 内联版**（非 5 Pass 分离版） |
-| 1.4 | CAS 锐化 | ❌ 未开始 | |
-| 2 | Sobel 自适应混合 | ❌ 未开始 | |
-| 3 | ImGui UI + Ruby API | ⚠️ **部分完成** | ImGui 下拉已有；Ruby API 声明已加，绑定未实现 |
+| 1.4 | CAS 锐化 | ✅ **完成** | AMD FidelityFX CAS 5-tap 十字形，绿色通道统一权重 |
+| 2 | Sobel 自适应混合 | ✅ **完成** | Anime4K Enhance PS 内联 Sobel 3x3, lerp 按边缘强度混合 |
+| 3 | ImGui UI + Ruby API | ✅ **完成** | ImGui 下拉已有；Ruby API `Graphics.scaling_mode` 整数属性 |
 
 ---
 
@@ -71,13 +71,25 @@ Game → screen_buffer (640×480)
 ## 未完成
 
 ### Phase 1.4 — CAS 锐化
-未实现，可后续叠加。
+已实现（2025-06-30）：独立 Pass 后处理，5-tap 十字形 AMD FidelityFX CAS。
+- 5 次 Sample 采样（上/左/中/右/下），绿色通道统一权重
+- `sharpness` 参数 0~1 可调（默认 0.4），通过 INI `[Renderer] CASEnabled/CASSharpness` 配置
+- ImGui 界面含 CAS 开关和锐度滑块
+- 流程：`Upscale Pass → upscale_buffer → [CAS Pass] → sharpened_buffer`
 
 ### Phase 2 — Sobel 自适应混合
-默认策略：Sobel 边缘检测 + 按强度 lerp(Anime4K, Lanczos3)。未实现。
+已实现（2025-06-30）：在 Anime4K Enhance PS 中内联 Sobel 3×3 边缘检测。
+- 复用 7×7 循环的中间 3×3 luma 值，零额外纹理采样
+- Sobel 梯度 → norm → `dval = pow(norm, strength)`
+- `result = lerp(original, enhanced, dval)` — 仅边缘区域应用 DoG 锐化
+- 新 mode=5（ImGui 显示 "Anime4K+Sobel"），Sobel 强度滑块（0~2）
+- 配置 INI: `[Renderer] ScalingSobelStrength=1.0`
 
 ### Phase 3 — Ruby API
-`Graphics.scaling_mode=` 在 `engine_graphics.h` 已声明属性，但 Ruby 绑定代码未生成/实现。
+已实现：auto-gen 绑定生成器已导出 `scaling_mode` 整数属性。
+- `Graphics.scaling_mode` → 返回当前模式整数 (0-5)
+- `Graphics.scaling_mode = n` → 设置模式
+- 绑定代码在 `autogen_graphics_binding.cc`
 
 ---
 
@@ -157,3 +169,7 @@ Step 4: +Enhance → screen+gauss_tex → enhanced_tex → upscale 完整DoG
 | 窗口 resize 后 upscale_buffer 重建 | 拖拽窗口边缘，画面正常适应 | ✅ |
 | 性能 | Lanczos ~0.03ms, Anime4K ~0.08ms → 可忽略 | ✅ |
 | 不降级时退化为 Nearest | `scaling_mode=1` 时行为不变 | ✅ |
+| CAS 锐化开关+滑块 | ImGui 勾选/拖动，画面锐度变化 | ✅ |
+| CAS 颜色无偏移 | RGB 同用 wG 权重，saturate 钳位 | ✅ |
+| Sobel 自适应混合边缘检测 | mode=5, 瓦片边缘 DoG 生效，平直区域无振铃 | ✅ |
+| Ruby API `Graphics.scaling_mode` | `Graphics.scaling_mode = 5` → 模式切换 | ✅ |

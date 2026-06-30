@@ -49,6 +49,9 @@ class RenderScreenImpl : public Graphics, public EngineObject {
 
     RRefPtr<Diligent::ITexture> enhanced_tex;
     renderer::Binding_Upscale anime4k_enhance_binding;
+
+    RRefPtr<Diligent::ITexture> sharpened_buffer;
+    renderer::Binding_Upscale cas_binding;
   };
 
   RenderScreenImpl(ExecutionContext* execution_context, uint32_t frame_rate);
@@ -169,6 +172,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   void GPUScalingPassInternal(Diligent::IDeviceContext* render_context);
   void GPURecreateUpscaleBufferInternal();
   void GPURecreateAnime4KTargetsInternal();
+  void GPURecreateSharpenedBufferInternal();
 
   GPUData gpu_;
   DrawNodeController controller_;

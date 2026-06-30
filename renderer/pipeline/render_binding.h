@@ -252,6 +252,7 @@ class Binding_Upscale : public RenderBindingBase {
     float ar_strength;
     float bicubic_b;
     float bicubic_c;
+    float cas_sharpness;
   };
 
   Binding_Upscale() = default;
