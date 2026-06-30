@@ -105,6 +105,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
                   int32_t height,
                   ExceptionState& exception_state) override;
   scoped_refptr<Rect> GetWindowRect(ExceptionState& exception_state) override;
+  void Center(ExceptionState& exception_state) override;
   uint32_t GetDisplayID(ExceptionState& exception_state) override;
   void SetWindowIcon(scoped_refptr<Bitmap> icon,
                      ExceptionState& exception_state) override;

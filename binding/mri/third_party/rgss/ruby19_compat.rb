@@ -50,6 +50,15 @@ class Array
   end
 end
 
+# ---- 1.9.2 专有: BasicObject#initialize ----
+# 1.9.2 的 BasicObject#initialize 接受任意参数，3.x 仅接受 0 个
+# RM 脚本中直接用 BasicObject.new 传参数时会 ArgumentError
+#
+# 注意: Ruby 3.3+ 上 reopen BasicObject 定义实例方法会 shape segfault,
+# 覆写 new 会拦截所有类实例化 (Sprite/Viewport 等), prepend 模块虽理论上
+# 安全但 RGSS 脚本几乎不使用 BasicObject, 故不实现此补丁。
+# 参考: mkxp-z scripts/preload/ruby_classic_wrap.rb lines 38-43 (Ruby 3.1)
+
 # ---- 通用兼容: Fixnum/Bignum → Integer ----
 # Ruby 2.4+ 统一 Fixnum/Bignum 为 Integer
 # 原 RGSS 脚本中 is_a?(Fixnum) / is_a?(Bignum) 会 NameError
