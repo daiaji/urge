@@ -254,7 +254,16 @@ int main(int argc, char* argv[]) {
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
   SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "1");
 
-  SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+#if defined(OS_LINUX)
+  // Diligent Engine requires X11 on Linux; prefer X11 driver
+  SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "x11");
+#endif
+
+  if (!SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO | SDL_INIT_AUDIO |
+                SDL_INIT_GAMEPAD)) {
+    LOG(ERROR) << "[App] Failed to initialize SDL: " << SDL_GetError();
+    return 1;
+  }
   TTF_Init();
 
   {
@@ -291,7 +300,8 @@ int main(int argc, char* argv[]) {
       std::unique_ptr<ui::Widget> widget(new ui::Widget);
       ui::Widget::InitParams widget_params;
 #if defined(OS_LINUX)
-      widget_params.opengl = profile->driver_backend == "OPENGL";
+      // Linux fallback chain ends at OPENGL, always enable GLX window support
+      widget_params.opengl = true;
 #endif
       widget_params.size = profile->window_size;
       widget_params.resizable = true;

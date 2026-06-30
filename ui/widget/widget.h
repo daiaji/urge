@@ -66,6 +66,7 @@ class Widget {
     bool always_on_top = false;
     bool dpi_awareness = true;
 
+    bool opengl = false;
     WindowPlacement window_state = WindowPlacement::Show;
   };
 

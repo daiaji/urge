@@ -105,34 +105,44 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
   native_window.hWnd = SDL_GetPointerProperty(
       window_properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
 #elif defined(OS_LINUX)
-  // Xlib Display Port
-  Diligent::LinuxNativeWindow native_window;
+  // X11 native window properties (Wayland windows won't have these)
   void* xdisplay = SDL_GetPointerProperty(
       window_properties, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
   int64_t xwindow = SDL_GetNumberProperty(window_properties,
                                           SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
 
-  // OpenGL context
-  glcontext = SDL_GL_CreateContext(window_target->AsSDLWindow());
-  SDL_GL_MakeCurrent(window_target->AsSDLWindow(), glcontext);
+  // Get XCB connection from Xlib for Vulkan (X11 only)
+  void* xcb_connection = nullptr;
+  if (xdisplay) {
+    SDL_SharedObject* xlib_xcb_library = SDL_LoadObject("libX11-xcb.so");
+    if (!xlib_xcb_library)
+      xlib_xcb_library = SDL_LoadObject("libX11-xcb.so.1");
 
-  // Get XCBConnect from Xlib for Vulkan
-  SDL_SharedObject* xlib_xcb_library = SDL_LoadObject("libX11-xcb.so");
-  if (!xlib_xcb_library)
-    xlib_xcb_library = SDL_LoadObject("libX11-xcb.so.1");
+    if (xlib_xcb_library) {
+      using XGetXCBConnection = void* (*)(void*);
+      auto xgetxcb_func = (XGetXCBConnection)SDL_LoadFunction(
+          xlib_xcb_library, "XGetXCBConnection");
+      if (xgetxcb_func)
+        xcb_connection = xgetxcb_func(xdisplay);
+    }
 
-  // Get proc address
-  using XGetXCBConnection = void* (*)(void*);
-  XGetXCBConnection xgetxcb_func = nullptr;
-  if (xlib_xcb_library)
-    xgetxcb_func = (XGetXCBConnection)SDL_LoadFunction(xlib_xcb_library,
-                                                       "XGetXCBConnection");
+    // OpenGL context (GLX) — needed even for Vulkan fallback chain
+    glcontext = SDL_GL_CreateContext(window_target->AsSDLWindow());
+    SDL_GL_MakeCurrent(window_target->AsSDLWindow(), glcontext);
+  }
 
   // Setup native window
   native_window.WindowId = static_cast<uint32_t>(xwindow);
   native_window.pDisplay = xdisplay;
-  native_window.pXCBConnection =
-      xgetxcb_func ? xgetxcb_func(xdisplay) : nullptr;
+  native_window.pXCBConnection = xcb_connection;
+
+  // Diligent Engine requires X11 on Linux
+  if (!xdisplay) {
+    LOG(ERROR) << "[Renderer] X11 display not available, "
+               << "Diligent Engine requires X11 on Linux. "
+               << "Make sure X11/XWayland is running.";
+    return CreateDeviceResult(nullptr, nullptr);
+  }
 #elif defined(OS_ANDROID)
   Diligent::AndroidNativeWindow native_window;
   native_window.pAWindow = SDL_GetPointerProperty(
