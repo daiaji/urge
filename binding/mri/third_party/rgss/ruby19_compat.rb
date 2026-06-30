@@ -54,9 +54,17 @@ end
 # 1.9.2 的 BasicObject#initialize 接受任意参数，3.x 仅接受 0 个
 # RM 脚本中直接用 BasicObject.new 传参数时会 ArgumentError
 #
-# 注意: Ruby 3.3+ 上 reopen BasicObject 定义实例方法会 shape segfault,
-# 覆写 new 会拦截所有类实例化 (Sprite/Viewport 等), prepend 模块虽理论上
-# 安全但 RGSS 脚本几乎不使用 BasicObject, 故不实现此补丁。
+# 注意:
+#   - reopen BasicObject (class BasicObject; def initialize; end) →
+#     Ruby 3.3+ shape segfault (rb_add_method_cfunc)
+#   - singleton 方法覆写 (class << BasicObject; def new) →
+#     元类继承链拦截所有 .new 调用 (Sprite/Viewport 等)
+#   - prepend 模块到 BasicObject 不碰其 method table, 预期安全:
+BasicObject.prepend(Module.new do
+  def initialize(*args)
+    super()
+  end
+end) if BasicObject.instance_method(:initialize).arity == 0
 # 参考: mkxp-z scripts/preload/ruby_classic_wrap.rb lines 38-43 (Ruby 3.1)
 
 # ---- 通用兼容: Fixnum/Bignum → Integer ----
