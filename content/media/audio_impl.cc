@@ -29,6 +29,10 @@ AudioImpl::AudioImpl(ExecutionContext* execution_context)
   bgs_->SetLooping(true);
   me_->SetLooping(false);
 
+  // Initialize volume from config
+  execution_context->audio_server->SetVolume(
+      execution_context->engine_profile->audio_volume);
+
 #if !defined(OS_EMSCRIPTEN)
   // Setup watcher
   me_watcher_ = base::ThreadWorker::Create();
@@ -48,11 +52,20 @@ void AudioImpl::CreateButtonGUISettings() {
   if (ImGui::CollapsingHeader(
           i18n_profile_->GetI18NString(IDS_SETTINGS_AUDIO, "Audio").c_str())) {
     // Set global volume
-    float volume = context()->audio_server->GetVolume();
+    auto& profile = *context()->engine_profile;
+    float volume = profile.audio_volume;
     ImGui::SliderFloat(
         i18n_profile_->GetI18NString(IDS_AUDIO_VOLUME, "Volume").c_str(),
         &volume, 0, 1);
+    profile.audio_volume = volume;
     context()->audio_server->SetVolume(volume);
+
+    ImGui::Separator();
+    if (ImGui::Button("Reset")) {
+      profile.ResetAudioDefaults();
+      context()->audio_server->SetVolume(profile.audio_volume);
+      profile.SaveConfigure();
+    }
   }
 }
 

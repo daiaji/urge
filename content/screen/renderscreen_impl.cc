@@ -142,15 +142,12 @@ void RenderScreenImpl::CreateButtonGUISettings() {
                  scaling_items, IM_ARRAYSIZE(scaling_items));
 
     if (settings_profile.scaling_mode == 5) {
-      ImGui::SameLine();
       ImGui::SliderFloat("##sobel_strength",
                          &settings_profile.scaling_sobel_strength,
                          0.0f, 2.0f, "Sobel:%.1f");
-      ImGui::SameLine();
       ImGui::SliderFloat("##warp_strength",
                          &settings_profile.scaling_warp_strength,
                          0.0f, 1.0f, "Warp:%.2f");
-      ImGui::SameLine();
       ImGui::SliderFloat("##darken_strength",
                          &settings_profile.scaling_darken_strength,
                          0.0f, 2.0f, "Dark:%.1f");
@@ -159,11 +156,24 @@ void RenderScreenImpl::CreateButtonGUISettings() {
     // CAS sharpening
     ImGui::Checkbox("CAS Sharpen", &settings_profile.cas_enabled);
     if (settings_profile.cas_enabled) {
-      ImGui::SameLine();
       ImGui::SliderFloat("##cas_sharpness", &settings_profile.cas_sharpness,
                          0.0f, 1.0f, "%.2f");
     }
+
+    ImGui::Separator();
+    if (ImGui::Button("Reset")) {
+      context()->engine_profile->ResetRendererDefaults();
+      frame_rate_ = context()->engine_profile->frame_rate;
+      unlimited_fps_ = frame_rate_ == 0;
+      limiter_.SetDisabled(unlimited_fps_);
+      if (!unlimited_fps_)
+        limiter_.SetFrameRate(frame_rate_);
+      context()->engine_profile->SaveConfigure();
+    }
   }
+
+  if (!ImGui::IsAnyItemActive())
+    context()->engine_profile->SaveConfigure();
 }
 
 void RenderScreenImpl::Update(ExceptionState& exception_state) {

@@ -6,6 +6,8 @@
 
 #include "base/buildflags/build.h"
 
+#include <cstdio>
+
 #include "inih/INIReader.h"
 
 #if defined(OS_WIN)
@@ -142,9 +144,11 @@ std::string ANSIFromUtf8(const std::string& asciiStr) {
 }  // namespace
 
 ContentProfile::ContentProfile(const std::string& app, SDL_IOStream* stream)
-    : program_name(app), ini_stream_(stream) {}
+    : program_name(app), ini_stream_(stream), ini_path_(app + ".ini") {}
 
-ContentProfile::~ContentProfile() = default;
+ContentProfile::~ContentProfile() {
+  SaveConfigure();
+}
 
 void ContentProfile::LoadCommandLine(int32_t argc, char** argv) {
   for (int32_t i = 0; i < argc; ++i)
@@ -221,6 +225,9 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   disable_fps_monitor =
       reader->GetBoolean("GUI", "DisableFPSMonitor", disable_fps_monitor);
   disable_reset = reader->GetBoolean("GUI", "DisableReset", disable_reset);
+
+  // Audio
+  audio_volume = reader->GetFloat("Audio", "Volume", audio_volume);
 
   // Renderer
   driver_backend = reader->Get("Renderer", "Backend", driver_backend);
@@ -309,6 +316,103 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
     SDL_CloseIO(ini_stream_);
 
   return true;
+}
+
+void ContentProfile::SaveConfigure() {
+  FILE* fp = fopen(ini_path_.c_str(), "w");
+  if (!fp)
+    return;
+
+  fprintf(fp, "[Game]\n");
+  fprintf(fp, "Scripts=%s\n", script_path.c_str());
+  fprintf(fp, "Title=%s\n", window_title.c_str());
+  fprintf(fp, "RTP=\n");
+  fprintf(fp, "Library=System\\RGSS301.dll\n");
+  fprintf(fp, "\n[Engine]\n");
+  fprintf(fp, "APIVersion=%d\n", static_cast<int>(api_version));
+  fprintf(fp, "DefaultFontPath=%s\n", default_font_path.c_str());
+  fprintf(fp, "Resolution=%d|%d\n", resolution.x, resolution.y);
+  fprintf(fp, "WindowSize=%d|%d\n", window_size.x, window_size.y);
+  fprintf(fp, "FontScale=%.1f\n", font_scale);
+  fprintf(fp, "FontKerning=%s\n", font_kerning ? "true" : "false");
+  fprintf(fp, "FontHinting=%d\n", font_hinting);
+  fprintf(fp, "FontOutlineCrop=%s\n", font_outline_crop ? "true" : "false");
+  fprintf(fp, "I18nXMLPath=%s\n", i18n_xml_path.c_str());
+  fprintf(fp, "\n[Audio]\n");
+  fprintf(fp, "Volume=%.2f\n", audio_volume);
+  fprintf(fp, "\n[Renderer]\n");
+  fprintf(fp, "Backend=%s\n", driver_backend.c_str());
+  fprintf(fp, "RenderValidation=%s\n", render_validation ? "true" : "false");
+  fprintf(fp, "LargeDrawIndex=%s\n", u32_draw_index ? "true" : "false");
+  fprintf(fp, "FrameRate=%d\n", frame_rate);
+  fprintf(fp, "VSync=%u\n", vsync);
+  fprintf(fp, "KeepRatio=%s\n", keep_ratio ? "true" : "false");
+  fprintf(fp, "AllowSkipFrame=%s\n", allow_skip_frame ? "true" : "false");
+  fprintf(fp, "Fullscreen=%s\n", fullscreen ? "true" : "false");
+  fprintf(fp, "BackgroundRunning=%s\n", background_running ? "true" : "false");
+  fprintf(fp, "SmoothScalePresent=%s\n", smooth_scale_present ? "true" : "false");
+  fprintf(fp, "SmoothScaling=%d\n", smooth_scaling);
+  fprintf(fp, "SmoothScalingDown=%d\n", smooth_scaling_down);
+  fprintf(fp, "IntegerScaling=%s\n", integer_scaling ? "true" : "false");
+  fprintf(fp, "ScalingMode=%d\n", scaling_mode);
+  fprintf(fp, "ScalingARStrength=%.2f\n", scaling_ar_strength);
+  fprintf(fp, "ScalingBicubicB=%.2f\n", scaling_bicubic_b);
+  fprintf(fp, "ScalingBicubicC=%.2f\n", scaling_bicubic_c);
+  fprintf(fp, "CASEnabled=%s\n", cas_enabled ? "true" : "false");
+  fprintf(fp, "CASSharpness=%.2f\n", cas_sharpness);
+  fprintf(fp, "ScalingSobelStrength=%.2f\n", scaling_sobel_strength);
+  fprintf(fp, "ScalingWarpStrength=%.2f\n", scaling_warp_strength);
+  fprintf(fp, "ScalingDarkenStrength=%.2f\n", scaling_darken_strength);
+  fprintf(fp, "SyncToRefreshRate=%s\n", sync_to_refresh_rate ? "true" : "false");
+  fprintf(fp, "WinResizable=%s\n", win_resizable ? "true" : "false");
+  fprintf(fp, "FixedAspectRatio=%s\n", fixed_aspect_ratio ? "true" : "false");
+  fprintf(fp, "\n[GUI]\n");
+  fprintf(fp, "DisableSettings=%s\n", disable_settings ? "true" : "false");
+  fprintf(fp, "DisableFPSMonitor=%s\n", disable_fps_monitor ? "true" : "false");
+  fprintf(fp, "DisableReset=%s\n", disable_reset ? "true" : "false");
+  fprintf(fp, "\n[Platform]\n");
+  fprintf(fp, "DebuggingConsole=%s\n", debugging_console ? "true" : "false");
+  fprintf(fp, "DisableIME=%s\n", disable_ime ? "true" : "false");
+
+  fclose(fp);
+}
+
+void ContentProfile::ResetAudioDefaults() {
+  audio_volume = 1.0f;
+}
+
+void ContentProfile::ResetRendererDefaults() {
+  driver_backend = "UNDEFINED";
+  pipeline_default_sampler = 0;
+  render_validation =
+#if DILIGENT_DEVELOPMENT
+      true;
+#else
+      false;
+#endif
+  u32_draw_index = true;
+  frame_rate = (api_version == APIVersion::RGSS1) ? 40 : 60;
+  vsync = 1;
+  keep_ratio = true;
+  fullscreen = false;
+  allow_skip_frame = true;
+  background_running = true;
+  smooth_scale_present = false;
+  smooth_scaling = 0;
+  smooth_scaling_down = 0;
+  integer_scaling = false;
+  scaling_mode = 0;
+  scaling_ar_strength = 0.5f;
+  scaling_bicubic_b = 0.33f;
+  scaling_bicubic_c = 0.33f;
+  cas_enabled = false;
+  cas_sharpness = 0.4f;
+  scaling_sobel_strength = 1.0f;
+  scaling_warp_strength = 0.0f;
+  scaling_darken_strength = 0.0f;
+  sync_to_refresh_rate = false;
+  win_resizable = true;
+  fixed_aspect_ratio = true;
 }
 
 }  // namespace content
