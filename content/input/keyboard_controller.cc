@@ -203,33 +203,30 @@ void KeyboardControllerImpl::Update(ExceptionState& exception_state) {
 
   for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
     if (gp_buttons_[b]) {
-      if (!gp_buttons_prev_[b])
+      if (!gp_buttons_prev_[b]) {
         gp_repeat_count_[b] = 0;
-      else
+        gp_button_time_[b] = SDL_GetTicks();
+      } else {
         ++gp_repeat_count_[b];
+      }
     }
   }
 
-  static_assert(std::size(kArrowDirsSymbol) == 4);
   for (int d = 0; d < 4; ++d) {
     bool active = false;
     for (const auto& entry : bindings_) {
       if (entry.sym != kArrowDirsSymbol[d])
         continue;
-      if (IsGamepadButtonActive(entry.source, gp_buttons_,
-                                SDL_GAMEPAD_BUTTON_COUNT) ||
-          IsGamepadAxisActive(entry.source, gp_axes_,
+      if (IsGamepadAxisActive(entry.source, gp_axes_,
                               SDL_GAMEPAD_AXIS_COUNT, kGamepadAxisThreshold)) {
         active = true;
         break;
       }
     }
-    if (active) {
-      bool was_active = gp_axis_repeat_[d] >= 0;
-      gp_axis_repeat_[d] = was_active ? (gp_axis_repeat_[d] + 1) : 0;
-    } else {
-      gp_axis_repeat_[d] = -1;
-    }
+    if (active)
+      gp_dir_repeat_[d] = (gp_dir_repeat_[d] >= 0) ? (gp_dir_repeat_[d] + 1) : 0;
+    else
+      gp_dir_repeat_[d] = -1;
   }
 
   for (int32_t i = 0; i < SDL_SCANCODE_COUNT; ++i) {
@@ -334,8 +331,8 @@ bool KeyboardControllerImpl::IsRepeated(const std::string& sym,
     if (IsGamepadAxisActive(entry.source, gp_axes_, SDL_GAMEPAD_AXIS_COUNT,
                             kGamepadAxisThreshold)) {
       for (int d = 0; d < 4; ++d) {
-        if (sym == kArrowDirsSymbol[d] && gp_axis_repeat_[d] >= 0) {
-          int rc = gp_axis_repeat_[d];
+        if (sym == kArrowDirsSymbol[d] && gp_dir_repeat_[d] >= 0) {
+          int rc = gp_dir_repeat_[d];
           if (rc == 0 || (rc >= 23 && (rc + 1) % 6 == 0))
             return true;
         }
@@ -1056,8 +1053,10 @@ int32_t KeyboardControllerImpl::GamepadRepeatCountEx(
 
 double KeyboardControllerImpl::GamepadButtonTimeEx(
     int32_t button, ExceptionState& exception_state) {
-  (void)button;
-  return 0.0;
+  if (!gp_connected_ || button < 0 || button >= SDL_GAMEPAD_BUTTON_COUNT ||
+      !gp_buttons_[button])
+    return 0.0;
+  return static_cast<double>(SDL_GetTicks() - gp_button_time_[button]) / 1000.0;
 }
 
 std::vector<uint8_t> KeyboardControllerImpl::GetGamepadRawButtonStates(
