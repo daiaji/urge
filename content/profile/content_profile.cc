@@ -387,12 +387,7 @@ void ContentProfile::ResetAudioDefaults() {
 }
 
 void ContentProfile::ResetRendererDefaults() {
-  driver_backend =
-#if defined(OS_WIN)
-      "D3D12";
-#else
-      "Vulkan";
-#endif
+  driver_backend.clear();
   pipeline_default_sampler = 0;
   render_validation =
 #if DILIGENT_DEVELOPMENT

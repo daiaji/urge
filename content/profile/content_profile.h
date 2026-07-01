@@ -63,12 +63,7 @@ class ContentProfile {
   std::string midi_soundfont;
 
   // Renderer
-  std::string driver_backend =
-#if defined(OS_WIN)
-      "D3D12";
-#else
-      "Vulkan";
-#endif
+  std::string driver_backend;
   int32_t pipeline_default_sampler = 0;
   bool render_validation =
 #if DILIGENT_DEVELOPMENT
