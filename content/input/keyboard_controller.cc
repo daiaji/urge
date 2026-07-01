@@ -1091,6 +1091,11 @@ static const char* SourceTypeToString(BindingSource::Type type) {
 static const char* SourceDescription(const BindingSource& src) {
   static char buf[64];
   switch (src.type) {
+    case BS::Type::Key: {
+      const char* name = SDL_GetScancodeName(
+          static_cast<SDL_Scancode>(src.code));
+      return name ? name : "?";
+    }
     case BS::Type::GamepadButton:
       if (src.code < SDL_GAMEPAD_BUTTON_COUNT)
         return kGamepadButtonNames[src.code];
@@ -1144,7 +1149,7 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
       ImGui::EndPopup();
     }
 
-    if (ImGui::BeginTable("##GPBindings", 4,
+    if (ImGui::BeginTable("##GPBindings", 3,
                           ImGuiTableFlags_Borders |
                               ImGuiTableFlags_SizingFixedFit |
                               ImGuiTableFlags_NoHostExtendX)) {
@@ -1156,8 +1161,6 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
       for (const auto& s : kGamepadConfigurableSyms)
         all_syms.push_back(s);
       for (const auto& entry : bindings_) {
-        if (entry.source.type == BS::Type::Key)
-          continue;
         if (std::find(all_syms.begin(), all_syms.end(), entry.sym) ==
             all_syms.end())
           all_syms.push_back(entry.sym);
@@ -1173,7 +1176,7 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
 
         std::vector<BindingSource> sources;
         for (const auto& entry : bindings_) {
-          if (entry.sym == sym && entry.source.type != BS::Type::Key)
+          if (entry.sym == sym)
             sources.push_back(entry.source);
         }
 
