@@ -1150,29 +1150,33 @@ float3 SampleLanczos3(float2 uv) {
       const float4 sg = u_Texture.GatherGreen(u_Texture_sampler, tpos);
       const float4 sb = u_Texture.GatherBlue(u_Texture_sampler, tpos);
 
+#ifdef URGE_GLSL_GATHER
+      src[i][j].x = sr.x;
+      src[i][j].y = sg.x;
+      src[i][j].z = sb.x;
+      src[i][j + 1].x = sr.w;
+      src[i][j + 1].y = sg.w;
+      src[i][j + 1].z = sb.w;
+      src[i + 1][j].x = sr.y;
+      src[i + 1][j].y = sg.y;
+      src[i + 1][j].z = sb.y;
+      src[i + 1][j + 1].x = sr.z;
+      src[i + 1][j + 1].y = sg.z;
+      src[i + 1][j + 1].z = sb.z;
+#else
       src[i][j].x = sr.w;
       src[i][j].y = sg.w;
       src[i][j].z = sb.w;
-      // GLSL Gather returns wzyx instead of HLSL's wxyz.
-      // When URGE_GLSL_GATHER is defined (OpenGL), swap .x and .z.
-#ifdef URGE_GLSL_GATHER
-      src[i][j + 1].x = sr.z;
-      src[i][j + 1].y = sg.z;
-      src[i][j + 1].z = sb.z;
-      src[i + 1][j].x = sr.x;
-      src[i + 1][j].y = sg.x;
-      src[i + 1][j].z = sb.x;
-#else
       src[i][j + 1].x = sr.x;
       src[i][j + 1].y = sg.x;
       src[i][j + 1].z = sb.x;
       src[i + 1][j].x = sr.z;
       src[i + 1][j].y = sg.z;
       src[i + 1][j].z = sb.z;
-#endif
       src[i + 1][j + 1].x = sr.y;
       src[i + 1][j + 1].y = sg.y;
       src[i + 1][j + 1].z = sb.y;
+#endif
     }
   }
 
@@ -1247,7 +1251,49 @@ float3 SampleBicubic(float2 uv) {
   return color;
 }
 
-// ---- Main ----
+float3 SampleLanczos3_GL(float2 uv) {
+  float2 pos = uv * u_InputSize;
+  float2 input_pt = u_InputPt;
+  float2 f = frac(pos.xy + 0.5);
+  float3 wx_even = LanczosWeight3(0.5 - f.x * 0.5);
+  float3 wx_odd  = LanczosWeight3(1.0 - f.x * 0.5);
+  float3 wy_even = LanczosWeight3(0.5 - f.y * 0.5);
+  float3 wy_odd  = LanczosWeight3(1.0 - f.y * 0.5);
+  const float3 kOnes = float3(1.0, 1.0, 1.0);
+  float suml = dot(wx_even, kOnes) + dot(wx_odd, kOnes);
+  float sumc = dot(wy_even, kOnes) + dot(wy_odd, kOnes);
+  wx_even /= suml; wx_odd /= suml;
+  wy_even /= sumc; wy_odd /= sumc;
+  pos -= f + 1.5;
+
+  float3 src[6][6];
+  [unroll] for (uint i = 0; i <= 4; i += 2) {
+    [unroll] for (uint j = 0; j <= 4; j += 2) {
+      float2 tpos = (pos + uint2(i, j)) * input_pt;
+      const float4 sr = u_Texture.GatherRed(u_Texture_sampler, tpos);
+      const float4 sg = u_Texture.GatherGreen(u_Texture_sampler, tpos);
+      const float4 sb = u_Texture.GatherBlue(u_Texture_sampler, tpos);
+      src[i][j].x = sr.w; src[i][j].y = sg.w; src[i][j].z = sb.w;
+      src[i][j+1].x = sr.x; src[i][j+1].y = sg.x; src[i][j+1].z = sb.x;
+      src[i+1][j].x = sr.z; src[i+1][j].y = sg.z; src[i+1][j].z = sb.z;
+      src[i+1][j+1].x = sr.y; src[i+1][j+1].y = sg.y; src[i+1][j+1].z = sb.y;
+    }
+  }
+
+  float3 color = float3(0, 0, 0);
+  [unroll] for (uint i = 0; i <= 4; i += 2) {
+    float3 h0 = wx_even.x * src[0][i] + wx_even.y * src[2][i] + wx_even.z * src[4][i]
+              + wx_odd.x  * src[1][i] + wx_odd.y  * src[3][i] + wx_odd.z  * src[5][i];
+    float3 h1 = wx_even.x * src[0][i+1] + wx_even.y * src[2][i+1] + wx_even.z * src[4][i+1]
+              + wx_odd.x  * src[1][i+1] + wx_odd.y  * src[3][i+1] + wx_odd.z  * src[5][i+1];
+    color += h0 * wy_even[i/2] + h1 * wy_odd[i/2];
+  }
+  float3 mn = min(min(src[2][2], src[3][2]), min(src[2][3], src[3][3]));
+  float3 mx = max(max(src[2][2], src[3][2]), max(src[2][3], src[3][3]));
+  color = lerp(color, clamp(color, mn, mx), u_ARStrength);
+  return saturate(color);
+}
+
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float2 uv = PSIn.UV;
 
@@ -1256,7 +1302,11 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
     uv = texel * u_InputPt;
     PSOut.Color = u_Texture.Sample(u_Texture_sampler, uv);
   } else if (u_Mode == MODE_LANCZOS3) {
+#ifdef URGE_GLSL_GATHER
+    PSOut.Color = float4(SampleLanczos3_GL(uv), 1.0);
+#else
     PSOut.Color = float4(SampleLanczos3(uv), 1.0);
+#endif
   } else if (u_Mode == MODE_BICUBIC) {
     PSOut.Color = float4(SampleBicubic(uv), 1.0);
   } else {

@@ -920,10 +920,12 @@ bool RenderScreenImpl::GPUScalingPassInternal(
   base::Vec2i input_size = context()->resolution;
   auto* profile = context()->engine_profile;
   int mode = profile->scaling_mode;
+  bool anime4k_active = false;
 
   // --- Anime4K single-pass path (inline 7x7 gauss + DoG clamp) ---
   // mode 5 = Anime4K + Sobel adaptive blend
   if (mode == 4 || mode == 5) {
+    anime4k_active = true;
     GPURecreateAnime4KTargetsInternal();
     if (!gpu_.enhanced_tex)
       return false;
@@ -1015,8 +1017,8 @@ bool RenderScreenImpl::GPUScalingPassInternal(
                        params);
 
     auto* source_tex_srv =
-        (mode == 2 && gpu_.enhanced_tex ? gpu_.enhanced_tex
-                                        : gpu_.screen_buffer)
+        (anime4k_active && gpu_.enhanced_tex ? gpu_.enhanced_tex
+                                             : gpu_.screen_buffer)
             ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
     gpu_.upscale_binding.u_texture->Set(source_tex_srv);
     gpu_.upscale_binding.u_params->Set(gpu_.upscale_params_buffer);

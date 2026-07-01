@@ -555,7 +555,7 @@ PIPELINE_HEADER(CAS) {
   };
 
   auto binding0 = MakeResourceSignature(variables, samplers, 0);
-  SetupPipelineBasis(shader_source, {}, {binding0});
+  SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
 }
 
 PIPELINE_HEADER(YUV) {
