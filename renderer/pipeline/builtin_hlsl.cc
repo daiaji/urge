@@ -1219,17 +1219,14 @@ float3 SampleBicubic(float2 uv) {
   float3 color = 0;
   [unroll] for (int i = 0; i < 4; i++) {
     float3 row = 0;
-    float rw = 0;
     [unroll] for (int j = 0; j < 4; j++) {
       float2 sp = uv_base + float2(j, i) * input_pt;
       row += u_Texture.Sample(u_Texture_sampler, sp).rgb * wx[j];
-      rw += wx[j];
     }
-    if (rw > 0) row /= rw;
     color += row * wy[i];
   }
 
-  return color / swy;
+  return color;
 }
 
 // ---- Main ----
@@ -1275,7 +1272,7 @@ struct PSOutput {
   float4 Color : SV_TARGET;
 };
 
-static const float kWeight[4] = { 0.38774, 0.24477, 0.06136, 0.0 };
+static const float kWeight[3] = { 0.38774, 0.24477, 0.06136 };
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float2 uv = PSIn.UV;
@@ -1287,8 +1284,8 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float gauss = 0.0;
   float mn = 1.0, mx = 0.0;
   float luma33[3][3];
-  [unroll] for (int i = -3; i <= 3; i++) {
-    [unroll] for (int j = -3; j <= 3; j++) {
+  [unroll] for (int i = -2; i <= 2; i++) {
+    [unroll] for (int j = -2; j <= 2; j++) {
       float w = kWeight[abs(i)] * kWeight[abs(j)];
       float2 s = uv + float2(i * pt.x, j * pt.y);
       float l = dot(u_Texture.Sample(u_Texture_sampler, s),
@@ -1338,7 +1335,7 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
 
 // ---- CAS (Contrast Adaptive Sharpening) ----
 // Ported from AMD FidelityFX-CAS (ffx_cas.h)
-// 5-tap cross pattern, green-channel uniform weight
+// 9-tap 3x3 min/max with 5-tap cross filter, green-channel uniform weight
 const std::string kHLSL_CAS_Pixel = R"(
 struct PSInput {
   float4 Pos : SV_Position;
@@ -1368,23 +1365,33 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float2 uv = PSIn.UV;
   float2 pt = u_OutputPt;
 
-  // 5-tap cross pattern
-  //   b
+  // 3x3 full neighborhood for accurate min/max
+  // a b c
   // d e f
-  //   h
+  // g h i
+  float3 a = u_Texture.Sample(u_Texture_sampler, uv + float2(-pt.x, -pt.y)).rgb;
   float3 b = u_Texture.Sample(u_Texture_sampler, uv + float2(0, -pt.y)).rgb;
+  float3 c = u_Texture.Sample(u_Texture_sampler, uv + float2(pt.x, -pt.y)).rgb;
   float3 d = u_Texture.Sample(u_Texture_sampler, uv + float2(-pt.x, 0)).rgb;
   float3 e = u_Texture.Sample(u_Texture_sampler, uv).rgb;
   float3 f = u_Texture.Sample(u_Texture_sampler, uv + float2(pt.x, 0)).rgb;
+  float3 g = u_Texture.Sample(u_Texture_sampler, uv + float2(-pt.x, pt.y)).rgb;
   float3 h = u_Texture.Sample(u_Texture_sampler, uv + float2(0, pt.y)).rgb;
+  float3 i = u_Texture.Sample(u_Texture_sampler, uv + float2(pt.x, pt.y)).rgb;
 
-  // Soft min and max per channel
-  float mnR = min(min(d.r, e.r), min(min(b.r, f.r), h.r));
-  float mnG = min(min(d.g, e.g), min(min(b.g, f.g), h.g));
-  float mnB = min(min(d.b, e.b), min(min(b.b, f.b), h.b));
-  float mxR = max(max(d.r, e.r), max(max(b.r, f.r), h.r));
-  float mxG = max(max(d.g, e.g), max(max(b.g, f.g), h.g));
-  float mxB = max(max(d.b, e.b), max(max(b.b, f.b), h.b));
+  // Soft min and max over full 3x3
+  float mnR = min(min(min(a.r, b.r), min(c.r, d.r)),
+                  min(min(e.r, f.r), min(g.r, min(h.r, i.r))));
+  float mnG = min(min(min(a.g, b.g), min(c.g, d.g)),
+                  min(min(e.g, f.g), min(g.g, min(h.g, i.g))));
+  float mnB = min(min(min(a.b, b.b), min(c.b, d.b)),
+                  min(min(e.b, f.b), min(g.b, min(h.b, i.b))));
+  float mxR = max(max(max(a.r, b.r), max(c.r, d.r)),
+                  max(max(e.r, f.r), max(g.r, max(h.r, i.r))));
+  float mxG = max(max(max(a.g, b.g), max(c.g, d.g)),
+                  max(max(e.g, f.g), max(g.g, max(h.g, i.g))));
+  float mxB = max(max(max(a.b, b.b), max(c.b, d.b)),
+                  max(max(e.b, f.b), max(g.b, max(h.b, i.b))));
 
   // Smooth minimum distance to signal limit divided by smooth max
   float ampR = sqrt(saturate(min(mnR, 1.0 - mxR) * rcp(mxR)));
@@ -1396,6 +1403,7 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float wG = ampG * peak;
   float rcpWeight = rcp(1.0 + 4.0 * wG);
 
+  // 5-tap cross filter (matching AMD reference)
   PSOut.Color.r = saturate((b.r * wG + d.r * wG + f.r * wG + h.r * wG + e.r) * rcpWeight);
   PSOut.Color.g = saturate((b.g * wG + d.g * wG + f.g * wG + h.g * wG + e.g) * rcpWeight);
   PSOut.Color.b = saturate((b.b * wG + d.b * wG + f.b * wG + h.b * wG + e.b) * rcpWeight);

@@ -215,19 +215,6 @@ class Binding_BitmapFilter : public RenderBindingBase {
   Binding_BitmapFilter(ShaderBinding* binding);
 };
 
-class Binding_Anime4KEnhance : public RenderBindingBase {
- public:
-  Binding_Anime4KEnhance() = default;
-
-  RRefPtr<ShaderVariable> u_texture;
-  RRefPtr<ShaderVariable> u_gauss_texture;
-  RRefPtr<ShaderVariable> u_params;
-
- private:
-  friend class RenderBindingBase;
-  Binding_Anime4KEnhance(ShaderBinding* binding);
-};
-
 class Binding_YUV : public RenderBindingBase {
  public:
   Binding_YUV() = default;

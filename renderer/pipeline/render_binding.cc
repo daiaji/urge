@@ -110,16 +110,6 @@ Binding_BitmapFilter::Binding_BitmapFilter(ShaderBinding* binding)
       (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
 }
 
-Binding_Anime4KEnhance::Binding_Anime4KEnhance(ShaderBinding* binding)
-    : RenderBindingBase(binding) {
-  u_texture =
-      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
-  u_gauss_texture = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
-                                               "u_GaussTexture");
-  u_params = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
-                                        "ScalingParamsBuffer");
-}
-
 Binding_YUV::Binding_YUV(ShaderBinding* binding) : RenderBindingBase(binding) {
   u_texture_y =
       (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_TextureY");
