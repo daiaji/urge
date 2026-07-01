@@ -165,14 +165,9 @@ class KeyboardControllerImpl : public Input, public EngineObject {
   bool gp_buttons_[SDL_GAMEPAD_BUTTON_COUNT] = {};
   bool gp_buttons_prev_[SDL_GAMEPAD_BUTTON_COUNT] = {};
   int32_t gp_repeat_count_[SDL_GAMEPAD_BUTTON_COUNT] = {};
-  int32_t gp_axis_repeat_[4] = {};  // DOWN, LEFT, RIGHT, UP
+  uint64_t gp_button_time_[SDL_GAMEPAD_BUTTON_COUNT] = {};  // press timestamp (ms)
+  int32_t gp_dir_repeat_[4] = {};  // DOWN, LEFT, RIGHT, UP repeat frame count (-1 if inactive)
   bool gp_connected_ = false;
-
-  // Gamepad raw state (for mkxp-z style ex query)
-  bool gp_raw_buttons_old_[SDL_GAMEPAD_BUTTON_COUNT] = {};
-  int32_t gp_raw_button_repeat_count_ = 0;
-  int32_t gp_raw_button_repeating_ = -1;
-  uint64_t gp_raw_button_repeat_time_ = 0;
 
   // Input capture state (for ImGui rebind UI)
   std::string capture_target_;
