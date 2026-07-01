@@ -1394,14 +1394,14 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
                   max(max(e.b, f.b), max(g.b, max(h.b, i.b))));
 
   // Smooth minimum distance to signal limit divided by smooth max
-  float ampR = sqrt(saturate(min(mnR, 1.0 - mxR) * rcp(mxR)));
-  float ampG = sqrt(saturate(min(mnG, 1.0 - mxG) * rcp(mxG)));
-  float ampB = sqrt(saturate(min(mnB, 1.0 - mxB) * rcp(mxB)));
+  float ampR = sqrt(saturate(min(mnR, 1.0 - mxR) / mxR));
+  float ampG = sqrt(saturate(min(mnG, 1.0 - mxG) / mxG));
+  float ampB = sqrt(saturate(min(mnB, 1.0 - mxB) / mxB));
 
   // Filter shape (green channel weight used uniformly)
-  float peak = -rcp(lerp(8.0, 5.0, u_CASSharpness));
+  float peak = -1.0 / lerp(8.0, 5.0, u_CASSharpness);
   float wG = ampG * peak;
-  float rcpWeight = rcp(1.0 + 4.0 * wG);
+  float rcpWeight = 1.0 / (1.0 + 4.0 * wG);
 
   // 5-tap cross filter (matching AMD reference)
   PSOut.Color.r = saturate((b.r * wG + d.r * wG + f.r * wG + h.r * wG + e.r) * rcpWeight);
