@@ -12,6 +12,8 @@ set(COMPONENTS_AUDIOSERVICE_SRC
   audio_stream.h
   midi_player.cc
   midi_player.h
+  midi_stream_source.cc
+  midi_stream_source.h
   sound_emit.cc
   sound_emit.h
 )

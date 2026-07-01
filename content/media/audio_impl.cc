@@ -75,8 +75,14 @@ void AudioImpl::CreateButtonGUISettings() {
 }
 
 void AudioImpl::SetupMIDI(ExceptionState& exception_state) {
-  // TODO: unsupport MIDI
-  LOG(WARNING) << "[Content] Unsupport MIDI device setup.";
+  LOG(INFO) << "[Audio] setup_midi called";
+  if (!context()->audio_server)
+    return;
+  auto& sf = context()->engine_profile->midi_soundfont;
+  if (!sf.empty())
+    context()->audio_server->SetSoundFont(sf);
+  else
+    LOG(WARNING) << "[Audio] setup_midi: no SoundFont configured";
 }
 
 void AudioImpl::BGMPlay(const std::string& filename,

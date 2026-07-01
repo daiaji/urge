@@ -1,13 +1,15 @@
 #include "components/audioservice/midi_player.h"
 
-#include "SDL3/SDL_iostream.h"
 #include "SDL3/SDL_loadso.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <vector>
 
 #include "base/debug/logging.h"
+#include "components/audioservice/midi_stream_source.h"
 #include "physfs.h"
 
 namespace audioservice {
@@ -33,9 +35,6 @@ bool MidiPlayer::LoadFluidSynth() {
     return false;
   }
 
-// Helper: load a function by name, store into ptr.
-// SDL_LoadFunction returns SDL_FunctionPointer (void(*)()), which cannot be
-// reinterpret_casted to data pointers in standard C++.  Use memcpy instead.
 #define LOAD(member, name)                                              \
   do {                                                                  \
     auto _f = SDL_LoadFunction(lib_handle_, name);                     \
@@ -89,22 +88,45 @@ void MidiPlayer::SetSoundFont(const std::string& sf2_path) {
   soundfont_path_ = sf2_path;
 }
 
-// Try to read a MIDI file through PHYSFS, trying common extensions if needed.
-// Returns true on success, populating |data| with the raw file bytes.
-static bool ReadMIDIFile(const std::string& path, std::vector<char>* data) {
-  static const char* kExts[] = {".mid", ".midi", ".MID", ".MIDI"};
+bool MidiPlayer::IsMIDIFile(const std::string& path) {
+  auto dot = path.rfind('.');
+  if (dot == std::string::npos)
+    return false;
+  std::string ext = path.substr(dot);
+  std::transform(ext.begin(), ext.end(), ext.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return ext == ".mid" || ext == ".midi";
+}
+
+std::string MidiPlayer::ResolveSoundFontPath() const {
+  if (soundfont_path_.empty())
+    return {};
+  const char* sf_dir = PHYSFS_getRealDir(soundfont_path_.c_str());
+  if (sf_dir)
+    return std::string(sf_dir) + "/" + soundfont_path_;
+  return soundfont_path_;
+}
+
+bool MidiPlayer::ReadMIDIFile(const std::string& path,
+                              std::vector<char>* data) {
+  static const char* kExts[] = {".mid", ".midi"};
   auto try_open = [&](const std::string& p) -> bool {
     PHYSFS_File* f = PHYSFS_openRead(p.c_str());
-    if (!f) return false;
+    if (!f)
+      return false;
     PHYSFS_sint64 sz = PHYSFS_fileLength(f);
-    if (sz <= 0) { PHYSFS_close(f); return false; }
+    if (sz <= 0) {
+      PHYSFS_close(f);
+      return false;
+    }
     data->resize(static_cast<size_t>(sz));
     PHYSFS_sint64 got = PHYSFS_readBytes(f, data->data(), sz);
     PHYSFS_close(f);
     return got == sz;
   };
-  if (try_open(path)) return true;
-  // RGSS stores filenames without extension; try appending
+  if (try_open(path))
+    return true;
+  // RGSS stores filenames without extension; try appending lower-case
   if (path.rfind('.') == std::string::npos) {
     for (auto* ext : kExts) {
       std::string with = path + ext;
@@ -114,7 +136,7 @@ static bool ReadMIDIFile(const std::string& path, std::vector<char>* data) {
       }
     }
   }
-  // Also try the original path via stdio (CWD fallback)
+  // CWD fallback via stdio
   FILE* fp = fopen(path.c_str(), "rb");
   if (fp) {
     fseek(fp, 0, SEEK_END);
@@ -131,32 +153,31 @@ static bool ReadMIDIFile(const std::string& path, std::vector<char>* data) {
   return false;
 }
 
-bool MidiPlayer::Render(const std::string& midi_path, PCMResult* out) {
-  LOG(INFO) << "[MIDI] Render: " << midi_path;
-
+MidiStreamSource* MidiPlayer::CreateStream(const std::string& midi_path) {
   if (!have_fluid_) {
-    LOG(WARNING) << "[MIDI] FluidSynth unavailable, cannot play " << midi_path;
-    return false;
+    LOG(WARNING) << "[MIDI] FluidSynth unavailable, cannot play "
+                 << midi_path;
+    return nullptr;
   }
 
   if (soundfont_path_.empty()) {
     LOG(WARNING) << "[MIDI] No SoundFont configured, cannot play "
                  << midi_path;
-    return false;
+    return nullptr;
   }
 
-  // Read MIDI file data through PHYSFS (handles extension resolution)
+  // Read MIDI file data
   std::vector<char> midi_data;
   if (!ReadMIDIFile(midi_path, &midi_data)) {
     LOG(ERROR) << "[MIDI] Cannot read file: " << midi_path;
-    return false;
+    return nullptr;
   }
 
   // Create FluidSynth settings
   void* settings = api_.new_settings();
   if (!settings) {
     LOG(ERROR) << "[MIDI] Failed to create FluidSynth settings";
-    return false;
+    return nullptr;
   }
 
   api_.settings_setnum(settings, "synth.sample-rate", 44100.0);
@@ -168,21 +189,17 @@ bool MidiPlayer::Render(const std::string& midi_path, PCMResult* out) {
   if (!synth) {
     LOG(ERROR) << "[MIDI] Failed to create FluidSynth synthesizer";
     api_.delete_settings(settings);
-    return false;
+    return nullptr;
   }
 
-  // Resolve SoundFont path (may be virtual in PHYSFS)
-  std::string real_sf_path = soundfont_path_;
-  const char* sf_dir = PHYSFS_getRealDir(soundfont_path_.c_str());
-  if (sf_dir)
-    real_sf_path = std::string(sf_dir) + "/" + soundfont_path_;
-
-  LOG(INFO) << "[MIDI] Loading SoundFont: " << real_sf_path;
-  if (api_.synth_sfload(synth, real_sf_path.c_str(), 1) == -1) {
-    LOG(ERROR) << "[MIDI] Failed to load SoundFont: " << real_sf_path;
+  // Load SoundFont from real filesystem path
+  std::string real_sf = ResolveSoundFontPath();
+  LOG(INFO) << "[MIDI] Loading SoundFont: " << real_sf;
+  if (api_.synth_sfload(synth, real_sf.c_str(), 1) == -1) {
+    LOG(ERROR) << "[MIDI] Failed to load SoundFont: " << real_sf;
     api_.delete_synth(synth);
     api_.delete_settings(settings);
-    return false;
+    return nullptr;
   }
 
   // Create player and load MIDI from memory
@@ -191,25 +208,15 @@ bool MidiPlayer::Render(const std::string& midi_path, PCMResult* out) {
     LOG(ERROR) << "[MIDI] Failed to create FluidSynth player";
     api_.delete_synth(synth);
     api_.delete_settings(settings);
-    return false;
+    return nullptr;
   }
 
-  bool loaded = false;
-  if (api_.player_add_mem) {
-    LOG(INFO) << "[MIDI] fluid_player_add_mem, size=" << midi_data.size();
-    loaded = (api_.player_add_mem(player, midi_data.data(),
-                                  midi_data.size()) == 0);
-  }
-  if (!loaded) {
-    LOG(INFO) << "[MIDI] fluid_player_add (fallback): " << midi_path;
-    loaded = (api_.player_add(player, midi_path.c_str()) == 0);
-  }
-  if (!loaded) {
+  if (api_.player_add_mem(player, midi_data.data(), midi_data.size()) != 0) {
     LOG(ERROR) << "[MIDI] Failed to load MIDI file";
     api_.delete_player(player);
     api_.delete_synth(synth);
     api_.delete_settings(settings);
-    return false;
+    return nullptr;
   }
 
   api_.synth_system_reset(synth);
@@ -217,40 +224,8 @@ bool MidiPlayer::Render(const std::string& midi_path, PCMResult* out) {
 
   const int kSampleRate = 44100;
   const int kChannels = 2;
-  const int kBlockFrames = 1024;
-
-  std::vector<float> all_samples;
-
-  // Render in blocks until player finishes
-  int max_blocks = 3600;  // safety: ~80 seconds at 44100
-  while (--max_blocks > 0) {
-    float block[2 * kBlockFrames] = {};
-    api_.synth_write_float(synth, kBlockFrames, block, 0, 2, block, 1, 2);
-    all_samples.insert(all_samples.end(), block, block + 2 * kBlockFrames);
-
-    int status = api_.player_get_status(player);
-    if (status == 0)  // FLUID_PLAYER_DONE
-      break;
-  }
-
-  // Final flush
-  float block[2 * kBlockFrames] = {};
-  api_.synth_write_float(synth, kBlockFrames, block, 0, 2, block, 1, 2);
-  all_samples.insert(all_samples.end(), block, block + 2 * kBlockFrames);
-
-  api_.delete_player(player);
-  api_.delete_synth(synth);
-  api_.delete_settings(settings);
-
-  if (all_samples.empty()) {
-    LOG(WARNING) << "[MIDI] Rendered zero samples for: " << midi_path;
-    return false;
-  }
-
-  out->samples = std::move(all_samples);
-  out->sample_rate = kSampleRate;
-  out->channels = kChannels;
-  return true;
+  return new MidiStreamSource(this, synth, player, settings, kSampleRate,
+                              kChannels);
 }
 
 }  // namespace audioservice
