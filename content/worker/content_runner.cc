@@ -626,16 +626,27 @@ void ContentRunner::UpdateEventInternal() {
   event_controller_->ClearPendingEvents();
 
   // Poll event queue
-  SDL_Event queued_event;
+  SDL_Event queued_event = {};
   while (SDL_PollEvent(&queued_event)
 #if !defined(OS_EMSCRIPTEN)
          || background_running_
 #endif  //! OS_EMSCRIPTEN
   ) {
+    const bool got_event = (queued_event.type != 0);
+
     // Quit event
-    if (queued_event.type == SDL_EVENT_QUIT) {
+    if (got_event && queued_event.type == SDL_EVENT_QUIT) {
       binding_quit_flag_.store(1);
       break;
+    }
+
+    // Only process event data if SDL_PollEvent filled the struct
+    if (!got_event) {
+      if (background_running_) {
+        SDL_Delay(16);
+        queued_event = {};
+      }
+      continue;
     }
 
     // GUI event process
