@@ -47,6 +47,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
     RRefPtr<Diligent::IBuffer> upscale_params_buffer;
     renderer::Binding_Upscale upscale_binding;
 
+    renderer::QuadBatch scaling_quads;
     RRefPtr<Diligent::ITexture> enhanced_tex;
     renderer::Binding_Upscale anime4k_enhance_binding;
 
@@ -172,7 +173,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
       float progress,
       float vague);
 
-  void GPUScalingPassInternal(Diligent::IDeviceContext* render_context);
+  bool GPUScalingPassInternal(Diligent::IDeviceContext* render_context);
   void GPURecreateUpscaleBufferInternal();
   void GPURecreateAnime4KTargetsInternal();
   void GPURecreateSharpenedBufferInternal();

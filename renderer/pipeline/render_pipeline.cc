@@ -485,8 +485,15 @@ PIPELINE_HEADER(BitmapHue) {
 }
 
 PIPELINE_HEADER(Upscale) {
+  Diligent::ShaderMacro glsl_macro = {};
+  bool is_gl = init_params.render_device->GetDeviceInfo().Type ==
+               Diligent::RENDER_DEVICE_TYPE_GL;
+  if (is_gl)
+    glsl_macro = {"URGE_GLSL_GATHER", "1"};
   const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
-                                   kHLSL_UpscalePass_Pixel, "upscale.pass"};
+                                   kHLSL_UpscalePass_Pixel, "upscale.pass",
+                                   is_gl ? std::vector{glsl_macro}
+                                         : std::vector<Diligent::ShaderMacro>{}};
 
   const std::vector<Diligent::PipelineResourceDesc> variables = {
       {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
@@ -503,7 +510,7 @@ PIPELINE_HEADER(Upscale) {
   };
 
   auto binding0 = MakeResourceSignature(variables, samplers, 0);
-  SetupPipelineBasis(shader_source, {}, {binding0});
+  SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
 }
 
 PIPELINE_HEADER(Anime4K_Enhance) {
@@ -526,7 +533,7 @@ PIPELINE_HEADER(Anime4K_Enhance) {
   };
 
   auto binding0 = MakeResourceSignature(variables, samplers, 0);
-  SetupPipelineBasis(shader_source, {}, {binding0});
+  SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
 }
 
 PIPELINE_HEADER(CAS) {

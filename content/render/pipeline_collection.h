@@ -60,7 +60,8 @@ struct PipelineCollection {
     PipelineObject base;
   } window2;
 
-  PipelineCollection(renderer::PipelineSet* loader);
+  PipelineCollection(renderer::PipelineSet* loader,
+                     Diligent::IRenderDevice* device);
 };
 
 }  // namespace content
