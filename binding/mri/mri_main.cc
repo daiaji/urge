@@ -275,6 +275,21 @@ void BindingEngineMri::OnMainMessageLoopRun(
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE",
                              error_message.c_str(), nullptr);
   }
+
+  // Debug: log any Ruby exception info
+  VALUE rb_ex = rb_errinfo();
+  if (!NIL_P(rb_ex) && !rb_obj_is_kind_of(rb_ex, rb_eSystemExit)) {
+    VALUE msg = rb_funcall(rb_ex, rb_intern("message"), 0);
+    VALUE bt  = rb_funcall(rb_ex, rb_intern("backtrace"), 0);
+    std::string msg_str = StringValueCStr(msg);
+    std::string bt_str;
+    if (!NIL_P(bt)) {
+      VALUE bt_val = rb_funcall(bt, rb_intern("join"), 1, rb_str_new_cstr("\n"));
+      bt_str.assign(RSTRING_PTR(bt_val), RSTRING_LEN(bt_val));
+    }
+    LOG(ERROR) << "[Binding] Ruby exception: " << msg_str;
+    LOG(ERROR) << "[Binding] Backtrace:\n" << bt_str;
+  }
 }
 
 void BindingEngineMri::PostMainLoopRunning() {
