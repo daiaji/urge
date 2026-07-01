@@ -1114,6 +1114,8 @@ struct PSOutput {
 
 // ---- Lanczos3 helpers ----
 #define FIX(c) max(abs(c), 1e-5)
+#define min4(a, b, c, d) min(min(a, b), min(c, d))
+#define max4(a, b, c, d) max(max(a, b), max(c, d))
 
 float3 LanczosWeight3(float x) {
   float rcpRadius = 1.0 / 3.0;
@@ -1131,9 +1133,8 @@ float3 SampleLanczos3(float2 uv) {
   float3 columntaps1 = LanczosWeight3(0.5 - f.y * 0.5);
   float3 columntaps2 = LanczosWeight3(1.0 - f.y * 0.5);
 
-  const float3 kOnes = float3(1.0, 1.0, 1.0);
-  float suml = dot(linetaps1, kOnes) + dot(linetaps2, kOnes);
-  float sumc = dot(columntaps1, kOnes) + dot(columntaps2, kOnes);
+  float suml = dot(linetaps1, float3(1, 1, 1)) + dot(linetaps2, float3(1, 1, 1));
+  float sumc = dot(columntaps1, float3(1, 1, 1)) + dot(columntaps2, float3(1, 1, 1));
   linetaps1 /= suml;
   linetaps2 /= suml;
   columntaps1 /= sumc;
@@ -1142,9 +1143,10 @@ float3 SampleLanczos3(float2 uv) {
   pos -= f + 1.5;
 
   float3 src[6][6];
+  uint i, j;
 
-  [unroll] for (uint i = 0; i <= 4; i += 2) {
-    [unroll] for (uint j = 0; j <= 4; j += 2) {
+  [unroll] for (i = 0; i <= 4; i += 2) {
+    [unroll] for (j = 0; j <= 4; j += 2) {
       float2 tpos = (pos + uint2(i, j)) * input_pt;
       const float4 sr = u_Texture.GatherRed(u_Texture_sampler, tpos);
       const float4 sg = u_Texture.GatherGreen(u_Texture_sampler, tpos);
@@ -1181,7 +1183,7 @@ float3 SampleLanczos3(float2 uv) {
   }
 
   float3 color = float3(0, 0, 0);
-  [unroll] for (uint i = 0; i <= 4; i += 2) {
+  [unroll] for (i = 0; i <= 4; i += 2) {
     color += (mul(linetaps1, float3x3(src[0][i], src[2][i], src[4][i])) +
               mul(linetaps2, float3x3(src[1][i], src[3][i], src[5][i]))) *
              columntaps1[i / 2] +
@@ -1190,8 +1192,8 @@ float3 SampleLanczos3(float2 uv) {
              columntaps2[i / 2];
   }
 
-  float3 min_sample = min(min(src[2][2], src[3][2]), min(src[2][3], src[3][3]));
-  float3 max_sample = max(max(src[2][2], src[3][2]), max(src[2][3], src[3][3]));
+  float3 min_sample = min4(src[2][2], src[3][2], src[2][3], src[3][3]);
+  float3 max_sample = max4(src[2][2], src[3][2], src[2][3], src[3][3]);
   color = lerp(color, clamp(color, min_sample, max_sample), u_ARStrength);
 
   return color;
@@ -1259,9 +1261,8 @@ float3 SampleLanczos3_GL(float2 uv) {
   float3 wx_odd  = LanczosWeight3(1.0 - f.x * 0.5);
   float3 wy_even = LanczosWeight3(0.5 - f.y * 0.5);
   float3 wy_odd  = LanczosWeight3(1.0 - f.y * 0.5);
-  const float3 kOnes = float3(1.0, 1.0, 1.0);
-  float suml = dot(wx_even, kOnes) + dot(wx_odd, kOnes);
-  float sumc = dot(wy_even, kOnes) + dot(wy_odd, kOnes);
+  float suml = dot(wx_even, float3(1, 1, 1)) + dot(wx_odd, float3(1, 1, 1));
+  float sumc = dot(wy_even, float3(1, 1, 1)) + dot(wy_odd, float3(1, 1, 1));
   wx_even /= suml; wx_odd /= suml;
   wy_even /= sumc; wy_odd /= sumc;
   pos -= f + 1.5;
