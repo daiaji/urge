@@ -1168,10 +1168,21 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
 
       for (const auto& sym : all_syms) {
         ImGui::TableNextRow();
+        ImGui::PushID(sym.c_str());
 
+        bool row_hovered = false;
+        bool clear_bindings = false;
+
+        // Column 0: Button name (also right-click target)
         ImGui::TableSetColumnIndex(0);
         ImGui::Text("%s", sym.c_str());
+        if (ImGui::IsItemHovered()) {
+          row_hovered = true;
+          if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+            clear_bindings = true;
+        }
 
+        // Column 1: Bindings text (also right-click target)
         ImGui::TableSetColumnIndex(1);
 
         std::vector<BindingSource> sources;
@@ -1190,19 +1201,13 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
             ImGui::Text("%s", SourceDescription(src));
           }
         }
-
-        ImGui::TableSetColumnIndex(1);
-        if (ImGui::IsItemHovered() &&
-            ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-          for (auto it = bindings_.begin(); it != bindings_.end();) {
-            if (it->sym == sym && it->source.type != BS::Type::Key)
-              it = bindings_.erase(it);
-            else
-              ++it;
-          }
-          SaveBindingsInternal();
+        if (ImGui::IsItemHovered()) {
+          row_hovered = true;
+          if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+            clear_bindings = true;
         }
 
+        // Column 2: + button (also right-click target)
         ImGui::TableSetColumnIndex(2);
 
         if (is_capturing_) {
@@ -1210,7 +1215,6 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
           ImGui::SmallButton("+");
           ImGui::EndDisabled();
         } else {
-          ImGui::PushID(sym.c_str());
           if (ImGui::SmallButton("+")) {
             int32_t next = -1;
             for (size_t i = 0; i < std::size(kGamepadConfigurableSyms); ++i)
@@ -1220,8 +1224,30 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
               }
             StartCaptureFor(sym, next);
           }
-          ImGui::PopID();
         }
+        if (ImGui::IsItemHovered()) {
+          row_hovered = true;
+          if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+            clear_bindings = true;
+        }
+
+        // Row hover highlight
+        if (row_hovered)
+          ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
+                                 ImColor(60, 60, 60));
+
+        // Right-click anywhere on the row clears ALL bindings for this symbol
+        if (clear_bindings) {
+          for (auto it = bindings_.begin(); it != bindings_.end();) {
+            if (it->sym == sym)
+              it = bindings_.erase(it);
+            else
+              ++it;
+          }
+          SaveBindingsInternal();
+        }
+
+        ImGui::PopID();
       }
 
       ImGui::EndTable();
