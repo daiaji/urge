@@ -855,7 +855,6 @@ void RenderScreenImpl::GPURecreateSharpenedBufferInternal() {
       return;
   }
 
-  auto* sc = context()->render_device->GetSwapChain();
   gpu_.sharpened_buffer.Release();
   renderer::CreateTexture2D(
       **context()->render_device, &gpu_.sharpened_buffer,
