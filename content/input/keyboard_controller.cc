@@ -123,6 +123,16 @@ const std::array<std::string, 12> kButtonItems = {
     "A", "B", "C", "X", "Y", "Z", "L", "R", "DOWN", "LEFT", "RIGHT", "UP",
 };
 
+// All symbols that should always appear in the binding UI,
+// even when all their bindings have been cleared.
+static const char* kAllSymbols[] = {
+    "A", "B", "C", "X", "Y", "Z", "L", "R",
+    "UP", "DOWN", "LEFT", "RIGHT",
+    "SHIFT", "CTRL", "ALT",
+    "F5", "F6", "F7", "F8", "F9",
+    "START", "BACK",
+};
+
 static bool IsKeyPressed(const BindingSource& src,
                          const std::array<bool, SDL_SCANCODE_COUNT>& raw) {
   return src.type == BS::Type::Key && src.code < SDL_SCANCODE_COUNT &&
@@ -815,12 +825,18 @@ KeyboardControllerImpl::GetDefaultBindings() const {
 }
 
 void KeyboardControllerImpl::ResetBindingsToDefault() {
-  auto kb_start = std::remove_if(bindings_.begin(), bindings_.end(),
-      [](const BindingEntry& e) {
-        return e.source.type != BS::Type::Key;
-      });
-  bindings_.erase(kb_start, bindings_.end());
+  bindings_.clear();
 
+  for (size_t i = 0; i < std::size(kDefaultKeyboardBindings); ++i)
+    bindings_.push_back(kDefaultKeyboardBindings[i]);
+  if (context()->engine_profile->api_version ==
+      ContentProfile::APIVersion::RGSS1)
+    for (size_t i = 0; i < std::size(kKeyboardBindings1); ++i)
+      bindings_.push_back(kKeyboardBindings1[i]);
+  if (context()->engine_profile->api_version >=
+      ContentProfile::APIVersion::RGSS2)
+    for (size_t i = 0; i < std::size(kKeyboardBindings2); ++i)
+      bindings_.push_back(kKeyboardBindings2[i]);
   for (size_t i = 0; i < std::size(kDefaultGamepadBindings); ++i)
     bindings_.push_back(kDefaultGamepadBindings[i]);
 
@@ -1158,31 +1174,23 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
       ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed);
 
       std::vector<std::string> all_syms;
-      for (const auto& s : kGamepadConfigurableSyms)
+      for (const auto& s : kAllSymbols)
         all_syms.push_back(s);
-      for (const auto& entry : bindings_) {
-        if (std::find(all_syms.begin(), all_syms.end(), entry.sym) ==
-            all_syms.end())
-          all_syms.push_back(entry.sym);
-      }
 
       for (const auto& sym : all_syms) {
         ImGui::TableNextRow();
         ImGui::PushID(sym.c_str());
 
-        bool row_hovered = false;
         bool clear_bindings = false;
 
-        // Column 0: Button name (also right-click target)
+        // Column 0: Button name
         ImGui::TableSetColumnIndex(0);
         ImGui::Text("%s", sym.c_str());
-        if (ImGui::IsItemHovered()) {
-          row_hovered = true;
-          if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-            clear_bindings = true;
-        }
+        if (ImGui::IsItemHovered())
+          ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
+                                 ImColor(60, 60, 60));
 
-        // Column 1: Bindings text (also right-click target)
+        // Column 1: Bindings — right-click on individual text removes that binding
         ImGui::TableSetColumnIndex(1);
 
         std::vector<BindingSource> sources;
@@ -1191,23 +1199,68 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
             sources.push_back(entry.source);
         }
 
+        // Record column 1 cell bounds for empty-area click detection
+        ImVec2 col1_min = ImGui::GetCursorScreenPos();
+        float col1_w = ImGui::GetContentRegionAvail().x;
+
         if (sources.empty()) {
           ImGui::TextDisabled("(unbound)");
+          ImVec2 mouse = ImGui::GetMousePos();
+          ImVec2 col1_max(col1_min.x + col1_w, col1_min.y + ImGui::GetTextLineHeight());
+          if (mouse.x >= col1_min.x && mouse.x <= col1_max.x &&
+              mouse.y >= col1_min.y && mouse.y <= col1_max.y) {
+            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
+                                   ImColor(60, 60, 60));
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+              clear_bindings = true;
+          }
         } else {
-          bool first = true;
-          for (const auto& src : sources) {
-            if (!first) ImGui::SameLine();
-            first = false;
+          bool first_src = true;
+          bool text_hovered = false;
+          for (size_t si = 0; si < sources.size(); ++si) {
+            if (!first_src) ImGui::SameLine();
+            first_src = false;
+            const auto& src = sources[si];
             ImGui::Text("%s", SourceDescription(src));
+            if (ImGui::IsItemHovered()) {
+              text_hovered = true;
+              ImGui::GetWindowDrawList()->AddRectFilled(
+                  ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
+                  IM_COL32(80, 80, 70, 255));
+              if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                for (auto it = bindings_.begin(); it != bindings_.end(); ++it) {
+                  if (it->sym == sym && it->source == src) {
+                    bindings_.erase(it);
+                    break;
+                  }
+                }
+                SaveBindingsInternal();
+              }
+            }
+          }
+          // Empty area: check mouse within column 1 cell but not on text
+          if (!text_hovered) {
+            ImVec2 mouse = ImGui::GetMousePos();
+            ImVec2 col1_max(col1_min.x + col1_w,
+                            col1_min.y + ImGui::GetTextLineHeight());
+            if (mouse.x >= col1_min.x && mouse.x <= col1_max.x &&
+                mouse.y >= col1_min.y && mouse.y <= col1_max.y) {
+              ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg,
+                                     ImColor(60, 60, 60));
+              if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                for (auto it = bindings_.begin(); it != bindings_.end();) {
+                  if (it->sym == sym)
+                    it = bindings_.erase(it);
+                  else
+                    ++it;
+                }
+                SaveBindingsInternal();
+              }
+            }
           }
         }
-        if (ImGui::IsItemHovered()) {
-          row_hovered = true;
-          if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-            clear_bindings = true;
-        }
 
-        // Column 2: + button (also right-click target)
+        // Column 2: + button
         ImGui::TableSetColumnIndex(2);
 
         if (is_capturing_) {
@@ -1225,21 +1278,11 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
             StartCaptureFor(sym, next);
           }
         }
-        if (ImGui::IsItemHovered()) {
-          row_hovered = true;
-          if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
-            clear_bindings = true;
-        }
 
-        // Row hover highlight
-        if (row_hovered)
-          ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0,
-                                 ImColor(60, 60, 60));
-
-        // Right-click anywhere on the row clears ALL bindings for this symbol
+        // Right-click on button name clears ALL bindings for this symbol
         if (clear_bindings) {
           for (auto it = bindings_.begin(); it != bindings_.end();) {
-            if (it->sym == sym)
+            if (it->sym == sym && it->source.type != BS::Type::Key)
               it = bindings_.erase(it);
             else
               ++it;
