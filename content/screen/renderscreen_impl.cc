@@ -634,6 +634,10 @@ void RenderScreenImpl::FrameProcessInternal(
   // Recreate upscale buffer to match window size (if needed)
   GPURecreateUpscaleBufferInternal();
 
+  // Ensure CAS target exists before present_target selection
+  if (context()->engine_profile->cas_enabled)
+    GPURecreateSharpenedBufferInternal();
+
   // Run scaling pass if upscale buffer is active
   if (gpu_.upscale_buffer && present_target == gpu_.screen_buffer)
     GPUScalingPassInternal(context()->primary_render_context);

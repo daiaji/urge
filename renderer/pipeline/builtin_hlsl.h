@@ -249,11 +249,8 @@ extern const std::string kHLSL_UpscalePass_Pixel;
 
 ///
 // type:
-//   anime4k passes (reuse upscale VS, no vertex buffer)
+//   anime4k enhance pass (reuse upscale VS, no vertex buffer)
 ///
-extern const std::string kHLSL_Anime4K_Luma_Pixel;
-extern const std::string kHLSL_Anime4K_GaussX_Pixel;
-extern const std::string kHLSL_Anime4K_GaussY_Pixel;
 extern const std::string kHLSL_Anime4K_Enhance_Pixel;
 
 ///
