@@ -2,14 +2,15 @@
 #define COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_
 
 #include <stdint.h>
+#include <memory>
 #include <string>
-#include <vector>
 
 #include "miniaudio.h"
 
 namespace audioservice {
 
 class MidiPlayer;
+struct MidiStreamSource;
 
 class AudioStream {
  public:
@@ -54,11 +55,8 @@ class AudioStream {
   ma_uint64 cursor_;
   ma_bool32 looping_;
 
-  // PCM buffer for MIDI playback (keeps memory alive)
-  std::vector<float> midi_pcm_;
-  // In-memory WAV wrapper around midi_pcm_ (miniaudio decoder does NOT copy it)
-  uint8_t* midi_wav_buf_ = nullptr;
-  ma_decoder midi_decoder_;
+  // Streaming MIDI source (alive for duration of MIDI playback)
+  std::unique_ptr<MidiStreamSource> midi_stream_;
 };
 
 }  // namespace audioservice
