@@ -102,6 +102,7 @@ void RenderScreenImpl::CreateButtonGUISettings() {
             .c_str(),
         &vsync_enabled);
     settings_profile.vsync = vsync_enabled ? 1 : 0;
+    context()->engine_profile->MarkDirty();
 
     // Frame Rate
     static int32_t frame_rate_tmp = static_cast<int32_t>(frame_rate_);
@@ -122,24 +123,27 @@ void RenderScreenImpl::CreateButtonGUISettings() {
     }
 
     // Keep Ratio
-    ImGui::Checkbox(
-        context()
-            ->i18n_profile->GetI18NString(IDS_GRAPHICS_KEEP_RATIO, "Keep Ratio")
-            .c_str(),
-        &settings_profile.keep_ratio);
+    if (ImGui::Checkbox(
+            context()
+                ->i18n_profile->GetI18NString(IDS_GRAPHICS_KEEP_RATIO, "Keep Ratio")
+                .c_str(),
+            &settings_profile.keep_ratio))
+      context()->engine_profile->MarkDirty();
 
     // Integer Scaling (requires keep_ratio)
     ImGui::BeginDisabled(!settings_profile.keep_ratio);
-    ImGui::Checkbox("Integer Scaling",
-                    &settings_profile.integer_scaling);
+    if (ImGui::Checkbox("Integer Scaling",
+                        &settings_profile.integer_scaling))
+      context()->engine_profile->MarkDirty();
     ImGui::EndDisabled();
 
     // Skip Frame
-    ImGui::Checkbox(
-        context()
-            ->i18n_profile->GetI18NString(IDS_GRAPHICS_SKIP_FRAME, "Skip Frame")
-            .c_str(),
-        &settings_profile.allow_skip_frame);
+    if (ImGui::Checkbox(
+            context()
+                ->i18n_profile->GetI18NString(IDS_GRAPHICS_SKIP_FRAME, "Skip Frame")
+                .c_str(),
+            &settings_profile.allow_skip_frame))
+      context()->engine_profile->MarkDirty();
 
     // Fullscreen
     bool is_fullscreen = context()->window->IsFullscreen(),
@@ -153,12 +157,13 @@ void RenderScreenImpl::CreateButtonGUISettings() {
       context()->window->SetFullscreen(is_fullscreen);
 
     // Background running
-    ImGui::Checkbox(context()
-                        ->i18n_profile
-                        ->GetI18NString(IDS_GRAPHICS_BACKGROUND_RUNNING,
-                                        "Background Running")
-                        .c_str(),
-                    &settings_profile.background_running);
+    if (ImGui::Checkbox(context()
+                            ->i18n_profile
+                            ->GetI18NString(IDS_GRAPHICS_BACKGROUND_RUNNING,
+                                            "Background Running")
+                            .c_str(),
+                        &settings_profile.background_running))
+      context()->engine_profile->MarkDirty();
 
     // Scaling algorithm
     ImGui::Separator();
@@ -166,26 +171,36 @@ void RenderScreenImpl::CreateButtonGUISettings() {
     const char* scaling_items[] = {"Bilinear", "Nearest",
                                    "Lanczos3", "Bicubic",
                                    "Anime4K", "Anime4K+Sobel"};
-    ImGui::Combo("##scaling_mode", &settings_profile.scaling_mode,
-                 scaling_items, IM_ARRAYSIZE(scaling_items));
+    if (ImGui::Combo("##scaling_mode", &settings_profile.scaling_mode,
+                 scaling_items, IM_ARRAYSIZE(scaling_items)))
+      context()->engine_profile->MarkDirty();
 
     if (settings_profile.scaling_mode == 5) {
       ImGui::SliderFloat("##sobel_strength",
                          &settings_profile.scaling_sobel_strength,
                          0.0f, 2.0f, "Sobel:%.1f");
+      if (ImGui::IsItemDeactivatedAfterEdit())
+        context()->engine_profile->MarkDirty();
       ImGui::SliderFloat("##warp_strength",
                          &settings_profile.scaling_warp_strength,
                          0.0f, 1.0f, "Warp:%.2f");
+      if (ImGui::IsItemDeactivatedAfterEdit())
+        context()->engine_profile->MarkDirty();
       ImGui::SliderFloat("##darken_strength",
                          &settings_profile.scaling_darken_strength,
                          0.0f, 2.0f, "Dark:%.1f");
+      if (ImGui::IsItemDeactivatedAfterEdit())
+        context()->engine_profile->MarkDirty();
     }
 
     // CAS sharpening
-    ImGui::Checkbox("CAS Sharpen", &settings_profile.cas_enabled);
+    if (ImGui::Checkbox("CAS Sharpen", &settings_profile.cas_enabled))
+      context()->engine_profile->MarkDirty();
     if (settings_profile.cas_enabled) {
       ImGui::SliderFloat("##cas_sharpness", &settings_profile.cas_sharpness,
                          0.0f, 1.0f, "%.2f");
+      if (ImGui::IsItemDeactivatedAfterEdit())
+        context()->engine_profile->MarkDirty();
     }
 
     ImGui::Separator();
@@ -201,7 +216,7 @@ void RenderScreenImpl::CreateButtonGUISettings() {
   }
 
   if (!ImGui::IsAnyItemActive())
-    context()->engine_profile->SaveConfigure();
+    context()->engine_profile->SaveIfDirty();
 }
 
 void RenderScreenImpl::Update(ExceptionState& exception_state) {

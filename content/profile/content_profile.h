@@ -31,6 +31,13 @@ class ContentProfile {
   void LoadCommandLine(int32_t argc, char** argv);
   bool LoadConfigure(const std::string& app);
   void SaveConfigure();
+  void MarkDirty() { dirty_ = true; }
+  void SaveIfDirty() {
+    if (dirty_) {
+      SaveConfigure();
+      dirty_ = false;
+    }
+  }
   void ResetAudioDefaults();
   void ResetRendererDefaults();
 
@@ -111,6 +118,7 @@ class ContentProfile {
  private:
   SDL_IOStream* ini_stream_;
   std::string ini_path_;
+  bool dirty_ = false;
 };
 
 }  // namespace content
