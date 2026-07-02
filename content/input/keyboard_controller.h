@@ -93,7 +93,6 @@ class KeyboardControllerImpl : public Input, public EngineObject {
                ExceptionState& exception_state) override;
 
   // Gamepad support (event-driven, reads from EventController)
-  bool GamepadIsPressed(const std::string& sym);
   bool IsGamepadConnected(ExceptionState& exception_state) override;
 
   // Rumble / force feedback
@@ -139,10 +138,8 @@ class KeyboardControllerImpl : public Input, public EngineObject {
   void UpdateDir4Internal();
   void UpdateDir8Internal();
 
-  void TryReadBindingsInternal();
-  void StorageBindingsInternal();
-  void LoadBindingsInternal();
-  void SaveBindingsInternal();
+  void LoadAllBindings();
+  void SaveAllBindings();
 
   BindingList bindings_;
 

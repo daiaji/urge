@@ -21,8 +21,6 @@
 #include "content/worker/event_controller.h"
 #include "content/profile/command_ids.h"
 
-#define INPUT_CONFIG_SUBFIX ".cfg"
-
 // SDL_GamepadButton names for UI display
 static const char* kGamepadButtonNames[] = {
     "A", "B", "X", "Y", "Back", "Guide", "Start",
@@ -177,7 +175,7 @@ KeyboardControllerImpl::KeyboardControllerImpl(
   for (size_t i = 0; i < std::size(kDefaultGamepadBindings); ++i)
     bindings_.push_back(kDefaultGamepadBindings[i]);
 
-  LoadBindingsInternal();
+  LoadAllBindings();
 }
 
 KeyboardControllerImpl::~KeyboardControllerImpl() = default;
@@ -417,6 +415,8 @@ void KeyboardControllerImpl::SetKeysFromFlag(
     entry.source.dir = 0;
     bindings_.push_back(std::move(entry));
   }
+
+  SaveAllBindings();
 }
 
 std::vector<int32_t> KeyboardControllerImpl::GetRecentPressed(
@@ -577,88 +577,22 @@ void KeyboardControllerImpl::UpdateDir8Internal() {
   }
 }
 
-void KeyboardControllerImpl::TryReadBindingsInternal() {
-  std::string filepath = context()->engine_profile->program_name;
-  filepath += INPUT_CONFIG_SUBFIX;
-  filepath += std::to_string(
-      static_cast<int32_t>(context()->engine_profile->api_version));
+// --- Unified binding persistence (text format) ---
 
-  LOG(INFO) << "[Keyboard] Reading key binding table...";
+#define BIND_CONFIG_SUFFIX "_bind.txt"
 
-  filesystem::IOState io_state;
-  auto* fstream = context()->io_service->OpenReadRaw(filepath, &io_state);
-  if (fstream) {
-    bindings_.clear();
-
-    Uint32 item_size;
-    SDL_ReadIO(fstream, &item_size, sizeof(item_size));
-    for (uint32_t i = 0; i < item_size; ++i) {
-      Uint32 token_size;
-      SDL_ReadIO(fstream, &token_size, sizeof(token_size));
-
-      std::string token(token_size, 0);
-      SDL_ReadIO(fstream, token.data(), token_size);
-
-      SDL_Scancode scancode;
-      SDL_ReadIO(fstream, &scancode, sizeof(scancode));
-
-      bindings_.push_back(
-          {token, {BS::Type::Key, static_cast<uint16_t>(scancode), 0}});
-    }
-
-    SDL_CloseIO(fstream);
-  }
-
-  LoadBindingsInternal();
-}
-
-void KeyboardControllerImpl::StorageBindingsInternal() {
-  std::string filepath = context()->engine_profile->program_name;
-  filepath += INPUT_CONFIG_SUBFIX;
-  filepath += std::to_string(
-      static_cast<int32_t>(context()->engine_profile->api_version));
-
-  LOG(INFO) << "[Keyboard] Saving key binding table...";
-
-  filesystem::IOState io_state;
-  auto* fstream = context()->io_service->OpenWrite(filepath, &io_state);
-  if (fstream) {
-    std::vector<BindingEntry> kb_bindings;
-    for (const auto& entry : bindings_)
-      if (entry.source.type == BS::Type::Key)
-        kb_bindings.push_back(entry);
-
-    Uint32 item_size = kb_bindings.size();
-    SDL_WriteIO(fstream, &item_size, sizeof(item_size));
-    for (const auto& entry : kb_bindings) {
-      uint32_t token_size = entry.sym.size();
-      SDL_WriteIO(fstream, &token_size, sizeof(token_size));
-      SDL_WriteIO(fstream, entry.sym.data(), token_size);
-      SDL_Scancode scancode = static_cast<SDL_Scancode>(entry.source.code);
-      SDL_WriteIO(fstream, &scancode, sizeof(scancode));
-    }
-    SDL_CloseIO(fstream);
-  }
-
-  SaveBindingsInternal();
-}
-
-// --- Gamepad binding persistence (text format) ---
-
-#define GAMEPAD_CONFIG_SUFFIX "_gp.txt"
-
-static std::string GamepadConfigPath(ExecutionContext* ctx) {
+static std::string BindConfigPath(ExecutionContext* ctx) {
   std::string path = ctx->engine_profile->program_name;
-  path += GAMEPAD_CONFIG_SUFFIX;
+  path += BIND_CONFIG_SUFFIX;
   path += std::to_string(
       static_cast<int32_t>(ctx->engine_profile->api_version));
   return path;
 }
 
-void KeyboardControllerImpl::LoadBindingsInternal() {
-  std::string filepath = GamepadConfigPath(context());
+void KeyboardControllerImpl::LoadAllBindings() {
+  std::string filepath = BindConfigPath(context());
 
-  LOG(INFO) << "[Gamepad] Reading gamepad bindings from " << filepath;
+  LOG(INFO) << "[Bindings] Reading bindings from " << filepath;
 
   filesystem::IOState io_state;
   auto* fstream = context()->io_service->OpenReadRaw(filepath, &io_state);
@@ -674,11 +608,7 @@ void KeyboardControllerImpl::LoadBindingsInternal() {
   }
   SDL_CloseIO(fstream);
 
-  auto gp_start = std::remove_if(bindings_.begin(), bindings_.end(),
-      [](const BindingEntry& e) {
-        return e.source.type != BS::Type::Key;
-      });
-  bindings_.erase(gp_start, bindings_.end());
+  bindings_.clear();
 
   size_t pos = 0;
   while (pos < content.size()) {
@@ -696,7 +626,7 @@ void KeyboardControllerImpl::LoadBindingsInternal() {
 
     size_t eq = line.find('=');
     if (eq == std::string::npos) {
-      LOG(WARNING) << "[Gamepad] Skipping malformed line: " << line;
+      LOG(WARNING) << "[Bindings] Skipping malformed line: " << line;
       continue;
     }
 
@@ -708,12 +638,21 @@ void KeyboardControllerImpl::LoadBindingsInternal() {
     BindingEntry entry;
     entry.sym = sym;
 
-    if (val.starts_with("Btn:") || val.starts_with("btn:")) {
+    if (val.starts_with("Key:") || val.starts_with("key:")) {
+      entry.source.type = BS::Type::Key;
+      try {
+        entry.source.code = static_cast<uint16_t>(std::stoi(val.substr(4)));
+      } catch (...) {
+        LOG(WARNING) << "[Bindings] Invalid key scancode: " << val;
+        continue;
+      }
+      entry.source.dir = 0;
+    } else if (val.starts_with("Btn:") || val.starts_with("btn:")) {
       entry.source.type = BS::Type::GamepadButton;
       try {
         entry.source.code = static_cast<uint8_t>(std::stoi(val.substr(4)));
       } catch (...) {
-        LOG(WARNING) << "[Gamepad] Invalid button index: " << val;
+        LOG(WARNING) << "[Bindings] Invalid button index: " << val;
         continue;
       }
       entry.source.dir = 0;
@@ -721,19 +660,20 @@ void KeyboardControllerImpl::LoadBindingsInternal() {
       entry.source.type = BS::Type::GamepadAxis;
       size_t colon2 = val.rfind(':');
       if (colon2 == std::string::npos || colon2 <= 5) {
-        LOG(WARNING) << "[Gamepad] Skipping malformed Axis entry: "
+        LOG(WARNING) << "[Bindings] Skipping malformed Axis entry: "
                      << sym << " = " << val;
         continue;
       }
       try {
-        entry.source.code = static_cast<uint8_t>(std::stoi(val.substr(5, colon2 - 5)));
+        entry.source.code = static_cast<uint8_t>(
+            std::stoi(val.substr(5, colon2 - 5)));
       } catch (...) {
-        LOG(WARNING) << "[Gamepad] Invalid axis index: " << val;
+        LOG(WARNING) << "[Bindings] Invalid axis index: " << val;
         continue;
       }
       entry.source.dir = (val.size() > colon2 + 1 && val[colon2 + 1] == '-') ? -1 : 1;
     } else {
-      LOG(WARNING) << "[Gamepad] Skipping unrecognized binding format: "
+      LOG(WARNING) << "[Bindings] Skipping unrecognized format: "
                    << sym << " = " << val;
       continue;
     }
@@ -741,19 +681,13 @@ void KeyboardControllerImpl::LoadBindingsInternal() {
     bindings_.push_back(std::move(entry));
   }
 
-  LOG(INFO) << "[Gamepad] Loaded "
-            << (bindings_.size() - (bindings_.empty() ? 0 :
-                std::count_if(bindings_.begin(), bindings_.end(),
-                    [](const BindingEntry& e) {
-                      return e.source.type != BS::Type::Key;
-                    }))
-               ) << " gamepad bindings.";
+  LOG(INFO) << "[Bindings] Loaded " << bindings_.size() << " bindings.";
 }
 
-void KeyboardControllerImpl::SaveBindingsInternal() {
-  std::string filepath = GamepadConfigPath(context());
+void KeyboardControllerImpl::SaveAllBindings() {
+  std::string filepath = BindConfigPath(context());
 
-  LOG(INFO) << "[Gamepad] Saving gamepad bindings to " << filepath;
+  LOG(INFO) << "[Bindings] Saving bindings to " << filepath;
 
   filesystem::IOState io_state;
   auto* fstream = context()->io_service->OpenWrite(filepath, &io_state);
@@ -761,16 +695,18 @@ void KeyboardControllerImpl::SaveBindingsInternal() {
     return;
 
   std::string out;
-  out += "# URGE Gamepad Bindings\n";
-  out += "# Format: SYMBOL = Btn:INDEX  or  SYMBOL = Axis:INDEX:[+-]\n";
+  out += "# URGE Bindings\n";
+  out += "# Format: SYMBOL = Key:SCANCODE  or  SYMBOL = Btn:INDEX  or  SYMBOL = Axis:INDEX:[+-]\n";
   out += "# Lines starting with # are ignored.\n\n";
 
   for (const auto& entry : bindings_) {
-    if (entry.source.type == BS::Type::Key)
-      continue;
     out += entry.sym;
     out += " = ";
     switch (entry.source.type) {
+      case BS::Type::Key:
+        out += "Key:";
+        out += std::to_string(entry.source.code);
+        break;
       case BS::Type::GamepadButton:
         out += "Btn:";
         out += std::to_string(entry.source.code);
@@ -790,11 +726,7 @@ void KeyboardControllerImpl::SaveBindingsInternal() {
   SDL_WriteIO(fstream, out.data(), out.size());
   SDL_CloseIO(fstream);
 
-  size_t gp_count = 0;
-  for (const auto& entry : bindings_)
-    if (entry.source.type != BS::Type::Key)
-      ++gp_count;
-  LOG(INFO) << "[Gamepad] Saved " << gp_count << " bindings.";
+  LOG(INFO) << "[Bindings] Saved " << bindings_.size() << " bindings.";
 }
 
 // --- Configurable gamepad bindings API ---
@@ -809,6 +741,8 @@ void KeyboardControllerImpl::SetBindingList(const BindingList& bindings) {
     if (it == bindings_.end())
       bindings_.push_back(entry);
   }
+
+  SaveAllBindings();
 }
 
 const KeyboardControllerImpl::BindingList&
@@ -819,6 +753,16 @@ KeyboardControllerImpl::GetBindingList() const {
 KeyboardControllerImpl::BindingList
 KeyboardControllerImpl::GetDefaultBindings() const {
   BindingList defaults;
+  for (size_t i = 0; i < std::size(kDefaultKeyboardBindings); ++i)
+    defaults.push_back(kDefaultKeyboardBindings[i]);
+  if (context()->engine_profile->api_version ==
+      ContentProfile::APIVersion::RGSS1)
+    for (size_t i = 0; i < std::size(kKeyboardBindings1); ++i)
+      defaults.push_back(kKeyboardBindings1[i]);
+  if (context()->engine_profile->api_version >=
+      ContentProfile::APIVersion::RGSS2)
+    for (size_t i = 0; i < std::size(kKeyboardBindings2); ++i)
+      defaults.push_back(kKeyboardBindings2[i]);
   for (size_t i = 0; i < std::size(kDefaultGamepadBindings); ++i)
     defaults.push_back(kDefaultGamepadBindings[i]);
   return defaults;
@@ -840,7 +784,7 @@ void KeyboardControllerImpl::ResetBindingsToDefault() {
   for (size_t i = 0; i < std::size(kDefaultGamepadBindings); ++i)
     bindings_.push_back(kDefaultGamepadBindings[i]);
 
-  SaveBindingsInternal();
+  SaveAllBindings();
 }
 
 // --- Input capture for rebind UI ---
@@ -890,7 +834,7 @@ void KeyboardControllerImpl::PollCapture() {
           bindings_.push_back({capture_target_, capture_slot_});
 
         is_capturing_ = false;
-        SaveBindingsInternal();
+        SaveAllBindings();
 
         const char* next = NextCaptureSym(capture_next_idx_);
         if (next)
@@ -919,7 +863,7 @@ void KeyboardControllerImpl::PollCapture() {
           bindings_.push_back({capture_target_, capture_slot_});
 
         is_capturing_ = false;
-        SaveBindingsInternal();
+        SaveAllBindings();
 
         const char* next = NextCaptureSym(capture_next_idx_);
         if (next)
@@ -931,7 +875,23 @@ void KeyboardControllerImpl::PollCapture() {
 
   for (int s = 0; s < SDL_SCANCODE_COUNT; ++s) {
     if (raw_states_[s] && !capture_kb_baseline_[s]) {
+      capture_slot_.type = BS::Type::Key;
+      capture_slot_.code = static_cast<uint16_t>(s);
+      capture_slot_.dir = 0;
+
+      auto it = std::find_if(bindings_.begin(), bindings_.end(),
+          [this](const BindingEntry& e) {
+            return e.sym == capture_target_ && e.source == capture_slot_;
+          });
+      if (it == bindings_.end())
+        bindings_.push_back({capture_target_, capture_slot_});
+
       is_capturing_ = false;
+      SaveAllBindings();
+
+      const char* next = NextCaptureSym(capture_next_idx_);
+      if (next)
+        StartCaptureFor(next, capture_next_idx_ + 1);
       return;
     }
   }
@@ -1234,7 +1194,7 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
                     break;
                   }
                 }
-                SaveBindingsInternal();
+                SaveAllBindings();
               }
             }
           }
@@ -1254,7 +1214,7 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
                   else
                     ++it;
                 }
-                SaveBindingsInternal();
+                SaveAllBindings();
               }
             }
           }
@@ -1282,12 +1242,12 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
         // Right-click on button name clears ALL bindings for this symbol
         if (clear_bindings) {
           for (auto it = bindings_.begin(); it != bindings_.end();) {
-            if (it->sym == sym && it->source.type != BS::Type::Key)
+            if (it->sym == sym)
               it = bindings_.erase(it);
             else
               ++it;
           }
-          SaveBindingsInternal();
+          SaveAllBindings();
         }
 
         ImGui::PopID();
