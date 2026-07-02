@@ -610,6 +610,8 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
       return nullptr;
     }
 
+    EnsureFontSurfaceFormatInternal(outline_surface);
+
     // Blend text onto outline with proper alpha compositing,
     // preventing overlapping glyph edges from becoming overly opaque.
     int crop = parent_->font_outline_crop ? kOutlineSize : 0;
