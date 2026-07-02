@@ -280,15 +280,17 @@ void RenderShadowSurface(SDL_Surface*& in, const SDL_Color& text_color) {
   SDL_SetSurfaceBlendMode(dest, SDL_BLENDMODE_NONE);
   SDL_BlitSurface(in, nullptr, dest, &dest_rect);
 
+  auto* fmt = SDL_GetPixelFormatDetails(dest->format);
   auto* pixels = static_cast<uint32_t*>(dest->pixels);
   auto pitch = dest->pitch / 4;
   for (int32_t y = 0; y < dest->h; ++y)
     for (int32_t x = 0; x < dest->w; ++x) {
-      uint32_t a = (pixels[x + y * pitch] >> 24) & 0xFF;
-      pixels[x + y * pitch] = (a << 24) |
-          ((uint32_t)(a * text_color.r / 255) << 16) |
-          ((uint32_t)(a * text_color.g / 255) << 8) |
-          ((uint32_t)(a * text_color.b / 255));
+      uint8_t r, g, b, a;
+      SDL_GetRGBA(pixels[x + y * pitch], fmt, nullptr, &r, &g, &b, &a);
+      r = a * text_color.r / 255;
+      g = a * text_color.g / 255;
+      b = a * text_color.b / 255;
+      pixels[x + y * pitch] = SDL_MapRGBA(fmt, nullptr, r, g, b, a);
     }
 
   SDL_SetSurfaceBlendMode(dest, SDL_BLENDMODE_BLEND);

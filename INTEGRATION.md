@@ -68,7 +68,8 @@ rm-toolkit -b /path/to/game --rgss3 --export-script 3:custom_name.rb
 #### 增删改
 
 ```bash
-# 注入脚本（插入到指定序号，原序号及后续后移，自动重新封包）
+# ⚠️ 首次注入用 --inject-script（插入到指定序号，原序号及后续后移）
+#    切勿在同一份 Scripts.rvdata2 上多次 --inject-script，否则会重复
 rm-toolkit -b /path/to/game --rgss3 --inject-script 0:patch.rb
 
 # 注入多个脚本（按顺序依次插入）
@@ -76,7 +77,8 @@ rm-toolkit -b /path/to/game --rgss3 \
   --inject-script 0:compat_a.rb \
   --inject-script 1:compat_b.rb
 
-# 替换脚本内容（保留序号）
+# ✅ 更新已有脚本用 --replace-script（保留序号，不会新增条目）
+#    适用于仓库中的补丁文件变更后，更新到游戏
 rm-toolkit -b /path/to/game --rgss3 --replace-script 5:fixed_script.rb
 
 # 创建空脚本
@@ -130,8 +132,10 @@ bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
   --inject-script "2:${URGE}/binding/mri/third_party/rgss/rgss3_patch.rb" \
   --inject-script "3:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"
 
-# 日常修改（编辑 Source/scripts/xxx.rb 后）
-bundle exec exe/rm-toolkit -b "$GAME" --repack-scripts
+# 更新 URGE 补丁（当仓库中的脚本文件变更时，替换对应索引位置）
+bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
+  --replace-script "3:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"
+# （只替换变更的脚本，不会新增条目；切勿重复 --inject-script，会导致重复）
 ```
 
 ## 方式二：手动集成
