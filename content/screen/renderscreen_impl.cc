@@ -818,6 +818,8 @@ void RenderScreenImpl::GPUResetScreenBufferInternal() {
 
 void RenderScreenImpl::GPURecreateUpscaleBufferInternal() {
   auto* swapchain = context()->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
   base::Vec2i window_size(swapchain->GetDesc().Width,
                           swapchain->GetDesc().Height);
 
@@ -860,6 +862,8 @@ void RenderScreenImpl::GPURecreateAnime4KTargetsInternal() {
 
 void RenderScreenImpl::GPURecreateSharpenedBufferInternal() {
   auto* swapchain = context()->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
   base::Vec2i window_size(swapchain->GetDesc().Width,
                           swapchain->GetDesc().Height);
 
@@ -929,6 +933,8 @@ bool RenderScreenImpl::GPUScalingPassInternal(
     return false;
 
   auto* swapchain = context()->render_device->GetSwapChain();
+  if (!swapchain)
+    return false;
   base::Vec2i output_size(swapchain->GetDesc().Width,
                           swapchain->GetDesc().Height);
   base::Vec2i input_size = context()->resolution;
