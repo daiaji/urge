@@ -1106,6 +1106,8 @@ void RenderScreenImpl::GPUPresentScreenBufferInternal(
     Diligent::ImGuiDiligentRenderer* gui_renderer) {
   // Initial swapchain attribute
   Diligent::ISwapChain* swapchain = context()->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
   auto* render_target_view = swapchain->GetCurrentBackBufferRTV();
   auto* depth_stencil_view = swapchain->GetDepthBufferDSV();
 
