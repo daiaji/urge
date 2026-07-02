@@ -11,7 +11,8 @@ AudioStream::AudioStream(ma_engine* engine, MidiPlayer* midi_player)
       midi_player_(midi_player),
       handle_({}),
       cursor_(0),
-      looping_(false) {}
+      looping_(false),
+      current_volume_(0) {}
 
 AudioStream::~AudioStream() {
   ma_sound_uninit(&handle_);
@@ -54,12 +55,18 @@ ma_result AudioStream::Play(const std::string& filename,
       return result;
   }
 
+  current_volume_ = volume;
   ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
   ma_sound_set_pitch(&handle_, pitch / 100.0f);
   if (pos)
     ma_sound_seek_to_pcm_frame(&handle_, pos);
   ma_sound_start(&handle_);
   return MA_SUCCESS;
+}
+
+void AudioStream::SetVolume(int32_t volume) {
+  current_volume_ = volume;
+  ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
 }
 
 ma_result AudioStream::PlayMIDI(const std::string& filename,

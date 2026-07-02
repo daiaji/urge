@@ -37,6 +37,8 @@ class AudioImpl : public Audio, public EngineObject {
   void BGMStop(ExceptionState& exception_state) override;
   void BGMFade(int32_t time, ExceptionState& exception_state) override;
   uint64_t BGMPos(ExceptionState& exception_state) override;
+  int32_t BGMVolume(ExceptionState& exception_state) override;
+  void SetBGMVolume(int32_t volume, ExceptionState& exception_state) override;
 
   void BGSPlay(const std::string& filename,
                int32_t volume,
@@ -53,6 +55,7 @@ class AudioImpl : public Audio, public EngineObject {
               ExceptionState& exception_state) override;
   void MEStop(ExceptionState& exception_state) override;
   void MEFade(int32_t time, ExceptionState& exception_state) override;
+  uint64_t MEPos(ExceptionState& exception_state) override;
 
   void SEPlay(const std::string& filename,
               int32_t volume,

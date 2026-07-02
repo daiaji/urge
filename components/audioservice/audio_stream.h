@@ -51,6 +51,10 @@ class AudioStream {
   bool IsLooping();
   void SetLooping(bool looping);
 
+  // Volume control (0-100, RGSS units)
+  int32_t GetVolume() const { return current_volume_; }
+  void SetVolume(int32_t volume);
+
  private:
   friend class AudioService;
   AudioStream(ma_engine* engine, MidiPlayer* midi_player);
@@ -66,6 +70,7 @@ class AudioStream {
   ma_sound handle_;
   ma_uint64 cursor_;
   ma_bool32 looping_;
+  int32_t current_volume_;
 
   // Streaming MIDI source (alive for duration of MIDI playback)
   std::unique_ptr<MidiStreamSource> midi_stream_;

@@ -121,6 +121,20 @@ uint64_t AudioImpl::BGMPos(ExceptionState& exception_state) {
   return bgm_->Pos();
 }
 
+int32_t AudioImpl::BGMVolume(ExceptionState& exception_state) {
+  if (!bgm_)
+    return 0;
+
+  return bgm_->GetVolume();
+}
+
+void AudioImpl::SetBGMVolume(int32_t volume, ExceptionState& exception_state) {
+  if (!bgm_)
+    return;
+
+  bgm_->SetVolume(volume);
+}
+
 void AudioImpl::BGSPlay(const std::string& filename,
                         int32_t volume,
                         int32_t pitch,
@@ -177,6 +191,13 @@ void AudioImpl::MEFade(int32_t time, ExceptionState& exception_state) {
     return;
 
   me_->Fade(time);
+}
+
+uint64_t AudioImpl::MEPos(ExceptionState& exception_state) {
+  if (!me_)
+    return 0;
+
+  return me_->Pos();
 }
 
 void AudioImpl::SEPlay(const std::string& filename,
