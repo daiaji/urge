@@ -343,6 +343,8 @@ void ContentRunner::UpdateDisplayFPSInternal() {
 void ContentRunner::CheckResizeInternal() {
   auto& window = execution_context_->window;
   auto* swapchain = render_device_->GetSwapChain();
+  if (!swapchain)
+    return;
   const auto window_size = window->GetSize();
 
   // Update backing scale factor (physical / logical)
@@ -361,8 +363,10 @@ void ContentRunner::CheckResizeInternal() {
 
 void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
   // Setup renderer new frame
-  const Diligent::SwapChainDesc& swapchain_desc =
-      execution_context_->render_device->GetSwapChain()->GetDesc();
+  auto* swapchain = execution_context_->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
+  const Diligent::SwapChainDesc& swapchain_desc = swapchain->GetDesc();
   imgui_->NewFrame(swapchain_desc.Width, swapchain_desc.Height,
                    swapchain_desc.PreTransform);
 
@@ -505,8 +509,10 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
 }
 
 void ContentRunner::RenderConsoleGUIInternal() {
-  const auto& sc_desc =
-      execution_context_->render_device->GetSwapChain()->GetDesc();
+  auto* swapchain = execution_context_->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
+  const auto& sc_desc = swapchain->GetDesc();
   float win_w = static_cast<float>(sc_desc.Width);
   float win_h = static_cast<float>(sc_desc.Height);
 

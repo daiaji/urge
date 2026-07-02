@@ -242,6 +242,8 @@ void AudioImpl::HandleAudioServiceError(ma_result result,
 }
 
 void AudioImpl::MeThreadMonitorInternal() {
+  if (!me_ || !bgm_)
+    return;
   if (me_->IsPlaying() && bgm_->IsPlaying())
     bgm_->Pause();
 
