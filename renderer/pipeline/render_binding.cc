@@ -127,4 +127,26 @@ Binding_Upscale::Binding_Upscale(ShaderBinding* binding)
                                         "ScalingParamsBuffer");
 }
 
+Binding_A4A_Merge::Binding_A4A_Merge(ShaderBinding* binding)
+    : RenderBindingBase(binding) {
+  u_texture =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
+  u_texture1 =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
+  u_texture2 =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture2");
+  u_texture3 =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture3");
+  u_texture4 =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture4");
+  u_texture5 =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture5");
+  u_texture6 =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture6");
+  u_texture7 =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture7");
+  u_params = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                        "ScalingParamsBuffer");
+}
+
 }  // namespace renderer

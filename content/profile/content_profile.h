@@ -90,11 +90,11 @@ class ContentProfile {
   int32_t smooth_scaling_down = 0;   // 0=Nearest, 1=Bilinear (down-scale)
   bool integer_scaling = false;      // Integer multiple scaling
   int32_t scaling_mode = 0;          // Scaling algorithm for post-process
-                                     // 0=Bilinear, 1=Nearest, 2=Lanczos3, 3=Bicubic
+                                      // 0=Bilinear, 1=Nearest, 2=Lanczos3, 3=Bicubic
+                                      // 4=Anime4K, 5=Anime4K+Sobel, 6=Anime4K Mode A
   float scaling_ar_strength = 0.5f;  // Anti-ringing strength (Lanczos3)
   float scaling_bicubic_b = 0.33f;   // Bicubic B (Mitchell-Netravali)
   float scaling_bicubic_c = 0.33f;   // Bicubic C (Mitchell-Netravali)
-  bool anime4k_mode_a_enabled = false; // Anime4K Mode A chain
   bool cas_enabled = false;          // CAS contrast adaptive sharpening
   float cas_sharpness = 0.4f;        // CAS sharpness (0-1)
   float scaling_sobel_strength = 1.0f; // Sobel adaptive strength
@@ -103,6 +103,7 @@ class ContentProfile {
   bool sync_to_refresh_rate = false;
   bool win_resizable = true;
   bool fixed_aspect_ratio = true;
+  bool mode_a_auto_fit = false;  // Mode A: auto-fit window to integer scale
 
   // Log
   bool save_log = true;

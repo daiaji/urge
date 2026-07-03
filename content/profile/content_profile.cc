@@ -279,6 +279,8 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetBoolean("Renderer", "WinResizable", win_resizable);
   fixed_aspect_ratio =
       reader->GetBoolean("Renderer", "FixedAspectRatio", fixed_aspect_ratio);
+  mode_a_auto_fit =
+      reader->GetBoolean("Renderer", "ModeAAutoFit", mode_a_auto_fit);
 
   // Font
   font_scale = reader->GetFloat("Engine", "FontScale", font_scale);
@@ -411,6 +413,8 @@ void ContentProfile::SaveConfigure() {
     fprintf(fp, "WinResizable=%s\n", win_resizable ? "true" : "false");
   if (fixed_aspect_ratio != true)
     fprintf(fp, "FixedAspectRatio=%s\n", fixed_aspect_ratio ? "true" : "false");
+  if (mode_a_auto_fit != false)
+    fprintf(fp, "ModeAAutoFit=%s\n", mode_a_auto_fit ? "true" : "false");
   fprintf(fp, "\n[GUI]\n");
   if (disable_settings != false)
     fprintf(fp, "DisableSettings=%s\n", disable_settings ? "true" : "false");
@@ -463,6 +467,7 @@ void ContentProfile::ResetRendererDefaults() {
   sync_to_refresh_rate = false;
   win_resizable = true;
   fixed_aspect_ratio = true;
+  mode_a_auto_fit = false;
 }
 
 }  // namespace content

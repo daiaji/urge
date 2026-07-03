@@ -148,7 +148,7 @@ PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass5,
 PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass6,
                 MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
 PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass7,
-                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+                MAKE_BINDING_FUNCTION(Binding_A4A_Merge, 0););
 PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_S_Pass0,
                 MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
 PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_S_Pass1,

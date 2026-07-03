@@ -252,6 +252,26 @@ class Binding_Upscale : public RenderBindingBase {
   Binding_Upscale(ShaderBinding* binding);
 };
 
+// Anime4K Mode A: Restore_CNN_Pass7 merge binding (8 textures + params)
+class Binding_A4A_Merge : public RenderBindingBase {
+ public:
+  Binding_A4A_Merge() = default;
+
+  RRefPtr<ShaderVariable> u_texture;   // screen input (residual)
+  RRefPtr<ShaderVariable> u_texture1;  // layer 0
+  RRefPtr<ShaderVariable> u_texture2;  // layer 1
+  RRefPtr<ShaderVariable> u_texture3;  // layer 2
+  RRefPtr<ShaderVariable> u_texture4;  // layer 3
+  RRefPtr<ShaderVariable> u_texture5;  // layer 4
+  RRefPtr<ShaderVariable> u_texture6;  // layer 5
+  RRefPtr<ShaderVariable> u_texture7;  // layer 6
+  RRefPtr<ShaderVariable> u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_A4A_Merge(ShaderBinding* binding);
+};
+
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_RENDER_BINDING_H_
