@@ -40,7 +40,8 @@ def adapt(src: str, pass_index: int = 0) -> str:
         m = re.match(r'static\s+float2\s+(\w+)\s*;', ln)
         if m:
             uv_var = m.group(1)
-        m = re.match(r'static\s+float4\s+(\w+)\s*;', ln)
+        # Output could be float4 (RGBA) or float (single channel)
+        m = re.match(r'static\s+(?:float4|float)\s+(\w+)\s*;', ln)
         if m and not out_var:
             out_var = m.group(1)
 
@@ -129,7 +130,13 @@ def adapt(src: str, pass_index: int = 0) -> str:
     if uv_var:
         out.append(f'static float2 {uv_var};')
     if out_var and out_var != uv_var:
-        out.append(f'static float4 {out_var};')
+        # Determine type from original spirv declaration
+        out_type = 'float4'
+        for ln in lines:
+            if re.match(rf'static\s+float\s+{re.escape(out_var)}\s*;', ln):
+                out_type = 'float'
+                break
+        out.append(f'static {out_type} {out_var};')
     out.append('')
 
     # Helper functions: only replace textures and param_field (not uv_var/out_var)

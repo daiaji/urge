@@ -1504,6 +1504,7 @@ struct PSOutput {
 };
 
 static float2 _45;
+static float _70;
 
 float _11(float4 _10)
 {
@@ -1521,7 +1522,7 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
           float _37 = _11(_61);
           _23 = max(_37, _23);
       }
-      _70 = _23;
+      PSOut.Color = _23;
 }
 })";
 
@@ -1552,6 +1553,7 @@ struct PSOutput {
 };
 
 static float2 _31;
+static float _58;
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   _31 = PSIn.UV;
@@ -1563,7 +1565,7 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
           float _23 = u_Texture2.Sample(u_Texture2_sampler, uv + (float2(0.0f, float(_12 - 2)) * u_InputPt)).x;
           _8 = max(_23, _8);
       }
-      _58 = _8;
+      PSOut.Color = _8;
 }
 })";
 
@@ -2735,6 +2737,5 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
       PSOut.Color = float4(_32, _61, _63, _65) + u_Texture1.Sample(u_Texture1_sampler, uv);
 }
 })";
-
 
 }  // namespace renderer
