@@ -76,16 +76,19 @@ def adapt(src: str, pass_index: int = 0) -> str:
     helper_lines = [ln for ln in helper_lines
                     if len(ln.strip()) > 20 or 'return' in ln or '{' in ln or '}' in ln]
 
-    # ── 6. Extract frag_main body ──
+    # ── 6. Extract frag_main body (brace-aware) ──
     frag_body = []
     in_frag = False
+    frag_depth = 0
     for ln in lines:
         if 'void frag_main()' in ln:
             in_frag = True
             continue
         if in_frag:
-            if ln.strip() == '}':
-                break
+            prev = frag_depth
+            frag_depth += ln.count('{') - ln.count('}')
+            if prev > 0 and frag_depth == 0:
+                break  # closing frag_main reached, don't include this }
             frag_body.append(ln)
 
     # ── 7. Build output ──
@@ -151,11 +154,14 @@ def adapt(src: str, pass_index: int = 0) -> str:
         out.append(f'  {uv_var} = PSIn.UV;')
     out.append('  float2 uv = PSIn.UV;')
 
+    frag_opens = sum(ln.count('{') for ln in frag_body)
+    frag_closes = sum(ln.count('}') for ln in frag_body)
+    extra_close = frag_opens - frag_closes + 1  # +1 for PSMain itself
+
     for ln in frag_body:
         nl = ln
         if not nl.strip():
             continue
-        # Rename spirv variables
         for old, new in sorted(renames.items(), key=lambda x: -len(x[0])):
             nl = re.sub(r'(?<!\w)' + re.escape(old) + r'(?!\w)', new, nl)
         if uv_var:
@@ -163,15 +169,14 @@ def adapt(src: str, pass_index: int = 0) -> str:
         if out_var:
             nl = re.sub(r'(?<!\w)' + re.escape(out_var) + r'(?!\w)', 'PSOut.Color', nl)
         if param_field:
-            # Depth-to-space: uv * _pt → should be uv * u_InputSize
-            # Detect: frac(uv * _field) pattern → use u_InputSize instead
             if re.search(r'frac\s*\(\s*uv\s*\*\s*' + re.escape(param_field) + r'\s*\)', nl):
-                nl = re.sub(r'(?<!\\w)' + re.escape(param_field) + r'(?!\\w)', 'u_InputSize', nl)
+                nl = re.sub(r'(?<!\w)' + re.escape(param_field) + r'(?!\w)', 'u_InputSize', nl)
             else:
-                nl = re.sub(r'(?<!\\w)' + re.escape(param_field) + r'(?!\\w)', 'u_InputPt', nl)
+                nl = re.sub(r'(?<!\w)' + re.escape(param_field) + r'(?!\w)', 'u_InputPt', nl)
         out.append(f'  {nl.rstrip()}')
 
-    out.append('}')
+    for _ in range(extra_close):
+        out.append('}')
 
     # ── 8. Transpose float4x4 from col-major (GLSL) to row-major (URGE) ──
     # spirv-cross preserves GLSL column-major layout. URGE uses PACK_MATRIX_ROW_MAJOR.
