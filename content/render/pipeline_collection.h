@@ -51,6 +51,24 @@ struct PipelineCollection {
   PipelineObject anime4k_enhance;
   PipelineObject cas;
 
+  // Anime4K Mode A pipeline states
+  PipelineObject anime4k_clamp_hl_pass0;
+  PipelineObject anime4k_clamp_hl_pass1;
+  PipelineObject anime4k_clamp_hl_pass2;
+  PipelineObject anime4k_restore_pass0;
+  PipelineObject anime4k_restore_pass1;
+  PipelineObject anime4k_restore_pass2;
+  PipelineObject anime4k_restore_pass3;
+  PipelineObject anime4k_restore_pass4;
+  PipelineObject anime4k_restore_pass5;
+  PipelineObject anime4k_restore_pass6;
+  PipelineObject anime4k_restore_pass7;
+  PipelineObject anime4k_upscale_pass0;
+  PipelineObject anime4k_upscale_pass1;
+  PipelineObject anime4k_upscale_pass2;
+  PipelineObject anime4k_upscale_pass3;
+  PipelineObject anime4k_upscale_pass4;
+
   PipelineObject window;
   PipelineObject window_with_stencil;
   PipelineObject color_write_stencil;

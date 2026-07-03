@@ -94,6 +94,7 @@ class ContentProfile {
   float scaling_ar_strength = 0.5f;  // Anti-ringing strength (Lanczos3)
   float scaling_bicubic_b = 0.33f;   // Bicubic B (Mitchell-Netravali)
   float scaling_bicubic_c = 0.33f;   // Bicubic C (Mitchell-Netravali)
+  bool anime4k_mode_a_enabled = false; // Anime4K Mode A chain
   bool cas_enabled = false;          // CAS contrast adaptive sharpening
   float cas_sharpness = 0.4f;        // CAS sharpness (0-1)
   float scaling_sobel_strength = 1.0f; // Sobel adaptive strength

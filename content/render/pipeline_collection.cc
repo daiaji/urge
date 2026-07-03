@@ -325,6 +325,42 @@ PipelineCollection::PipelineCollection(renderer::PipelineSet* loader,
           Diligent::TEX_FORMAT_UNKNOWN, default_sample);
     }
 
+    {  // Anime4K Mode A passes - no scissor - no depth
+      Diligent::BlendStateDesc blend_state;
+
+      Diligent::DepthStencilStateDesc depth_stencil_state =
+          GetDefaultDepthStencilState(false);
+
+      Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
+      rasterizer_state.ScissorEnable = Diligent::False;
+
+      auto make_a4a = [&](renderer::RenderPipelineBase& lp,
+                           PipelineObject& out) {
+        lp.BuildPipeline(&out, blend_state, rasterizer_state,
+                         depth_stencil_state,
+                         Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                         {target_format}, Diligent::TEX_FORMAT_UNKNOWN,
+                         default_sample);
+      };
+
+      make_a4a(loader->anime4k_clamp_hl_pass0, anime4k_clamp_hl_pass0);
+      make_a4a(loader->anime4k_clamp_hl_pass1, anime4k_clamp_hl_pass1);
+      make_a4a(loader->anime4k_clamp_hl_pass2, anime4k_clamp_hl_pass2);
+      make_a4a(loader->anime4k_restore_pass0, anime4k_restore_pass0);
+      make_a4a(loader->anime4k_restore_pass1, anime4k_restore_pass1);
+      make_a4a(loader->anime4k_restore_pass2, anime4k_restore_pass2);
+      make_a4a(loader->anime4k_restore_pass3, anime4k_restore_pass3);
+      make_a4a(loader->anime4k_restore_pass4, anime4k_restore_pass4);
+      make_a4a(loader->anime4k_restore_pass5, anime4k_restore_pass5);
+      make_a4a(loader->anime4k_restore_pass6, anime4k_restore_pass6);
+      make_a4a(loader->anime4k_restore_pass7, anime4k_restore_pass7);
+      make_a4a(loader->anime4k_upscale_pass0, anime4k_upscale_pass0);
+      make_a4a(loader->anime4k_upscale_pass1, anime4k_upscale_pass1);
+      make_a4a(loader->anime4k_upscale_pass2, anime4k_upscale_pass2);
+      make_a4a(loader->anime4k_upscale_pass3, anime4k_upscale_pass3);
+      make_a4a(loader->anime4k_upscale_pass4, anime4k_upscale_pass4);
+    }
+
   {  // Window (present) - with scissor - with depth
     Diligent::BlendStateDesc blend_state;
     blend_state.RenderTargets[0] = GetBlendState(BLEND_TYPE_NORMAL);

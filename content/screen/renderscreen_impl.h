@@ -53,6 +53,13 @@ class RenderScreenImpl : public Graphics, public EngineObject {
 
     RRefPtr<Diligent::ITexture> sharpened_buffer;
     renderer::Binding_Upscale cas_binding;
+
+    // Anime4K Mode A intermediate targets
+    RRefPtr<Diligent::ITexture> mode_a_tex0;  // 640×480 ping-pong A
+    RRefPtr<Diligent::ITexture> mode_a_tex1;  // 640×480 ping-pong B
+    RRefPtr<Diligent::ITexture> mode_a_tex2;  // 1280×960 upscale buffer
+    renderer::Binding_Upscale mode_a_binding;  // reusable single-texture binding
+    // enhanced_tex reused as 1280×960 output target
   };
 
   RenderScreenImpl(ExecutionContext* execution_context, uint32_t frame_rate);
@@ -176,6 +183,8 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   bool GPUScalingPassInternal(Diligent::IDeviceContext* render_context);
   void GPURecreateUpscaleBufferInternal();
   void GPURecreateAnime4KTargetsInternal();
+  void GPURecreateModeATargetsInternal();
+  void GPURunModeAPassesInternal(Diligent::IDeviceContext* render_context);
   void GPURecreateSharpenedBufferInternal();
 
   GPUData gpu_;
