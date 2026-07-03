@@ -10,6 +10,7 @@
 #include "SDL3/SDL_messagebox.h"
 #include "zlib/zlib.h"
 
+#include "base/debug/crash_handler.h"
 #include "binding/mri/binding_patch.h"
 #include "binding/mri/mri_file.h"
 #include "binding/mri/mri_init_autogen.h"
@@ -229,6 +230,11 @@ void BindingEngineMri::PreEarlyInitialization(
   else
     rb_gv_set("TEST", debug);
   rb_gv_set("BTEST", MRI_BOOL_VALUE(profile->game_battle_test));
+
+  // Re-install crash handlers AFTER Ruby init to override Ruby's signal handlers.
+  // This ensures URGE's handler fires first for SIGSEGV with proper siginfo/context,
+  // and chains to Ruby's handler for Ruby-level backtrace.
+  base::debug::InstallCrashHandlers();
 }
 
 void BindingEngineMri::OnMainMessageLoopRun(

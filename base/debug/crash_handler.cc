@@ -35,6 +35,10 @@ static int g_ring_lens[kCrashRingSize];
 static int g_ring_total = 0;
 static int g_crash_fd = -1;
 
+// Saved old signal actions for chaining to previous handlers (e.g. Ruby's sigsegv)
+static struct sigaction g_old_sigactions[NSIG];
+static bool g_sigactions_saved[NSIG] = {};
+
 #if defined(OS_WIN)
 static const int kInvalidFd = -1;
 #else
@@ -243,13 +247,25 @@ void DumpRegisters(int fd, ucontext_t* uc) {
 void OnCrashSignal(int sig, siginfo_t* info, void* ucontext) {
   int fd = g_crash_fd >= 0 ? g_crash_fd : STDERR_FILENO;
 
-  WriteCrashHeader(fd, sig, SignalName(sig));
-  WriteLiteral(fd, "  SI_CODE:   "); WriteDecimal(fd, info->si_code); WriteLiteral(fd, "\n");
+  // Redirect stderr to crash.log so that any chained handler output
+  // (e.g. Ruby's rb_bug_for_fatal_signal) is also captured in crash.log.
+  if (g_crash_fd >= 0 && g_crash_fd != STDERR_FILENO) {
+    dup2(g_crash_fd, STDERR_FILENO);
+    fd = STDERR_FILENO;
+  }
 
-  if (sig == SIGSEGV) {
-    WriteLiteral(fd, "  Fault Addr: ");
-    WriteHex(fd, reinterpret_cast<uintptr_t>(info->si_addr));
-    WriteLiteral(fd, "\n");
+  WriteCrashHeader(fd, sig, SignalName(sig));
+
+  // info is only valid when called via SA_SIGINFO (3-arg form).
+  // When chained from a 1-arg sighandler_t (e.g. Ruby's default_sigsegv_handler),
+  // info points to garbage and must not be dereferenced.
+  if (info) {
+    WriteLiteral(fd, "  SI_CODE:   "); WriteDecimal(fd, info->si_code); WriteLiteral(fd, "\n");
+    if (sig == SIGSEGV) {
+      WriteLiteral(fd, "  Fault Addr: ");
+      WriteHex(fd, reinterpret_cast<uintptr_t>(info->si_addr));
+      WriteLiteral(fd, "\n");
+    }
   }
 
   if (ucontext)
@@ -260,7 +276,21 @@ void OnCrashSignal(int sig, siginfo_t* info, void* ucontext) {
   WriteLiteral(fd, "\n  Backtrace ("); WriteDecimal(fd, frames); WriteLiteral(fd, " frames):\n");
   backtrace_symbols_fd(callstack, frames, fd);
 
-  DumpRingBuffer(fd);
+  // (Ring buffer omitted -- see Engine.log for full log history)
+
+  // Chain to saved old handler (e.g. Ruby's sigsegv).
+  // stderr is still redirected to crash.log, so Ruby's backtrace output
+  // (via rb_write_error_str) goes into crash.log as well.
+  struct sigaction* old = &g_old_sigactions[sig];
+  if (g_sigactions_saved[sig] && old->sa_sigaction &&
+      old->sa_handler != SIG_DFL && old->sa_handler != SIG_IGN) {
+    if (old->sa_flags & SA_SIGINFO) {
+      old->sa_sigaction(sig, info, ucontext);
+    } else {
+      old->sa_handler(sig);
+    }
+  }
+
   FlushAndRaise(sig);
 }
 
@@ -367,14 +397,22 @@ void InstallCrashHandlers() {
 
   struct sigaction sa;
   memset(&sa, 0, sizeof(sa));
-  sa.sa_flags = SA_SIGINFO | SA_RESETHAND | SA_ONSTACK;
+  sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
   sigemptyset(&sa.sa_mask);
   sa.sa_sigaction = OnCrashSignal;
-  sigaction(SIGSEGV, &sa, nullptr);
-  sigaction(SIGABRT, &sa, nullptr);
-  sigaction(SIGFPE, &sa, nullptr);
-  sigaction(SIGILL, &sa, nullptr);
-  sigaction(SIGBUS, &sa, nullptr);
+
+  int signals[] = {SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS};
+  for (size_t i = 0; i < sizeof(signals) / sizeof(signals[0]); ++i) {
+    int sig = signals[i];
+    struct sigaction old;
+    memset(&old, 0, sizeof(old));
+    sigaction(sig, &sa, &old);
+    // Save the old handler if it's not our own (to avoid recursive chain)
+    if (old.sa_sigaction != OnCrashSignal) {
+      g_old_sigactions[sig] = old;
+      g_sigactions_saved[sig] = true;
+    }
+  }
 #endif
 }
 

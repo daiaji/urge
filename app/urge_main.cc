@@ -239,9 +239,8 @@ int main(int argc, char* argv[]) {
   logger_sink.flush_on(spdlog::level::info);
   base::logging::InitWithLogger(&logger_sink);
 
-  // Open crash-safe log file and install signal handlers
+  // Open crash-safe log file (signal handlers installed later after Ruby init)
   base::debug::OpenCrashLogFile("crash.log");
-  base::debug::InstallCrashHandlers();
 
   // Create console logger (user-facing output: Console.log + terminal)
   {
