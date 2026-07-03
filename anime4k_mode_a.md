@@ -99,19 +99,17 @@ Mode A 后 `input_size *= 2` 使 Lanczos3 正确读取 1280×960 纹理。
 
 使用 screen_buffer 作为残差输入，颜色表现正确。
 
-### 锯齿/混叠 (Aliasing) ⚠️ 需要排查
+### 锯齿/混叠 (Aliasing) ✅ 已修复
 
-Mode A 输出存在明显锯齿（staircase artifacts），即使 640×480→1280×960（2×）是理想场景。
+**根因**：`adapt_hlsl.py` 对 `float4x4` 执行了错误转置。
+`mul(v, M)` + `PACK_MATRIX_ROW_MAJOR` 情况下权重必须保持 GLSL 列主序的原始顺序。
+转置后权重全部错位，神经网络输出无效 → d2s 特征提取退化 → nearest-neighbor residual 主导 → 严重锯齿。
 
-**对比 GLSL 参考** (Upscale_CNN_x2_S Pass4 d2s, `Anime4K/glsl/Upscale/Anime4K_Upscale_CNN_x2_S.glsl`):
-- GLSL d2s 使用 `texelFetch`-like 采样（texel 坐标精确对齐）
-- HLSL d2s 使用 `Sample` + UV 偏移到 texel 中心，可能存在采样不精确
-- d2s 输出 `float4(_32, _32, _32, _32)` 将单个分量复制到所有 4 通道（与 GLSL 一致）
+**修复**：
+- `builtin_hlsl.cc`: 194 个 `float4x4` 全部反向转置
+- `tools/adapt_hlsl.py`: 移除转置步骤
 
-**可能原因**：
-1. d2s 的 bilinear sampler 在 sub-pixel 边界采样不精确
-2. 卷积 pass 在 d2s 前后的分辨率设置错误
-3. d2s shader 索引逻辑与 GLSL 有差异
+数学验证：GLSL `result[0]=a1·v[0]+a5·v[1]+...` = HLSL `v[0]·b1+v[1]·b5+...` 当 `b1=a1, b5=a5, ...` ✓
 
 ## 文件清单
 

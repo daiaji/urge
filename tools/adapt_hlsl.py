@@ -196,33 +196,7 @@ def adapt(src: str, pass_index: int = 0) -> str:
     for _ in range(extra_close):
         out.append('}')
 
-    # ── 8. Transpose float4x4 from col-major (GLSL) to row-major (URGE) ──
-    # spirv-cross preserves GLSL column-major layout. URGE uses PACK_MATRIX_ROW_MAJOR.
-    # float4x4(a,b,c,d, e,f,g,h, i,j,k,l, m,n,o,p) in GLSL col-major means:
-    #   col0=(a,b,c,d), col1=(e,f,g,h), col2=(i,j,k,l), col3=(m,n,o,p)
-    # In HLSL row-major we need:
-    #   row0=(a,e,i,m), row1=(b,f,j,n), row2=(c,g,k,o), row3=(d,h,l,p)
     result = '\n'.join(out)
-    def _transpose_float4x4(m):
-        inner = m.group(1)
-        nums = re.findall(r'-?\d+\.\d*(?:[eE][+-]?\d+)?f?', inner)
-        if len(nums) < 16:
-            # spirv-cross may replace float4(0,0,0,0) with 0.0f.xxxx
-            # Pad with the last value
-            last = nums[-1] if nums else '0.0'
-            nums = nums + [last] * (16 - len(nums))
-        nums = nums[:16]
-        # Strip 'f' suffix
-        nums = [n.rstrip('f') for n in nums]
-        # Transpose col-major → row-major
-        transposed = [
-            nums[0], nums[4], nums[8], nums[12],
-            nums[1], nums[5], nums[9], nums[13],
-            nums[2], nums[6], nums[10], nums[14],
-            nums[3], nums[7], nums[11], nums[15],
-        ]
-        return 'float4x4(' + ', '.join(transposed) + ')'
-    result = re.sub(r'float4x4\s*\(((?:[^()]+|\([^()]*\))*)\)', _transpose_float4x4, result)
     return result
 
 def main():
