@@ -122,12 +122,20 @@ def adapt(src: str, pass_index: int = 0) -> str:
     out.append('};')
     out.append('')
 
-    # Helper functions
+    # Helper functions (also apply uv_var, out_var, param_field replacements)
     for ln in helper_lines:
         nl = ln
-        # Rename var references inside helpers
         for old, new in sorted(renames.items(), key=lambda x: -len(x[0])):
             nl = re.sub(r'(?<!\w)' + re.escape(old) + r'(?!\w)', new, nl)
+        if uv_var:
+            nl = re.sub(r'(?<!\w)' + re.escape(uv_var) + r'(?!\w)', 'uv', nl)
+        if out_var:
+            nl = re.sub(r'(?<!\w)' + re.escape(out_var) + r'(?!\w)', 'PSOut.Color', nl)
+        if param_field:
+            if re.search(r'frac\s*\(\s*uv\s*\*\s*' + re.escape(param_field) + r'\s*\)', nl):
+                nl = re.sub(r'(?<!\w)' + re.escape(param_field) + r'(?!\w)', 'u_InputSize', nl)
+            else:
+                nl = re.sub(r'(?<!\w)' + re.escape(param_field) + r'(?!\w)', 'u_InputPt', nl)
         out.append(nl)
     if helper_lines:
         out.append('')

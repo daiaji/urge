@@ -1618,7 +1618,7 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return u_Texture.Sample(u_Texture_sampler, _21 + (float2(_10, _11) * _28_m0));
+    return u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt));
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -1681,11 +1681,11 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return max(u_Texture.Sample(u_Texture_sampler, _25 + (float2(_10, _11) * _32_m0)), 0.0f.xxxx);
+    return max(u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt)), 0.0f.xxxx);
 }
 float4 _16(float _14, float _15)
 {
-    return max(-u_Texture.Sample(u_Texture_sampler, _25 + (float2(_14, _15) * _32_m0)), 0.0f.xxxx);
+    return max(-u_Texture.Sample(u_Texture_sampler, uv + (float2(_14, _15) * u_InputPt)), 0.0f.xxxx);
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -1775,11 +1775,11 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return max(u_Texture.Sample(u_Texture_sampler, _25 + (float2(_10, _11) * _32_m0)), 0.0f.xxxx);
+    return max(u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt)), 0.0f.xxxx);
 }
 float4 _16(float _14, float _15)
 {
-    return max(-u_Texture.Sample(u_Texture_sampler, _25 + (float2(_14, _15) * _32_m0)), 0.0f.xxxx);
+    return max(-u_Texture.Sample(u_Texture_sampler, uv + (float2(_14, _15) * u_InputPt)), 0.0f.xxxx);
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -1869,11 +1869,11 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return max(u_Texture.Sample(u_Texture_sampler, _25 + (float2(_10, _11) * _32_m0)), 0.0f.xxxx);
+    return max(u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt)), 0.0f.xxxx);
 }
 float4 _16(float _14, float _15)
 {
-    return max(-u_Texture.Sample(u_Texture_sampler, _25 + (float2(_14, _15) * _32_m0)), 0.0f.xxxx);
+    return max(-u_Texture.Sample(u_Texture_sampler, uv + (float2(_14, _15) * u_InputPt)), 0.0f.xxxx);
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -1963,11 +1963,11 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return max(u_Texture.Sample(u_Texture_sampler, _25 + (float2(_10, _11) * _32_m0)), 0.0f.xxxx);
+    return max(u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt)), 0.0f.xxxx);
 }
 float4 _16(float _14, float _15)
 {
-    return max(-u_Texture.Sample(u_Texture_sampler, _25 + (float2(_14, _15) * _32_m0)), 0.0f.xxxx);
+    return max(-u_Texture.Sample(u_Texture_sampler, uv + (float2(_14, _15) * u_InputPt)), 0.0f.xxxx);
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -2057,11 +2057,11 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return max(u_Texture.Sample(u_Texture_sampler, _25 + (float2(_10, _11) * _32_m0)), 0.0f.xxxx);
+    return max(u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt)), 0.0f.xxxx);
 }
 float4 _16(float _14, float _15)
 {
-    return max(-u_Texture.Sample(u_Texture_sampler, _25 + (float2(_14, _15) * _32_m0)), 0.0f.xxxx);
+    return max(-u_Texture.Sample(u_Texture_sampler, uv + (float2(_14, _15) * u_InputPt)), 0.0f.xxxx);
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -2151,11 +2151,11 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return max(u_Texture.Sample(u_Texture_sampler, _25 + (float2(_10, _11) * _32_m0)), 0.0f.xxxx);
+    return max(u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt)), 0.0f.xxxx);
 }
 float4 _16(float _14, float _15)
 {
-    return max(-u_Texture.Sample(u_Texture_sampler, _25 + (float2(_14, _15) * _32_m0)), 0.0f.xxxx);
+    return max(-u_Texture.Sample(u_Texture_sampler, uv + (float2(_14, _15) * u_InputPt)), 0.0f.xxxx);
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -2299,7 +2299,7 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return u_Texture.Sample(u_Texture_sampler, _21 + (float2(_10, _11) * _28_m0));
+    return u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt));
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -2362,11 +2362,11 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return max(u_Texture.Sample(u_Texture_sampler, _25 + (float2(_10, _11) * _32_m0)), 0.0f.xxxx);
+    return max(u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt)), 0.0f.xxxx);
 }
 float4 _16(float _14, float _15)
 {
-    return max(-u_Texture.Sample(u_Texture_sampler, _25 + (float2(_14, _15) * _32_m0)), 0.0f.xxxx);
+    return max(-u_Texture.Sample(u_Texture_sampler, uv + (float2(_14, _15) * u_InputPt)), 0.0f.xxxx);
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -2456,11 +2456,11 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return max(u_Texture.Sample(u_Texture_sampler, _25 + (float2(_10, _11) * _32_m0)), 0.0f.xxxx);
+    return max(u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt)), 0.0f.xxxx);
 }
 float4 _16(float _14, float _15)
 {
-    return max(-u_Texture.Sample(u_Texture_sampler, _25 + (float2(_14, _15) * _32_m0)), 0.0f.xxxx);
+    return max(-u_Texture.Sample(u_Texture_sampler, uv + (float2(_14, _15) * u_InputPt)), 0.0f.xxxx);
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
@@ -2550,11 +2550,11 @@ struct PSOutput {
 
 float4 _12(float _10, float _11)
 {
-    return max(u_Texture.Sample(u_Texture_sampler, _25 + (float2(_10, _11) * _32_m0)), 0.0f.xxxx);
+    return max(u_Texture.Sample(u_Texture_sampler, uv + (float2(_10, _11) * u_InputPt)), 0.0f.xxxx);
 }
 float4 _16(float _14, float _15)
 {
-    return max(-u_Texture.Sample(u_Texture_sampler, _25 + (float2(_14, _15) * _32_m0)), 0.0f.xxxx);
+    return max(-u_Texture.Sample(u_Texture_sampler, uv + (float2(_14, _15) * u_InputPt)), 0.0f.xxxx);
 }
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
