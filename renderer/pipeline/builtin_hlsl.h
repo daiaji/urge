@@ -292,11 +292,15 @@ extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass4_Pixel;
 extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass5_Pixel;
 extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass6_Pixel;
 extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass7_Pixel;
-extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass0_Pixel;
-extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass1_Pixel;
-extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass2_Pixel;
-extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass3_Pixel;
-extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass4_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_M_Pass0_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_M_Pass1_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_M_Pass2_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_M_Pass3_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_M_Pass4_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_M_Pass5_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_M_Pass6_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_M_Pass7_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_M_Pass8_Pixel;
 
 }  // namespace renderer
 
