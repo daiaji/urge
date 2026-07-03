@@ -126,6 +126,40 @@ PIPELINE_DEFINE(Anime4K_Enhance,
 PIPELINE_DEFINE(CAS,
                 MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
 
+// Anime4K Mode A pipeline set
+PIPELINE_DEFINE(Anime4K_Clamp_Highlights_Pass0,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Clamp_Highlights_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Clamp_Highlights_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass0,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass3,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass4,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass5,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass6,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass7,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_S_Pass0,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_S_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_S_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_S_Pass3,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_S_Pass4,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+
 #undef PIPELINE_DEFINE
 #undef MAKE_BINDING_FUNCTION
 
@@ -149,6 +183,24 @@ struct PipelineSet {
   Pipeline_Anime4K_Enhance anime4k_enhance;
   Pipeline_CAS cas;
 
+  // Anime4K Mode A
+  Pipeline_Anime4K_Clamp_Highlights_Pass0 anime4k_clamp_hl_pass0;
+  Pipeline_Anime4K_Clamp_Highlights_Pass1 anime4k_clamp_hl_pass1;
+  Pipeline_Anime4K_Clamp_Highlights_Pass2 anime4k_clamp_hl_pass2;
+  Pipeline_Anime4K_Restore_CNN_Pass0 anime4k_restore_pass0;
+  Pipeline_Anime4K_Restore_CNN_Pass1 anime4k_restore_pass1;
+  Pipeline_Anime4K_Restore_CNN_Pass2 anime4k_restore_pass2;
+  Pipeline_Anime4K_Restore_CNN_Pass3 anime4k_restore_pass3;
+  Pipeline_Anime4K_Restore_CNN_Pass4 anime4k_restore_pass4;
+  Pipeline_Anime4K_Restore_CNN_Pass5 anime4k_restore_pass5;
+  Pipeline_Anime4K_Restore_CNN_Pass6 anime4k_restore_pass6;
+  Pipeline_Anime4K_Restore_CNN_Pass7 anime4k_restore_pass7;
+  Pipeline_Anime4K_Upscale_CNN_x2_S_Pass0 anime4k_upscale_pass0;
+  Pipeline_Anime4K_Upscale_CNN_x2_S_Pass1 anime4k_upscale_pass1;
+  Pipeline_Anime4K_Upscale_CNN_x2_S_Pass2 anime4k_upscale_pass2;
+  Pipeline_Anime4K_Upscale_CNN_x2_S_Pass3 anime4k_upscale_pass3;
+  Pipeline_Anime4K_Upscale_CNN_x2_S_Pass4 anime4k_upscale_pass4;
+
   PipelineSet(const PipelineInitParams& init_params)
       : base(init_params),
         bitmapblt(init_params),
@@ -164,7 +216,23 @@ struct PipelineSet {
         yuv(init_params),
         upscale(init_params),
         anime4k_enhance(init_params),
-        cas(init_params) {}
+        cas(init_params),
+        anime4k_clamp_hl_pass0(init_params),
+        anime4k_clamp_hl_pass1(init_params),
+        anime4k_clamp_hl_pass2(init_params),
+        anime4k_restore_pass0(init_params),
+        anime4k_restore_pass1(init_params),
+        anime4k_restore_pass2(init_params),
+        anime4k_restore_pass3(init_params),
+        anime4k_restore_pass4(init_params),
+        anime4k_restore_pass5(init_params),
+        anime4k_restore_pass6(init_params),
+        anime4k_restore_pass7(init_params),
+        anime4k_upscale_pass0(init_params),
+        anime4k_upscale_pass1(init_params),
+        anime4k_upscale_pass2(init_params),
+        anime4k_upscale_pass3(init_params),
+        anime4k_upscale_pass4(init_params) {}
 };
 
 }  // namespace renderer
