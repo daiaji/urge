@@ -122,15 +122,20 @@ def adapt(src: str, pass_index: int = 0) -> str:
     out.append('};')
     out.append('')
 
-    # Helper functions (also apply uv_var, out_var, param_field replacements)
+    # Global static vars for spirv-cross helper functions
+    if uv_var:
+        out.append(f'static float2 {uv_var};')
+    if out_var and out_var != uv_var:
+        out.append(f'static float4 {out_var};')
+    out.append('')
+
+    # Helper functions: only replace textures and param_field (not uv_var/out_var)
+    # Helpers use spirv-cross global static vars for uv; param_field is in cbuffer
     for ln in helper_lines:
         nl = ln
         for old, new in sorted(renames.items(), key=lambda x: -len(x[0])):
             nl = re.sub(r'(?<!\w)' + re.escape(old) + r'(?!\w)', new, nl)
-        if uv_var:
-            nl = re.sub(r'(?<!\w)' + re.escape(uv_var) + r'(?!\w)', 'uv', nl)
-        if out_var:
-            nl = re.sub(r'(?<!\w)' + re.escape(out_var) + r'(?!\w)', 'PSOut.Color', nl)
+        # param_field replacement (cbuffer name changed → must replace everywhere)
         if param_field:
             if re.search(r'frac\s*\(\s*uv\s*\*\s*' + re.escape(param_field) + r'\s*\)', nl):
                 nl = re.sub(r'(?<!\w)' + re.escape(param_field) + r'(?!\w)', 'u_InputSize', nl)
@@ -142,6 +147,8 @@ def adapt(src: str, pass_index: int = 0) -> str:
 
     # PSMain
     out.append('void PSMain(in PSInput PSIn, out PSOutput PSOut) {')
+    if uv_var:
+        out.append(f'  {uv_var} = PSIn.UV;')
     out.append('  float2 uv = PSIn.UV;')
 
     for ln in frag_body:
