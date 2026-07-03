@@ -32,17 +32,13 @@ urge_compat.rb → ruby19_compat.rb → rgss3_patch.rb → rgss3_compat.rb
 ### 快速开始
 
 ```bash
-# 1. 解包游戏存档（如 Game.rgss3a）
-cd ~/repo/RM-Toolkit
-bundle exec exe/rm-toolkit -b /path/to/game --extract-archive Game.rgss3a
-
-# 2. 解包项目数据
+# 1. 解包项目数据
 bundle exec exe/rm-toolkit -b /path/to/game --unpack --rgss3
 
-# 3. 查看脚本列表（输出取 stdout，格式: 序号|名称）
+# 2. 查看脚本列表（输出取 stdout，格式: 序号|名称）
 bundle exec exe/rm-toolkit -b /path/to/game --rgss3 --list-scripts
 
-# 4. 注入 URGE 兼容补丁（--inject-script 会自动重新封包）
+# 3. 注入 URGE 兼容补丁（--inject-script 会自动重新封包）
 bundle exec exe/rm-toolkit -b /path/to/game --rgss3 \
   --inject-script "0:/absolute/path/to/urge_compat.rb" \
   --inject-script "1:/absolute/path/to/ruby19_compat.rb" \
@@ -119,7 +115,6 @@ URGE=/path/to/urge/repo
 cd ~/repo/RM-Toolkit
 
 # 首次配置
-bundle exec exe/rm-toolkit -b "$GAME" --extract-archive Game.rgss3a
 bundle exec exe/rm-toolkit -b "$GAME" --unpack --rgss3
 
 # 查看脚本列表确认结构
