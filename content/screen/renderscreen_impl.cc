@@ -1126,11 +1126,31 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
   // ════════════════════════════════════════════
   // Phase 3: Upscale_CNN_x2 (5 passes → 1280×960)
   // ════════════════════════════════════════════
-  // Input: tex0 (640×480 restored), output: tex2 (1280×960 upscaled)
-  write_params(upscale_params);
+  // Pass 0-2: conv at 640×480; Pass 3-4: upscale+d2s at 1280×960
 
-  // Pass 0: Conv-4x3x3x3 → tex2 (writes at 1280×960)
+  // Pass 0-2: native resolution ping-pong (read tex0, write tex1)
+  for (int upi = 0; upi < 3; upi++) {
+    Diligent::IPipelineState* pso = nullptr;
+    switch (upi) {
+      case 0: pso = states.anime4k_upscale_pass0; break;
+      case 1: pso = states.anime4k_upscale_pass1; break;
+      case 2: pso = states.anime4k_upscale_pass2; break;
+    }
+    // All 3 passes work at native res, reading previous output
+    if (upi == 0) {
+      // Pass 0: read from tex0 (restored output)
+      write_params(native_params);
+      run_pass(pso, tex1, tex0, native);
+    } else {
+      run_pass(pso, tex1, tex0, native);
+    }
+    std::swap(tex0, tex1);
+  }
+
+  // Pass 3: Upscale conv → tex2 (1280×960)
   {
+    upscale_params.mode = 0;
+    write_params(upscale_params);
     auto* rtv = get_rtv(tex2);
     render_context->SetRenderTargets(
         1, &rtv, nullptr,
@@ -1139,16 +1159,39 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
     render_context->ClearRenderTarget(
         rtv, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     set_viewport(upscaled);
-    render_context->SetPipelineState(states.anime4k_upscale_pass0);
+    render_context->SetPipelineState(states.anime4k_upscale_pass3);
     gpu_.mode_a_binding.u_texture->Set(get_srv(tex0));
     gpu_.mode_a_binding.u_params->Set(gpu_.upscale_params_buffer);
+    // Dual texture: bind same tex to u_Texture1 (ReLU split from same input)
+    auto* srb3 = *gpu_.mode_a_binding;
+    srb3->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1")
+        ->Set(get_srv(tex0));
     render_context->CommitShaderResources(
         *gpu_.mode_a_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
   }
 
-  // TODO: implement upscale pass1-4 chain (skip for now, pass0 output used)
+  // Pass 4: Depth-to-space + residual → tex2
+  // u_Texture = conv output (tex2), u_Texture1 = original (screen_buffer)
+  {
+    write_params(upscale_params);
+    auto* rtv = get_rtv(tex2);
+    render_context->SetRenderTargets(
+        1, &rtv, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    set_viewport(upscaled);
+    render_context->SetPipelineState(states.anime4k_upscale_pass4);
+    gpu_.mode_a_binding.u_texture->Set(get_srv(tex2));
+    gpu_.mode_a_binding.u_params->Set(gpu_.upscale_params_buffer);
+    auto* srb4 = *gpu_.mode_a_binding;
+    srb4->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1")
+        ->Set(get_srv(screen));
+    render_context->CommitShaderResources(
+        *gpu_.mode_a_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  }
 
   // ════════════════════════════════════════════
   // Phase 4: Anime4K_Enhance(DoG) on upscaled result

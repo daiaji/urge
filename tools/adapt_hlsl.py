@@ -148,7 +148,12 @@ def adapt(src: str, pass_index: int = 0) -> str:
         if out_var:
             nl = re.sub(r'(?<!\w)' + re.escape(out_var) + r'(?!\w)', 'PSOut.Color', nl)
         if param_field:
-            nl = re.sub(r'(?<!\w)' + re.escape(param_field) + r'(?!\w)', 'u_InputPt', nl)
+            # Depth-to-space: uv * _pt → should be uv * u_InputSize
+            # Detect: frac(uv * _field) pattern → use u_InputSize instead
+            if re.search(r'frac\s*\(\s*uv\s*\*\s*' + re.escape(param_field) + r'\s*\)', nl):
+                nl = re.sub(r'(?<!\\w)' + re.escape(param_field) + r'(?!\\w)', 'u_InputSize', nl)
+            else:
+                nl = re.sub(r'(?<!\\w)' + re.escape(param_field) + r'(?!\\w)', 'u_InputPt', nl)
         out.append(f'  {nl.rstrip()}')
 
     out.append('}')

@@ -2645,7 +2645,7 @@ struct PSOutput {
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float2 uv = PSIn.UV;
   {
-      float2 _9 = frac(uv * u_InputPt);
+      float2 _9 = frac(uv * u_InputSize);
       int2 _25 = int2(_9 * 2.0f.xx);
       float _32 = u_Texture.Sample(u_Texture_sampler, ((0.5f.xx - _9) * u_InputPt) + uv)[(_25.y * 2) + _25.x];
       float _61 = _32;
