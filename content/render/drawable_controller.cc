@@ -4,6 +4,8 @@
 
 #include "content/render/drawable_controller.h"
 
+#include <atomic>
+
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 
 namespace content {
@@ -11,7 +13,7 @@ namespace content {
 ///////////////////////////////////////////////////////////////////////////////
 // SortKey Implement
 
-static int64_t g_creation_stamp = 0;
+static std::atomic<int64_t> g_creation_stamp = 0;
 
 SortKey::SortKey() : weight{0, 0, ++g_creation_stamp} {}
 

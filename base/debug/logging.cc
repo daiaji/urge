@@ -6,6 +6,9 @@
 #include "base/debug/logging.h"
 
 #include <stdio.h>
+#include <cstdlib>
+
+#include "base/debug/crash_handler.h"
 
 #if defined(OS_WIN)
 #include <windows.h>
@@ -24,6 +27,8 @@ namespace base {
 namespace logging {
 
 spdlog::logger* g_logger = nullptr;
+spdlog::logger* g_console_logger = nullptr;
+std::function<LogCallback> g_log_callback;
 
 namespace {
 
@@ -187,23 +192,44 @@ LogMessage::LogMessage(const char* file,
 }
 
 LogMessage::~LogMessage() {
+  std::string msg = stream_.str();
+
   switch (severity_) {
     default:
     case LOG_INFO:
-      g_logger->info(stream_.str());
+      g_logger->info(msg);
       break;
     case LOG_WARNING:
-      g_logger->warn(stream_.str());
+      g_logger->warn(msg);
       break;
     case LOG_ERROR:
-      stream_ << "\nFile: " << file_ << " Line: " << line_;
-      g_logger->error(stream_.str());
+      msg += "\nFile: ";
+      msg += file_;
+      msg += " Line: ";
+      msg += std::to_string(line_);
+      g_logger->error(msg);
+      fflush(NULL);
       break;
     case LOG_FATAL:
-      stream_ << "\nFile: " << file_ << " Line: " << line_;
-      g_logger->critical(stream_.str());
+      msg += "\nFile: ";
+      msg += file_;
+      msg += " Line: ";
+      msg += std::to_string(line_);
+      g_logger->critical(msg);
+      fflush(NULL);
+      abort();
       break;
   }
+
+  if (g_log_callback)
+    g_log_callback(msg, severity_);
+
+  // Feed into crash-safe ring buffer
+  base::debug::AppendCrashLog(msg.data(), msg.size());
+
+  // Clear callback on FATAL to prevent use-after-free during abort
+  if (severity_ == LOG_FATAL)
+    g_log_callback = nullptr;
 }
 
 #if defined(OS_WIN)
@@ -274,6 +300,19 @@ ErrnoLogMessage::~ErrnoLogMessage() {
 
 void InitWithLogger(spdlog::logger* logger) {
   g_logger = logger;
+}
+
+void SetLogCallback(std::function<LogCallback> callback) {
+  g_log_callback = std::move(callback);
+}
+
+void InitConsoleLogger(spdlog::logger* logger) {
+  g_console_logger = logger;
+}
+
+void ConsoleLog(const std::string& message) {
+  if (g_console_logger)
+    g_console_logger->info(message);
 }
 
 }  // namespace logging

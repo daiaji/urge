@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,9 @@
 #include "renderer/device/render_device.h"
 #include "renderer/resource/render_buffer.h"
 #include "ui/widget/widget.h"
+
+#include "base/debug/crash_handler.h"
+#include "base/debug/logging.h"
 
 namespace content {
 
@@ -57,23 +61,36 @@ struct ExecutionContext {
 
   // Console overlay state (shared between content runner and Ruby bindings)
   struct {
+    enum { kMaxOutputLines = 2000 };
+
     std::vector<std::string> output;
+    std::mutex output_mutex;
     bool show = false;
     bool scroll_to_bottom = false;
-    FILE* log_file = nullptr;
-    std::function<void(const std::string&)> on_message;
 
+    // Push a user-facing message to the console overlay + console log.
+    // Writes to: ImGui overlay + Console.log (file) + stdout (terminal)
     void Push(const std::string& line) {
-      output.push_back(line);
-      fprintf(stdout, "%s\n", line.c_str());
-      fflush(stdout);
-      if (log_file) {
-        fprintf(log_file, "%s\n", line.c_str());
-        fflush(log_file);
-      }
-      if (on_message)
-        on_message(line);
+      PushOutput(line);
+      base::debug::AppendCrashLog(line.data(), line.size());
+      base::logging::ConsoleLog(line);
     }
+
+    // Push a log message to the ImGui console overlay only.
+    // Called from LogMessage callback with already-formatted message.
+    void PushLog(const std::string& line) {
+      PushOutput(line);
+    }
+
+   private:
+    void PushOutput(const std::string& line) {
+      std::lock_guard<std::mutex> lock(output_mutex);
+      output.push_back(line);
+      if (output.size() > kMaxOutputLines)
+        output.erase(output.begin());
+    }
+
+   public:
   } console;
 
   // Ruby eval callback (set by MRI binding, called from content runner console)

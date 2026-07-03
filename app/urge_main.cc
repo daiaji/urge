@@ -20,6 +20,7 @@
 #include "content/canvas/font_context.h"
 #include "content/profile/i18n_profile.h"
 #include "content/worker/content_runner.h"
+#include "base/debug/crash_handler.h"
 #include "ui/widget/widget.h"
 
 #if HAVE_ARB_ENCRYPTO_SUPPORT
@@ -229,7 +230,26 @@ int main(int argc, char* argv[]) {
 #endif
 
   spdlog::logger logger_sink("urgecore", logger_sinks.begin(), logger_sinks.end());
+  logger_sink.flush_on(spdlog::level::info);
   base::logging::InitWithLogger(&logger_sink);
+
+  // Open crash-safe log file and install signal handlers
+  base::debug::OpenCrashLogFile("crash.log");
+  base::debug::InstallCrashHandlers();
+
+  // Create console logger (user-facing output: Console.log + terminal)
+  {
+    auto console_file_sink =
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Console.log", true);
+    console_file_sink->set_pattern("[%^%l%$] %v");
+    auto console_stdout_sink =
+        std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    console_stdout_sink->set_pattern("[%^%l%$] %v");
+    static spdlog::logger console_logger("console",
+                                         {console_stdout_sink, console_file_sink});
+    console_logger.flush_on(spdlog::level::info);
+    base::logging::InitConsoleLogger(&console_logger);
+  }
 
   LOG(INFO) << "[App] Current Path: "
             << reinterpret_cast<const char*>(current_path.c_str());

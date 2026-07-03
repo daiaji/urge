@@ -175,6 +175,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <functional>
 #include <sstream>
 #include <string>
 
@@ -573,7 +574,7 @@ const LogSeverity LOG_DCHECK = LOG_INFO;
 #define DCHECK_GE(val1, val2) DCHECK_OP(GE, >=, val1, val2)
 #define DCHECK_GT(val1, val2) DCHECK_OP(GT, >, val1, val2)
 
-#define NOTREACHED() DCHECK(false)
+#define NOTREACHED() CHECK(false) << "NOTREACHED"
 
 // Redefine the standard assert to use our nice log files
 #undef assert
@@ -711,6 +712,17 @@ class ErrnoLogMessage {
 #endif  // OS_WIN
 
 void InitWithLogger(spdlog::logger* logger);
+
+// Initialize a separate logger for console/user-facing output.
+void InitConsoleLogger(spdlog::logger* logger);
+// Log a message to the console logger (file + terminal).
+void ConsoleLog(const std::string& message);
+
+// Callback invoked for every log message at the LogMessage level.
+// Called AFTER the message has been dispatched to spdlog.
+// Severity uses the same values as LogSeverity (LOG_INFO = 0, etc.)
+using LogCallback = void(const std::string& message, LogSeverity severity);
+void SetLogCallback(std::function<LogCallback> callback);
 
 }  // namespace logging
 }  // namespace base
