@@ -279,6 +279,10 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetBoolean("Renderer", "WinResizable", win_resizable);
   fixed_aspect_ratio =
       reader->GetBoolean("Renderer", "FixedAspectRatio", fixed_aspect_ratio);
+  mode_a_auto_fit =
+      reader->GetBoolean("Renderer", "ModeAAutoFit", mode_a_auto_fit);
+  udl_auto_fit =
+      reader->GetBoolean("Renderer", "UDLAutoFit", udl_auto_fit);
 
   // Font
   font_scale = reader->GetFloat("Engine", "FontScale", font_scale);
@@ -287,6 +291,7 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetInteger("Engine", "FontHinting", font_hinting);
   font_outline_crop =
       reader->GetBoolean("Engine", "FontOutlineCrop", font_outline_crop);
+  save_log = reader->GetBoolean("Engine", "SaveLog", save_log);
 
   {
     std::string subs_line = reader->Get("Engine", "FontSubs", "");
@@ -343,6 +348,8 @@ void ContentProfile::SaveConfigure() {
     fprintf(fp, "FontHinting=%d\n", font_hinting);
   if (font_outline_crop != true)
     fprintf(fp, "FontOutlineCrop=%s\n", font_outline_crop ? "true" : "false");
+  if (save_log != true)
+    fprintf(fp, "SaveLog=%s\n", save_log ? "true" : "false");
   fprintf(fp, "\n[Audio]\n");
   if (audio_volume != 1.0f)
     fprintf(fp, "Volume=%.2f\n", audio_volume);
@@ -408,6 +415,10 @@ void ContentProfile::SaveConfigure() {
     fprintf(fp, "WinResizable=%s\n", win_resizable ? "true" : "false");
   if (fixed_aspect_ratio != true)
     fprintf(fp, "FixedAspectRatio=%s\n", fixed_aspect_ratio ? "true" : "false");
+  if (mode_a_auto_fit != false)
+    fprintf(fp, "ModeAAutoFit=%s\n", mode_a_auto_fit ? "true" : "false");
+  if (udl_auto_fit != false)
+    fprintf(fp, "UDLAutoFit=%s\n", udl_auto_fit ? "true" : "false");
   fprintf(fp, "\n[GUI]\n");
   if (disable_settings != false)
     fprintf(fp, "DisableSettings=%s\n", disable_settings ? "true" : "false");
@@ -460,6 +471,8 @@ void ContentProfile::ResetRendererDefaults() {
   sync_to_refresh_rate = false;
   win_resizable = true;
   fixed_aspect_ratio = true;
+  mode_a_auto_fit = false;
+  udl_auto_fit = false;
 }
 
 }  // namespace content

@@ -96,34 +96,30 @@ void RenderScreenImpl::CreateButtonGUISettings() {
 
     // VSync
     bool vsync_enabled = settings_profile.vsync != 0;
-    if (ImGui::Checkbox(
-            context()
-                ->i18n_profile->GetI18NString(IDS_GRAPHICS_VSYNC, "VSync")
-                .c_str(),
-            &vsync_enabled)) {
-      settings_profile.vsync = vsync_enabled ? 1 : 0;
-      context()->engine_profile->MarkDirty();
-    }
+    ImGui::Checkbox(
+        context()
+            ->i18n_profile->GetI18NString(IDS_GRAPHICS_VSYNC, "VSync")
+            .c_str(),
+        &vsync_enabled);
+    settings_profile.vsync = vsync_enabled ? 1 : 0;
+    context()->engine_profile->MarkDirty();
+
     // Frame Rate
-    int32_t frame_rate_tmp = static_cast<int32_t>(frame_rate_);
+    static int32_t frame_rate_tmp = static_cast<int32_t>(frame_rate_);
     frame_rate_tmp = unlimited_fps_ ? 0 : static_cast<int32_t>(frame_rate_);
-    if (ImGui::SliderInt(
-            context()
-                ->i18n_profile
-                ->GetI18NString(IDS_GRAPHICS_FRAME_RATE, "Frame Rate")
-                .c_str(),
-            &frame_rate_tmp, 0, 360)) {
-      settings_profile.frame_rate = frame_rate_tmp;
-      if (frame_rate_tmp == 0) {
-        unlimited_fps_ = true;
-        limiter_.SetDisabled(true);
-      } else {
-        unlimited_fps_ = false;
-        frame_rate_ = static_cast<uint32_t>(frame_rate_tmp);
-        limiter_.SetDisabled(false);
-        limiter_.SetFrameRate(frame_rate_);
-      }
-      context()->engine_profile->MarkDirty();
+    ImGui::SliderInt(
+        context()
+            ->i18n_profile->GetI18NString(IDS_GRAPHICS_FRAME_RATE, "Frame Rate")
+            .c_str(),
+        &frame_rate_tmp, 0, 360);
+    if (frame_rate_tmp == 0 && !unlimited_fps_) {
+      unlimited_fps_ = true;
+      limiter_.SetDisabled(true);
+    } else if (frame_rate_tmp > 0) {
+      unlimited_fps_ = false;
+      frame_rate_ = static_cast<uint32_t>(frame_rate_tmp);
+      limiter_.SetDisabled(false);
+      limiter_.SetFrameRate(frame_rate_);
     }
 
     // Keep Ratio
@@ -174,7 +170,8 @@ void RenderScreenImpl::CreateButtonGUISettings() {
     ImGui::Text("Scaling Algorithm");
     const char* scaling_items[] = {"Bilinear", "Nearest",
                                    "Lanczos3", "Bicubic",
-                                   "Anime4K", "Anime4K+Sobel"};
+                                   "Anime4K", "Anime4K+Sobel",
+                                   "Anime4K Mode A", "Anime4K Denoise L"};
     if (ImGui::Combo("##scaling_mode", &settings_profile.scaling_mode,
                  scaling_items, IM_ARRAYSIZE(scaling_items)))
       context()->engine_profile->MarkDirty();
@@ -197,6 +194,66 @@ void RenderScreenImpl::CreateButtonGUISettings() {
         context()->engine_profile->MarkDirty();
     }
 
+    if (settings_profile.scaling_mode == 6) {
+      ImGui::TextDisabled("Clamp->Restore CNN->Upscale CNN->DoG");
+      ImGui::SameLine();
+      ImGui::TextDisabled("(20-pass)");
+
+      if (ImGui::Checkbox("Auto-fit Window", &settings_profile.mode_a_auto_fit))
+        context()->engine_profile->MarkDirty();
+
+      if (settings_profile.mode_a_auto_fit) {
+        ImGui::SameLine();
+        if (ImGui::Button("Apply##autofit")) {
+          auto native = context()->resolution;
+          SDL_Window* win = context()->window->AsSDLWindow();
+          int display = SDL_GetDisplayForWindow(win);
+          SDL_Rect bounds;
+          SDL_GetDisplayBounds(display, &bounds);
+          // Mode A outputs at 2x native; use largest even multiplier that fits
+          int max_factor = std::min(bounds.w / native.x, bounds.h / native.y);
+          if (max_factor < 2) max_factor = 2;
+          // Round down to nearest even number
+          int factor = (max_factor / 2) * 2;
+          int w = native.x * factor;
+          int h = native.y * factor;
+          SDL_SetWindowSize(win, w, h);
+          int cx = bounds.x + (bounds.w - w) / 2;
+          int cy = bounds.y + (bounds.h - h) / 2;
+          SDL_SetWindowPosition(win, cx, cy);
+        }
+      }
+    }
+
+    if (settings_profile.scaling_mode == 7) {
+      ImGui::TextDisabled("Conv-4x3x3x3>Conv-4x3x3x16x2>D2S");
+      ImGui::SameLine();
+      ImGui::TextDisabled("(4-pass)");
+
+      if (ImGui::Checkbox("Auto-fit Window", &settings_profile.udl_auto_fit))
+        context()->engine_profile->MarkDirty();
+
+      if (settings_profile.udl_auto_fit) {
+        ImGui::SameLine();
+        if (ImGui::Button("Apply##udlautofit")) {
+          auto native = context()->resolution;
+          SDL_Window* win = context()->window->AsSDLWindow();
+          int display = SDL_GetDisplayForWindow(win);
+          SDL_Rect bounds;
+          SDL_GetDisplayBounds(display, &bounds);
+          int max_factor = std::min(bounds.w / native.x, bounds.h / native.y);
+          if (max_factor < 2) max_factor = 2;
+          int factor = (max_factor / 2) * 2;
+          int w = native.x * factor;
+          int h = native.y * factor;
+          SDL_SetWindowSize(win, w, h);
+          int cx = bounds.x + (bounds.w - w) / 2;
+          int cy = bounds.y + (bounds.h - h) / 2;
+          SDL_SetWindowPosition(win, cx, cy);
+        }
+      }
+    }
+
     // CAS sharpening
     if (ImGui::Checkbox("CAS Sharpen", &settings_profile.cas_enabled))
       context()->engine_profile->MarkDirty();
@@ -208,7 +265,7 @@ void RenderScreenImpl::CreateButtonGUISettings() {
     }
 
     ImGui::Separator();
-    if (ImGui::Button("Reset")) {
+    if (ImGui::Button("Reset##settings")) {
       context()->engine_profile->ResetRendererDefaults();
       frame_rate_ = context()->engine_profile->frame_rate;
       unlimited_fps_ = frame_rate_ == 0;
@@ -734,6 +791,22 @@ void RenderScreenImpl::GPUCreateGraphicsHostInternal() {
       context()->render.pipeline_loader->anime4k_enhance.CreateBinding();
   gpu_.cas_binding =
       context()->render.pipeline_loader->cas.CreateBinding();
+  gpu_.mode_a_binding =
+      context()->render.pipeline_loader->anime4k_clamp_hl_pass0.CreateBinding();
+  gpu_.mode_a_restore_merge_binding =
+      context()->render.pipeline_loader->anime4k_restore_pass7.CreateBinding();
+  gpu_.mode_a_upscale_merge_binding =
+      context()->render.pipeline_loader->anime4k_upscale_pass7.CreateBinding();
+  gpu_.mode_a_upscale_d2s_binding =
+      context()->render.pipeline_loader->anime4k_upscale_pass8.CreateBinding();
+
+  // Create UDL bindings
+  gpu_.udl_pass0_binding =
+      context()->render.pipeline_loader->anime4k_udl_pass0.CreateBinding();
+  gpu_.udl_pass1_binding =
+      context()->render.pipeline_loader->anime4k_udl_pass1.CreateBinding();
+  gpu_.udl_pass3_binding =
+      context()->render.pipeline_loader->anime4k_udl_pass3.CreateBinding();
 
   // Create upscale params buffer (dynamic, no initial data)
   Diligent::CreateUniformBuffer(
@@ -822,6 +895,8 @@ void RenderScreenImpl::GPUResetScreenBufferInternal() {
 
 void RenderScreenImpl::GPURecreateUpscaleBufferInternal() {
   auto* swapchain = context()->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
   base::Vec2i window_size(swapchain->GetDesc().Width,
                           swapchain->GetDesc().Height);
 
@@ -840,7 +915,12 @@ void RenderScreenImpl::GPURecreateUpscaleBufferInternal() {
 }
 
 void RenderScreenImpl::GPURecreateAnime4KTargetsInternal() {
-  auto res = context()->resolution;
+  GPURecreateAnime4KTargetsInternal(context()->resolution);
+}
+
+void RenderScreenImpl::GPURecreateAnime4KTargetsInternal(
+    const base::Vec2i& size) {
+  auto res = size;
 
   auto recreate = [&](RRefPtr<Diligent::ITexture>& tex, const char* name,
                       Diligent::TEXTURE_FORMAT fmt) {
@@ -864,6 +944,8 @@ void RenderScreenImpl::GPURecreateAnime4KTargetsInternal() {
 
 void RenderScreenImpl::GPURecreateSharpenedBufferInternal() {
   auto* swapchain = context()->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
   base::Vec2i window_size(swapchain->GetDesc().Width,
                           swapchain->GetDesc().Height);
 
@@ -879,6 +961,415 @@ void RenderScreenImpl::GPURecreateSharpenedBufferInternal() {
       **context()->render_device, &gpu_.sharpened_buffer,
       "screen.cas.buffer", window_size, Diligent::USAGE_DEFAULT,
       Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
+}
+
+void RenderScreenImpl::GPURecreateModeATargetsInternal() {
+  auto res = context()->resolution;  // 640×480
+
+  auto recreate = [&](RRefPtr<Diligent::ITexture>& tex, const char* name,
+                      base::Vec2i size, Diligent::TEXTURE_FORMAT fmt) {
+    if (tex) {
+      const auto& d = tex->GetDesc();
+      if (d.Width == static_cast<uint32_t>(size.x) &&
+          d.Height == static_cast<uint32_t>(size.y) && d.Format == fmt)
+        return;
+    }
+    tex.Release();
+    renderer::CreateTexture2D(**context()->render_device, &tex, name, size,
+                              Diligent::USAGE_DEFAULT,
+                              Diligent::BIND_RENDER_TARGET |
+                                  Diligent::BIND_SHADER_RESOURCE,
+                              Diligent::CPU_ACCESS_NONE, fmt);
+  };
+
+  recreate(gpu_.mode_a_tex0, "anime4k_a.tex0", res,
+           Diligent::TEX_FORMAT_RGBA8_UNORM);
+  recreate(gpu_.mode_a_tex1, "anime4k_a.tex1", res,
+           Diligent::TEX_FORMAT_RGBA8_UNORM);
+  // 2x upscale target
+  recreate(gpu_.mode_a_tex2, "anime4k_a.tex2", res * 2,
+           Diligent::TEX_FORMAT_RGBA8_UNORM);
+  recreate(gpu_.mode_a_tex3, "anime4k_a.tex3", res * 2,
+           Diligent::TEX_FORMAT_RGBA8_UNORM);
+
+  // Restore CNN intermediate layers (7 textures for merge pass)
+  auto& rt = gpu_.mode_a_restore_tex;
+  if (rt.size() != 7) {
+    rt.resize(7);
+    for (int i = 0; i < 7; i++) {
+      char name[32];
+      std::snprintf(name, sizeof(name), "anime4k_a.restore_%d", i);
+      rt[i].Release();
+      renderer::CreateTexture2D(**context()->render_device, &rt[i], name,
+                                res, Diligent::USAGE_DEFAULT,
+                                Diligent::BIND_RENDER_TARGET |
+                                    Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::CPU_ACCESS_NONE,
+                                Diligent::TEX_FORMAT_RGBA8_UNORM);
+    }
+  }
+}
+
+// Forward declarations for static helpers defined below
+static void SetAnime4KScissorAndViewport(Diligent::IDeviceContext* ctx,
+                                         const base::Vec2i& size);
+static void DrawScalingQuad(renderer::QuadBatch& quads,
+                            Diligent::IDeviceContext* ctx,
+                            Diligent::IBuffer* quad_index,
+                            Diligent::VALUE_TYPE index_type);
+static void WriteScalingParams(Diligent::IDeviceContext* ctx,
+                               Diligent::IBuffer* buf,
+                               const renderer::Binding_Upscale::ScalingParams& params);
+
+void RenderScreenImpl::GPURunModeAPassesInternal(
+    Diligent::IDeviceContext* render_context) {
+  auto& states = *context()->render.pipeline_states;
+
+  // Check all PSOs used across all phases
+  auto check_pso = [](Diligent::IPipelineState* pso) { return pso != nullptr; };
+  if (!check_pso(states.anime4k_clamp_hl_pass0) ||
+      !check_pso(states.anime4k_clamp_hl_pass1) ||
+      !check_pso(states.anime4k_clamp_hl_pass2) ||
+      !check_pso(states.anime4k_restore_pass0) ||
+      !check_pso(states.anime4k_restore_pass1) ||
+      !check_pso(states.anime4k_restore_pass2) ||
+      !check_pso(states.anime4k_restore_pass3) ||
+      !check_pso(states.anime4k_restore_pass4) ||
+      !check_pso(states.anime4k_restore_pass5) ||
+      !check_pso(states.anime4k_restore_pass6) ||
+      !check_pso(states.anime4k_restore_pass7) ||
+      !check_pso(states.anime4k_upscale_pass0) ||
+      !check_pso(states.anime4k_upscale_pass1) ||
+      !check_pso(states.anime4k_upscale_pass2) ||
+      !check_pso(states.anime4k_upscale_pass3) ||
+      !check_pso(states.anime4k_upscale_pass4) ||
+      !check_pso(states.anime4k_upscale_pass5) ||
+      !check_pso(states.anime4k_upscale_pass6) ||
+      !check_pso(states.anime4k_upscale_pass7) ||
+      !check_pso(states.anime4k_upscale_pass8) ||
+      !check_pso(states.anime4k_enhance))
+    return;
+
+  // Check bindings
+  if (!gpu_.mode_a_binding.u_texture || !gpu_.mode_a_binding.u_params ||
+      !gpu_.mode_a_restore_merge_binding.u_texture ||
+      !gpu_.mode_a_restore_merge_binding.u_texture1 ||
+      !gpu_.mode_a_upscale_merge_binding.u_texture1 ||
+      !gpu_.mode_a_upscale_merge_binding.u_params ||
+      !gpu_.mode_a_upscale_d2s_binding.u_texture ||
+      !gpu_.mode_a_upscale_d2s_binding.u_params ||
+      !gpu_.anime4k_enhance_binding.u_texture ||
+      !gpu_.anime4k_enhance_binding.u_params)
+    return;
+
+  // Check screen buffer and params buffer (not covered by PSO/binding checks)
+  if (!gpu_.screen_buffer || !gpu_.upscale_params_buffer)
+    return;
+
+  GPURecreateModeATargetsInternal();
+  if (!gpu_.mode_a_tex0 || !gpu_.mode_a_tex1 || !gpu_.mode_a_tex2 ||
+      !gpu_.mode_a_tex3)
+    return;
+
+  // Check restore intermediate textures
+  auto& rt_check = gpu_.mode_a_restore_tex;
+  if (rt_check.size() < 7)
+    return;
+  for (auto& tex : rt_check) {
+    if (!tex)
+      return;
+  }
+
+
+  auto* profile = context()->engine_profile;
+  auto native = context()->resolution;
+  auto upscaled = native * 2;
+  auto* quad_index = **context()->render.quad_index;
+  auto index_type = context()->render.quad_index->GetIndexType();
+
+  auto& loader = *context()->render.pipeline_loader;
+  // states already declared above
+
+  // Helper: set viewport for given size
+  auto set_viewport = [&](const base::Vec2i& size) {
+    SetAnime4KScissorAndViewport(render_context, size);
+  };
+
+  // Helper: get RTV from texture
+  auto get_rtv = [](RRefPtr<Diligent::ITexture>& tex) {
+    return tex->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+  };
+  auto get_srv = [](RRefPtr<Diligent::ITexture>& tex) {
+    return tex->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+  };
+
+  // Helper: clear and set RT, draw a single-texture pass
+  auto run_pass = [&](Diligent::IPipelineState* pso,
+                       RRefPtr<Diligent::ITexture>& out_tex,
+                       RRefPtr<Diligent::ITexture>& in_tex,
+                       const base::Vec2i& viewport_size,
+                       bool clear = false) {
+    auto* rtv = get_rtv(out_tex);
+    render_context->SetRenderTargets(
+        1, &rtv, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    if (clear) {
+      float clr[] = {0, 0, 0, 0};
+      render_context->ClearRenderTarget(
+          rtv, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
+    set_viewport(viewport_size);
+
+    render_context->SetPipelineState(pso);
+    gpu_.mode_a_binding.u_texture->Set(get_srv(in_tex));
+    gpu_.mode_a_binding.u_params->Set(gpu_.upscale_params_buffer);
+
+    render_context->CommitShaderResources(
+        *gpu_.mode_a_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  };
+
+  // Helper: write scaling params
+  auto write_params = [&](const renderer::Binding_Upscale::ScalingParams& p) {
+    WriteScalingParams(render_context, gpu_.upscale_params_buffer.RawPtr(), p);
+  };
+
+  // ── Chain setup ──
+  // tex0, tex1: 640×480 ping-pong
+  // screen_buffer: original game render
+  // tex2: 1280×960 upscale target
+  auto& tex0 = gpu_.mode_a_tex0;
+  auto& tex1 = gpu_.mode_a_tex1;
+  auto& tex2 = gpu_.mode_a_tex2;
+  auto& screen = gpu_.screen_buffer;
+
+  // Scaling params for native (1:1)
+  renderer::Binding_Upscale::ScalingParams native_params;
+  native_params.input_size = native.Recast<float>();
+  native_params.output_size = native.Recast<float>();
+  native_params.input_pt = base::Vec2(1.0f / native.x, 1.0f / native.y);
+  native_params.output_pt = base::Vec2(1.0f / native.x, 1.0f / native.y);
+  native_params.mode = 0;
+  native_params.bicubic_c = profile->scaling_darken_strength;
+
+  // Scaling params for 2x upscale
+  renderer::Binding_Upscale::ScalingParams upscale_params;
+  upscale_params.input_size = native.Recast<float>();
+  upscale_params.output_size = upscaled.Recast<float>();
+  upscale_params.input_pt = base::Vec2(1.0f / native.x, 1.0f / native.y);
+  upscale_params.output_pt = base::Vec2(1.0f / upscaled.x, 1.0f / upscaled.y);
+  upscale_params.mode = 0;
+
+  write_params(native_params);
+
+  // ════════════════════════════════════════════
+  // Phase 1: Clamp_Highlights (3 passes × 640×480)
+  // ════════════════════════════════════════════
+  // Pass 0: horiz stats → tex0 (read from screen)
+  run_pass(states.anime4k_clamp_hl_pass0, tex0, screen, native, true);
+  // Pass 1: vert stats → tex1 (single texture, reads from tex0)
+  run_pass(states.anime4k_clamp_hl_pass1, tex1, tex0, native);
+
+  // Pass 2: clamp → tex0 (u_Texture = STATSMAX from tex1, u_Texture1 = HOOKED from screen)
+  {
+    auto* rtv = get_rtv(tex0);
+    render_context->SetRenderTargets(
+        1, &rtv, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    set_viewport(native);
+    render_context->SetPipelineState(states.anime4k_clamp_hl_pass2);
+    gpu_.mode_a_binding.u_texture->Set(get_srv(tex1));
+    gpu_.mode_a_binding.u_params->Set(gpu_.upscale_params_buffer);
+    auto* u_tex1_hooked = (*gpu_.mode_a_binding)
+        ->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
+    if (u_tex1_hooked)
+      u_tex1_hooked->Set(get_srv(screen));
+    render_context->CommitShaderResources(
+        *gpu_.mode_a_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  }
+
+  // ════════════════════════════════════════════
+  // Phase 2: Restore_CNN (8 passes × 640×480)
+  // ════════════════════════════════════════════
+  // Each conv pass writes to a unique intermediate texture (restore_tex[0..5])
+  // so that the merge pass (pass7) can read from all 7 intermediate layers.
+  // Input: tex0 (clamped output), output: tex0
+
+  // Ensure intermediate textures exist
+  auto& rt = gpu_.mode_a_restore_tex;
+  if (rt.size() < 7)
+    GPURecreateModeATargetsInternal();
+
+  // Pass 0: Conv-4x3x3x3 → restore_tex[0] (conv2d_tf)
+  run_pass(states.anime4k_restore_pass0, rt[0], tex0, native);
+
+  // Passes 1-6: Conv-4x3x3x8 → restore_tex[1..6]
+  for (int pi = 0; pi < 6; pi++) {
+    Diligent::IPipelineState* pso = nullptr;
+    switch (pi) {
+      case 0: pso = states.anime4k_restore_pass1; break;
+      case 1: pso = states.anime4k_restore_pass2; break;
+      case 2: pso = states.anime4k_restore_pass3; break;
+      case 3: pso = states.anime4k_restore_pass4; break;
+      case 4: pso = states.anime4k_restore_pass5; break;
+      case 5: pso = states.anime4k_restore_pass6; break;
+    }
+    auto& prev = (pi == 0) ? rt[0] : rt[pi];
+    run_pass(pso, rt[pi + 1], prev, native);
+  }
+
+  // Pass 7: Merge - reads 8 textures (screen + 7 intermediate layers)
+  // u_Texture = screen (residual), u_Texture1..7 = rt[0..6]
+  {
+    auto* rtv = get_rtv(tex0);
+    render_context->SetRenderTargets(
+        1, &rtv, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    float clr[] = {0, 0, 0, 0};
+    render_context->ClearRenderTarget(
+        rtv, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    set_viewport(native);
+
+    render_context->SetPipelineState(states.anime4k_restore_pass7);
+    gpu_.mode_a_restore_merge_binding.u_texture->Set(get_srv(screen));
+    gpu_.mode_a_restore_merge_binding.u_texture1->Set(get_srv(rt[0]));
+    gpu_.mode_a_restore_merge_binding.u_texture2->Set(get_srv(rt[1]));
+    gpu_.mode_a_restore_merge_binding.u_texture3->Set(get_srv(rt[2]));
+    gpu_.mode_a_restore_merge_binding.u_texture4->Set(get_srv(rt[3]));
+    gpu_.mode_a_restore_merge_binding.u_texture5->Set(get_srv(rt[4]));
+    gpu_.mode_a_restore_merge_binding.u_texture6->Set(get_srv(rt[5]));
+    gpu_.mode_a_restore_merge_binding.u_texture7->Set(get_srv(rt[6]));
+    gpu_.mode_a_restore_merge_binding.u_params->Set(gpu_.upscale_params_buffer);
+    render_context->CommitShaderResources(
+        *gpu_.mode_a_restore_merge_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  }
+
+  // ════════════════════════════════════════════
+  // Phase 3: Upscale_CNN_x2 (9 passes → 1280×960)
+  // ════════════════════════════════════════════
+  // Pass 0-6: 7 conv passes at native res, each writes to a unique
+  //   intermediate texture (reuse mode_a_restore_tex[0..6]).
+  // Pass 7: merge – reads 7 intermediate textures (u_Texture1..u_Texture7),
+  //   writes to tex1 at native res.
+  // Pass 8: depth-to-space – reads merge output (tex1) + screen residual,
+  //   writes 2× result to tex2.
+
+  // Pass 0: read from tex0 (restored output), write to rt[0]
+  write_params(native_params);
+  run_pass(states.anime4k_upscale_pass0, rt[0], tex0, native);
+
+  // Passes 1-6: read from previous intermediate, write to next
+  Diligent::IPipelineState* upscale_conv_psos[] = {
+      states.anime4k_upscale_pass1,
+      states.anime4k_upscale_pass2,
+      states.anime4k_upscale_pass3,
+      states.anime4k_upscale_pass4,
+      states.anime4k_upscale_pass5,
+      states.anime4k_upscale_pass6,
+  };
+  for (int upi = 0; upi < 6; upi++) {
+    run_pass(upscale_conv_psos[upi], rt[upi + 1], rt[upi], native);
+  }
+
+  // Pass 7: Merge – reads 7 intermediate layers → tex1 at native res
+  // No u_Texture (screen residual) – upscale merge only uses intermediate layers
+  {
+    write_params(native_params);
+    auto* rtv_m = get_rtv(tex1);
+    render_context->SetRenderTargets(
+        1, &rtv_m, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    float clr[] = {0, 0, 0, 0};
+    render_context->ClearRenderTarget(
+        rtv_m, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    set_viewport(native);
+
+    render_context->SetPipelineState(states.anime4k_upscale_pass7);
+    gpu_.mode_a_upscale_merge_binding.u_texture1->Set(get_srv(rt[0]));
+    gpu_.mode_a_upscale_merge_binding.u_texture2->Set(get_srv(rt[1]));
+    gpu_.mode_a_upscale_merge_binding.u_texture3->Set(get_srv(rt[2]));
+    gpu_.mode_a_upscale_merge_binding.u_texture4->Set(get_srv(rt[3]));
+    gpu_.mode_a_upscale_merge_binding.u_texture5->Set(get_srv(rt[4]));
+    gpu_.mode_a_upscale_merge_binding.u_texture6->Set(get_srv(rt[5]));
+    gpu_.mode_a_upscale_merge_binding.u_texture7->Set(get_srv(rt[6]));
+    gpu_.mode_a_upscale_merge_binding.u_params->Set(gpu_.upscale_params_buffer);
+    render_context->CommitShaderResources(
+        *gpu_.mode_a_upscale_merge_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  }
+
+  // Pass 8: Depth-to-space — reads merge output (tex1, native res) + screen,
+  //         writes 2× result to tex2.
+  // u_Texture = merge output, u_Texture1 = screen residual
+  {
+    write_params(upscale_params);
+    auto* rtv = get_rtv(tex2);
+    render_context->SetRenderTargets(
+        1, &rtv, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    float clr[] = {0, 0, 0, 0};
+    render_context->ClearRenderTarget(
+        rtv, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    set_viewport(upscaled);
+    render_context->SetPipelineState(states.anime4k_upscale_pass8);
+    gpu_.mode_a_upscale_d2s_binding.u_texture->Set(get_srv(tex1));
+    gpu_.mode_a_upscale_d2s_binding.u_params->Set(gpu_.upscale_params_buffer);
+    auto* u_tex1_residual = (*gpu_.mode_a_upscale_d2s_binding)
+        ->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
+    if (u_tex1_residual)
+      u_tex1_residual->Set(get_srv(screen));
+    render_context->CommitShaderResources(
+        *gpu_.mode_a_upscale_d2s_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  }
+
+  // ════════════════════════════════════════════
+  // Phase 4: Anime4K_Enhance(DoG) on upscaled result
+  // ════════════════════════════════════════════
+  // Read from tex2 (Pass4 d2s output), write to enhanced_tex at 2×.
+  {
+    GPURecreateAnime4KTargetsInternal(upscaled);
+    if (gpu_.enhanced_tex) {
+      auto* rtv_e = get_rtv(gpu_.enhanced_tex);
+      render_context->SetRenderTargets(
+          1, &rtv_e, nullptr,
+          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+      float clr[] = {0, 0, 0, 0};
+      render_context->ClearRenderTarget(
+          rtv_e, clr,
+          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+      set_viewport(upscaled);
+
+      // Set up DoG params
+      auto* profile_p = context()->engine_profile;
+      renderer::Binding_Upscale::ScalingParams dog_params;
+      dog_params.input_size = upscaled.Recast<float>();
+      dog_params.output_size = upscaled.Recast<float>();
+      dog_params.input_pt = base::Vec2(1.0f / upscaled.x, 1.0f / upscaled.y);
+      dog_params.output_pt = base::Vec2(1.0f / upscaled.x, 1.0f / upscaled.y);
+      dog_params.mode = 0;  // DoG mode (no Sobel)
+      dog_params.bicubic_c = profile_p->scaling_darken_strength;
+      dog_params.ar_strength = profile_p->scaling_sobel_strength;
+      dog_params.bicubic_b = profile_p->scaling_warp_strength;
+      write_params(dog_params);
+
+      render_context->SetPipelineState(states.anime4k_enhance);
+      gpu_.anime4k_enhance_binding.u_texture->Set(get_srv(tex2));
+      gpu_.anime4k_enhance_binding.u_params->Set(gpu_.upscale_params_buffer);
+      render_context->CommitShaderResources(
+          *gpu_.anime4k_enhance_binding,
+          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+      DrawScalingQuad(gpu_.scaling_quads, render_context,
+                      quad_index, index_type);
+    }
+  }
 }
 
 static void SetAnime4KScissorAndViewport(Diligent::IDeviceContext* ctx,
@@ -927,12 +1418,205 @@ static void WriteScalingParams(
     *map = params;
 }
 
+void RenderScreenImpl::GPURunUDLPassesInternal(
+    Diligent::IDeviceContext* render_context) {
+  auto& states = *context()->render.pipeline_states;
+
+  // Check PSOs
+  auto check_pso = [](Diligent::IPipelineState* pso) { return pso != nullptr; };
+  if (!check_pso(states.anime4k_udl_pass0) ||
+      !check_pso(states.anime4k_udl_pass1) ||
+      !check_pso(states.anime4k_udl_pass2) ||
+      !check_pso(states.anime4k_udl_pass3))
+    return;
+
+  // Check bindings
+  if (!gpu_.udl_pass0_binding.u_texture || !gpu_.udl_pass0_binding.u_params ||
+      !gpu_.udl_pass1_binding.u_texture || !gpu_.udl_pass1_binding.u_params ||
+      !gpu_.udl_pass3_binding.u_texture || !gpu_.udl_pass3_binding.u_texture1 ||
+      !gpu_.udl_pass3_binding.u_texture2 || !gpu_.udl_pass3_binding.u_params)
+    return;
+
+  if (!gpu_.screen_buffer || !gpu_.upscale_params_buffer)
+    return;
+
+  // Create/recreate intermediate targets
+  auto native = context()->resolution;
+  auto recreate = [&](RRefPtr<Diligent::ITexture>& tex, const char* name,
+                      base::Vec2i size) {
+    if (tex) {
+      const auto& d = tex->GetDesc();
+      if (d.Width == static_cast<uint32_t>(size.x) &&
+          d.Height == static_cast<uint32_t>(size.y))
+        return;
+    }
+    tex.Release();
+    renderer::CreateTexture2D(**context()->render_device, &tex, name, size,
+                              Diligent::USAGE_DEFAULT,
+                              Diligent::BIND_RENDER_TARGET |
+                                  Diligent::BIND_SHADER_RESOURCE,
+                              Diligent::CPU_ACCESS_NONE,
+                              Diligent::TEX_FORMAT_RGBA16_FLOAT);
+  };
+
+  recreate(gpu_.udl_tex1, "anime4k_udl.tex1", native);
+  recreate(gpu_.udl_tex2, "anime4k_udl.tex2", native);
+  recreate(gpu_.udl_tex3, "anime4k_udl.tex3", native);
+  recreate(gpu_.udl_tex4, "anime4k_udl.tex4", native);
+
+  if (!gpu_.udl_tex1 || !gpu_.udl_tex2 || !gpu_.udl_tex3 || !gpu_.udl_tex4)
+    return;
+
+  auto* quad_index = **context()->render.quad_index;
+  auto index_type = context()->render.quad_index->GetIndexType();
+
+  auto set_viewport = [&](const base::Vec2i& size) {
+    SetAnime4KScissorAndViewport(render_context, size);
+  };
+
+  auto get_rtv = [](RRefPtr<Diligent::ITexture>& tex) {
+    return tex->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+  };
+  auto get_srv = [](RRefPtr<Diligent::ITexture>& tex) {
+    return tex->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+  };
+
+  auto write_params = [&](const renderer::Binding_Upscale::ScalingParams& p) {
+    WriteScalingParams(render_context, gpu_.upscale_params_buffer.RawPtr(), p);
+  };
+
+  // Scaling params for native resolution (1:1)
+  renderer::Binding_Upscale::ScalingParams native_params;
+  native_params.input_size = native.Recast<float>();
+  native_params.output_size = native.Recast<float>();
+  native_params.input_pt = base::Vec2(1.0f / native.x, 1.0f / native.y);
+  native_params.output_pt = base::Vec2(1.0f / native.x, 1.0f / native.y);
+  native_params.mode = 0;
+  write_params(native_params);
+
+  auto& screen = gpu_.screen_buffer;
+  auto& t1 = gpu_.udl_tex1;
+  auto& t2 = gpu_.udl_tex2;
+  auto& t3 = gpu_.udl_tex3;
+  auto& t4 = gpu_.udl_tex4;
+
+  // ════════════════════════════════════════════
+  // Pass0: Conv-4x3x3x3 (screen → tex1 + tex2, MRT)
+  // ════════════════════════════════════════════
+  {
+    auto* rtv0 = get_rtv(t1);
+    auto* rtv1 = get_rtv(t2);
+    Diligent::ITextureView* rtvs[] = {rtv0, rtv1};
+    render_context->SetRenderTargets(
+        2, rtvs, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    float clr[] = {0, 0, 0, 0};
+    render_context->ClearRenderTarget(
+        rtv0, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    render_context->ClearRenderTarget(
+        rtv1, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    set_viewport(native);
+    render_context->SetPipelineState(states.anime4k_udl_pass0);
+    gpu_.udl_pass0_binding.u_texture->Set(get_srv(screen));
+    gpu_.udl_pass0_binding.u_params->Set(gpu_.upscale_params_buffer);
+    render_context->CommitShaderResources(
+        *gpu_.udl_pass0_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  }
+
+  // ════════════════════════════════════════════
+  // Pass1: Conv-4x3x3x16 (tex1 + tex2 → tex3 + tex4, MRT)
+  // ════════════════════════════════════════════
+  {
+    auto* rtv0 = get_rtv(t3);
+    auto* rtv1 = get_rtv(t4);
+    Diligent::ITextureView* rtvs[] = {rtv0, rtv1};
+    render_context->SetRenderTargets(
+        2, rtvs, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    set_viewport(native);
+    render_context->SetPipelineState(states.anime4k_udl_pass1);
+    gpu_.udl_pass1_binding.u_texture->Set(get_srv(t1));
+    gpu_.udl_pass1_binding.u_params->Set(gpu_.upscale_params_buffer);
+    auto* tex1_var = (*gpu_.udl_pass1_binding)
+        ->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
+    if (tex1_var)
+      tex1_var->Set(get_srv(t2));
+    render_context->CommitShaderResources(
+        *gpu_.udl_pass1_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  }
+
+  // ════════════════════════════════════════════
+  // Pass2: Conv-4x3x3x16 (tex3 + tex4 → tex1 + tex2, MRT)
+  // ════════════════════════════════════════════
+  {
+    auto* rtv0 = get_rtv(t1);
+    auto* rtv1 = get_rtv(t2);
+    Diligent::ITextureView* rtvs[] = {rtv0, rtv1};
+    render_context->SetRenderTargets(
+        2, rtvs, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    set_viewport(native);
+    render_context->SetPipelineState(states.anime4k_udl_pass2);
+    gpu_.udl_pass1_binding.u_texture->Set(get_srv(t3));
+    gpu_.udl_pass1_binding.u_params->Set(gpu_.upscale_params_buffer);
+    auto* tex1_var = (*gpu_.udl_pass1_binding)
+        ->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
+    if (tex1_var)
+      tex1_var->Set(get_srv(t4));
+    render_context->CommitShaderResources(
+        *gpu_.udl_pass1_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  }
+
+  // ════════════════════════════════════════════
+  // Pass3: D2S merge (screen + tex1 + tex2 → enhanced_tex, 1280×960)
+  // ════════════════════════════════════════════
+  {
+    auto upscaled = native * 2;
+    GPURecreateAnime4KTargetsInternal(upscaled);
+    if (!gpu_.enhanced_tex)
+      return;
+
+    auto* rtv = get_rtv(gpu_.enhanced_tex);
+    render_context->SetRenderTargets(
+        1, &rtv, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    // Update params for 2x output
+    renderer::Binding_Upscale::ScalingParams upscale_params;
+    upscale_params.input_size = native.Recast<float>();
+    upscale_params.output_size = upscaled.Recast<float>();
+    upscale_params.input_pt = base::Vec2(1.0f / native.x, 1.0f / native.y);
+    upscale_params.output_pt = base::Vec2(1.0f / upscaled.x, 1.0f / upscaled.y);
+    upscale_params.mode = 0;
+    write_params(upscale_params);
+
+    set_viewport(upscaled);
+    render_context->SetPipelineState(states.anime4k_udl_pass3);
+    gpu_.udl_pass3_binding.u_texture->Set(get_srv(screen));
+    gpu_.udl_pass3_binding.u_texture1->Set(get_srv(t1));
+    gpu_.udl_pass3_binding.u_texture2->Set(get_srv(t2));
+    gpu_.udl_pass3_binding.u_params->Set(gpu_.upscale_params_buffer);
+    render_context->CommitShaderResources(
+        *gpu_.udl_pass3_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+  }
+}
+
 bool RenderScreenImpl::GPUScalingPassInternal(
     Diligent::IDeviceContext* render_context) {
   if (!gpu_.upscale_buffer || !gpu_.upscale_params_buffer)
     return false;
 
   auto* swapchain = context()->render_device->GetSwapChain();
+  if (!swapchain)
+    return false;
   base::Vec2i output_size(swapchain->GetDesc().Width,
                           swapchain->GetDesc().Height);
   base::Vec2i input_size = context()->resolution;
@@ -940,9 +1624,24 @@ bool RenderScreenImpl::GPUScalingPassInternal(
   int mode = profile->scaling_mode;
   bool anime4k_active = false;
 
-  // --- Anime4K single-pass path (inline 7x7 gauss + DoG clamp) ---
-  // mode 5 = Anime4K + Sobel adaptive blend
-  if (mode == 4 || mode == 5) {
+  // --- Anime4K Mode A multi-pass path (Clamp + Restore + Upscale) ---
+  if (mode == 6) {
+    GPURunModeAPassesInternal(render_context);
+    if (gpu_.enhanced_tex)
+      anime4k_active = true;
+    // Mode A produces 2× output in enhanced_tex; existing upscale path will read from it
+    input_size = input_size * 2;
+    mode = 2;  // Lanczos3 for final upscale to window
+  } else if (mode == 7) {
+    // --- Anime4K Upscale_Denoise_L (4-pass 2x super-resolution) ---
+    GPURunUDLPassesInternal(render_context);
+    if (gpu_.enhanced_tex)
+      anime4k_active = true;
+    input_size = input_size * 2;
+    mode = 2;  // Lanczos3 for final upscale to window
+  } else if (mode == 4 || mode == 5) {
+    // --- Anime4K single-pass path (inline 7x7 gauss + DoG clamp) ---
+    // mode 5 = Anime4K + Sobel adaptive blend
     anime4k_active = true;
     GPURecreateAnime4KTargetsInternal();
     if (!gpu_.enhanced_tex)
@@ -1104,6 +1803,8 @@ void RenderScreenImpl::GPUPresentScreenBufferInternal(
     Diligent::ImGuiDiligentRenderer* gui_renderer) {
   // Initial swapchain attribute
   Diligent::ISwapChain* swapchain = context()->render_device->GetSwapChain();
+  if (!swapchain)
+    return;
   auto* render_target_view = swapchain->GetCurrentBackBufferRTV();
   auto* depth_stencil_view = swapchain->GetDepthBufferDSV();
 

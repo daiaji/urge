@@ -311,6 +311,21 @@ class Binding_CuNNy_Out : public RenderBindingBase {
   Binding_CuNNy_Out(ShaderBinding* binding);
 };
 
+// Anime4K UDL: D2S pass binding (3 textures + params)
+class Binding_UDL_D2S : public RenderBindingBase {
+ public:
+  Binding_UDL_D2S() = default;
+
+  RRefPtr<ShaderVariable> u_texture;   // INPUT (screen, bilinear)
+  RRefPtr<ShaderVariable> u_texture1;  // tex1 (point)
+  RRefPtr<ShaderVariable> u_texture2;  // tex2 (point)
+  RRefPtr<ShaderVariable> u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_UDL_D2S(ShaderBinding* binding);
+};
+
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_RENDER_BINDING_H_

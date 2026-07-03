@@ -126,6 +126,48 @@ PIPELINE_DEFINE(Anime4K_Enhance,
 PIPELINE_DEFINE(CAS,
                 MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
 
+// Anime4K Mode A pipeline set
+PIPELINE_DEFINE(Anime4K_Clamp_Highlights_Pass0,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Clamp_Highlights_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Clamp_Highlights_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass0,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass3,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass4,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass5,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass6,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Restore_CNN_Pass7,
+                MAKE_BINDING_FUNCTION(Binding_A4A_Merge, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass0,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass3,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass4,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass5,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass6,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass7,
+                MAKE_BINDING_FUNCTION(Binding_A4A_Merge, 0););
+PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass8,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+
 // Anime4K Upscale_Denoise_L pipeline set
 PIPELINE_DEFINE(Anime4K_UDL_Pass0,
                 MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
@@ -135,35 +177,6 @@ PIPELINE_DEFINE(Anime4K_UDL_Pass2,
                 MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
 PIPELINE_DEFINE(Anime4K_UDL_Pass3,
                 MAKE_BINDING_FUNCTION(Binding_UDL_D2S, 0););
-
-
-// CuNNy 4x16 pipeline set
-PIPELINE_DEFINE(CuNNy_4x16_Pass1,
-                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
-PIPELINE_DEFINE(CuNNy_4x16_Pass2,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
-PIPELINE_DEFINE(CuNNy_4x16_Pass3,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
-PIPELINE_DEFINE(CuNNy_4x16_Pass4,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
-PIPELINE_DEFINE(CuNNy_4x16_Pass5,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
-PIPELINE_DEFINE(CuNNy_4x16_Pass6,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Out, 0););
-
-// CuNNy 4x24 pipeline set
-PIPELINE_DEFINE(CuNNy_4x24_Pass1,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
-PIPELINE_DEFINE(CuNNy_4x24_Pass2,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
-PIPELINE_DEFINE(CuNNy_4x24_Pass3,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
-PIPELINE_DEFINE(CuNNy_4x24_Pass4,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
-PIPELINE_DEFINE(CuNNy_4x24_Pass5,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
-PIPELINE_DEFINE(CuNNy_4x24_Pass6,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Out, 0););
 
 #undef PIPELINE_DEFINE
 #undef MAKE_BINDING_FUNCTION
@@ -188,25 +201,33 @@ struct PipelineSet {
   Pipeline_Anime4K_Enhance anime4k_enhance;
   Pipeline_CAS cas;
 
+  // Anime4K Mode A
+  Pipeline_Anime4K_Clamp_Highlights_Pass0 anime4k_clamp_hl_pass0;
+  Pipeline_Anime4K_Clamp_Highlights_Pass1 anime4k_clamp_hl_pass1;
+  Pipeline_Anime4K_Clamp_Highlights_Pass2 anime4k_clamp_hl_pass2;
+  Pipeline_Anime4K_Restore_CNN_Pass0 anime4k_restore_pass0;
+  Pipeline_Anime4K_Restore_CNN_Pass1 anime4k_restore_pass1;
+  Pipeline_Anime4K_Restore_CNN_Pass2 anime4k_restore_pass2;
+  Pipeline_Anime4K_Restore_CNN_Pass3 anime4k_restore_pass3;
+  Pipeline_Anime4K_Restore_CNN_Pass4 anime4k_restore_pass4;
+  Pipeline_Anime4K_Restore_CNN_Pass5 anime4k_restore_pass5;
+  Pipeline_Anime4K_Restore_CNN_Pass6 anime4k_restore_pass6;
+  Pipeline_Anime4K_Restore_CNN_Pass7 anime4k_restore_pass7;
+  Pipeline_Anime4K_Upscale_CNN_x2_M_Pass0 anime4k_upscale_pass0;
+  Pipeline_Anime4K_Upscale_CNN_x2_M_Pass1 anime4k_upscale_pass1;
+  Pipeline_Anime4K_Upscale_CNN_x2_M_Pass2 anime4k_upscale_pass2;
+  Pipeline_Anime4K_Upscale_CNN_x2_M_Pass3 anime4k_upscale_pass3;
+  Pipeline_Anime4K_Upscale_CNN_x2_M_Pass4 anime4k_upscale_pass4;
+  Pipeline_Anime4K_Upscale_CNN_x2_M_Pass5 anime4k_upscale_pass5;
+  Pipeline_Anime4K_Upscale_CNN_x2_M_Pass6 anime4k_upscale_pass6;
+  Pipeline_Anime4K_Upscale_CNN_x2_M_Pass7 anime4k_upscale_pass7;
+  Pipeline_Anime4K_Upscale_CNN_x2_M_Pass8 anime4k_upscale_pass8;
+
   // Anime4K Upscale_Denoise_L
   Pipeline_Anime4K_UDL_Pass0 anime4k_udl_pass0;
   Pipeline_Anime4K_UDL_Pass1 anime4k_udl_pass1;
   Pipeline_Anime4K_UDL_Pass2 anime4k_udl_pass2;
   Pipeline_Anime4K_UDL_Pass3 anime4k_udl_pass3;
-  // CuNNy 4x16
-  Pipeline_CuNNy_4x16_Pass1 cunny_4x16_p1;
-  Pipeline_CuNNy_4x16_Pass2 cunny_4x16_p2;
-  Pipeline_CuNNy_4x16_Pass3 cunny_4x16_p3;
-  Pipeline_CuNNy_4x16_Pass4 cunny_4x16_p4;
-  Pipeline_CuNNy_4x16_Pass5 cunny_4x16_p5;
-  Pipeline_CuNNy_4x16_Pass6 cunny_4x16_p6;
-  // CuNNy 4x24
-  Pipeline_CuNNy_4x24_Pass1 cunny_4x24_p1;
-  Pipeline_CuNNy_4x24_Pass2 cunny_4x24_p2;
-  Pipeline_CuNNy_4x24_Pass3 cunny_4x24_p3;
-  Pipeline_CuNNy_4x24_Pass4 cunny_4x24_p4;
-  Pipeline_CuNNy_4x24_Pass5 cunny_4x24_p5;
-  Pipeline_CuNNy_4x24_Pass6 cunny_4x24_p6;
 
   PipelineSet(const PipelineInitParams& init_params)
       : base(init_params),
@@ -224,22 +245,30 @@ struct PipelineSet {
         upscale(init_params),
         anime4k_enhance(init_params),
         cas(init_params),
+        anime4k_clamp_hl_pass0(init_params),
+        anime4k_clamp_hl_pass1(init_params),
+        anime4k_clamp_hl_pass2(init_params),
+        anime4k_restore_pass0(init_params),
+        anime4k_restore_pass1(init_params),
+        anime4k_restore_pass2(init_params),
+        anime4k_restore_pass3(init_params),
+        anime4k_restore_pass4(init_params),
+        anime4k_restore_pass5(init_params),
+        anime4k_restore_pass6(init_params),
+        anime4k_restore_pass7(init_params),
+        anime4k_upscale_pass0(init_params),
+        anime4k_upscale_pass1(init_params),
+        anime4k_upscale_pass2(init_params),
+        anime4k_upscale_pass3(init_params),
+        anime4k_upscale_pass4(init_params),
+        anime4k_upscale_pass5(init_params),
+        anime4k_upscale_pass6(init_params),
+        anime4k_upscale_pass7(init_params),
+        anime4k_upscale_pass8(init_params),
         anime4k_udl_pass0(init_params),
         anime4k_udl_pass1(init_params),
         anime4k_udl_pass2(init_params),
-        anime4k_udl_pass3(init_params),
-        cunny_4x16_p1(init_params),
-        cunny_4x16_p2(init_params),
-        cunny_4x16_p3(init_params),
-        cunny_4x16_p4(init_params),
-        cunny_4x16_p5(init_params),
-        cunny_4x16_p6(init_params),
-        cunny_4x24_p1(init_params),
-        cunny_4x24_p2(init_params),
-        cunny_4x24_p3(init_params),
-        cunny_4x24_p4(init_params),
-        cunny_4x24_p5(init_params),
-        cunny_4x24_p6(init_params) {}
+        anime4k_udl_pass3(init_params) {}
 };
 
 }  // namespace renderer
