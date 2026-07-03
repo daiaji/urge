@@ -638,21 +638,15 @@ PIPELINE_HEADER(YUV) {
         "ScalingParamsBuffer",                                            \
         Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,                  \
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});              \
-    std::vector<Diligent::ImmutableSamplerDesc> samplers;                \
-    for (uint32_t ti = 0; ti < tex_count; ++ti) {                       \
-      std::string tex_name = (ti == 0) ? "u_Texture"                     \
-        : ("u_Texture" + std::to_string(ti));                            \
-      samplers.push_back({Diligent::SHADER_TYPE_PIXEL, tex_name.c_str(), \
-        init_params.immutable_sampler});                                 \
-    }                                                                     \
-    auto binding0 = MakeResourceSignature(variables, samplers, 0);       \
+    const std::vector<Diligent::ImmutableSamplerDesc> samplers_empty{};    \
+    auto binding0 = MakeResourceSignature(variables, samplers_empty, 0);  \
     SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});  \
   }
 
 // Single-texture passes (1 input texture)
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass0_Pixel, Clamp_Highlights_Pass0)
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass1_Pixel, Clamp_Highlights_Pass1)
-MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass2_Pixel, Clamp_Highlights_Pass2)
+MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass2_Pixel, Clamp_Highlights_Pass2, 2)
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass0_Pixel, Restore_CNN_Pass0)
 
 // Dual-texture passes (2 input textures: u_Texture, u_Texture1)

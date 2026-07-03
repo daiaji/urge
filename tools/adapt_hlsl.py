@@ -23,12 +23,35 @@ def adapt(src: str, pass_index: int = 0) -> str:
     # Sort by register slot
     tex_vars.sort(key=lambda x: x[2])
 
-    # ── 2. Build rename map ──
-    # For each slot, map to u_Texture, u_Texture1, etc.
+    # ── 2. Determine which textures are actually used in the shader ──
+    all_code = '\n'.join(lines)
+    used_vars = []
+    for sv, ssv, slot in tex_vars:
+        # Check if this texture variable appears in code (excluding its own declaration line)
+        if sv in all_code and f'Texture2D<float4> {sv}' not in all_code.split('\n')[0]:
+            used_vars.append((sv, ssv, slot))
+        elif f'Sample({sv}_sampler' not in all_code and f'Sample(__{sv}_sampler' not in all_code and f'Sample(__{sv}_sampler' not in all_code.replace('__', '_'):
+            # Also check if the sampler is used
+            pass  # keep if sampler is referenced
+
+    # Keep only textures actually used in Sample() calls
+    actually_used = []
+    for sv, ssv, slot in tex_vars:
+        # ssv already has the correct spirv sampler name (e.g., __27_sampler)
+        if f'.Sample({ssv}' in all_code:
+            actually_used.append((sv, ssv, slot))
+    if actually_used:
+        tex_vars = actually_used
+
+    # Build rename map, using original bind names where available
     renames = {}
+    # Try to determine original bind name from metadata (if available via passes list)
+    # Simple heuristic: if a texture's original spirv is registered but the code
+    # references it like a STATSMAX texture (bound as second texture in Clamp passes)
     for i, (sv, ssv, slot) in enumerate(tex_vars):
         un = 'u_Texture' if i == 0 else f'u_Texture{i}'
-        # spirv uses __27_sampler (double under + var + _sampler)
+        # Check if this variable is used as a STATSMAX texture (via its sampler ref in all_code)
+        # Heuristic: if the sampler is used with .x channel access and appears with min()
         us = f'{un}_sampler'
         renames[sv] = un
         renames[ssv] = us

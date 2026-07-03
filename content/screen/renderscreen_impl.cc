@@ -1041,36 +1041,11 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
   // ════════════════════════════════════════════
   // Pass 0: horiz stats → tex0 (read from screen)
   run_pass(states.anime4k_clamp_hl_pass0, tex0, screen, native, true);
-  // Pass 1: vert stats → tex1 (read from tex0)
-  // Multi-texture: needs u_Texture (tex0) + u_StatsMax
-  // For now, treat as single texture since u_StatsMax reads same tex
-  {
-    run_pass(states.anime4k_clamp_hl_pass1, tex1, tex0, native);
-    // Override: the clamp pass1 reads tex0 as both u_Texture and u_StatsMax
-    // But u_StatsMax IS u_Texture (same texture). The shader reads from
-    // u_Texture.Sample(uv) and the STATSMAX value. Since we wrote STATSMAX
-    // to tex0 (pass0), and we read from tex0 for u_Texture, we need to
-    // bind tex0 as BOTH u_Texture and u_StatsMax.
-    // This requires binding u_StatsMax variable separately.
-    auto* rtv = get_rtv(tex1);
-    render_context->SetRenderTargets(
-        1, &rtv, nullptr,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    set_viewport(native);
-    render_context->SetPipelineState(states.anime4k_clamp_hl_pass1);
-    gpu_.mode_a_binding.u_texture->Set(get_srv(tex0));
-    gpu_.mode_a_binding.u_params->Set(gpu_.upscale_params_buffer);
-    // Bind u_StatsMax to same texture
-    auto* srb = *gpu_.mode_a_binding;
-    srb->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_StatsMax")
-        ->Set(get_srv(tex0));
-    render_context->CommitShaderResources(
-        *gpu_.mode_a_binding,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
-  }
+  // Pass 1: vert stats → tex1 (single texture, reads from tex0)
+  run_pass(states.anime4k_clamp_hl_pass1, tex1, tex0, native);
 
-  // Pass 2: clamp → tex0 (read from tex1 as u_Texture, tex1 as u_StatsMax)
+  // Pass 2: clamp → tex0 (reads tex1 via u_Texture + u_Texture1 for clamp)
+  // u_Texture1 = STATSMAX data from pass0 (same texture content as pass1 input)
   {
     auto* rtv = get_rtv(tex0);
     render_context->SetRenderTargets(
@@ -1081,7 +1056,8 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
     gpu_.mode_a_binding.u_texture->Set(get_srv(tex1));
     gpu_.mode_a_binding.u_params->Set(gpu_.upscale_params_buffer);
     auto* srb = *gpu_.mode_a_binding;
-    srb->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_StatsMax")
+    // The HLSL declares u_Texture1 as the second texture (STATSMAX data)
+    srb->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1")
         ->Set(get_srv(tex1));
     render_context->CommitShaderResources(
         *gpu_.mode_a_binding,
