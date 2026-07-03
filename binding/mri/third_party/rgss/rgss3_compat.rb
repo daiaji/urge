@@ -18,6 +18,57 @@ RGSS_VERSION = "3.0.1"
 # --- ME/BGM fade interaction ---
 # RGSS behavior: BGM fades out (~200ms) when ME starts, fades in (~1000ms) when ME ends.
 # URGE engine provides bgm_volume/bgm_volume= and me_pos for this in Ruby.
+#
+# Uses frame-driven state machine (hooked into Graphics.update) instead of
+# Thread.new to avoid Ruby 3.x deadlock detection with RGSS game loop.
+module MEFade
+  @active = false
+
+  STEPS_OUT = 12   # ~200ms at 60fps
+  STEPS_IN = 60    # ~1000ms at 60fps
+
+  def self.start(me_name:, me_volume:, me_pitch:, bgm_vol:)
+    @active = true
+    @phase = :fade_out
+    @step = 0
+    @me_name = me_name
+    @me_volume = me_volume
+    @me_pitch = me_pitch
+    @bgm_vol = bgm_vol
+  end
+
+  def self.update
+    return unless @active
+
+    case @phase
+    when :fade_out
+      @step += 1
+      Audio.bgm_volume = @bgm_vol * (STEPS_OUT - @step) / STEPS_OUT
+      if @step >= STEPS_OUT
+        Audio.bgm_volume = 0
+        @phase = :playing
+        @step = 0
+        Audio.me_play('Audio/ME/' + @me_name, @me_volume, @me_pitch)
+      end
+
+    when :playing
+      me_pos = Audio.me_pos
+      if me_pos.nil? || me_pos == 0
+        @phase = :fade_in
+        @step = 0
+      end
+
+    when :fade_in
+      @step += 1
+      Audio.bgm_volume = @bgm_vol * @step / STEPS_IN
+      if @step >= STEPS_IN
+        Audio.bgm_volume = @bgm_vol
+        @active = false
+      end
+    end
+  end
+end
+
 class RPG::ME
   alias :original_me_play :play
   def play
@@ -26,41 +77,14 @@ class RPG::ME
       return
     end
 
-    # Save BGM state
     last_bgm = RPG::BGM.last
     saved = (last_bgm && !last_bgm.name.empty?) ? last_bgm.clone : nil
 
     if saved
-      target_vol = saved.volume
-
-      Thread.new do
-        # Fade out BGM over ~200ms (20 steps x 10ms)
-        steps_out = 20
-        steps_out.times do |i|
-          Audio.bgm_volume = target_vol * (steps_out - 1 - i) / steps_out
-          sleep 0.01
-        end
-        Audio.bgm_volume = 0
-
-        # Play ME; engine's MeThreadMonitorInternal will pause BGM
-        Audio.me_play('Audio/ME/' + @name, @volume, @pitch)
-
-        # Wait for ME to finish (me_pos returns 0 when stopped)
-        loop do
-          me_pos = Audio.me_pos
-          break if me_pos.nil? || me_pos == 0
-          sleep 0.05
-        end
-
-        # Fade in BGM over ~1000ms (100 steps x 10ms)
-        # BGM is still paused by engine at this point; resume volume first
-        steps_in = 100
-        steps_in.times do |i|
-          Audio.bgm_volume = target_vol * (i + 1) / steps_in
-          sleep 0.01
-        end
-        Audio.bgm_volume = target_vol
-      end
+      MEFade.start(
+        me_name: @name, me_volume: @volume, me_pitch: @pitch,
+        bgm_vol: saved.volume
+      )
     else
       original_me_play
     end
@@ -87,6 +111,12 @@ class << Graphics
     original_resize_screen(width, height)
     rect = window_rect
     move_window(rect.x, rect.y, width, height)
+  end
+
+  alias :original_update :update
+  def update
+    original_update
+    MEFade.update
   end
 end
 
