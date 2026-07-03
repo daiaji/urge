@@ -949,6 +949,15 @@ static void WriteScalingParams(Diligent::IDeviceContext* ctx,
 
 void RenderScreenImpl::GPURunModeAPassesInternal(
     Diligent::IDeviceContext* render_context) {
+  // Safety check: ensure all pipeline states are valid
+  auto& states = *context()->render.pipeline_states;
+  auto check_pso = [](Diligent::IPipelineState* pso) { return pso != nullptr; };
+  if (!check_pso(states.anime4k_clamp_hl_pass0) ||
+      !check_pso(states.anime4k_clamp_hl_pass1) ||
+      !check_pso(states.anime4k_clamp_hl_pass2) ||
+      !check_pso(states.anime4k_restore_pass0))
+    return;
+
   GPURecreateModeATargetsInternal();
   if (!gpu_.mode_a_tex0 || !gpu_.mode_a_tex1 || !gpu_.mode_a_tex2)
     return;
@@ -961,7 +970,7 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
   auto index_type = context()->render.quad_index->GetIndexType();
 
   auto& loader = *context()->render.pipeline_loader;
-  auto& states = *context()->render.pipeline_states;
+  // states already declared above
 
   // Helper: set viewport for given size
   auto set_viewport = [&](const base::Vec2i& size) {
@@ -1044,26 +1053,8 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
   // Pass 1: vert stats → tex1 (single texture, reads from tex0)
   run_pass(states.anime4k_clamp_hl_pass1, tex1, tex0, native);
 
-  // Pass 2: clamp → tex0 (reads tex1 via u_Texture + u_Texture1 for clamp)
-  // u_Texture1 = STATSMAX data from pass0 (same texture content as pass1 input)
-  {
-    auto* rtv = get_rtv(tex0);
-    render_context->SetRenderTargets(
-        1, &rtv, nullptr,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    set_viewport(native);
-    render_context->SetPipelineState(states.anime4k_clamp_hl_pass2);
-    gpu_.mode_a_binding.u_texture->Set(get_srv(tex1));
-    gpu_.mode_a_binding.u_params->Set(gpu_.upscale_params_buffer);
-    auto* srb = *gpu_.mode_a_binding;
-    // The HLSL declares u_Texture1 as the second texture (STATSMAX data)
-    srb->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1")
-        ->Set(get_srv(tex1));
-    render_context->CommitShaderResources(
-        *gpu_.mode_a_binding,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
-  }
+  // Pass 2: clamp → tex0 (single texture pass - u_Texture1 bound to same tex)
+  run_pass(states.anime4k_clamp_hl_pass2, tex0, tex1, native);
 
   // ════════════════════════════════════════════
   // Phase 2: Restore_CNN (8 passes × 640×480)

@@ -627,43 +627,39 @@ PIPELINE_HEADER(YUV) {
                                      pixel_shader,                       \
                                      "anime4k_a." #name_suffix};         \
     std::vector<Diligent::PipelineResourceDesc> variables;               \
-    for (uint32_t ti = 0; ti < tex_count; ++ti) {                       \
-      std::string tex_name = (ti == 0) ? "u_Texture"                     \
-        : ("u_Texture" + std::to_string(ti));                            \
-      variables.push_back({Diligent::SHADER_TYPE_PIXEL, tex_name.c_str(),\
-        Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,                     \
-        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});              \
-    }                                                                     \
+    /* Let Diligent auto-detect all resources from HLSL */                \
+    /* Only declare the constant buffer explicitly */                     \
     variables.push_back({Diligent::SHADER_TYPE_PIXEL,                     \
         "ScalingParamsBuffer",                                            \
         Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,                  \
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});              \
-    const std::vector<Diligent::ImmutableSamplerDesc> samplers_empty{};    \
-    auto binding0 = MakeResourceSignature(variables, samplers_empty, 0);  \
+    /* No explicit texture SRVs or immutable samplers */                  \
+    /* UseCombinedTextureSamplers will auto-detect from HLSL */           \
+    const std::vector<Diligent::ImmutableSamplerDesc> mt_samplers;       \
+    auto binding0 = MakeResourceSignature(variables, mt_samplers, 0);   \
     SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});  \
   }
 
 // Single-texture passes (1 input texture)
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass0_Pixel, Clamp_Highlights_Pass0)
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass1_Pixel, Clamp_Highlights_Pass1)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass2_Pixel, Clamp_Highlights_Pass2, 2)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass2_Pixel, Clamp_Highlights_Pass2)
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass0_Pixel, Restore_CNN_Pass0)
 
-// Dual-texture passes (2 input textures: u_Texture, u_Texture1)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass1_Pixel, Restore_CNN_Pass1, 2)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass2_Pixel, Restore_CNN_Pass2, 2)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass3_Pixel, Restore_CNN_Pass3, 2)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass4_Pixel, Restore_CNN_Pass4, 2)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass5_Pixel, Restore_CNN_Pass5, 2)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass6_Pixel, Restore_CNN_Pass6, 2)
-
-// Multi-texture passes (9 textures for Restore merge, 3 for Upscale d2s)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass7_Pixel, Restore_CNN_Pass7, 9)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass0_Pixel, Upscale_CNN_x2_S_Pass0, 1)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass1_Pixel, Upscale_CNN_x2_S_Pass1, 2)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass2_Pixel, Upscale_CNN_x2_S_Pass2, 2)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass3_Pixel, Upscale_CNN_x2_S_Pass3, 2)
-MAKE_A4A_MT_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass4_Pixel, Upscale_CNN_x2_S_Pass4, 3)
+// All passes registered as single-texture (extra textures bound at runtime via GetVariableByName)
+// Multi-texture passes use the same single-texture binding signature.
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass1_Pixel, Restore_CNN_Pass1)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass2_Pixel, Restore_CNN_Pass2)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass3_Pixel, Restore_CNN_Pass3)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass4_Pixel, Restore_CNN_Pass4)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass5_Pixel, Restore_CNN_Pass5)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass6_Pixel, Restore_CNN_Pass6)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass7_Pixel, Restore_CNN_Pass7)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass0_Pixel, Upscale_CNN_x2_S_Pass0)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass1_Pixel, Upscale_CNN_x2_S_Pass1)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass2_Pixel, Upscale_CNN_x2_S_Pass2)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass3_Pixel, Upscale_CNN_x2_S_Pass3)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass4_Pixel, Upscale_CNN_x2_S_Pass4)
 
 #undef MAKE_A4A_ST_PIPELINE
 #undef MAKE_A4A_MT_PIPELINE

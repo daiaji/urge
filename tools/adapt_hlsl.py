@@ -43,18 +43,12 @@ def adapt(src: str, pass_index: int = 0) -> str:
     if actually_used:
         tex_vars = actually_used
 
-    # Build rename map, using original bind names where available
+    # Build rename map - ALL textures map to u_Texture (single-texture pipeline)
     renames = {}
-    # Try to determine original bind name from metadata (if available via passes list)
-    # Simple heuristic: if a texture's original spirv is registered but the code
-    # references it like a STATSMAX texture (bound as second texture in Clamp passes)
     for i, (sv, ssv, slot) in enumerate(tex_vars):
-        un = 'u_Texture' if i == 0 else f'u_Texture{i}'
-        # Check if this variable is used as a STATSMAX texture (via its sampler ref in all_code)
-        # Heuristic: if the sampler is used with .x channel access and appears with min()
-        us = f'{un}_sampler'
-        renames[sv] = un
-        renames[ssv] = us
+        renames[sv] = 'u_Texture'
+        # Map __27_sampler → u_Texture_sampler (all use same sampler)
+        renames[ssv] = 'u_Texture_sampler'
 
     # ── 3. Find static float2/float4 vars (uv and output color) ──
     uv_var = None
@@ -125,13 +119,9 @@ def adapt(src: str, pass_index: int = 0) -> str:
     out.append('};')
     out.append('')
 
-    for i, (sv, ssv, slot) in enumerate(tex_vars):
-        un = renames[sv]
-        out.append(f'Texture2D {un};')
-        out.append(f'SamplerState {un}_sampler;')
-    if not tex_vars:
-        out.append('Texture2D u_Texture;')
-        out.append('SamplerState u_Texture_sampler;')
+    # Force single texture only (all texture samples map to u_Texture)
+    out.append('Texture2D u_Texture;')
+    out.append('SamplerState u_Texture_sampler;')
     out.append('')
 
     out.append('cbuffer ScalingParamsBuffer {')
@@ -139,8 +129,6 @@ def adapt(src: str, pass_index: int = 0) -> str:
     out.append('  float2 u_OutputSize;')
     out.append('  float2 u_InputPt;')
     out.append('  float2 u_OutputPt;')
-    if len(tex_vars) > 1:
-        out.append('  float4 _Dummy;')
     out.append('};')
     out.append('')
 
