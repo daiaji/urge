@@ -120,7 +120,15 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
 
     // OpenGL context (GLX) — needed even for Vulkan fallback chain
     glcontext = SDL_GL_CreateContext(window_target->AsSDLWindow());
-    SDL_GL_MakeCurrent(window_target->AsSDLWindow(), glcontext);
+    if (!glcontext) {
+      LOG(ERROR) << "[Renderer] SDL_GL_CreateContext failed: " << SDL_GetError();
+      return CreateDeviceResult(nullptr, nullptr);
+    }
+    if (!SDL_GL_MakeCurrent(window_target->AsSDLWindow(), glcontext)) {
+      LOG(ERROR) << "[Renderer] SDL_GL_MakeCurrent failed: " << SDL_GetError();
+      SDL_GL_DestroyContext(glcontext);
+      return CreateDeviceResult(nullptr, nullptr);
+    }
   }
 
   // Setup native window

@@ -163,6 +163,12 @@ int main(int argc, char* argv[]) {
   // Initialize filesystem
   std::unique_ptr<filesystem::IOService> io_service =
       filesystem::IOService::Create(argv[0]);
+  if (!io_service) {
+    LOG(ERROR) << "[App] Failed to initialize filesystem (PHYSFS).";
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE",
+                             "Failed to initialize filesystem.", nullptr);
+    return 1;
+  }
   io_service->AddLoadPath(reinterpret_cast<const char*>(current_path.c_str()),
                           "", false);
   io_service->SetWritePath(reinterpret_cast<const char*>(current_path.c_str()));
@@ -291,7 +297,12 @@ int main(int argc, char* argv[]) {
     LOG(ERROR) << "[App] Failed to initialize SDL: " << SDL_GetError();
     return 1;
   }
-  TTF_Init();
+  if (!TTF_Init()) {
+    LOG(ERROR) << "[App] Failed to initialize SDL_ttf: " << SDL_GetError();
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE",
+                             "Failed to initialize SDL_ttf.", nullptr);
+    return 1;
+  }
 
   {
     // Initialize i18n profile

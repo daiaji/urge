@@ -237,12 +237,6 @@ void BindingEngineMri::OnMainMessageLoopRun(
   // Set global execution context
   g_current_execution_context = execution;
 
-  // Open console log file
-  execution->console.log_file = fopen("Console.log", "w");
-  execution->console.on_message = [](const std::string& line) {
-    LOG(INFO) << line;
-  };
-
   // Define running modules
   MriGetGlobalModules()->Graphics = module_context->graphics;
   MriGetGlobalModules()->Input = module_context->input;
@@ -254,7 +248,11 @@ void BindingEngineMri::OnMainMessageLoopRun(
   execution->eval_ruby = [](const std::string& code) -> std::string {
     // Create explicit UTF-8 source string to avoid rb_str_new_cstr ASCII-8BIT tagging
     VALUE code_utf8 = rb_utf8_str_new(code.c_str(), code.length());
-    VALUE eval_argv[] = {code_utf8, Qnil, rb_utf8_str_new_cstr("(console)")};
+    // Use TOPLEVEL_BINDING so def/class/variables persist between eval calls
+    VALUE top_binding =
+        rb_const_get(rb_cObject, rb_intern("TOPLEVEL_BINDING"));
+    VALUE eval_argv[] = {code_utf8, top_binding,
+                         rb_utf8_str_new_cstr("(console)")};
 
     auto eval_proc = [](VALUE args) -> VALUE {
       VALUE* argv = reinterpret_cast<VALUE*>(args);
@@ -324,14 +322,6 @@ void BindingEngineMri::PostMainLoopRunning() {
         "[Ruby Error] Unhandled exception:");
     g_current_execution_context->console.Push("[Ruby Error] " +
                                               exception_message);
-  }
-
-  // Close console log file
-  if (g_current_execution_context &&
-      g_current_execution_context->console.log_file) {
-    fclose(g_current_execution_context->console.log_file);
-    g_current_execution_context->console.log_file = nullptr;
-    LOG(INFO) << "[Binding] Console logs closed.";
   }
 
   // Clean up ruby vm

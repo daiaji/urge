@@ -6,6 +6,8 @@
 
 #include "magic_enum/magic_enum.hpp"
 
+#include "base/debug/logging.h"
+
 #include "content/context/execution_context.h"
 #include "content/gpu/buffer_impl.h"
 #include "content/gpu/device_context_impl.h"
@@ -194,8 +196,10 @@ scoped_refptr<GPUBuffer> RenderDeviceImpl::CreateBuffer(
 
   Diligent::RefCntAutoPtr<Diligent::IBuffer> result;
   object_->CreateBuffer(create_desc, nullptr, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateBuffer (no data) failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<BufferImpl>(context(), result);
 }
@@ -228,8 +232,10 @@ scoped_refptr<GPUBuffer> RenderDeviceImpl::CreateBuffer(
 
   Diligent::RefCntAutoPtr<Diligent::IBuffer> result;
   object_->CreateBuffer(create_desc, &create_data, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateBuffer failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<BufferImpl>(context(), result);
 }
@@ -271,8 +277,10 @@ scoped_refptr<GPUShader> RenderDeviceImpl::CreateShader(
 
   Diligent::RefCntAutoPtr<Diligent::IShader> result;
   object_->CreateShader(create_desc, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateShader failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<ShaderImpl>(context(), result);
 }
@@ -300,8 +308,10 @@ scoped_refptr<GPUTexture> RenderDeviceImpl::CreateTexture(
 
   Diligent::RefCntAutoPtr<Diligent::ITexture> result;
   object_->CreateTexture(create_desc, nullptr, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateTexture (no data) failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<TextureImpl>(context(), result);
 }
@@ -352,8 +362,10 @@ scoped_refptr<GPUTexture> RenderDeviceImpl::CreateTexture(
 
   Diligent::RefCntAutoPtr<Diligent::ITexture> result;
   object_->CreateTexture(create_desc, &create_data, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateTexture failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<TextureImpl>(context(), result);
 }
@@ -381,8 +393,10 @@ scoped_refptr<GPUSampler> RenderDeviceImpl::CreateSampler(
 
   Diligent::RefCntAutoPtr<Diligent::ISampler> result;
   object_->CreateSampler(create_desc, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateSampler failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<SamplerImpl>(context(), result);
 }
@@ -408,8 +422,10 @@ scoped_refptr<GPUResourceMapping> RenderDeviceImpl::CreateResourceMapping(
 
   Diligent::RefCntAutoPtr<Diligent::IResourceMapping> result;
   object_->CreateResourceMapping(create_desc, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateResourceMapping failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<ResourceMappingImpl>(context(), result);
 }
@@ -587,8 +603,10 @@ scoped_refptr<GPUPipelineState> RenderDeviceImpl::CreateGraphicsPipelineState(
 
   Diligent::RefCntAutoPtr<Diligent::IPipelineState> result;
   object_->CreateGraphicsPipelineState(create_desc, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateGraphicsPipelineState failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<PipelineStateImpl>(context(), result);
 }
@@ -618,8 +636,10 @@ scoped_refptr<GPUPipelineState> RenderDeviceImpl::CreateComputePipelineState(
 
   Diligent::RefCntAutoPtr<Diligent::IPipelineState> result;
   object_->CreateComputePipelineState(create_desc, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateComputePipelineState failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<PipelineStateImpl>(context(), result);
 }
@@ -634,8 +654,10 @@ scoped_refptr<GPUFence> RenderDeviceImpl::CreateFence(
 
   Diligent::RefCntAutoPtr<Diligent::IFence> result;
   object_->CreateFence(create_desc, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateFence failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<FenceImpl>(context(), result);
 }
@@ -650,8 +672,10 @@ scoped_refptr<GPUQuery> RenderDeviceImpl::CreateQuery(
 
   Diligent::RefCntAutoPtr<Diligent::IQuery> result;
   object_->CreateQuery(create_desc, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateQuery failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<QueryImpl>(context(), result);
 }
@@ -719,8 +743,10 @@ scoped_refptr<GPUPipelineSignature> RenderDeviceImpl::CreatePipelineSignature(
 
   Diligent::RefCntAutoPtr<Diligent::IPipelineResourceSignature> result;
   object_->CreatePipelineResourceSignature(create_desc, &result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreatePipelineResourceSignature failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<PipelineSignatureImpl>(context(), result);
 }
@@ -731,8 +757,10 @@ scoped_refptr<GPUDeviceContext> RenderDeviceImpl::CreateDeferredContext(
 
   Diligent::RefCntAutoPtr<Diligent::IDeviceContext> result;
   object_->CreateDeferredContext(&result);
-  if (!result)
+  if (!result) {
+    LOG(ERROR) << "[GPU] CreateDeferredContext failed";
     return nullptr;
+  }
 
   return base::MakeRefCounted<DeviceContextImpl>(context(), result);
 }

@@ -596,8 +596,22 @@ void ContentRunner::RenderConsoleGUIInternal() {
     ImVec2 out_size(0, -ImGui::GetTextLineHeightWithSpacing() * 3 -
                            ImGui::GetStyle().ItemSpacing.y);
     if (ImGui::BeginChild("##console_out", out_size, ImGuiChildFlags_Border)) {
-      for (const auto& line : execution_context_->console.output)
-        ImGui::TextUnformatted(line.c_str());
+      {
+        std::lock_guard<std::mutex> lock(
+            execution_context_->console.output_mutex);
+        for (const auto& line : execution_context_->console.output) {
+          if (line.starts_with("[info]") || line.starts_with("[Script]"))
+            ImGui::TextUnformatted(line.c_str());
+          else if (line.starts_with("[Input]"))
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.2f, 1.0f), "%s", line.c_str());
+          else if (line.starts_with("[Ruby Error]"))
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", line.c_str());
+          else if (line.starts_with("[Result]"))
+            ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), "%s", line.c_str());
+          else
+            ImGui::TextUnformatted(line.c_str());
+        }
+      }
       if (execution_context_->console.scroll_to_bottom) {
         ImGui::SetScrollHereY(1.0f);
         execution_context_->console.scroll_to_bottom = false;
@@ -716,6 +730,8 @@ void ContentRunner::UpdateEventInternal() {
           event_controller_->SetGamepadConnected(true);
           LOG(INFO) << "[Gamepad] Opened: "
                      << SDL_GetGamepadName(pad);
+        } else {
+          LOG(WARNING) << "[Gamepad] Failed to open: " << SDL_GetError();
         }
       }
     } else if (queued_event.type == SDL_EVENT_GAMEPAD_REMOVED) {
