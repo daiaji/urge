@@ -949,18 +949,47 @@ static void WriteScalingParams(Diligent::IDeviceContext* ctx,
 
 void RenderScreenImpl::GPURunModeAPassesInternal(
     Diligent::IDeviceContext* render_context) {
-  // Safety check: ensure all pipeline states are valid
   auto& states = *context()->render.pipeline_states;
+
+  // Check all PSOs used across all phases
   auto check_pso = [](Diligent::IPipelineState* pso) { return pso != nullptr; };
   if (!check_pso(states.anime4k_clamp_hl_pass0) ||
       !check_pso(states.anime4k_clamp_hl_pass1) ||
       !check_pso(states.anime4k_clamp_hl_pass2) ||
-      !check_pso(states.anime4k_restore_pass0))
+      !check_pso(states.anime4k_restore_pass0) ||
+      !check_pso(states.anime4k_restore_pass1) ||
+      !check_pso(states.anime4k_restore_pass2) ||
+      !check_pso(states.anime4k_restore_pass3) ||
+      !check_pso(states.anime4k_restore_pass4) ||
+      !check_pso(states.anime4k_restore_pass5) ||
+      !check_pso(states.anime4k_restore_pass6) ||
+      !check_pso(states.anime4k_restore_pass7) ||
+      !check_pso(states.anime4k_upscale_pass0) ||
+      !check_pso(states.anime4k_upscale_pass1) ||
+      !check_pso(states.anime4k_upscale_pass2) ||
+      !check_pso(states.anime4k_upscale_pass3) ||
+      !check_pso(states.anime4k_upscale_pass4) ||
+      !check_pso(states.anime4k_enhance))
+    return;
+
+  // Check bindings
+  if (!gpu_.mode_a_binding.u_texture || !gpu_.mode_a_binding.u_params ||
+      !gpu_.anime4k_enhance_binding.u_texture ||
+      !gpu_.anime4k_enhance_binding.u_params)
     return;
 
   GPURecreateModeATargetsInternal();
   if (!gpu_.mode_a_tex0 || !gpu_.mode_a_tex1 || !gpu_.mode_a_tex2)
     return;
+
+  // Check restore intermediate textures
+  auto& rt_check = gpu_.mode_a_restore_tex;
+  if (rt_check.size() < 7)
+    return;
+  for (auto& tex : rt_check) {
+    if (!tex)
+      return;
+  }
 
 
   auto* profile = context()->engine_profile;

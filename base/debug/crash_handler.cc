@@ -21,6 +21,10 @@
 #include <atomic>
 #include <cstdint>
 
+#if !defined(OS_WIN)
+#include <pthread.h>
+#endif
+
 namespace base {
 namespace debug {
 
@@ -38,6 +42,51 @@ static int g_crash_fd = -1;
 // Saved old signal actions for chaining to previous handlers (e.g. Ruby's sigsegv)
 static struct sigaction g_old_sigactions[NSIG];
 static bool g_sigactions_saved[NSIG] = {};
+
+// Pump pipe + thread for tee-ing crash output to both crash.log and stderr.
+// During crash handling, stderr is dup2'd to the pipe; a background thread
+// reads from the pipe and writes to both g_crash_fd and the original stderr.
+// This ensures Ruby's chained handler output appears in both destinations.
+#if !defined(OS_WIN)
+static int g_crash_pipe[2] = {-1, -1};
+static int g_orig_stderr = -1;
+static pthread_t g_pump_thread;
+static std::atomic<bool> g_pump_running{false};
+
+static void* CrashPumpThread(void*) {
+  char buf[16384];
+  while (true) {
+    ssize_t n = read(g_crash_pipe[0], buf, sizeof(buf));
+    if (n <= 0) break;
+    if (g_crash_fd >= 0)
+      write(g_crash_fd, buf, static_cast<size_t>(n));
+    if (g_orig_stderr >= 0)
+      write(g_orig_stderr, buf, static_cast<size_t>(n));
+  }
+  close(g_crash_pipe[0]);
+  g_crash_pipe[0] = -1;
+  return nullptr;
+}
+
+static void StartCrashPumpPipe() {
+  if (g_pump_running.exchange(true))
+    return;
+  if (pipe(g_crash_pipe) < 0) {
+    g_pump_running = false;
+    return;
+  }
+  fcntl(g_crash_pipe[0], F_SETPIPE_SZ, 1048576);
+  g_orig_stderr = dup(STDERR_FILENO);
+  if (pthread_create(&g_pump_thread, nullptr, CrashPumpThread, nullptr) != 0) {
+    close(g_crash_pipe[0]);
+    close(g_crash_pipe[1]);
+    g_crash_pipe[0] = g_crash_pipe[1] = -1;
+    g_orig_stderr = -1;
+    g_pump_running = false;
+  }
+  pthread_detach(g_pump_thread);
+}
+#endif
 
 #if defined(OS_WIN)
 static const int kInvalidFd = -1;
@@ -144,6 +193,8 @@ void OpenCrashLogFile(const char* path) {
   g_crash_fd = _open(path, _O_WRONLY | _O_CREAT | _O_APPEND, _S_IREAD | _S_IWRITE);
 #else
   g_crash_fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
+  // Start pump pipe + thread for tee-ing crash output to both destinations
+  StartCrashPumpPipe();
 #endif
 }
 
@@ -189,6 +240,13 @@ void DumpRingBuffer(int fd) {
 
 void FlushAndRaise(int sig) {
   fflush(NULL);
+  // Close pipe write end to signal pump thread to drain and exit
+#if !defined(OS_WIN)
+  if (g_crash_pipe[1] >= 0) {
+    close(g_crash_pipe[1]);
+    g_crash_pipe[1] = -1;
+  }
+#endif
   if (g_crash_fd >= 0) {
 #if defined(OS_WIN)
     _close(g_crash_fd);
@@ -244,51 +302,48 @@ void DumpRegisters(int fd, ucontext_t* uc) {
 #endif
 }
 
-void OnCrashSignal(int sig, siginfo_t* info, void* ucontext) {
-  int fd = g_crash_fd >= 0 ? g_crash_fd : STDERR_FILENO;
-
-  // Redirect stderr to crash.log so that any chained handler output
-  // (e.g. Ruby's rb_bug_for_fatal_signal) is also captured in crash.log.
-  if (g_crash_fd >= 0 && g_crash_fd != STDERR_FILENO) {
-    dup2(g_crash_fd, STDERR_FILENO);
-    fd = STDERR_FILENO;
-  }
-
+static void WriteCrashDumpToFd(int fd, int sig, siginfo_t* info,
+                               void* ucontext) {
   WriteCrashHeader(fd, sig, SignalName(sig));
-
-  // info is only valid when called via SA_SIGINFO (3-arg form).
-  // When chained from a 1-arg sighandler_t (e.g. Ruby's default_sigsegv_handler),
-  // info points to garbage and must not be dereferenced.
   if (info) {
-    WriteLiteral(fd, "  SI_CODE:   "); WriteDecimal(fd, info->si_code); WriteLiteral(fd, "\n");
+    WriteLiteral(fd, "  SI_CODE:   ");
+    WriteDecimal(fd, info->si_code);
+    WriteLiteral(fd, "\n");
     if (sig == SIGSEGV) {
       WriteLiteral(fd, "  Fault Addr: ");
       WriteHex(fd, reinterpret_cast<uintptr_t>(info->si_addr));
       WriteLiteral(fd, "\n");
     }
   }
-
   if (ucontext)
     DumpRegisters(fd, static_cast<ucontext_t*>(ucontext));
-
   void* callstack[128];
   int frames = backtrace(callstack, 128);
-  WriteLiteral(fd, "\n  Backtrace ("); WriteDecimal(fd, frames); WriteLiteral(fd, " frames):\n");
+  WriteLiteral(fd, "\n  Backtrace (");
+  WriteDecimal(fd, frames);
+  WriteLiteral(fd, " frames):\n");
   backtrace_symbols_fd(callstack, frames, fd);
+}
+
+void OnCrashSignal(int sig, siginfo_t* info, void* ucontext) {
+  // Redirect stderr to pump pipe so all crash output (C++ dump + Ruby
+  // backtrace) is tee'd to both crash.log and the console (game.log).
+  if (g_crash_pipe[1] >= 0)
+    dup2(g_crash_pipe[1], STDERR_FILENO);
+
+  WriteCrashDumpToFd(STDERR_FILENO, sig, info, ucontext);
 
   // (Ring buffer omitted -- see Engine.log for full log history)
 
   // Chain to saved old handler (e.g. Ruby's sigsegv).
-  // stderr is still redirected to crash.log, so Ruby's backtrace output
-  // (via rb_write_error_str) goes into crash.log as well.
+  // stderr → pipe → pump thread → crash.log + console.
   struct sigaction* old = &g_old_sigactions[sig];
   if (g_sigactions_saved[sig] && old->sa_sigaction &&
       old->sa_handler != SIG_DFL && old->sa_handler != SIG_IGN) {
-    if (old->sa_flags & SA_SIGINFO) {
+    if (old->sa_flags & SA_SIGINFO)
       old->sa_sigaction(sig, info, ucontext);
-    } else {
+    else
       old->sa_handler(sig);
-    }
   }
 
   FlushAndRaise(sig);
