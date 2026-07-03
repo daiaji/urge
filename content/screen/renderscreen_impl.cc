@@ -1148,18 +1148,13 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
     DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
   }
 
-  // The upscale pass0 writes to tex2 (1280×960). Subseqent passes read from
-  // tex2 and write back to tex2. For now, skip the remaining upscale passes
-  // (pass1-4) as they need proper multi-texture handling.
-  // Instead, copy tex2 content to enhanced_tex for the next stage.
-  // TODO: implement upscale pass1-4 chain
+  // TODO: implement upscale pass1-4 chain (skip for now, pass0 output used)
 
   // ════════════════════════════════════════════
-  // Phase 4: Output to enhanced_tex
+  // Phase 4: Anime4K_Enhance(DoG) on upscaled result
   // ════════════════════════════════════════════
-  // Copy tex2 → enhanced_tex (both are 1280×960 RGBA8)
-  // Use a simple blit: set enhanced_tex as RT, draw tex2 as fullscreen quad
-  // using the base render pipeline
+  // Reuse existing Anime4K_Enhance pipeline: read from tex2, write to
+  // enhanced_tex. This adds line darken (DoG) + optional Sobel blend.
   {
     GPURecreateAnime4KTargetsInternal();
     if (gpu_.enhanced_tex) {
@@ -1173,17 +1168,24 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
       set_viewport(upscaled);
 
-      // Draw tex2 into enhanced_tex using a simple bilinear pass
-      render_context->SetPipelineState(states.upscale);
-      renderer::Binding_Upscale::ScalingParams copy_params = {};
-      copy_params.mode = 0;  // bilinear
-      copy_params.output_pt =
-          base::Vec2(1.0f / upscaled.x, 1.0f / upscaled.y);
-      write_params(copy_params);
-      gpu_.mode_a_binding.u_texture->Set(get_srv(tex2));
-      gpu_.mode_a_binding.u_params->Set(gpu_.upscale_params_buffer);
+      // Set up DoG params
+      auto* profile_p = context()->engine_profile;
+      renderer::Binding_Upscale::ScalingParams dog_params;
+      dog_params.input_size = upscaled.Recast<float>();
+      dog_params.output_size = upscaled.Recast<float>();
+      dog_params.input_pt = base::Vec2(1.0f / upscaled.x, 1.0f / upscaled.y);
+      dog_params.output_pt = base::Vec2(1.0f / upscaled.x, 1.0f / upscaled.y);
+      dog_params.mode = 0;  // DoG mode (no Sobel)
+      dog_params.bicubic_c = profile_p->scaling_darken_strength;
+      dog_params.ar_strength = profile_p->scaling_sobel_strength;
+      dog_params.bicubic_b = profile_p->scaling_warp_strength;
+      write_params(dog_params);
+
+      render_context->SetPipelineState(states.anime4k_enhance);
+      gpu_.anime4k_enhance_binding.u_texture->Set(get_srv(tex2));
+      gpu_.anime4k_enhance_binding.u_params->Set(gpu_.upscale_params_buffer);
       render_context->CommitShaderResources(
-          *gpu_.mode_a_binding,
+          *gpu_.anime4k_enhance_binding,
           Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
       DrawScalingQuad(gpu_.scaling_quads, render_context,
                       quad_index, index_type);
