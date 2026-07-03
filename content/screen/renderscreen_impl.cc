@@ -193,6 +193,14 @@ void RenderScreenImpl::CreateButtonGUISettings() {
         context()->engine_profile->MarkDirty();
     }
 
+    // Anime4K Mode A (full chain)
+    ImGui::Checkbox("Anime4K Mode A (16-pass)", &settings_profile.anime4k_mode_a_enabled);
+    if (ImGui::IsItemDeactivatedAfterEdit())
+      context()->engine_profile->MarkDirty();
+    if (settings_profile.anime4k_mode_a_enabled) {
+      ImGui::TextDisabled("Clamp→Restore CNN→Upscale CNN→DoG");
+    }
+
     // CAS sharpening
     if (ImGui::Checkbox("CAS Sharpen", &settings_profile.cas_enabled))
       context()->engine_profile->MarkDirty();
@@ -909,6 +917,23 @@ void RenderScreenImpl::GPURecreateModeATargetsInternal() {
   // 2x upscale target
   recreate(gpu_.mode_a_tex2, "anime4k_a.tex2", res * 2,
            Diligent::TEX_FORMAT_RGBA8_UNORM);
+
+  // Restore CNN intermediate layers (7 textures for merge pass)
+  auto& rt = gpu_.mode_a_restore_tex;
+  if (rt.size() != 7) {
+    rt.resize(7);
+    for (int i = 0; i < 7; i++) {
+      char name[32];
+      std::snprintf(name, sizeof(name), "anime4k_a.restore_%d", i);
+      rt[i].Release();
+      renderer::CreateTexture2D(**context()->render_device, &rt[i], name,
+                                res, Diligent::USAGE_DEFAULT,
+                                Diligent::BIND_RENDER_TARGET |
+                                    Diligent::BIND_SHADER_RESOURCE,
+                                Diligent::CPU_ACCESS_NONE,
+                                Diligent::TEX_FORMAT_RGBA8_UNORM);
+    }
+  }
 }
 
 // Forward declarations for static helpers defined below
@@ -1067,18 +1092,19 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
   // ════════════════════════════════════════════
   // Phase 2: Restore_CNN (8 passes × 640×480)
   // ════════════════════════════════════════════
-  // Ping-pong tex0/tex1
+  // Each conv pass writes to a unique intermediate texture (restore_tex[0..5])
+  // so that the merge pass (pass7) can read from all 7 intermediate layers.
   // Input: tex0 (clamped output), output: tex0
 
-  // Pass 0: Conv-4x3x3x3 → tex1 (single tex)
-  run_pass(states.anime4k_restore_pass0, tex1, tex0, native);
-  std::swap(tex0, tex1);  // now tex0 has conv2d_tf
+  // Ensure intermediate textures exist
+  auto& rt = gpu_.mode_a_restore_tex;
+  if (rt.size() < 7)
+    GPURecreateModeATargetsInternal();
 
-  // Passes 1-6: Conv-4x3x3x8 (6 passes × 2 tex)
-  // These need u_Texture (previous output) and u_Texture1 (also previous output)
-  // Actually looking at the shader: it reads from u_Texture and u_Texture1
-  // for the ReLU split, but u_Texture1 is the same texture as u_Texture
-  // (it's go_0/go_1 from the same input). So single texture suffices.
+  // Pass 0: Conv-4x3x3x3 → restore_tex[0] (conv2d_tf)
+  run_pass(states.anime4k_restore_pass0, rt[0], tex0, native);
+
+  // Passes 1-6: Conv-4x3x3x8 → restore_tex[1..6]
   for (int pi = 0; pi < 6; pi++) {
     Diligent::IPipelineState* pso = nullptr;
     switch (pi) {
@@ -1089,38 +1115,35 @@ void RenderScreenImpl::GPURunModeAPassesInternal(
       case 4: pso = states.anime4k_restore_pass5; break;
       case 5: pso = states.anime4k_restore_pass6; break;
     }
-    run_pass(pso, tex1, tex0, native);
-    std::swap(tex0, tex1);
+    auto& prev = (pi == 0) ? rt[0] : rt[pi];
+    run_pass(pso, rt[pi + 1], prev, native);
   }
 
-  // Pass 7: Merge (reads from ALL 7 intermediate textures + MAIN)
-  // This is a multi-texture pass. For now, approximate by reading only
-  // from the last conv layer (tex0) and the original screen (screen).
-  // TODO: proper multi-texture binding for full merge pass
+  // Pass 7: Merge - reads from screen (MAIN) + all 7 intermediate textures
+  // Texture mapping (from shader BIND order):
+  //   MAIN → u_Texture (screen), conv2d_tf → u_Texture1 (rt[0]),
+  //   conv2d_1_tf → u_Texture2 (rt[1]), ..., conv2d_6_tf → u_Texture8 (rt[6])
   {
-    auto* rtv = get_rtv(tex1);
+    auto* rtv = get_rtv(tex0);
     render_context->SetRenderTargets(
         1, &rtv, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     set_viewport(native);
     render_context->SetPipelineState(states.anime4k_restore_pass7);
-    gpu_.mode_a_binding.u_texture->Set(get_srv(screen));  // MAIN residual
+    // u_Texture = MAIN (original screen, for residual)
+    gpu_.mode_a_binding.u_texture->Set(get_srv(screen));
     gpu_.mode_a_binding.u_params->Set(gpu_.upscale_params_buffer);
-    auto* srb = *gpu_.mode_a_binding;
-    // Bind all intermediate textures (simplified: bind same tex repeatedly)
-    // Full implementation would bind actual intermediate RTs
-    for (int ti = 1; ti <= 8; ti++) {
-      std::string name =
-          (ti == 1) ? "u_Texture1"
-                    : "u_Texture" + std::to_string(ti);
-      srb->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, name.c_str())
-          ->Set(get_srv(tex0));  // reuse last conv output
+    auto* srb7 = *gpu_.mode_a_binding;
+    // Bind rt[0..6] → u_Texture1..u_Texture8
+    for (int ti = 0; ti < 7; ti++) {
+      std::string tex_name = "u_Texture" + std::to_string(ti + 1);
+      srb7->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, tex_name.c_str())
+          ->Set(get_srv(rt[ti]));
     }
     render_context->CommitShaderResources(
         *gpu_.mode_a_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
-    std::swap(tex0, tex1);
   }
 
   // ════════════════════════════════════════════

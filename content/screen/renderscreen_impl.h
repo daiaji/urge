@@ -55,9 +55,10 @@ class RenderScreenImpl : public Graphics, public EngineObject {
     renderer::Binding_Upscale cas_binding;
 
     // Anime4K Mode A intermediate targets
-    RRefPtr<Diligent::ITexture> mode_a_tex0;  // 640×480 ping-pong A
+    RRefPtr<Diligent::ITexture> mode_a_tex0;  // 640×480 ping-pong A / clamp output
     RRefPtr<Diligent::ITexture> mode_a_tex1;  // 640×480 ping-pong B
     RRefPtr<Diligent::ITexture> mode_a_tex2;  // 1280×960 upscale buffer
+    std::vector<RRefPtr<Diligent::ITexture>> mode_a_restore_tex;  // 7 intermediate layers
     renderer::Binding_Upscale mode_a_binding;  // reusable single-texture binding
     // enhanced_tex reused as 1280×960 output target
   };
