@@ -643,7 +643,29 @@ PIPELINE_HEADER(YUV) {
 // Single-texture passes (1 input texture)
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass0_Pixel, Clamp_Highlights_Pass0)
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass1_Pixel, Clamp_Highlights_Pass1)
-MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Clamp_Highlights_Pass2_Pixel, Clamp_Highlights_Pass2)
+// Multi-texture clamp pass: u_Texture (STATSMAX) + u_Texture1 (HOOKED/original screen)
+PIPELINE_HEADER(Anime4K_Clamp_Highlights_Pass2) {
+  const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
+                                   kHLSL_Anime4K_Clamp_Highlights_Pass2_Pixel,
+                                   "anime4k_a.Clamp_Highlights_Pass2"};
+  const char* tex_names[] = {"u_Texture", "u_Texture1"};
+  std::vector<Diligent::PipelineResourceDesc> variables;
+  for (const char* name : tex_names) {
+    variables.push_back({Diligent::SHADER_TYPE_PIXEL, name,
+        Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
+        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+  }
+  variables.push_back({Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer",
+      Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
+      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+  std::vector<Diligent::ImmutableSamplerDesc> clamp2_samplers;
+  for (const char* name : tex_names) {
+    clamp2_samplers.push_back({Diligent::SHADER_TYPE_PIXEL, name,
+        init_params.immutable_sampler});
+  }
+  auto binding0 = MakeResourceSignature(variables, clamp2_samplers, 0);
+  SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
+}
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass0_Pixel, Restore_CNN_Pass0)
 
 MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Restore_CNN_M_Pass1_Pixel, Restore_CNN_Pass1)
@@ -679,17 +701,22 @@ PIPELINE_HEADER(Anime4K_Restore_CNN_Pass7) {
   SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
 }
 
-MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass0_Pixel, Upscale_CNN_x2_S_Pass0)
-MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass1_Pixel, Upscale_CNN_x2_S_Pass1)
-MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass2_Pixel, Upscale_CNN_x2_S_Pass2)
-MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_S_Pass3_Pixel, Upscale_CNN_x2_S_Pass3)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_M_Pass0_Pixel, Upscale_CNN_x2_M_Pass0)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_M_Pass1_Pixel, Upscale_CNN_x2_M_Pass1)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_M_Pass2_Pixel, Upscale_CNN_x2_M_Pass2)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_M_Pass3_Pixel, Upscale_CNN_x2_M_Pass3)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_M_Pass4_Pixel, Upscale_CNN_x2_M_Pass4)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_M_Pass5_Pixel, Upscale_CNN_x2_M_Pass5)
+MAKE_A4A_ST_PIPELINE(kHLSL_Anime4K_Upscale_CNN_x2_M_Pass6_Pixel, Upscale_CNN_x2_M_Pass6)
 
-// Multi-texture depth-to-space pass: u_Texture (conv) + u_Texture1 (screen residual) + params
-PIPELINE_HEADER(Anime4K_Upscale_CNN_x2_S_Pass4) {
+// Multi-texture merge pass: 7 intermediate textures (u_Texture1..u_Texture7, no u_Texture screen residual)
+PIPELINE_HEADER(Anime4K_Upscale_CNN_x2_M_Pass7) {
   const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
-                                   kHLSL_Anime4K_Upscale_CNN_x2_S_Pass4_Pixel,
-                                   "anime4k_a.Upscale_CNN_x2_S_Pass4"};
-  const char* tex_names[] = {"u_Texture", "u_Texture1"};
+                                   kHLSL_Anime4K_Upscale_CNN_x2_M_Pass7_Pixel,
+                                   "anime4k_a.Upscale_CNN_x2_M_Pass7"};
+  const char* tex_names[] = {
+      "u_Texture1", "u_Texture2", "u_Texture3", "u_Texture4",
+      "u_Texture5", "u_Texture6", "u_Texture7"};
   std::vector<Diligent::PipelineResourceDesc> variables;
   for (const char* name : tex_names) {
     variables.push_back({Diligent::SHADER_TYPE_PIXEL, name,
@@ -705,6 +732,30 @@ PIPELINE_HEADER(Anime4K_Upscale_CNN_x2_S_Pass4) {
         init_params.immutable_sampler});
   }
   auto binding0 = MakeResourceSignature(variables, mt_samplers, 0);
+  SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
+}
+
+// Depth-to-space pass: u_Texture (merge output) + u_Texture1 (screen residual)
+PIPELINE_HEADER(Anime4K_Upscale_CNN_x2_M_Pass8) {
+  const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
+                                   kHLSL_Anime4K_Upscale_CNN_x2_M_Pass8_Pixel,
+                                   "anime4k_a.Upscale_CNN_x2_M_Pass8"};
+  const char* tex_names[] = {"u_Texture", "u_Texture1"};
+  std::vector<Diligent::PipelineResourceDesc> variables;
+  for (const char* name : tex_names) {
+    variables.push_back({Diligent::SHADER_TYPE_PIXEL, name,
+        Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
+        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+  }
+  variables.push_back({Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer",
+      Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
+      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+  std::vector<Diligent::ImmutableSamplerDesc> d2s_samplers;
+  for (const char* name : tex_names) {
+    d2s_samplers.push_back({Diligent::SHADER_TYPE_PIXEL, name,
+        init_params.immutable_sampler});
+  }
+  auto binding0 = MakeResourceSignature(variables, d2s_samplers, 0);
   SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
 }
 
