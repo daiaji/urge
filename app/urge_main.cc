@@ -21,6 +21,7 @@
 #include "content/profile/i18n_profile.h"
 #include "content/worker/content_runner.h"
 #include "base/debug/crash_handler.h"
+#include "base/platform/console.h"
 #include "ui/widget/widget.h"
 
 #if HAVE_ARB_ENCRYPTO_SUPPORT
@@ -75,37 +76,17 @@ int SetupAndroidStudioTransfer() {
 
 #endif
 
-#if defined(OS_WIN)
-#include <windows.h>
-
-void CreateConsoleWin() {
-  if (::GetConsoleWindow())
-    return;
-
-  if (!::AttachConsole(ATTACH_PARENT_PROCESS)) {
-    ::AllocConsole();
-    ::SetConsoleCP(CP_UTF8);
-    ::SetConsoleOutputCP(CP_UTF8);
-    ::SetConsoleTitleW(L"URGE Debugging Console");
-  }
-
-  // Redirect std handle
-  std::freopen("CONIN$", "rb", stdin);
-  std::freopen("CONOUT$", "wb", stdout);
-  std::freopen("CONOUT$", "wb", stderr);
-}
-#endif
-
 int main(int argc, char* argv[]) {
-#if defined(OS_WIN)
-  // Allocate console if need
+  // Ensure console is available for stdout/stderr (no-op on most platforms)
+  platform::EnsureConsole();
+
+  bool show_console = false;
   for (int i = 0; i < argc; ++i) {
     if (!std::strcmp(argv[i], "console")) {
-      CreateConsoleWin();
+      show_console = true;
       break;
     }
   }
-#endif  //! defined(OS_WIN)
 
 #if defined(OS_ANDROID)
   SetupAndroidStudioTransfer();
@@ -200,10 +181,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-#if defined(OS_WIN)
-  if (profile->debugging_console)
-    CreateConsoleWin();
-#endif
+  // Show/hide console window based on config or command-line arg
+  platform::SetConsoleVisible(show_console || profile->debugging_console);
 
   // Create spdlog logger
 #if defined(OS_ANDROID)
@@ -215,20 +194,17 @@ int main(int argc, char* argv[]) {
       std::make_shared<spdlog::sinks::basic_file_sink_mt>(app + ".log", true);
   file_sink->set_level(spdlog::level::trace);
 #else
+  std::vector<spdlog::sink_ptr> logger_sinks;
+
+  // Always add stdout sink (terminal output)
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   console_sink->set_pattern("[%^%l%$] %v");
-
-  std::vector<spdlog::sink_ptr> logger_sinks;
-#if defined(OS_ANDROID)
-  logger_sinks.push_back(android_sink);
-#else
   logger_sinks.push_back(console_sink);
-#endif
 
   // Conditionally add file sink
   if (profile->save_log) {
     auto file_sink =
-        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Engine.log", true);
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Engine.log", false);
     file_sink->set_pattern("[%^%l%$] %v");
     file_sink->set_level(spdlog::level::trace);
     logger_sinks.push_back(file_sink);
@@ -245,7 +221,7 @@ int main(int argc, char* argv[]) {
   // Create console logger (user-facing output: Console.log + terminal)
   {
     auto console_file_sink =
-        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Console.log", true);
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Console.log", false);
     console_file_sink->set_pattern("[%^%l%$] %v");
     auto console_stdout_sink =
         std::make_shared<spdlog::sinks::stdout_color_sink_mt>();

@@ -1,9 +1,13 @@
 #include "base/debug/crash_handler.h"
 
+#include "base/buildflags/build.h"
+
 #if defined(OS_WIN)
 #include <windows.h>
 #include <io.h>
+#include <fcntl.h>
 #include <process.h>
+#include <signal.h>
 #else
 #include <signal.h>
 #include <unistd.h>
@@ -40,8 +44,11 @@ static int g_ring_total = 0;
 static int g_crash_fd = -1;
 
 // Saved old signal actions for chaining to previous handlers (e.g. Ruby's sigsegv)
-static struct sigaction g_old_sigactions[NSIG];
-static bool g_sigactions_saved[NSIG] = {};
+#if !defined(OS_WIN)
+static constexpr int kMaxSignal = 64;
+static struct sigaction g_old_sigactions[kMaxSignal];
+static bool g_sigactions_saved[kMaxSignal] = {};
+#endif
 
 // Pump pipe + thread for tee-ing crash output to both crash.log and stderr.
 // During crash handling, stderr is dup2'd to the pipe; a background thread
@@ -165,11 +172,29 @@ void WriteHex(int fd, uintptr_t val) {
 }
 
 void WriteCrashHeader(int fd, int sig, const char* sig_name) {
+#if defined(OS_WIN)
+  SYSTEMTIME st;
+  GetLocalTime(&st);
+  WriteLiteral(fd, "\n--- ");
+  WriteDecimal(fd, st.wYear);
+  WriteLiteral(fd, "-");
+  WriteDecimal(fd, st.wMonth);
+  WriteLiteral(fd, "-");
+  WriteDecimal(fd, st.wDay);
+  WriteLiteral(fd, " ");
+  WriteDecimal(fd, st.wHour);
+  WriteLiteral(fd, ":");
+  WriteDecimal(fd, st.wMinute);
+  WriteLiteral(fd, ":");
+  WriteDecimal(fd, st.wSecond);
+  WriteLiteral(fd, " ---\n");
+#else
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME_COARSE, &ts);
   WriteLiteral(fd, "\n--- ");
   WriteDecimal(fd, static_cast<int>(ts.tv_sec));
   WriteLiteral(fd, " ---\n");
+#endif
   WriteLiteral(fd,
     "================================================================\n"
     "  URGE CRASH - Unhandled signal detected\n"
@@ -374,12 +399,19 @@ void DumpWinRegisters(int fd, PCONTEXT ctx) {
   WriteLiteral(fd, "    R15: "); WriteHex(fd, ctx->R15); WriteLiteral(fd, "\n");
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4702)
 static LONG CALLBACK WinVectoredHandler(PEXCEPTION_POINTERS ep) {
+  EXCEPTION_RECORD* er = ep->ExceptionRecord;
+
+  // Ignore non-fatal exceptions that are expected (e.g. thread naming)
+  if (er->ExceptionCode == 0x406D1388)  // MS_VC_EXCEPTION (SetThreadDescription)
+    return EXCEPTION_CONTINUE_SEARCH;
+
   int fd = g_crash_fd >= 0 ? g_crash_fd : -1;
   if (fd < 0)
     fd = _fileno(stderr);
 
-  EXCEPTION_RECORD* er = ep->ExceptionRecord;
   WriteCrashHeader(fd, static_cast<int>(er->ExceptionCode),
                    ExceptionCodeName(er->ExceptionCode));
   WriteLiteral(fd, "  Flags:     "); WriteHex(fd, er->ExceptionFlags); WriteLiteral(fd, "\n");
@@ -408,11 +440,13 @@ static LONG CALLBACK WinVectoredHandler(PEXCEPTION_POINTERS ep) {
   }
 
   DumpRingBuffer(fd);
-  FlushAndRaise(0);
 
-  // Never reached (FlushAndRaise calls _exit)
-  return EXCEPTION_CONTINUE_SEARCH;
+  // _exit() will be called; return value is never used.
+  LONG result = EXCEPTION_CONTINUE_SEARCH;
+  FlushAndRaise(0);
+  return result;
 }
+#pragma warning(pop)
 
 void WinAbortHandler(int) {
   int fd = g_crash_fd >= 0 ? g_crash_fd : _fileno(stderr);

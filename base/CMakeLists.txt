@@ -25,6 +25,8 @@ set(ENGINE_BASE_SRC
   debug/crash_handler.h
   debug/logging.cc
   debug/logging.h
+  platform/console.cc
+  platform/console.h
   math/rectangle.cc
   math/rectangle.h
   math/vector.h

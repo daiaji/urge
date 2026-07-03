@@ -6,7 +6,6 @@
 #define BINDING_MRI_MRI_UTIL_H_
 
 #include <string>
-#include <dlfcn.h>
 
 #include "ruby.h"
 #include "ruby/encoding.h"
