@@ -359,6 +359,10 @@ PipelineCollection::PipelineCollection(renderer::PipelineSet* loader,
       make_a4a(loader->anime4k_upscale_pass2, anime4k_upscale_pass2);
       make_a4a(loader->anime4k_upscale_pass3, anime4k_upscale_pass3);
       make_a4a(loader->anime4k_upscale_pass4, anime4k_upscale_pass4);
+      make_a4a(loader->anime4k_upscale_pass5, anime4k_upscale_pass5);
+      make_a4a(loader->anime4k_upscale_pass6, anime4k_upscale_pass6);
+      make_a4a(loader->anime4k_upscale_pass7, anime4k_upscale_pass7);
+      make_a4a(loader->anime4k_upscale_pass8, anime4k_upscale_pass8);
     }
 
   {  // Window (present) - with scissor - with depth

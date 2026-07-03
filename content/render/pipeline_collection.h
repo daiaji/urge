@@ -68,6 +68,10 @@ struct PipelineCollection {
   PipelineObject anime4k_upscale_pass2;
   PipelineObject anime4k_upscale_pass3;
   PipelineObject anime4k_upscale_pass4;
+  PipelineObject anime4k_upscale_pass5;
+  PipelineObject anime4k_upscale_pass6;
+  PipelineObject anime4k_upscale_pass7;
+  PipelineObject anime4k_upscale_pass8;
 
   PipelineObject window;
   PipelineObject window_with_stencil;
