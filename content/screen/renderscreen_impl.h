@@ -61,8 +61,9 @@ class RenderScreenImpl : public Graphics, public EngineObject {
     RRefPtr<Diligent::ITexture> mode_a_tex3;  // 1280×960 Pass4 output (avoids self-read)
     std::vector<RRefPtr<Diligent::ITexture>> mode_a_restore_tex;  // 7 intermediate layers
     renderer::Binding_Upscale mode_a_binding;  // reusable single-texture binding
-    renderer::Binding_A4A_Merge mode_a_merge_binding;  // Pass7 multi-texture binding
-    renderer::Binding_Upscale mode_a_upscale4_binding;  // Pass4 binding (u_Texture + u_Texture1)
+    renderer::Binding_A4A_Merge mode_a_restore_merge_binding;  // Restore Pass7 merge
+    renderer::Binding_A4A_Merge mode_a_upscale_merge_binding;  // Upscale Pass7 merge
+    renderer::Binding_Upscale mode_a_upscale_d2s_binding;  // Upscale Pass8 d2s (u_Texture + u_Texture1)
     // enhanced_tex reused as 1280×960 output target
   };
 
