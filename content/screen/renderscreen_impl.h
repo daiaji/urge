@@ -65,6 +65,16 @@ class RenderScreenImpl : public Graphics, public EngineObject {
     renderer::Binding_A4A_Merge mode_a_upscale_merge_binding;  // Upscale Pass7 merge
     renderer::Binding_Upscale mode_a_upscale_d2s_binding;  // Upscale Pass8 d2s (u_Texture + u_Texture1)
     // enhanced_tex reused as 1280×960 output target
+
+    // Anime4K Upscale_Denoise_L intermediate targets
+    RRefPtr<Diligent::ITexture> udl_tex1;  // 640×480 RGBA16F
+    RRefPtr<Diligent::ITexture> udl_tex2;  // 640×480 RGBA16F
+    RRefPtr<Diligent::ITexture> udl_tex3;  // 640×480 RGBA16F
+    RRefPtr<Diligent::ITexture> udl_tex4;  // 640×480 RGBA16F
+    renderer::Binding_Upscale udl_pass0_binding;  // Pass0 single-texture
+    renderer::Binding_Upscale udl_pass1_binding;  // Pass1-2 dual-texture (u_Texture + u_Texture1)
+    renderer::Binding_UDL_D2S udl_pass3_binding;  // Pass3 triple-texture
+    // enhanced_tex reused as 1280×960 output target
   };
 
   RenderScreenImpl(ExecutionContext* execution_context, uint32_t frame_rate);
@@ -191,6 +201,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   void GPURecreateAnime4KTargetsInternal(const base::Vec2i& size);
   void GPURecreateModeATargetsInternal();
   void GPURunModeAPassesInternal(Diligent::IDeviceContext* render_context);
+  void GPURunUDLPassesInternal(Diligent::IDeviceContext* render_context);
   void GPURecreateSharpenedBufferInternal();
 
   GPUData gpu_;

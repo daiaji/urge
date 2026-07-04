@@ -73,6 +73,12 @@ struct PipelineCollection {
   PipelineObject anime4k_upscale_pass7;
   PipelineObject anime4k_upscale_pass8;
 
+  // Anime4K Upscale_Denoise_L pipeline states (MRT for Pass0-2, single for Pass3)
+  PipelineObject anime4k_udl_pass0;
+  PipelineObject anime4k_udl_pass1;
+  PipelineObject anime4k_udl_pass2;
+  PipelineObject anime4k_udl_pass3;
+
   PipelineObject window;
   PipelineObject window_with_stencil;
   PipelineObject color_write_stencil;

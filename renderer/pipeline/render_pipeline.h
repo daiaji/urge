@@ -168,6 +168,16 @@ PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass7,
 PIPELINE_DEFINE(Anime4K_Upscale_CNN_x2_M_Pass8,
                 MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
 
+// Anime4K Upscale_Denoise_L pipeline set
+PIPELINE_DEFINE(Anime4K_UDL_Pass0,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_UDL_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_UDL_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_UDL_Pass3,
+                MAKE_BINDING_FUNCTION(Binding_UDL_D2S, 0););
+
 #undef PIPELINE_DEFINE
 #undef MAKE_BINDING_FUNCTION
 
@@ -213,6 +223,12 @@ struct PipelineSet {
   Pipeline_Anime4K_Upscale_CNN_x2_M_Pass7 anime4k_upscale_pass7;
   Pipeline_Anime4K_Upscale_CNN_x2_M_Pass8 anime4k_upscale_pass8;
 
+  // Anime4K Upscale_Denoise_L
+  Pipeline_Anime4K_UDL_Pass0 anime4k_udl_pass0;
+  Pipeline_Anime4K_UDL_Pass1 anime4k_udl_pass1;
+  Pipeline_Anime4K_UDL_Pass2 anime4k_udl_pass2;
+  Pipeline_Anime4K_UDL_Pass3 anime4k_udl_pass3;
+
   PipelineSet(const PipelineInitParams& init_params)
       : base(init_params),
         bitmapblt(init_params),
@@ -248,7 +264,11 @@ struct PipelineSet {
         anime4k_upscale_pass5(init_params),
         anime4k_upscale_pass6(init_params),
         anime4k_upscale_pass7(init_params),
-        anime4k_upscale_pass8(init_params) {}
+        anime4k_upscale_pass8(init_params),
+        anime4k_udl_pass0(init_params),
+        anime4k_udl_pass1(init_params),
+        anime4k_udl_pass2(init_params),
+        anime4k_udl_pass3(init_params) {}
 };
 
 }  // namespace renderer

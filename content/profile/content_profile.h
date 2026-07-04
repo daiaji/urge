@@ -104,6 +104,7 @@ class ContentProfile {
   bool win_resizable = true;
   bool fixed_aspect_ratio = true;
   bool mode_a_auto_fit = false;  // Mode A: auto-fit window to integer scale
+  bool udl_auto_fit = false;     // UDL: auto-fit window to 2x scale
 
   // Log
   bool save_log = true;
