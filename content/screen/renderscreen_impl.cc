@@ -96,30 +96,34 @@ void RenderScreenImpl::CreateButtonGUISettings() {
 
     // VSync
     bool vsync_enabled = settings_profile.vsync != 0;
-    ImGui::Checkbox(
-        context()
-            ->i18n_profile->GetI18NString(IDS_GRAPHICS_VSYNC, "VSync")
-            .c_str(),
-        &vsync_enabled);
-    settings_profile.vsync = vsync_enabled ? 1 : 0;
-    context()->engine_profile->MarkDirty();
-
+    if (ImGui::Checkbox(
+            context()
+                ->i18n_profile->GetI18NString(IDS_GRAPHICS_VSYNC, "VSync")
+                .c_str(),
+            &vsync_enabled)) {
+      settings_profile.vsync = vsync_enabled ? 1 : 0;
+      context()->engine_profile->MarkDirty();
+    }
     // Frame Rate
-    static int32_t frame_rate_tmp = static_cast<int32_t>(frame_rate_);
+    int32_t frame_rate_tmp = static_cast<int32_t>(frame_rate_);
     frame_rate_tmp = unlimited_fps_ ? 0 : static_cast<int32_t>(frame_rate_);
-    ImGui::SliderInt(
-        context()
-            ->i18n_profile->GetI18NString(IDS_GRAPHICS_FRAME_RATE, "Frame Rate")
-            .c_str(),
-        &frame_rate_tmp, 0, 360);
-    if (frame_rate_tmp == 0 && !unlimited_fps_) {
-      unlimited_fps_ = true;
-      limiter_.SetDisabled(true);
-    } else if (frame_rate_tmp > 0) {
-      unlimited_fps_ = false;
-      frame_rate_ = static_cast<uint32_t>(frame_rate_tmp);
-      limiter_.SetDisabled(false);
-      limiter_.SetFrameRate(frame_rate_);
+    if (ImGui::SliderInt(
+            context()
+                ->i18n_profile
+                ->GetI18NString(IDS_GRAPHICS_FRAME_RATE, "Frame Rate")
+                .c_str(),
+            &frame_rate_tmp, 0, 360)) {
+      settings_profile.frame_rate = frame_rate_tmp;
+      if (frame_rate_tmp == 0) {
+        unlimited_fps_ = true;
+        limiter_.SetDisabled(true);
+      } else {
+        unlimited_fps_ = false;
+        frame_rate_ = static_cast<uint32_t>(frame_rate_tmp);
+        limiter_.SetDisabled(false);
+        limiter_.SetFrameRate(frame_rate_);
+      }
+      context()->engine_profile->MarkDirty();
     }
 
     // Keep Ratio
