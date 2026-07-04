@@ -4,9 +4,13 @@
 
 #include "content/worker/content_runner.h"
 
+#include <filesystem>
 #include "imgui/backends/imgui_impl_sdl3.h"
 #include "imgui/imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
+#include <algorithm>
+
+#include "Common/interface/FileWrapper.hpp"
 #include "magic_enum/magic_enum.hpp"
 
 #include "components/version/version.h"
@@ -61,6 +65,12 @@ ContentRunner::ContentRunner(ContentProfile* profile,
 }
 
 ContentRunner::~ContentRunner() {
+  SaveShaderBytecodeCacheInternal();
+
+  // Flush pending GPU commands before destroying context
+  if (device_context_)
+    device_context_->Flush();
+
   // Remove watch
   SDL_RemoveEventWatch(&ContentRunner::EventWatchHandlerInternal, this);
 
@@ -151,6 +161,7 @@ void ContentRunner::RunMainLoop() {
 
 std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
   auto* runner = new ContentRunner(params.profile, std::move(params.entry));
+  runner->display_refresh_rate_ = params.display_refresh_rate;
   if (!runner->InitializeComponents(params.io_service, params.font_context,
                                     params.i18n_profile, params.window))
     return nullptr;
@@ -163,9 +174,12 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
                                          I18NProfile* i18n_profile,
                                          base::WeakPtr<ui::Widget> window) {
   // Initialize components
+  std::string driver_backend = profile_->driver_backend;
+  std::transform(driver_backend.begin(), driver_backend.end(),
+                 driver_backend.begin(), ::toupper);
   auto [render_device, render_context] = renderer::RenderDevice::Create(
       window,
-      magic_enum::enum_cast<renderer::DriverType>(profile_->driver_backend)
+      magic_enum::enum_cast<renderer::DriverType>(driver_backend)
           .value_or(renderer::DriverType::UNDEFINED),
       profile_->render_validation);
   if (!render_device || !render_context) {
@@ -175,6 +189,7 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
 
   render_device_ = std::move(render_device);
   device_context_ = std::move(render_context);
+  InitializeShaderBytecodeCacheInternal();
 
   // Initialize execution context
   execution_context_ = std::make_unique<ExecutionContext>();
@@ -222,6 +237,12 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
   execution_context_->screen_drawable_node =
       graphics_impl_->GetDrawableController();
 
+  // Apply sync to refresh rate
+  if (profile_->sync_to_refresh_rate && display_refresh_rate_ > 0.0f) {
+    graphics_impl_->SyncToRefreshRate(
+        static_cast<int32_t>(display_refresh_rate_));
+  }
+
   // Other modules
   keyboard_impl_ =
       base::MakeRefCounted<KeyboardControllerImpl>(execution_context_.get());
@@ -257,6 +278,7 @@ void ContentRunner::CreateRenderComponents() {
   // Pipeline loaders
   renderer::PipelineInitParams pipeline_params;
   pipeline_params.render_device = **execution_context_->render_device;
+  pipeline_params.bytecode_cache = shader_bytecode_cache_;
 
   // Default sampler
   auto sampler_filter =
@@ -277,7 +299,75 @@ void ContentRunner::CreateRenderComponents() {
   // Pipeline states
   auto* loader = execution_context_->render.pipeline_loader.get();
   execution_context_->render.pipeline_states =
-      std::make_unique<PipelineCollection>(loader);
+      std::make_unique<PipelineCollection>(
+          loader, **execution_context_->render_device);
+}
+
+void ContentRunner::InitializeShaderBytecodeCacheInternal() {
+  const auto& device_info = (**render_device_)->GetDeviceInfo();
+  Diligent::BytecodeCacheCreateInfo cache_info;
+  cache_info.DeviceType = device_info.Type;
+  Diligent::CreateBytecodeCache(cache_info, &shader_bytecode_cache_);
+  if (!shader_bytecode_cache_) {
+    LOG(WARNING) << "[Graphics] Failed to create shader bytecode cache";
+    return;
+  }
+
+  std::filesystem::path cache_dir("ShaderCache");
+  std::error_code ec;
+  std::filesystem::create_directories(cache_dir, ec);
+  if (ec) {
+    LOG(WARNING) << "[Graphics] Failed to create shader cache directory: "
+                 << ec.message();
+    shader_bytecode_cache_.Release();
+    return;
+  }
+
+  shader_bytecode_cache_path_ =
+      (cache_dir / (std::string("shader_bytecode_cache_") +
+                    std::to_string(static_cast<int>(device_info.Type)) +
+                    ".bin"))
+          .string();
+
+  RRefPtr<Diligent::IDataBlob> cache_blob;
+  if (!Diligent::FileWrapper::ReadWholeFile(shader_bytecode_cache_path_.c_str(),
+                                            &cache_blob, true)) {
+    LOG(INFO) << "[Graphics] Shader bytecode cache miss: "
+              << shader_bytecode_cache_path_;
+    return;
+  }
+
+  if (!shader_bytecode_cache_->Load(cache_blob)) {
+    LOG(WARNING) << "[Graphics] Shader bytecode cache invalid: "
+                 << shader_bytecode_cache_path_;
+    return;
+  }
+
+  LOG(INFO) << "[Graphics] Shader bytecode cache loaded: "
+            << shader_bytecode_cache_path_ << " bytes=" << cache_blob->GetSize();
+}
+
+void ContentRunner::SaveShaderBytecodeCacheInternal() {
+  if (!shader_bytecode_cache_ || shader_bytecode_cache_path_.empty())
+    return;
+
+  RRefPtr<Diligent::IDataBlob> cache_blob;
+  shader_bytecode_cache_->Store(&cache_blob);
+  if (!cache_blob) {
+    LOG(WARNING) << "[Graphics] Failed to serialize shader bytecode cache";
+    return;
+  }
+
+  if (!Diligent::FileWrapper::WriteFile(shader_bytecode_cache_path_.c_str(),
+                                        cache_blob->GetConstDataPtr(),
+                                        cache_blob->GetSize(), true)) {
+    LOG(WARNING) << "[Graphics] Failed to write shader bytecode cache: "
+                 << shader_bytecode_cache_path_;
+    return;
+  }
+
+  LOG(INFO) << "[Graphics] Shader bytecode cache saved: "
+            << shader_bytecode_cache_path_ << " bytes=" << cache_blob->GetSize();
 }
 
 void ContentRunner::TickHandlerInternal(Diligent::ITexture* present_buffer) {
@@ -362,6 +452,9 @@ void ContentRunner::CheckResizeInternal() {
 }
 
 void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
+  // Scale ImGui fonts for HiDPI displays
+  ImGui::GetIO().FontGlobalScale = backing_scale_factor_;
+
   // Setup renderer new frame
   auto* swapchain = execution_context_->render_device->GetSwapChain();
   if (!swapchain)
@@ -489,6 +582,9 @@ void ContentRunner::RenderSettingsGUIInternal() {
     // Audio settings
     audio_impl_->CreateButtonGUISettings();
 
+    // Input settings (keyboard + gamepad bindings)
+    keyboard_impl_->CreateButtonGUISettings();
+
     // Engine Info
     DrawEngineInfoGUI(execution_context_->i18n_profile);
 
@@ -518,6 +614,42 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
   ImGui::End();
 }
 
+
+int ContentRunner::ConsoleInputCallback(ImGuiInputTextCallbackData* data) {
+  auto* runner = static_cast<ContentRunner*>(data->UserData);
+  if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) {
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.KeyCtrl)
+      return 0;
+    auto& h = runner->console_history_;
+    auto& p = runner->console_history_pos_;
+    if (data->EventKey == ImGuiKey_UpArrow && !h.empty()) {
+      if (p == -1)
+        p = static_cast<int>(h.size()) - 1;
+      else if (p > 0)
+        p--;
+      data->DeleteChars(0, data->BufTextLen);
+      data->InsertChars(0, h[p].c_str());
+      data->BufDirty = true;
+    } else if (data->EventKey == ImGuiKey_DownArrow) {
+      if (p >= 0) {
+        p++;
+        if (p < static_cast<int>(h.size())) {
+          data->DeleteChars(0, data->BufTextLen);
+          data->InsertChars(0, h[p].c_str());
+          data->BufDirty = true;
+        } else {
+          data->DeleteChars(0, data->BufTextLen);
+          p = -1;
+          data->BufDirty = true;
+        }
+      }
+    }
+    return 0;
+  }
+  return 0;
+// Console input callback for ImGui
+}
 void ContentRunner::RenderConsoleGUIInternal() {
   auto* swapchain = execution_context_->render_device->GetSwapChain();
   if (!swapchain)
@@ -537,8 +669,22 @@ void ContentRunner::RenderConsoleGUIInternal() {
     ImVec2 out_size(0, -ImGui::GetTextLineHeightWithSpacing() * 3 -
                            ImGui::GetStyle().ItemSpacing.y);
     if (ImGui::BeginChild("##console_out", out_size, ImGuiChildFlags_Border)) {
-      for (const auto& line : execution_context_->console.output)
-        ImGui::TextUnformatted(line.c_str());
+      {
+        std::lock_guard<std::mutex> lock(
+            execution_context_->console.output_mutex);
+        for (const auto& line : execution_context_->console.output) {
+          if (line.starts_with("[info]") || line.starts_with("[Script]"))
+            ImGui::TextUnformatted(line.c_str());
+          else if (line.starts_with("[Input]"))
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.2f, 1.0f), "%s", line.c_str());
+          else if (line.starts_with("[Ruby Error]"))
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", line.c_str());
+          else if (line.starts_with("[Result]"))
+            ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), "%s", line.c_str());
+          else
+            ImGui::TextUnformatted(line.c_str());
+        }
+      }
       if (execution_context_->console.scroll_to_bottom) {
         ImGui::SetScrollHereY(1.0f);
         execution_context_->console.scroll_to_bottom = false;
@@ -546,39 +692,26 @@ void ContentRunner::RenderConsoleGUIInternal() {
     }
     ImGui::EndChild();
 
-    // Input area (CallbackHistory not supported with Multiline per ImGui assert)
-    ImGuiInputTextFlags iflags = ImGuiInputTextFlags_EnterReturnsTrue;
+    // Input area
+    // CtrlEnterForNewLine: Enter submits, Ctrl+Enter adds newline
+    ImGuiInputTextFlags iflags =
+        ImGuiInputTextFlags_EnterReturnsTrue |
+        ImGuiInputTextFlags_CtrlEnterForNewLine |
+        ImGuiInputTextFlags_CallbackHistory;
 
     if (ImGui::InputTextMultiline(
             "##console_in", &console_input_buffer_,
-            ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags)) {
+            ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags,
+            &ConsoleInputCallback, this)) {
+      // Trim trailing newline added by InputTextMultiline on Enter
+      while (!console_input_buffer_.empty() &&
+             (console_input_buffer_.back() == '\n' ||
+              console_input_buffer_.back() == '\r'))
+        console_input_buffer_.pop_back();
       ExecuteConsoleCommand(console_input_buffer_);
       console_input_buffer_.clear();
       console_history_pos_ = -1;
       execution_context_->console.scroll_to_bottom = true;
-    }
-
-    // Manual history navigation (Up/Down)
-    if (ImGui::IsItemActive()) {
-      if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-        if (!console_history_.empty()) {
-          if (console_history_pos_ == -1)
-            console_history_pos_ = console_history_.size() - 1;
-          else if (console_history_pos_ > 0)
-            console_history_pos_--;
-          console_input_buffer_ = console_history_[console_history_pos_];
-        }
-      } else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-        if (console_history_pos_ >= 0) {
-          console_history_pos_++;
-          if (console_history_pos_ < (int)console_history_.size())
-            console_input_buffer_ = console_history_[console_history_pos_];
-          else {
-            console_input_buffer_.clear();
-            console_history_pos_ = -1;
-          }
-        }
-      }
     }
 
     if (!ImGui::IsAnyItemActive())
@@ -588,8 +721,8 @@ void ContentRunner::RenderConsoleGUIInternal() {
 }
 
 void ContentRunner::ExecuteConsoleCommand(const std::string& code) {
-  auto& output = execution_context_->console.output;
-  output.push_back(">>> " + code);
+  auto& console = execution_context_->console;
+  console.Push("[Input] >>> " + code);
 
   if (code.empty())
     return;
@@ -599,13 +732,13 @@ void ContentRunner::ExecuteConsoleCommand(const std::string& code) {
     console_history_.pop_front();
 
   if (!execution_context_->eval_ruby) {
-    output.push_back("(eval not available)");
+    console.Push("[Result] (eval not available)");
     return;
   }
 
   std::string result = execution_context_->eval_ruby(code);
   if (!result.empty())
-    output.push_back(result);
+    console.Push("[Result] " + result);
 }
 
 void ContentRunner::UpdateEventInternal() {
@@ -613,16 +746,27 @@ void ContentRunner::UpdateEventInternal() {
   event_controller_->ClearPendingEvents();
 
   // Poll event queue
-  SDL_Event queued_event;
+  SDL_Event queued_event = {};
   while (SDL_PollEvent(&queued_event)
 #if !defined(OS_EMSCRIPTEN)
          || background_running_
 #endif  //! OS_EMSCRIPTEN
   ) {
+    const bool got_event = (queued_event.type != 0);
+
     // Quit event
-    if (queued_event.type == SDL_EVENT_QUIT) {
+    if (got_event && queued_event.type == SDL_EVENT_QUIT) {
       binding_quit_flag_.store(1);
       break;
+    }
+
+    // Only process event data if SDL_PollEvent filled the struct
+    if (!got_event) {
+      if (background_running_) {
+        SDL_Delay(16);
+        queued_event = {};
+      }
+      continue;
     }
 
     // GUI event process
@@ -659,10 +803,11 @@ void ContentRunner::UpdateEventInternal() {
           event_controller_->SetGamepadConnected(true);
           LOG(INFO) << "[Gamepad] Opened: "
                      << SDL_GetGamepadName(pad);
+        } else {
+          LOG(WARNING) << "[Gamepad] Failed to open: " << SDL_GetError();
         }
       }
     } else if (queued_event.type == SDL_EVENT_GAMEPAD_REMOVED) {
-      SDL_JoystickID id = queued_event.gdevice.which;
       if (event_controller_->gamepad_handle()) {
         SDL_CloseGamepad(event_controller_->gamepad_handle());
         event_controller_->set_gamepad_handle(nullptr);
@@ -684,7 +829,8 @@ bool ContentRunner::EventWatchHandlerInternal(void* userdata,
   ContentRunner* self = static_cast<ContentRunner*>(userdata);
 #if !defined(OS_ANDROID)
   if (self->profile_->background_running)
-    return true;
+
+  return true;
 #endif
 
   const bool is_focus_lost =
@@ -738,7 +884,7 @@ void ContentRunner::CreateIMGUIContextInternal() {
   ImGuiIO& io = ImGui::GetIO();
   io.IniFilename = nullptr;
   io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
+      ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
   // Apply DPI Settings
@@ -764,8 +910,24 @@ void ContentRunner::CreateIMGUIContextInternal() {
   io.Fonts->TexMaxWidth = max_texture_size;
   io.Fonts->TexMaxHeight = max_texture_size;
   io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(font_data), font_data_size,
-                                 16.0f * window_scale, &font_config,
+                                 20.0f * window_scale, &font_config,
                                  io.Fonts->GetGlyphRangesChineseFull());
+
+  // Merge CJK font for Chinese/Japanese glyph support in ImGui Console
+  // Reuse fonts already loaded by the game's font context
+  auto& data_cache = execution_context_->font_context->data_cache;
+  std::string default_key = execution_context_->font_context->default_font;
+  for (auto& [name, pair] : data_cache) {
+    if (name == default_key)
+      continue;
+    ImFontConfig cjk_config;
+    cjk_config.FontDataOwnedByAtlas = false;
+    cjk_config.MergeMode = true;
+    io.Fonts->AddFontFromMemoryTTF(pair.second, pair.first,
+                                   20.0f * window_scale, &cjk_config,
+                                   io.Fonts->GetGlyphRangesChineseFull());
+    break;
+  }
 
   // Setup Dear ImGui style
   ImGui::StyleColorsClassic();

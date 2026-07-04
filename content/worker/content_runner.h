@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "Common/interface/RefCntAutoPtr.hpp"
+#include "Graphics/GraphicsTools/interface/BytecodeCache.h"
 #include "imgui/backends/imgui_impl_diligent.h"
 
 #include "base/worker/thread_worker.h"
@@ -78,6 +80,8 @@ class ContentRunner {
                             I18NProfile* i18n_profile,
                             base::WeakPtr<ui::Widget> window);
   void CreateRenderComponents();
+  void InitializeShaderBytecodeCacheInternal();
+  void SaveShaderBytecodeCacheInternal();
   void TickHandlerInternal(Diligent::ITexture* present_buffer);
   void UpdateDisplayFPSInternal();
   void CheckResizeInternal();
@@ -100,6 +104,8 @@ class ContentRunner {
 
   std::unique_ptr<renderer::RenderDevice> render_device_;
   RRefPtr<Diligent::IDeviceContext> device_context_;
+  RRefPtr<Diligent::IBytecodeCache> shader_bytecode_cache_;
+  std::string shader_bytecode_cache_path_;
   std::unique_ptr<CanvasScheduler> canvas_scheduler_;
   std::unique_ptr<SpriteBatch> sprite_batcher_;
   std::unique_ptr<EventController> event_controller_;

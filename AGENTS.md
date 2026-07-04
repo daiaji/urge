@@ -90,6 +90,8 @@ cmake --build build -j$(nproc)
 - **ABGR8888 像素格式**：手动构造像素时使用 `SDL_GetRGBA` / `SDL_MapRGBA`，不要手动 `<< 16 / << 8` 移位，R/B 通道顺序容易搞反。
 - **git stash drop 前先看内容**：`git stash show -p` 确认 stash 里是什么再决定是否丢弃。
 - **Source/scripts/ 目录**：注入脚本前先清除旧的 `Source/scripts/`，避免残留文件干扰。`rm -f Source/scripts/*.rb`
+- **Diligent shader 编译缓存**：优化运行时 shader creation 卡顿时，优先使用 `IBytecodeCache` 缓存 `IShader::GetBytecode()` 结果，并通过 `ShaderCreateInfo::ByteCode/ByteCodeSize` 回放。缓存文件按 backend 分离（如 `ShaderCache/shader_bytecode_cache_<backend>.bin`），命中失败必须移除该条缓存并 fallback 到 HLSL source compile。当前不要优先接 `IRenderStateCache`/Archiver；该路径在 URGE 现有接入下曾出现 `WriteToBlob()` 序列化失败。
+- **shader cache 验证闭环**：首次运行应看到 cache miss 并在退出时写出缓存；第二次运行应看到 cache loaded/hit，且重型 shader loader 耗时显著下降。不要只看是否生成文件，也要检查 `Create compute shader ... finished in ...ms` 和 lazy loading 总耗时。
 
 ## 提交前检查清单
 

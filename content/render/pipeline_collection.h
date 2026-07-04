@@ -52,32 +52,24 @@ struct PipelineCollection {
   PipelineObject cas;
 
   // Anime4K Mode A pipeline states
-  PipelineObject anime4k_clamp_hl_pass0;
-  PipelineObject anime4k_clamp_hl_pass1;
-  PipelineObject anime4k_clamp_hl_pass2;
-  PipelineObject anime4k_restore_pass0;
-  PipelineObject anime4k_restore_pass1;
-  PipelineObject anime4k_restore_pass2;
-  PipelineObject anime4k_restore_pass3;
-  PipelineObject anime4k_restore_pass4;
-  PipelineObject anime4k_restore_pass5;
-  PipelineObject anime4k_restore_pass6;
-  PipelineObject anime4k_restore_pass7;
-  PipelineObject anime4k_upscale_pass0;
-  PipelineObject anime4k_upscale_pass1;
-  PipelineObject anime4k_upscale_pass2;
-  PipelineObject anime4k_upscale_pass3;
-  PipelineObject anime4k_upscale_pass4;
-  PipelineObject anime4k_upscale_pass5;
-  PipelineObject anime4k_upscale_pass6;
-  PipelineObject anime4k_upscale_pass7;
-  PipelineObject anime4k_upscale_pass8;
 
   // Anime4K Upscale_Denoise_L pipeline states (MRT for Pass0-2, single for Pass3)
   PipelineObject anime4k_udl_pass0;
   PipelineObject anime4k_udl_pass1;
   PipelineObject anime4k_udl_pass2;
   PipelineObject anime4k_udl_pass3;
+  PipelineObject cunny_4x16_p1;
+  PipelineObject cunny_4x16_p2;
+  PipelineObject cunny_4x16_p3;
+  PipelineObject cunny_4x16_p4;
+  PipelineObject cunny_4x16_p5;
+  PipelineObject cunny_4x16_p6;
+  PipelineObject cunny_4x24_p1;
+  PipelineObject cunny_4x24_p2;
+  PipelineObject cunny_4x24_p3;
+  PipelineObject cunny_4x24_p4;
+  PipelineObject cunny_4x24_p5;
+  PipelineObject cunny_4x24_p6;
 
   PipelineObject window;
   PipelineObject window_with_stencil;
@@ -90,6 +82,10 @@ struct PipelineCollection {
 
   PipelineCollection(renderer::PipelineSet* loader,
                      Diligent::IRenderDevice* device);
+
+  bool EnsureAnime4KUDLPipelines(renderer::PipelineSet* loader);
+  bool EnsureCuNNy4x16Pipelines(renderer::PipelineSet* loader);
+  bool EnsureCuNNy4x24Pipelines(renderer::PipelineSet* loader);
 };
 
 }  // namespace content

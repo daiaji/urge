@@ -168,6 +168,8 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(WindowTitle, std::string);
 
  private:
+  enum class LazyPipelineState { kUninitialized, kReady, kFailed };
+
   void FrameProcessInternal(Diligent::ITexture* present_target);
   void RenderFrameInternal(Diligent::ITexture* render_target,
                            Diligent::ITexture* depth_stencil);
@@ -198,10 +200,13 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   void GPURecreateAnime4KTargetsInternal(const base::Vec2i& size);
   void GPURunUDLPassesInternal(Diligent::IDeviceContext* render_context);
   void GPURunCuNNyPassesInternal(Diligent::IDeviceContext* render_context,
-                                  int variant);
+                                   int variant);
+  bool EnsureAnime4KUDLReadyInternal();
+  bool EnsureCuNNyReadyInternal(int variant);
+  bool EnsureAnime4KUDLBindingsInternal();
+  bool EnsureCuNNyBindingsInternal(int variant);
   void GPURecreateCuNNyTargetsInternal(int tex_count);
   void GPURecreateSharpenedBufferInternal();
-  void ApplyPendingAutoFitWindowInternal();
 
   GPUData gpu_;
   DrawNodeController controller_;
@@ -211,7 +216,10 @@ class RenderScreenImpl : public Graphics, public EngineObject {
 
   bool frozen_;
   bool rebuild_buffers_pending_ = false;
-  bool auto_fit_window_pending_ = false;
+  bool show_auto_fit_window_on_present_ = false;
+  LazyPipelineState anime4k_udl_state_ = LazyPipelineState::kUninitialized;
+  LazyPipelineState cunny_4x16_state_ = LazyPipelineState::kUninitialized;
+  LazyPipelineState cunny_4x24_state_ = LazyPipelineState::kUninitialized;
   int32_t brightness_;
   uint64_t frame_count_;
   uint32_t frame_rate_;

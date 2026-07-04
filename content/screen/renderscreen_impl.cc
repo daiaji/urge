@@ -4,7 +4,11 @@
 
 #include "content/screen/renderscreen_impl.h"
 
+#include <algorithm>
+#include <chrono>
+#include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "SDL3/SDL_events.h"
 #include "SDL3/SDL_timer.h"
@@ -41,6 +45,10 @@ void ApplyTwoXAutoFitWindow(ExecutionContext* context, bool enabled) {
   auto target = enabled ? native * 2 : context->engine_profile->window_size;
   if (target.x <= 0 || target.y <= 0)
     target = native;
+  if (!enabled) {
+    target.x = std::max(target.x, native.x);
+    target.y = std::max(target.y, native.y);
+  }
 
   SDL_SetWindowResizable(win, !enabled && context->engine_profile->win_resizable);
   if (enabled) {
@@ -65,6 +73,24 @@ void ApplyTwoXAutoFitWindow(ExecutionContext* context, bool enabled) {
             << ": window=" << target.x << "x" << target.y;
 }
 
+class ScopedGraphicsTimer {
+ public:
+  explicit ScopedGraphicsTimer(std::string label)
+      : label_(std::move(label)), start_(std::chrono::steady_clock::now()) {}
+
+  ~ScopedGraphicsTimer() {
+    const auto elapsed = std::chrono::steady_clock::now() - start_;
+    LOG(INFO) << label_ << " finished in "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed)
+                     .count()
+              << "ms";
+  }
+
+ private:
+  std::string label_;
+  std::chrono::steady_clock::time_point start_;
+};
+
 }  // namespace
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -81,9 +107,11 @@ RenderScreenImpl::RenderScreenImpl(ExecutionContext* execution_context,
       unlimited_fps_(frame_rate == 0) {
   // Setup render device on render thread if possible
   GPUCreateGraphicsHostInternal();
-  auto_fit_window_pending_ =
-      context()->engine_profile->udl_auto_fit &&
-      IsTwoXUpscaleMode(context()->engine_profile->scaling_mode);
+  auto* profile = context()->engine_profile;
+  if (profile->udl_auto_fit && IsTwoXUpscaleMode(profile->scaling_mode)) {
+    show_auto_fit_window_on_present_ = true;
+    ApplyTwoXAutoFitWindow(context(), true);
+  }
 
   // Initialize fps limiter
   limiter_.Reset();
@@ -322,16 +350,6 @@ void RenderScreenImpl::Update(ExceptionState& exception_state) {
   FrameProcessInternal(gpu_.screen_buffer);
 }
 
-void RenderScreenImpl::ApplyPendingAutoFitWindowInternal() {
-  if (!auto_fit_window_pending_)
-    return;
-
-  auto_fit_window_pending_ = false;
-  auto* profile = context()->engine_profile;
-  if (profile->udl_auto_fit && IsTwoXUpscaleMode(profile->scaling_mode))
-    ApplyTwoXAutoFitWindow(context(), true);
-}
-
 void RenderScreenImpl::Wait(uint32_t duration,
                             ExceptionState& exception_state) {
   for (uint32_t i = 0; i < duration; ++i)
@@ -504,7 +522,7 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
   GPUResetScreenBufferInternal();
   if (context()->engine_profile->udl_auto_fit &&
       IsTwoXUpscaleMode(context()->engine_profile->scaling_mode))
-    auto_fit_window_pending_ = true;
+    ApplyTwoXAutoFitWindow(context(), true);
 
   if (context()->engine_profile->fixed_aspect_ratio) {
     float ratio = static_cast<float>(width) / static_cast<float>(height);
@@ -535,8 +553,11 @@ void RenderScreenImpl::MoveWindow(int32_t x,
   SDL_SetWindowSize(window, width, height);
   SDL_SetWindowPosition(window, x, y);
   if (context()->engine_profile->udl_auto_fit &&
-      IsTwoXUpscaleMode(context()->engine_profile->scaling_mode))
-    auto_fit_window_pending_ = true;
+      IsTwoXUpscaleMode(context()->engine_profile->scaling_mode)) {
+    LOG(INFO) << "[Graphics] 2x auto-fit overriding move_window request: "
+              << "requested=" << width << "x" << height;
+    ApplyTwoXAutoFitWindow(context(), true);
+  }
 }
 
 void RenderScreenImpl::Center(ExceptionState& exception_state) {
@@ -700,7 +721,7 @@ URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     {
       context()->engine_profile->scaling_mode = value;
       if (context()->engine_profile->udl_auto_fit && IsTwoXUpscaleMode(value))
-        auto_fit_window_pending_ = true;
+        ApplyTwoXAutoFitWindow(context(), true);
     });
 
 URGE_DEFINE_OVERRIDE_ATTRIBUTE(
@@ -744,8 +765,6 @@ void RenderScreenImpl::FrameProcessInternal(
 
   // Determine wait delay time
   limiter_.Delay();
-
-  ApplyPendingAutoFitWindowInternal();
 
   // Only run scaling pipeline if the upscale shader compiled successfully
   bool scaling_avail = context()->render.pipeline_states->upscale.RawPtr() != nullptr;
@@ -831,42 +850,6 @@ void RenderScreenImpl::GPUCreateGraphicsHostInternal() {
       context()->render.pipeline_loader->anime4k_enhance.CreateBinding();
   gpu_.cas_binding =
       context()->render.pipeline_loader->cas.CreateBinding();
-
-  // Create UDL bindings
-  gpu_.udl_pass0_binding =
-      context()->render.pipeline_loader->anime4k_udl_pass0.CreateBinding();
-  gpu_.udl_pass1_binding =
-      context()->render.pipeline_loader->anime4k_udl_pass1.CreateBinding();
-  gpu_.udl_pass2_binding =
-      context()->render.pipeline_loader->anime4k_udl_pass2.CreateBinding();
-  gpu_.udl_pass3_binding =
-      context()->render.pipeline_loader->anime4k_udl_pass3.CreateBinding();
-
-  // Create CuNNy compute bindings
-  gpu_.cunny_4x16_bindings[0] =
-      context()->render.pipeline_loader->cunny_4x16_p1.CreateBinding();
-  gpu_.cunny_4x16_bindings[1] =
-      context()->render.pipeline_loader->cunny_4x16_p2.CreateBinding();
-  gpu_.cunny_4x16_bindings[2] =
-      context()->render.pipeline_loader->cunny_4x16_p3.CreateBinding();
-  gpu_.cunny_4x16_bindings[3] =
-      context()->render.pipeline_loader->cunny_4x16_p4.CreateBinding();
-  gpu_.cunny_4x16_bindings[4] =
-      context()->render.pipeline_loader->cunny_4x16_p5.CreateBinding();
-  gpu_.cunny_4x16_bindings[5] =
-      context()->render.pipeline_loader->cunny_4x16_p6.CreateBinding();
-  gpu_.cunny_4x24_bindings[0] =
-      context()->render.pipeline_loader->cunny_4x24_p1.CreateBinding();
-  gpu_.cunny_4x24_bindings[1] =
-      context()->render.pipeline_loader->cunny_4x24_p2.CreateBinding();
-  gpu_.cunny_4x24_bindings[2] =
-      context()->render.pipeline_loader->cunny_4x24_p3.CreateBinding();
-  gpu_.cunny_4x24_bindings[3] =
-      context()->render.pipeline_loader->cunny_4x24_p4.CreateBinding();
-  gpu_.cunny_4x24_bindings[4] =
-      context()->render.pipeline_loader->cunny_4x24_p5.CreateBinding();
-  gpu_.cunny_4x24_bindings[5] =
-      context()->render.pipeline_loader->cunny_4x24_p6.CreateBinding();
 
   // Create upscale params buffer (dynamic, no initial data)
   Diligent::CreateUniformBuffer(
@@ -1022,6 +1005,166 @@ void RenderScreenImpl::GPURecreateSharpenedBufferInternal() {
       **context()->render_device, &gpu_.sharpened_buffer,
       "screen.cas.buffer", window_size, Diligent::USAGE_DEFAULT,
       Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
+}
+
+bool RenderScreenImpl::EnsureAnime4KUDLBindingsInternal() {
+  auto* loader = context()->render.pipeline_loader.get();
+  if (!loader || !loader->anime4k_udl_pass0 || !loader->anime4k_udl_pass1 ||
+      !loader->anime4k_udl_pass2 || !loader->anime4k_udl_pass3) {
+    return false;
+  }
+
+  if (!gpu_.udl_pass0_binding())
+    gpu_.udl_pass0_binding = loader->anime4k_udl_pass0->CreateBinding();
+  if (!gpu_.udl_pass1_binding())
+    gpu_.udl_pass1_binding = loader->anime4k_udl_pass1->CreateBinding();
+  if (!gpu_.udl_pass2_binding())
+    gpu_.udl_pass2_binding = loader->anime4k_udl_pass2->CreateBinding();
+  if (!gpu_.udl_pass3_binding())
+    gpu_.udl_pass3_binding = loader->anime4k_udl_pass3->CreateBinding();
+
+  return gpu_.udl_pass0_binding() && gpu_.udl_pass1_binding() &&
+         gpu_.udl_pass2_binding() && gpu_.udl_pass3_binding();
+}
+
+bool RenderScreenImpl::EnsureCuNNyBindingsInternal(int variant) {
+  const bool is_4x24 = variant == 8;
+  auto* loader = context()->render.pipeline_loader.get();
+  if (!loader)
+    return false;
+
+  auto& bindings = is_4x24 ? gpu_.cunny_4x24_bindings
+                           : gpu_.cunny_4x16_bindings;
+  if (is_4x24) {
+    if (!loader->cunny_4x24_p1 || !loader->cunny_4x24_p2 ||
+        !loader->cunny_4x24_p3 || !loader->cunny_4x24_p4 ||
+        !loader->cunny_4x24_p5 || !loader->cunny_4x24_p6) {
+      return false;
+    }
+    if (!bindings[0]())
+      bindings[0] = loader->cunny_4x24_p1->CreateBinding();
+    if (!bindings[1]())
+      bindings[1] = loader->cunny_4x24_p2->CreateBinding();
+    if (!bindings[2]())
+      bindings[2] = loader->cunny_4x24_p3->CreateBinding();
+    if (!bindings[3]())
+      bindings[3] = loader->cunny_4x24_p4->CreateBinding();
+    if (!bindings[4]())
+      bindings[4] = loader->cunny_4x24_p5->CreateBinding();
+    if (!bindings[5]())
+      bindings[5] = loader->cunny_4x24_p6->CreateBinding();
+  } else {
+    if (!loader->cunny_4x16_p1 || !loader->cunny_4x16_p2 ||
+        !loader->cunny_4x16_p3 || !loader->cunny_4x16_p4 ||
+        !loader->cunny_4x16_p5 || !loader->cunny_4x16_p6) {
+      return false;
+    }
+    if (!bindings[0]())
+      bindings[0] = loader->cunny_4x16_p1->CreateBinding();
+    if (!bindings[1]())
+      bindings[1] = loader->cunny_4x16_p2->CreateBinding();
+    if (!bindings[2]())
+      bindings[2] = loader->cunny_4x16_p3->CreateBinding();
+    if (!bindings[3]())
+      bindings[3] = loader->cunny_4x16_p4->CreateBinding();
+    if (!bindings[4]())
+      bindings[4] = loader->cunny_4x16_p5->CreateBinding();
+    if (!bindings[5]())
+      bindings[5] = loader->cunny_4x16_p6->CreateBinding();
+  }
+
+  for (const auto& binding : bindings) {
+    if (!binding())
+      return false;
+  }
+  return true;
+}
+
+bool RenderScreenImpl::EnsureAnime4KUDLReadyInternal() {
+  if (anime4k_udl_state_ == LazyPipelineState::kReady)
+    return true;
+  if (anime4k_udl_state_ == LazyPipelineState::kFailed)
+    return false;
+
+  LOG(INFO) << "[Graphics] Lazy loading Anime4K UDL compute pipelines";
+  ScopedGraphicsTimer timer(
+      "[Graphics] Lazy loading Anime4K UDL compute pipelines");
+
+  auto fail = [&]() {
+    anime4k_udl_state_ = LazyPipelineState::kFailed;
+    return false;
+  };
+  auto* loader = context()->render.pipeline_loader.get();
+  auto* states = context()->render.pipeline_states.get();
+  if (!loader || !states)
+    return fail();
+  {
+    ScopedGraphicsTimer stage_timer(
+        "[Graphics] Anime4K UDL compute loader creation");
+    if (!loader->EnsureAnime4KUDLLoaders())
+      return fail();
+  }
+  {
+    ScopedGraphicsTimer stage_timer(
+        "[Graphics] Anime4K UDL compute PSO creation");
+    if (!states->EnsureAnime4KUDLPipelines(loader))
+      return fail();
+  }
+  if (!EnsureAnime4KUDLBindingsInternal()) {
+    LOG(ERROR) << "[Graphics] Failed to create Anime4K UDL bindings";
+    return fail();
+  }
+
+  anime4k_udl_state_ = LazyPipelineState::kReady;
+  LOG(INFO) << "[Graphics] Anime4K UDL compute pipelines ready";
+  return true;
+}
+
+bool RenderScreenImpl::EnsureCuNNyReadyInternal(int variant) {
+  auto& state = variant == 8 ? cunny_4x24_state_ : cunny_4x16_state_;
+  const char* name = variant == 8 ? "CuNNy-4x24" : "CuNNy-4x16";
+  if (state == LazyPipelineState::kReady)
+    return true;
+  if (state == LazyPipelineState::kFailed)
+    return false;
+
+  LOG(INFO) << "[Graphics] Lazy loading " << name << " compute pipelines";
+  ScopedGraphicsTimer timer(std::string("[Graphics] Lazy loading ") + name +
+                            " compute pipelines");
+
+  auto fail = [&]() {
+    state = LazyPipelineState::kFailed;
+    return false;
+  };
+  auto* loader = context()->render.pipeline_loader.get();
+  auto* states = context()->render.pipeline_states.get();
+  if (!loader || !states)
+    return fail();
+  {
+    ScopedGraphicsTimer stage_timer(std::string("[Graphics] ") + name +
+                                    " compute loader creation");
+    const bool loaders_ready = variant == 8 ? loader->EnsureCuNNy4x24Loaders()
+                                            : loader->EnsureCuNNy4x16Loaders();
+    if (!loaders_ready)
+      return fail();
+  }
+  {
+    ScopedGraphicsTimer stage_timer(std::string("[Graphics] ") + name +
+                                    " compute PSO creation");
+    const bool psos_ready =
+        variant == 8 ? states->EnsureCuNNy4x24Pipelines(loader)
+                     : states->EnsureCuNNy4x16Pipelines(loader);
+    if (!psos_ready)
+      return fail();
+  }
+  if (!EnsureCuNNyBindingsInternal(variant)) {
+    LOG(ERROR) << "[Graphics] Failed to create " << name << " bindings";
+    return fail();
+  }
+
+  state = LazyPipelineState::kReady;
+  LOG(INFO) << "[Graphics] " << name << " compute pipelines ready";
+  return true;
 }
 
 
@@ -1442,28 +1585,40 @@ Diligent::ITexture* RenderScreenImpl::GPUScalingPassInternal(
 
   if (mode == 6) {
     // --- Anime4K Upscale_Denoise_L (4-pass 2x super-resolution) ---
-    GPURunUDLPassesInternal(render_context);
-    if (gpu_.enhanced_tex)
-      anime4k_active = true;
-    input_size = input_size * 2;
-    if (anime4k_active && !profile->cas_enabled &&
-        output_size.x == input_size.x && output_size.y == input_size.y)
-      return gpu_.enhanced_tex;
-    mode = (output_size.x == input_size.x && output_size.y == input_size.y)
-               ? 1
-               : 2;  // Identity at 1:1, Lanczos3 for final upscale to window
+    if (EnsureAnime4KUDLReadyInternal()) {
+      GPURunUDLPassesInternal(render_context);
+      if (gpu_.enhanced_tex)
+        anime4k_active = true;
+      input_size = input_size * 2;
+      if (anime4k_active && !profile->cas_enabled &&
+          output_size.x == input_size.x && output_size.y == input_size.y)
+        return gpu_.enhanced_tex;
+      mode = (output_size.x == input_size.x && output_size.y == input_size.y)
+                 ? 1
+                 : 2;  // Identity at 1:1, Lanczos3 for final upscale to window
+    } else {
+      LOG(WARNING) << "[Graphics] Anime4K UDL unavailable; falling back to "
+                      "Lanczos3 upscale";
+      mode = 2;
+    }
   } else if (mode == 7 || mode == 8) {
     // --- CuNNy (4x16 or 4x24 2x super-resolution) ---
-    GPURunCuNNyPassesInternal(render_context, mode);
-    if (gpu_.enhanced_tex)
-      anime4k_active = true;
-    input_size = input_size * 2;
-    if (anime4k_active && !profile->cas_enabled &&
-        output_size.x == input_size.x && output_size.y == input_size.y)
-      return gpu_.enhanced_tex;
-    mode = (output_size.x == input_size.x && output_size.y == input_size.y)
-               ? 1
-               : 2;
+    if (EnsureCuNNyReadyInternal(mode)) {
+      GPURunCuNNyPassesInternal(render_context, mode);
+      if (gpu_.enhanced_tex)
+        anime4k_active = true;
+      input_size = input_size * 2;
+      if (anime4k_active && !profile->cas_enabled &&
+          output_size.x == input_size.x && output_size.y == input_size.y)
+        return gpu_.enhanced_tex;
+      mode = (output_size.x == input_size.x && output_size.y == input_size.y)
+                 ? 1
+                 : 2;
+    } else {
+      LOG(WARNING) << "[Graphics] CuNNy unavailable; falling back to "
+                      "Lanczos3 upscale";
+      mode = 2;
+    }
   } else if (mode == 4 || mode == 5) {
     // --- Anime4K single-pass path (inline 7x7 gauss + DoG clamp) ---
     // mode 5 = Anime4K + Sobel adaptive blend
@@ -1652,6 +1807,11 @@ void RenderScreenImpl::GPUPresentScreenBufferInternal(
 
   // Flush command buffer and present GPU surface
   swapchain->Present(context()->engine_profile->vsync);
+  if (show_auto_fit_window_on_present_) {
+    show_auto_fit_window_on_present_ = false;
+    SDL_ShowWindow(context()->window->AsSDLWindow());
+    LOG(INFO) << "[Graphics] 2x auto-fit window shown after first present";
+  }
 }
 
 void RenderScreenImpl::GPUFrameBeginRenderPassInternal(

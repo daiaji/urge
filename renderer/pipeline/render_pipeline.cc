@@ -4,13 +4,182 @@
 
 #include "renderer/pipeline/render_pipeline.h"
 
+#include <chrono>
+#include <cstring>
+#include <string>
+#include <utility>
+
 #include "base/debug/logging.h"
+#include "DataBlobImpl.hpp"
 #include "renderer/pipeline/builtin_hlsl.h"
 
 namespace renderer {
 
-RenderPipelineBase::RenderPipelineBase(Diligent::IRenderDevice* device)
-    : device_(device) {}
+namespace {
+
+class ScopedPipelineTimer {
+ public:
+  explicit ScopedPipelineTimer(std::string label)
+      : label_(std::move(label)), start_(std::chrono::steady_clock::now()) {}
+
+  ~ScopedPipelineTimer() {
+    const auto elapsed = std::chrono::steady_clock::now() - start_;
+    LOG(INFO) << label_ << " finished in "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed)
+                     .count()
+              << "ms";
+  }
+
+ private:
+  std::string label_;
+  std::chrono::steady_clock::time_point start_;
+};
+
+void LogShaderCreateInfo(const char* stage,
+                         const std::string& name,
+                         size_t source_length,
+                         size_t macro_count) {
+  LOG(INFO) << "[Graphics] Creating " << stage << " shader " << name
+            << " source_bytes=" << source_length
+            << " macros=" << macro_count;
+}
+
+void LogShaderCreateFailure(const char* stage, const std::string& name) {
+  LOG(ERROR) << "[Graphics] Failed to create " << stage << " shader " << name;
+}
+
+}  // namespace
+
+bool PipelineSet::EnsureAnime4KUDLLoaders() {
+  if (anime4k_udl_pass0 && anime4k_udl_pass1 && anime4k_udl_pass2 &&
+      anime4k_udl_pass3) {
+    return true;
+  }
+
+  anime4k_udl_pass0 = std::make_unique<Pipeline_Anime4K_UDL_Pass0>(init_params);
+  anime4k_udl_pass1 = std::make_unique<Pipeline_Anime4K_UDL_Pass1>(init_params);
+  anime4k_udl_pass2 = std::make_unique<Pipeline_Anime4K_UDL_Pass2>(init_params);
+  anime4k_udl_pass3 = std::make_unique<Pipeline_Anime4K_UDL_Pass3>(init_params);
+  if (!anime4k_udl_pass0 || !anime4k_udl_pass1 || !anime4k_udl_pass2 ||
+      !anime4k_udl_pass3) {
+    LOG(ERROR) << "[Graphics] Failed to create Anime4K UDL pipeline loaders";
+    anime4k_udl_pass0.reset();
+    anime4k_udl_pass1.reset();
+    anime4k_udl_pass2.reset();
+    anime4k_udl_pass3.reset();
+    return false;
+  }
+
+  return true;
+}
+
+bool PipelineSet::EnsureCuNNy4x16Loaders() {
+  if (cunny_4x16_p1 && cunny_4x16_p2 && cunny_4x16_p3 && cunny_4x16_p4 &&
+      cunny_4x16_p5 && cunny_4x16_p6) {
+    return true;
+  }
+
+  cunny_4x16_p1 = std::make_unique<Pipeline_CuNNy_4x16_Pass1>(init_params);
+  cunny_4x16_p2 = std::make_unique<Pipeline_CuNNy_4x16_Pass2>(init_params);
+  cunny_4x16_p3 = std::make_unique<Pipeline_CuNNy_4x16_Pass3>(init_params);
+  cunny_4x16_p4 = std::make_unique<Pipeline_CuNNy_4x16_Pass4>(init_params);
+  cunny_4x16_p5 = std::make_unique<Pipeline_CuNNy_4x16_Pass5>(init_params);
+  cunny_4x16_p6 = std::make_unique<Pipeline_CuNNy_4x16_Pass6>(init_params);
+  if (!cunny_4x16_p1 || !cunny_4x16_p2 || !cunny_4x16_p3 ||
+      !cunny_4x16_p4 || !cunny_4x16_p5 || !cunny_4x16_p6) {
+    LOG(ERROR) << "[Graphics] Failed to create CuNNy-4x16 pipeline loaders";
+    cunny_4x16_p1.reset();
+    cunny_4x16_p2.reset();
+    cunny_4x16_p3.reset();
+    cunny_4x16_p4.reset();
+    cunny_4x16_p5.reset();
+    cunny_4x16_p6.reset();
+    return false;
+  }
+
+  return true;
+}
+
+bool PipelineSet::EnsureCuNNy4x24Loaders() {
+  if (cunny_4x24_p1 && cunny_4x24_p2 && cunny_4x24_p3 && cunny_4x24_p4 &&
+      cunny_4x24_p5 && cunny_4x24_p6) {
+    return true;
+  }
+
+  cunny_4x24_p1 = std::make_unique<Pipeline_CuNNy_4x24_Pass1>(init_params);
+  cunny_4x24_p2 = std::make_unique<Pipeline_CuNNy_4x24_Pass2>(init_params);
+  cunny_4x24_p3 = std::make_unique<Pipeline_CuNNy_4x24_Pass3>(init_params);
+  cunny_4x24_p4 = std::make_unique<Pipeline_CuNNy_4x24_Pass4>(init_params);
+  cunny_4x24_p5 = std::make_unique<Pipeline_CuNNy_4x24_Pass5>(init_params);
+  cunny_4x24_p6 = std::make_unique<Pipeline_CuNNy_4x24_Pass6>(init_params);
+  if (!cunny_4x24_p1 || !cunny_4x24_p2 || !cunny_4x24_p3 ||
+      !cunny_4x24_p4 || !cunny_4x24_p5 || !cunny_4x24_p6) {
+    LOG(ERROR) << "[Graphics] Failed to create CuNNy-4x24 pipeline loaders";
+    cunny_4x24_p1.reset();
+    cunny_4x24_p2.reset();
+    cunny_4x24_p3.reset();
+    cunny_4x24_p4.reset();
+    cunny_4x24_p5.reset();
+    cunny_4x24_p6.reset();
+    return false;
+  }
+
+  return true;
+}
+
+RenderPipelineBase::RenderPipelineBase(
+    Diligent::IRenderDevice* device,
+    Diligent::IBytecodeCache* bytecode_cache)
+    : device_(device), bytecode_cache_(bytecode_cache) {}
+
+bool RenderPipelineBase::CreateShaderWithCache(
+    const Diligent::ShaderCreateInfo& shader_desc,
+    Diligent::IShader** output) {
+  if (!bytecode_cache_) {
+    device_->CreateShader(shader_desc, output);
+    return false;
+  }
+
+  RRefPtr<Diligent::IDataBlob> bytecode;
+  bytecode_cache_->GetBytecode(shader_desc, &bytecode);
+  const bool cache_hit = bytecode != nullptr;
+  LOG(INFO) << "[Graphics] Shader bytecode cache "
+            << (cache_hit ? "hit" : "miss") << ": " << shader_desc.Desc.Name;
+
+  if (cache_hit) {
+    Diligent::ShaderCreateInfo cached_shader_desc = shader_desc;
+    cached_shader_desc.Source = nullptr;
+    cached_shader_desc.ByteCode = bytecode->GetConstDataPtr();
+    cached_shader_desc.ByteCodeSize = bytecode->GetSize();
+    device_->CreateShader(cached_shader_desc, output);
+  } else {
+    device_->CreateShader(shader_desc, output);
+    if (*output) {
+      const void* compiled_bytecode = nullptr;
+      Diligent::Uint64 compiled_bytecode_size = 0;
+      (*output)->GetBytecode(&compiled_bytecode, compiled_bytecode_size);
+      if (compiled_bytecode && compiled_bytecode_size > 0) {
+        RRefPtr<Diligent::IDataBlob> compiled_blob;
+        compiled_blob = Diligent::DataBlobImpl::Create(
+            static_cast<size_t>(compiled_bytecode_size));
+        if (compiled_blob) {
+          std::memcpy(compiled_blob->GetDataPtr(), compiled_bytecode,
+                      compiled_bytecode_size);
+          bytecode_cache_->AddBytecode(shader_desc, compiled_blob);
+        }
+      }
+    }
+  }
+
+  if (cache_hit && !*output) {
+    LOG(WARNING) << "[Graphics] Shader bytecode cache path failed, fallback "
+                    "compiling: "
+                 << shader_desc.Desc.Name;
+    bytecode_cache_->RemoveBytecode(shader_desc);
+    device_->CreateShader(shader_desc, output);
+  }
+  return cache_hit;
+}
 
 void RenderPipelineBase::BuildPipeline(
     Diligent::IPipelineState** output,
@@ -93,6 +262,8 @@ void RenderPipelineBase::SetupPipelineBasis(
         signatures) {
   // Make pipeline debug name
   pipeline_name_ = "internal.pipeline<" + shader_source.name + ">";
+  const std::string vertex_shader_name = shader_source.name + ".vertex";
+  const std::string pixel_shader_name = shader_source.name + ".pixel";
 
   // Make vertex shader and pixel shader
   Diligent::ShaderCreateInfo shader_desc;
@@ -104,23 +275,41 @@ void RenderPipelineBase::SetupPipelineBasis(
   {  // Vertex shader
     shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_VERTEX;
     shader_desc.EntryPoint = shader_source.vertex_entry.c_str();
-    shader_desc.Desc.Name = shader_source.name.c_str();
+    shader_desc.Desc.Name = vertex_shader_name.c_str();
     shader_desc.Source = shader_source.vertex_shader.c_str();
     shader_desc.SourceLength = shader_source.vertex_shader.size();
     shader_desc.Macros.Count = shader_source.macros.size();
     shader_desc.Macros.Elements = shader_source.macros.data();
-    device_->CreateShader(shader_desc, &vertex_shader_object_);
+    LogShaderCreateInfo("vertex", shader_source.name,
+                        shader_source.vertex_shader.size(),
+                        shader_source.macros.size());
+    {
+      ScopedPipelineTimer timer("[Graphics] Create vertex shader " +
+                                shader_source.name);
+      CreateShaderWithCache(shader_desc, &vertex_shader_object_);
+    }
+    if (!vertex_shader_object_)
+      LogShaderCreateFailure("vertex", shader_source.name);
   }
 
   {  // Pixel shader
     shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_PIXEL;
     shader_desc.EntryPoint = shader_source.pixel_entry.c_str();
-    shader_desc.Desc.Name = shader_source.name.c_str();
+    shader_desc.Desc.Name = pixel_shader_name.c_str();
     shader_desc.Source = shader_source.pixel_shader.c_str();
     shader_desc.SourceLength = shader_source.pixel_shader.size();
     shader_desc.Macros.Count = shader_source.macros.size();
     shader_desc.Macros.Elements = shader_source.macros.data();
-    device_->CreateShader(shader_desc, &pixel_shader_object_);
+    LogShaderCreateInfo("pixel", shader_source.name,
+                        shader_source.pixel_shader.size(),
+                        shader_source.macros.size());
+    {
+      ScopedPipelineTimer timer("[Graphics] Create pixel shader " +
+                                shader_source.name);
+      CreateShaderWithCache(shader_desc, &pixel_shader_object_);
+    }
+    if (!pixel_shader_object_)
+      LogShaderCreateFailure("pixel", shader_source.name);
   }
 
   // Setup input attribute elements
@@ -148,7 +337,16 @@ void RenderPipelineBase::SetupComputePipelineBasis(
   shader_desc.SourceLength = shader_source.compute_shader.size();
   shader_desc.Macros.Count = shader_source.macros.size();
   shader_desc.Macros.Elements = shader_source.macros.data();
-  device_->CreateShader(shader_desc, &compute_shader_object_);
+  LogShaderCreateInfo("compute", shader_source.name,
+                      shader_source.compute_shader.size(),
+                      shader_source.macros.size());
+  {
+    ScopedPipelineTimer timer("[Graphics] Create compute shader " +
+                              shader_source.name);
+    CreateShaderWithCache(shader_desc, &compute_shader_object_);
+  }
+  if (!compute_shader_object_)
+    LogShaderCreateFailure("compute", shader_source.name);
 
   resource_signatures_ = signatures;
 }
@@ -373,7 +571,7 @@ void AddCuNNyComputeOutputs(
 
 #define PIPELINE_HEADER(name)                                             \
   Pipeline_##name::Pipeline_##name(const PipelineInitParams& init_params) \
-      : RenderPipelineBase(init_params.render_device)
+      : RenderPipelineBase(init_params.render_device, init_params.bytecode_cache)
 
 PIPELINE_HEADER(Base) {
   const ShaderSource shader_source{kHLSL_BaseRender_Vertex,
@@ -669,7 +867,7 @@ PIPELINE_HEADER(Tilemap) {
 }
 
 Pipeline_Tilemap2::Pipeline_Tilemap2(const PipelineInitParams& init_params)
-    : RenderPipelineBase(init_params.render_device) {
+    : RenderPipelineBase(init_params.render_device, init_params.bytecode_cache) {
   const ShaderSource shader_source{kHLSL_Tilemap2Render_Vertex,
                                    kHLSL_Tilemap2Render_Pixel,
                                    "tilemap2.render"};
