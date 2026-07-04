@@ -318,6 +318,22 @@ extern const std::string kHLSL_Anime4K_UDL_Pass3_Pixel;
 extern const std::string kHLSL_Anime4K_UDL_Pass0_Pixel;
 extern const std::string kHLSL_Anime4K_UDL_Pass3_Pixel;
 
+
+// CuNNy 4x16 pipeline
+extern const std::string kHLSL_CuNNy_4x16_Pass1_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass2_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass3_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass4_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass5_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass6_Pixel;
+
+// CuNNy 4x24 pipeline
+extern const std::string kHLSL_CuNNy_4x24_Pass1_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass2_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass3_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass4_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass5_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass6_Pixel;
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_BUILTIN_HLSL_H_

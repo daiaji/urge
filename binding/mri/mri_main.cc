@@ -7,6 +7,8 @@
 
 #include "binding/mri/mri_main.h"
 
+#include <dlfcn.h>
+
 #include "SDL3/SDL_messagebox.h"
 #include "zlib/zlib.h"
 

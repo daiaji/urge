@@ -257,6 +257,8 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetBoolean("Renderer", "IntegerScaling", integer_scaling);
   scaling_mode =
       reader->GetInteger("Renderer", "ScalingMode", scaling_mode);
+  if (scaling_mode == 7)
+    scaling_mode = 6;
   scaling_ar_strength =
       reader->GetFloat("Renderer", "ScalingARStrength", scaling_ar_strength);
   scaling_bicubic_b =
@@ -279,8 +281,6 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetBoolean("Renderer", "WinResizable", win_resizable);
   fixed_aspect_ratio =
       reader->GetBoolean("Renderer", "FixedAspectRatio", fixed_aspect_ratio);
-  mode_a_auto_fit =
-      reader->GetBoolean("Renderer", "ModeAAutoFit", mode_a_auto_fit);
   udl_auto_fit =
       reader->GetBoolean("Renderer", "UDLAutoFit", udl_auto_fit);
 
@@ -415,8 +415,6 @@ void ContentProfile::SaveConfigure() {
     fprintf(fp, "WinResizable=%s\n", win_resizable ? "true" : "false");
   if (fixed_aspect_ratio != true)
     fprintf(fp, "FixedAspectRatio=%s\n", fixed_aspect_ratio ? "true" : "false");
-  if (mode_a_auto_fit != false)
-    fprintf(fp, "ModeAAutoFit=%s\n", mode_a_auto_fit ? "true" : "false");
   if (udl_auto_fit != false)
     fprintf(fp, "UDLAutoFit=%s\n", udl_auto_fit ? "true" : "false");
   fprintf(fp, "\n[GUI]\n");
@@ -471,7 +469,6 @@ void ContentProfile::ResetRendererDefaults() {
   sync_to_refresh_rate = false;
   win_resizable = true;
   fixed_aspect_ratio = true;
-  mode_a_auto_fit = false;
   udl_auto_fit = false;
 }
 

@@ -252,26 +252,6 @@ class Binding_Upscale : public RenderBindingBase {
   Binding_Upscale(ShaderBinding* binding);
 };
 
-// Anime4K Mode A: Restore_CNN_Pass7 merge binding (8 textures + params)
-class Binding_A4A_Merge : public RenderBindingBase {
- public:
-  Binding_A4A_Merge() = default;
-
-  RRefPtr<ShaderVariable> u_texture;   // screen input (residual)
-  RRefPtr<ShaderVariable> u_texture1;  // layer 0
-  RRefPtr<ShaderVariable> u_texture2;  // layer 1
-  RRefPtr<ShaderVariable> u_texture3;  // layer 2
-  RRefPtr<ShaderVariable> u_texture4;  // layer 3
-  RRefPtr<ShaderVariable> u_texture5;  // layer 4
-  RRefPtr<ShaderVariable> u_texture6;  // layer 5
-  RRefPtr<ShaderVariable> u_texture7;  // layer 6
-  RRefPtr<ShaderVariable> u_params;
-
- private:
-  friend class RenderBindingBase;
-  Binding_A4A_Merge(ShaderBinding* binding);
-};
-
 // Anime4K UDL: D2S pass binding (3 textures + params)
 class Binding_UDL_D2S : public RenderBindingBase {
  public:
@@ -285,6 +265,50 @@ class Binding_UDL_D2S : public RenderBindingBase {
  private:
   friend class RenderBindingBase;
   Binding_UDL_D2S(ShaderBinding* binding);
+};
+
+
+// CuNNy: multi-texture binding for intermediate passes
+class Binding_CuNNy_Conv4 : public RenderBindingBase {
+ public:
+  Binding_CuNNy_Conv4() = default;
+  RRefPtr<ShaderVariable> u_texture0;
+  RRefPtr<ShaderVariable> u_texture1;
+  RRefPtr<ShaderVariable> u_texture2;
+  RRefPtr<ShaderVariable> u_texture3;
+  RRefPtr<ShaderVariable> u_params;
+ private:
+  friend class RenderBindingBase;
+  Binding_CuNNy_Conv4(ShaderBinding* binding);
+};
+
+class Binding_CuNNy_Conv6 : public RenderBindingBase {
+ public:
+  Binding_CuNNy_Conv6() = default;
+  RRefPtr<ShaderVariable> u_texture0;
+  RRefPtr<ShaderVariable> u_texture1;
+  RRefPtr<ShaderVariable> u_texture2;
+  RRefPtr<ShaderVariable> u_texture3;
+  RRefPtr<ShaderVariable> u_texture4;
+  RRefPtr<ShaderVariable> u_texture5;
+  RRefPtr<ShaderVariable> u_params;
+ private:
+  friend class RenderBindingBase;
+  Binding_CuNNy_Conv6(ShaderBinding* binding);
+};
+
+class Binding_CuNNy_Out : public RenderBindingBase {
+ public:
+  Binding_CuNNy_Out() = default;
+  RRefPtr<ShaderVariable> u_texture;
+  RRefPtr<ShaderVariable> u_texture0;
+  RRefPtr<ShaderVariable> u_texture1;
+  RRefPtr<ShaderVariable> u_texture2;
+  RRefPtr<ShaderVariable> u_texture3;
+  RRefPtr<ShaderVariable> u_params;
+ private:
+  friend class RenderBindingBase;
+  Binding_CuNNy_Out(ShaderBinding* binding);
 };
 
 }  // namespace renderer
