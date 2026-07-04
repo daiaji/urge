@@ -28,7 +28,6 @@
 #include "renderer/resource/render_buffer.h"
 #include "ui/widget/widget.h"
 
-#include "base/debug/crash_handler.h"
 #include "base/debug/logging.h"
 
 namespace content {
@@ -72,7 +71,6 @@ struct ExecutionContext {
     // Writes to: ImGui overlay + Console.log (file) + stdout (terminal)
     void Push(const std::string& line) {
       PushOutput(line);
-      base::debug::AppendCrashLog(line.data(), line.size());
       base::logging::ConsoleLog(line);
     }
 

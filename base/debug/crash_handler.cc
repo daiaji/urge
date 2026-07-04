@@ -51,9 +51,8 @@ static bool g_sigactions_saved[kMaxSignal] = {};
 #endif
 
 // Pump pipe + thread for tee-ing crash output to both crash.log and stderr.
-// During crash handling, stderr is dup2'd to the pipe; a background thread
-// reads from the pipe and writes to both g_crash_fd and the original stderr.
-// This ensures Ruby's chained handler output appears in both destinations.
+// Normal stderr is not captured; stderr is redirected only inside the crash
+// handler so C++ dump and Ruby's chained crash output reach both destinations.
 #if !defined(OS_WIN)
 static int g_crash_pipe[2] = {-1, -1};
 static int g_orig_stderr = -1;
@@ -218,7 +217,6 @@ void OpenCrashLogFile(const char* path) {
   g_crash_fd = _open(path, _O_WRONLY | _O_CREAT | _O_APPEND, _S_IREAD | _S_IWRITE);
 #else
   g_crash_fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
-  // Start pump pipe + thread for tee-ing crash output to both destinations
   StartCrashPumpPipe();
 #endif
 }
@@ -238,34 +236,8 @@ void AppendCrashLog(const char* msg, size_t len) {
 
 namespace {
 
-void DumpRingBuffer(int fd) {
-  WriteLiteral(fd,
-    "\n"
-    "  Recent log messages (ring buffer):\n"
-    "----------------------------------------------------------------\n");
-  int total = g_ring_total;
-  int ring_size = static_cast<int>(kCrashRingSize);
-  int available = std::min(total, ring_size);
-  int start = total > ring_size ? total % ring_size : 0;
-  for (int i = 0; i < available; ++i) {
-    int idx = (start + i) % ring_size;
-    if (g_ring_lens[idx] > 0) {
-#if defined(OS_WIN)
-      _write(fd, g_ring_buffer[idx], static_cast<unsigned>(g_ring_lens[idx]));
-#else
-      write(fd, g_ring_buffer[idx], static_cast<size_t>(g_ring_lens[idx]));
-#endif
-      WriteLiteral(fd, "\n");
-    }
-  }
-  WriteLiteral(fd,
-    "================================================================\n"
-    "  Crash log written.\n\n");
-}
-
 void FlushAndRaise(int sig) {
   fflush(NULL);
-  // Close pipe write end to signal pump thread to drain and exit
 #if !defined(OS_WIN)
   if (g_crash_pipe[1] >= 0) {
     close(g_crash_pipe[1]);
@@ -351,17 +323,14 @@ static void WriteCrashDumpToFd(int fd, int sig, siginfo_t* info,
 }
 
 void OnCrashSignal(int sig, siginfo_t* info, void* ucontext) {
-  // Redirect stderr to pump pipe so all crash output (C++ dump + Ruby
-  // backtrace) is tee'd to both crash.log and the console (game.log).
   if (g_crash_pipe[1] >= 0)
     dup2(g_crash_pipe[1], STDERR_FILENO);
 
   WriteCrashDumpToFd(STDERR_FILENO, sig, info, ucontext);
 
-  // (Ring buffer omitted -- see Engine.log for full log history)
+  // Ring buffer is intentionally omitted; see Engine.log for full log history.
 
   // Chain to saved old handler (e.g. Ruby's sigsegv).
-  // stderr → pipe → pump thread → crash.log + console.
   struct sigaction* old = &g_old_sigactions[sig];
   if (g_sigactions_saved[sig] && old->sa_sigaction &&
       old->sa_handler != SIG_DFL && old->sa_handler != SIG_IGN) {
@@ -377,6 +346,9 @@ void OnCrashSignal(int sig, siginfo_t* info, void* ucontext) {
 #endif  // !OS_WIN
 
 #if defined(OS_WIN)
+
+constexpr DWORD kDbgPrintExceptionC = 0x40010006;
+constexpr DWORD kDbgPrintExceptionWideC = 0x4001000A;
 
 void DumpWinRegisters(int fd, PCONTEXT ctx) {
   WriteLiteral(fd, "\n  Registers (x86_64):\n");
@@ -406,6 +378,9 @@ static LONG CALLBACK WinVectoredHandler(PEXCEPTION_POINTERS ep) {
 
   // Ignore non-fatal exceptions that are expected (e.g. thread naming)
   if (er->ExceptionCode == 0x406D1388)  // MS_VC_EXCEPTION (SetThreadDescription)
+    return EXCEPTION_CONTINUE_SEARCH;
+  if (er->ExceptionCode == kDbgPrintExceptionC ||
+      er->ExceptionCode == kDbgPrintExceptionWideC)
     return EXCEPTION_CONTINUE_SEARCH;
 
   int fd = g_crash_fd >= 0 ? g_crash_fd : -1;
@@ -439,8 +414,6 @@ static LONG CALLBACK WinVectoredHandler(PEXCEPTION_POINTERS ep) {
     WriteLiteral(fd, "\n");
   }
 
-  DumpRingBuffer(fd);
-
   // _exit() will be called; return value is never used.
   LONG result = EXCEPTION_CONTINUE_SEARCH;
   FlushAndRaise(0);
@@ -460,7 +433,6 @@ void WinAbortHandler(int) {
     WriteLiteral(fd, "\n");
   }
 
-  DumpRingBuffer(fd);
   FlushAndRaise(SIGABRT);
 }
 
