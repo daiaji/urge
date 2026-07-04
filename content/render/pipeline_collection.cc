@@ -325,91 +325,27 @@ PipelineCollection::PipelineCollection(renderer::PipelineSet* loader,
           Diligent::TEX_FORMAT_UNKNOWN, default_sample);
     }
 
-    {  // Anime4K Mode A passes - no scissor - no depth
-      Diligent::BlendStateDesc blend_state;
-
-      Diligent::DepthStencilStateDesc depth_stencil_state =
-          GetDefaultDepthStencilState(false);
-
-      Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
-      rasterizer_state.ScissorEnable = Diligent::False;
-
-      auto make_a4a = [&](renderer::RenderPipelineBase& lp,
-                           PipelineObject& out) {
-        lp.BuildPipeline(&out, blend_state, rasterizer_state,
-                         depth_stencil_state,
-                         Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-                         {target_format}, Diligent::TEX_FORMAT_UNKNOWN,
-                         default_sample);
-      };
-
-      make_a4a(loader->anime4k_clamp_hl_pass0, anime4k_clamp_hl_pass0);
-      make_a4a(loader->anime4k_clamp_hl_pass1, anime4k_clamp_hl_pass1);
-      make_a4a(loader->anime4k_clamp_hl_pass2, anime4k_clamp_hl_pass2);
-      make_a4a(loader->anime4k_restore_pass0, anime4k_restore_pass0);
-      make_a4a(loader->anime4k_restore_pass1, anime4k_restore_pass1);
-      make_a4a(loader->anime4k_restore_pass2, anime4k_restore_pass2);
-      make_a4a(loader->anime4k_restore_pass3, anime4k_restore_pass3);
-      make_a4a(loader->anime4k_restore_pass4, anime4k_restore_pass4);
-      make_a4a(loader->anime4k_restore_pass5, anime4k_restore_pass5);
-      make_a4a(loader->anime4k_restore_pass6, anime4k_restore_pass6);
-      make_a4a(loader->anime4k_restore_pass7, anime4k_restore_pass7);
-      make_a4a(loader->anime4k_upscale_pass0, anime4k_upscale_pass0);
-      make_a4a(loader->anime4k_upscale_pass1, anime4k_upscale_pass1);
-      make_a4a(loader->anime4k_upscale_pass2, anime4k_upscale_pass2);
-      make_a4a(loader->anime4k_upscale_pass3, anime4k_upscale_pass3);
-      make_a4a(loader->anime4k_upscale_pass4, anime4k_upscale_pass4);
-      make_a4a(loader->anime4k_upscale_pass5, anime4k_upscale_pass5);
-      make_a4a(loader->anime4k_upscale_pass6, anime4k_upscale_pass6);
-      make_a4a(loader->anime4k_upscale_pass7, anime4k_upscale_pass7);
-      make_a4a(loader->anime4k_upscale_pass8, anime4k_upscale_pass8);
+    {  // Anime4K Upscale_Denoise_L compute passes
+      loader->anime4k_udl_pass0.BuildComputePipeline(&anime4k_udl_pass0);
+      loader->anime4k_udl_pass1.BuildComputePipeline(&anime4k_udl_pass1);
+      loader->anime4k_udl_pass2.BuildComputePipeline(&anime4k_udl_pass2);
+      loader->anime4k_udl_pass3.BuildComputePipeline(&anime4k_udl_pass3);
     }
 
-    {  // Anime4K Upscale_Denoise_L passes
-      Diligent::BlendStateDesc blend_state;
-
-      Diligent::DepthStencilStateDesc depth_stencil_state =
-          GetDefaultDepthStencilState(false);
-
-      Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
-      rasterizer_state.ScissorEnable = Diligent::False;
-
-      // Intermediate textures use RGBA16F for CNN feature values
-      const auto intermediate_format = Diligent::TEX_FORMAT_RGBA16_FLOAT;
-
-      // Pass0: 1 input → MRT (2 outputs), RGBA16F intermediate
-      loader->anime4k_udl_pass0.BuildPipeline(
-          &anime4k_udl_pass0, blend_state, rasterizer_state,
-          depth_stencil_state,
-          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-          {intermediate_format, intermediate_format},
-          Diligent::TEX_FORMAT_UNKNOWN, default_sample);
-
-      // Pass1: 2 inputs → MRT (2 outputs), RGBA16F intermediate
-      loader->anime4k_udl_pass1.BuildPipeline(
-          &anime4k_udl_pass1, blend_state, rasterizer_state,
-          depth_stencil_state,
-          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-          {intermediate_format, intermediate_format},
-          Diligent::TEX_FORMAT_UNKNOWN, default_sample);
-
-      // Pass2: 2 inputs → MRT (2 outputs), RGBA16F intermediate
-      loader->anime4k_udl_pass2.BuildPipeline(
-          &anime4k_udl_pass2, blend_state, rasterizer_state,
-          depth_stencil_state,
-          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-          {intermediate_format, intermediate_format},
-          Diligent::TEX_FORMAT_UNKNOWN, default_sample);
-
-      // Pass3: 3 inputs → single output, RGBA8 final
-      loader->anime4k_udl_pass3.BuildPipeline(
-          &anime4k_udl_pass3, blend_state, rasterizer_state,
-          depth_stencil_state,
-          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-          {target_format}, Diligent::TEX_FORMAT_UNKNOWN,
-          default_sample);
+    {  // CuNNy 4x16 & 4x24 compute passes
+      loader->cunny_4x16_p1.BuildComputePipeline(&cunny_4x16_p1);
+      loader->cunny_4x16_p2.BuildComputePipeline(&cunny_4x16_p2);
+      loader->cunny_4x16_p3.BuildComputePipeline(&cunny_4x16_p3);
+      loader->cunny_4x16_p4.BuildComputePipeline(&cunny_4x16_p4);
+      loader->cunny_4x16_p5.BuildComputePipeline(&cunny_4x16_p5);
+      loader->cunny_4x16_p6.BuildComputePipeline(&cunny_4x16_p6);
+      loader->cunny_4x24_p1.BuildComputePipeline(&cunny_4x24_p1);
+      loader->cunny_4x24_p2.BuildComputePipeline(&cunny_4x24_p2);
+      loader->cunny_4x24_p3.BuildComputePipeline(&cunny_4x24_p3);
+      loader->cunny_4x24_p4.BuildComputePipeline(&cunny_4x24_p4);
+      loader->cunny_4x24_p5.BuildComputePipeline(&cunny_4x24_p5);
+      loader->cunny_4x24_p6.BuildComputePipeline(&cunny_4x24_p6);
     }
-
   {  // Window (present) - with scissor - with depth
     Diligent::BlendStateDesc blend_state;
     blend_state.RenderTargets[0] = GetBlendState(BLEND_TYPE_NORMAL);

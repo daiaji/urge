@@ -5,6 +5,8 @@
 #ifndef CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 #define CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 
+#include <array>
+
 #include "imgui/backends/imgui_impl_diligent.h"
 
 #include "base/worker/thread_worker.h"
@@ -54,27 +56,21 @@ class RenderScreenImpl : public Graphics, public EngineObject {
     RRefPtr<Diligent::ITexture> sharpened_buffer;
     renderer::Binding_Upscale cas_binding;
 
-    // Anime4K Mode A intermediate targets
-    RRefPtr<Diligent::ITexture> mode_a_tex0;  // 640×480 ping-pong A / clamp output
-    RRefPtr<Diligent::ITexture> mode_a_tex1;  // 640×480 ping-pong B
-    RRefPtr<Diligent::ITexture> mode_a_tex2;  // 1280×960 upscale buffer
-    RRefPtr<Diligent::ITexture> mode_a_tex3;  // 1280×960 Pass4 output (avoids self-read)
-    std::vector<RRefPtr<Diligent::ITexture>> mode_a_restore_tex;  // 7 intermediate layers
-    renderer::Binding_Upscale mode_a_binding;  // reusable single-texture binding
-    renderer::Binding_A4A_Merge mode_a_restore_merge_binding;  // Restore Pass7 merge
-    renderer::Binding_A4A_Merge mode_a_upscale_merge_binding;  // Upscale Pass7 merge
-    renderer::Binding_Upscale mode_a_upscale_d2s_binding;  // Upscale Pass8 d2s (u_Texture + u_Texture1)
-    // enhanced_tex reused as 1280×960 output target
-
     // Anime4K Upscale_Denoise_L intermediate targets
     RRefPtr<Diligent::ITexture> udl_tex1;  // 640×480 RGBA16F
     RRefPtr<Diligent::ITexture> udl_tex2;  // 640×480 RGBA16F
     RRefPtr<Diligent::ITexture> udl_tex3;  // 640×480 RGBA16F
     RRefPtr<Diligent::ITexture> udl_tex4;  // 640×480 RGBA16F
-    renderer::Binding_Upscale udl_pass0_binding;  // Pass0 single-texture
-    renderer::Binding_Upscale udl_pass1_binding;  // Pass1-2 dual-texture (u_Texture + u_Texture1)
-    renderer::Binding_UDL_D2S udl_pass3_binding;  // Pass3 triple-texture
+    renderer::Binding_CuNNy_Compute udl_pass0_binding;
+    renderer::Binding_CuNNy_Compute udl_pass1_binding;
+    renderer::Binding_CuNNy_Compute udl_pass2_binding;
+    renderer::Binding_CuNNy_Compute udl_pass3_binding;
     // enhanced_tex reused as 1280×960 output target
+
+    // CuNNy intermediate targets
+    std::vector<RRefPtr<Diligent::ITexture>> cunny_tex;
+    std::array<renderer::Binding_CuNNy_Compute, 6> cunny_4x16_bindings;
+    std::array<renderer::Binding_CuNNy_Compute, 6> cunny_4x24_bindings;
   };
 
   RenderScreenImpl(ExecutionContext* execution_context, uint32_t frame_rate);
@@ -195,14 +191,17 @@ class RenderScreenImpl : public Graphics, public EngineObject {
       float progress,
       float vague);
 
-  bool GPUScalingPassInternal(Diligent::IDeviceContext* render_context);
+  Diligent::ITexture* GPUScalingPassInternal(
+      Diligent::IDeviceContext* render_context);
   void GPURecreateUpscaleBufferInternal();
   void GPURecreateAnime4KTargetsInternal();
   void GPURecreateAnime4KTargetsInternal(const base::Vec2i& size);
-  void GPURecreateModeATargetsInternal();
-  void GPURunModeAPassesInternal(Diligent::IDeviceContext* render_context);
   void GPURunUDLPassesInternal(Diligent::IDeviceContext* render_context);
+  void GPURunCuNNyPassesInternal(Diligent::IDeviceContext* render_context,
+                                  int variant);
+  void GPURecreateCuNNyTargetsInternal(int tex_count);
   void GPURecreateSharpenedBufferInternal();
+  void ApplyPendingAutoFitWindowInternal();
 
   GPUData gpu_;
   DrawNodeController controller_;
@@ -212,6 +211,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
 
   bool frozen_;
   bool rebuild_buffers_pending_ = false;
+  bool auto_fit_window_pending_ = false;
   int32_t brightness_;
   uint64_t frame_count_;
   uint32_t frame_rate_;

@@ -5,6 +5,8 @@
 #ifndef RENDERER_PIPELINE_RENDER_BINDING_H_
 #define RENDERER_PIPELINE_RENDER_BINDING_H_
 
+#include <array>
+
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
@@ -305,25 +307,27 @@ class Binding_CuNNy_Out : public RenderBindingBase {
   RRefPtr<ShaderVariable> u_texture1;
   RRefPtr<ShaderVariable> u_texture2;
   RRefPtr<ShaderVariable> u_texture3;
+  RRefPtr<ShaderVariable> u_texture4;
+  RRefPtr<ShaderVariable> u_texture5;
   RRefPtr<ShaderVariable> u_params;
  private:
   friend class RenderBindingBase;
   Binding_CuNNy_Out(ShaderBinding* binding);
 };
 
-// Anime4K UDL: D2S pass binding (3 textures + params)
-class Binding_UDL_D2S : public RenderBindingBase {
+class Binding_CuNNy_Compute : public RenderBindingBase {
  public:
-  Binding_UDL_D2S() = default;
+  Binding_CuNNy_Compute() = default;
 
-  RRefPtr<ShaderVariable> u_texture;   // INPUT (screen, bilinear)
-  RRefPtr<ShaderVariable> u_texture1;  // tex1 (point)
-  RRefPtr<ShaderVariable> u_texture2;  // tex2 (point)
+  RRefPtr<ShaderVariable> u_texture;
+  std::array<RRefPtr<ShaderVariable>, 12> u_textures;
+  RRefPtr<ShaderVariable> u_output;
+  std::array<RRefPtr<ShaderVariable>, 6> u_outputs;
   RRefPtr<ShaderVariable> u_params;
 
  private:
   friend class RenderBindingBase;
-  Binding_UDL_D2S(ShaderBinding* binding);
+  Binding_CuNNy_Compute(ShaderBinding* binding);
 };
 
 }  // namespace renderer

@@ -314,9 +314,10 @@ extern const std::string kHLSL_Anime4K_UDL_Pass0_Pixel;
 extern const std::string kHLSL_Anime4K_UDL_Pass1_Pixel;
 extern const std::string kHLSL_Anime4K_UDL_Pass2_Pixel;
 extern const std::string kHLSL_Anime4K_UDL_Pass3_Pixel;
-
-extern const std::string kHLSL_Anime4K_UDL_Pass0_Pixel;
-extern const std::string kHLSL_Anime4K_UDL_Pass3_Pixel;
+extern const std::string kHLSL_Anime4K_UDL_Pass0_Compute;
+extern const std::string kHLSL_Anime4K_UDL_Pass1_Compute;
+extern const std::string kHLSL_Anime4K_UDL_Pass2_Compute;
+extern const std::string kHLSL_Anime4K_UDL_Pass3_Compute;
 
 }  // namespace renderer
 

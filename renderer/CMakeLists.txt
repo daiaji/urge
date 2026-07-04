@@ -14,6 +14,7 @@ set(ENGINE_RENDERER_SRC
   layout/uniform_layout.h
   pipeline/builtin_hlsl.cc
   pipeline/builtin_hlsl.h
+  pipeline/builtin_hlsl_anime4k_udl.cc
   pipeline/builtin_hlsl_cunny_4x16.cc
   pipeline/builtin_hlsl_cunny_4x24.cc
   pipeline/render_binding.cc
