@@ -109,9 +109,6 @@ class ContentProfile {
   // Log
   bool save_log = true;
 
-  // Log
-  bool save_log = true;
-
   // Font
   float font_scale = 0.9f;
   bool font_kerning = true;

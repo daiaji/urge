@@ -42,10 +42,13 @@ bash /home/daiaji/repo/urge/build_and_deploy.sh
 如果需要更新 Ruby 兼容脚本并集成到游戏中，阅读 `INTEGRATION.md`。核心流程：
 
 ```bash
-# 使用 RM-Toolkit 注入补丁
+# 0. 先查看当前脚本列表，确认索引
 GAME=/path/to/game
-URGE=/home/daiaji/repo/urge
 cd ~/repo/RM-Toolkit
+bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --list-scripts
+
+# 1. 首次注入用 --inject-script
+URGE=/home/daiaji/repo/urge
 bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
   --inject-script "0:${URGE}/binding/mri/third_party/rgss/urge_compat.rb" \
   --inject-script "1:${URGE}/binding/mri/third_party/rgss/ruby19_compat.rb" \
@@ -53,7 +56,42 @@ bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
   --inject-script "3:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"
 ```
 
+⚠️ **不要重复 `--inject-script`**：每次会在脚本数组中插入新条目，多次注入会产生重复脚本。更新已有补丁用 `--replace-script` 替换对应索引位置。
+
+```bash
+# 更新前先查看脚本列表确认索引
+bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --list-scripts
+
+# 更新脚本用 --replace-script（保留序号，不会新增条目）
+bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
+  --replace-script "3:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"
+```
+
 脚本加载顺序必须为：`urge_compat.rb` → `ruby19_compat.rb` → `rgss*_patch.rb` → `rgss3_compat.rb`。
+
+## 构建类型
+
+| 类型 | 调试符号 | 优化 | ImGui assertion | 用途 |
+|------|---------|------|:---------------:|------|
+| `Debug` | ✅ | `-O0` | ✅ 生效 | 开发调试 |
+| `RelWithDebInfo` | ✅ | `-O2` | ❌ 禁用 | 带符号的发布 |
+| `Release` | ❌ | `-O3` | ❌ 禁用 | 最终发布 |
+
+ImGui 控制台使用 `CallbackHistory + InputTextMultiline` 组合。`IM_ASSERT` 只在 `Debug` 构建下生效，`RelWithDebInfo` 和 `Release` 下 `assert()` 为空操作。如果控制台打开崩溃，检查构建类型。
+
+```bash
+# 切换构建类型
+cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build -j$(nproc)
+```
+
+## 常见陷阱
+
+- **ABGR8888 像素格式**：手动构造像素时使用 `SDL_GetRGBA` / `SDL_MapRGBA`，不要手动 `<< 16 / << 8` 移位，R/B 通道顺序容易搞反。
+- **git stash drop 前先看内容**：`git stash show -p` 确认 stash 里是什么再决定是否丢弃。
+- **Source/scripts/ 目录**：注入脚本前先清除旧的 `Source/scripts/`，避免残留文件干扰。`rm -f Source/scripts/*.rb`
+- **Diligent shader 编译缓存**：优化运行时 shader creation 卡顿时，优先使用 `IBytecodeCache` 缓存 `IShader::GetBytecode()` 结果，并通过 `ShaderCreateInfo::ByteCode/ByteCodeSize` 回放。缓存文件按 backend 分离（如 `ShaderCache/shader_bytecode_cache_<backend>.bin`），命中失败必须移除该条缓存并 fallback 到 HLSL source compile。当前不要优先接 `IRenderStateCache`/Archiver；该路径在 URGE 现有接入下曾出现 `WriteToBlob()` 序列化失败。
+- **shader cache 验证闭环**：首次运行应看到 cache miss 并在退出时写出缓存；第二次运行应看到 cache loaded/hit，且重型 shader loader 耗时显著下降。不要只看是否生成文件，也要检查 `Create compute shader ... finished in ...ms` 和 lazy loading 总耗时。
 
 ## 提交前检查清单
 

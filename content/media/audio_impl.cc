@@ -33,6 +33,11 @@ AudioImpl::AudioImpl(ExecutionContext* execution_context)
   execution_context->audio_server->SetVolume(
       execution_context->engine_profile->audio_volume);
 
+  // Configure MIDI SoundFont
+  auto& sf = execution_context->engine_profile->midi_soundfont;
+  if (!sf.empty())
+    execution_context->audio_server->SetSoundFont(sf);
+
 #if !defined(OS_EMSCRIPTEN)
   // Setup watcher
   me_watcher_ = base::ThreadWorker::Create();
@@ -72,8 +77,15 @@ void AudioImpl::CreateButtonGUISettings() {
 }
 
 void AudioImpl::SetupMIDI(ExceptionState& exception_state) {
-  // TODO: unsupport MIDI
-  LOG(WARNING) << "[Content] Unsupport MIDI device setup.";
+  LOG(INFO) << "[Audio] setup_midi called";
+  if (!context()->audio_server)
+    return;
+  auto& sf = context()->engine_profile->midi_soundfont;
+  if (!sf.empty())
+    context()->audio_server->SetSoundFont(sf);
+  else
+    LOG(WARNING) << "[Audio] setup_midi: no SoundFont configured. "
+                    "Set [Audio] SoundFont=<path> in Game.ini to enable MIDI.";
 }
 
 void AudioImpl::BGMPlay(const std::string& filename,
@@ -107,6 +119,20 @@ uint64_t AudioImpl::BGMPos(ExceptionState& exception_state) {
     return 0;
 
   return bgm_->Pos();
+}
+
+int32_t AudioImpl::BGMVolume(ExceptionState& exception_state) {
+  if (!bgm_)
+    return 0;
+
+  return bgm_->GetVolume();
+}
+
+void AudioImpl::SetBGMVolume(int32_t volume, ExceptionState& exception_state) {
+  if (!bgm_)
+    return;
+
+  bgm_->SetVolume(volume);
 }
 
 void AudioImpl::BGSPlay(const std::string& filename,
@@ -167,6 +193,13 @@ void AudioImpl::MEFade(int32_t time, ExceptionState& exception_state) {
   me_->Fade(time);
 }
 
+uint64_t AudioImpl::MEPos(ExceptionState& exception_state) {
+  if (!me_)
+    return 0;
+
+  return me_->Pos();
+}
+
 void AudioImpl::SEPlay(const std::string& filename,
                        int32_t volume,
                        int32_t pitch,
@@ -211,6 +244,8 @@ void AudioImpl::HandleAudioServiceError(ma_result result,
 }
 
 void AudioImpl::MeThreadMonitorInternal() {
+  if (!me_ || !bgm_)
+    return;
   if (me_->IsPlaying() && bgm_->IsPlaying())
     bgm_->Pause();
 

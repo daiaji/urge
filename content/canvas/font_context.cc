@@ -173,13 +173,6 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
     }
   }
 
-  if (default_font_it == data_cache.end() && !data_cache.empty()) {
-    // No specific default font filename given; pick the first available font
-    default_font_it = data_cache.begin();
-    default_font = default_font_it->first;
-    LOG(INFO) << "[Font] No default font specified, auto-selected: \"" << default_font << "\"";
-  }
-
   if (default_font_it == data_cache.end()) {
     LOG(INFO) << "[Font] Default font missing, use internal font for instead.";
 
