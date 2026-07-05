@@ -4,8 +4,12 @@
 
 #include "binding/mri/binding_patch.h"
 
+#include <cctype>
+#include <cstring>
 #include <fstream>
 #include <unordered_map>
+
+#include "SDL3/SDL_scancode.h"
 
 #include "content/input/mouse_controller.h"
 #include "content/public/engine_input.h"
@@ -30,6 +34,83 @@ const BindingSet kKeyboardBindings[] = {
     {"F5", 25},    {"F6", 26},   {"F7", 27},   {"F8", 28}, {"F9", 29},
 };
 
+const BindingSet kScancodeBindings[] = {
+    {"KEY_A", SDL_SCANCODE_A},
+    {"KEY_B", SDL_SCANCODE_B},
+    {"KEY_C", SDL_SCANCODE_C},
+    {"KEY_D", SDL_SCANCODE_D},
+    {"KEY_E", SDL_SCANCODE_E},
+    {"KEY_F", SDL_SCANCODE_F},
+    {"KEY_G", SDL_SCANCODE_G},
+    {"KEY_H", SDL_SCANCODE_H},
+    {"KEY_I", SDL_SCANCODE_I},
+    {"KEY_J", SDL_SCANCODE_J},
+    {"KEY_K", SDL_SCANCODE_K},
+    {"KEY_L", SDL_SCANCODE_L},
+    {"KEY_M", SDL_SCANCODE_M},
+    {"KEY_N", SDL_SCANCODE_N},
+    {"KEY_O", SDL_SCANCODE_O},
+    {"KEY_P", SDL_SCANCODE_P},
+    {"KEY_Q", SDL_SCANCODE_Q},
+    {"KEY_R", SDL_SCANCODE_R},
+    {"KEY_S", SDL_SCANCODE_S},
+    {"KEY_T", SDL_SCANCODE_T},
+    {"KEY_U", SDL_SCANCODE_U},
+    {"KEY_V", SDL_SCANCODE_V},
+    {"KEY_W", SDL_SCANCODE_W},
+    {"KEY_X", SDL_SCANCODE_X},
+    {"KEY_Y", SDL_SCANCODE_Y},
+    {"KEY_Z", SDL_SCANCODE_Z},
+    {"KEY_0", SDL_SCANCODE_0},
+    {"KEY_1", SDL_SCANCODE_1},
+    {"KEY_2", SDL_SCANCODE_2},
+    {"KEY_3", SDL_SCANCODE_3},
+    {"KEY_4", SDL_SCANCODE_4},
+    {"KEY_5", SDL_SCANCODE_5},
+    {"KEY_6", SDL_SCANCODE_6},
+    {"KEY_7", SDL_SCANCODE_7},
+    {"KEY_8", SDL_SCANCODE_8},
+    {"KEY_9", SDL_SCANCODE_9},
+    {"KEY_SPACE", SDL_SCANCODE_SPACE},
+    {"KEY_RETURN", SDL_SCANCODE_RETURN},
+    {"KEY_ESCAPE", SDL_SCANCODE_ESCAPE},
+    {"KEY_BACKSPACE", SDL_SCANCODE_BACKSPACE},
+    {"KEY_TAB", SDL_SCANCODE_TAB},
+    {"KEY_LSHIFT", SDL_SCANCODE_LSHIFT},
+    {"KEY_RSHIFT", SDL_SCANCODE_RSHIFT},
+    {"KEY_LCTRL", SDL_SCANCODE_LCTRL},
+    {"KEY_RCTRL", SDL_SCANCODE_RCTRL},
+    {"KEY_LALT", SDL_SCANCODE_LALT},
+    {"KEY_RALT", SDL_SCANCODE_RALT},
+    {"KEY_GRAVE", SDL_SCANCODE_GRAVE},
+    {"KEY_MINUS", SDL_SCANCODE_MINUS},
+    {"KEY_EQUALS", SDL_SCANCODE_EQUALS},
+    {"KEY_LEFTBRACKET", SDL_SCANCODE_LEFTBRACKET},
+    {"KEY_RIGHTBRACKET", SDL_SCANCODE_RIGHTBRACKET},
+    {"KEY_BACKSLASH", SDL_SCANCODE_BACKSLASH},
+    {"KEY_SEMICOLON", SDL_SCANCODE_SEMICOLON},
+    {"KEY_APOSTROPHE", SDL_SCANCODE_APOSTROPHE},
+    {"KEY_COMMA", SDL_SCANCODE_COMMA},
+    {"KEY_PERIOD", SDL_SCANCODE_PERIOD},
+    {"KEY_SLASH", SDL_SCANCODE_SLASH},
+    {"KEY_UP", SDL_SCANCODE_UP},
+    {"KEY_DOWN", SDL_SCANCODE_DOWN},
+    {"KEY_LEFT", SDL_SCANCODE_LEFT},
+    {"KEY_RIGHT", SDL_SCANCODE_RIGHT},
+    {"KEY_F1", SDL_SCANCODE_F1},
+    {"KEY_F2", SDL_SCANCODE_F2},
+    {"KEY_F3", SDL_SCANCODE_F3},
+    {"KEY_F4", SDL_SCANCODE_F4},
+    {"KEY_F5", SDL_SCANCODE_F5},
+    {"KEY_F6", SDL_SCANCODE_F6},
+    {"KEY_F7", SDL_SCANCODE_F7},
+    {"KEY_F8", SDL_SCANCODE_F8},
+    {"KEY_F9", SDL_SCANCODE_F9},
+    {"KEY_F10", SDL_SCANCODE_F10},
+    {"KEY_F11", SDL_SCANCODE_F11},
+    {"KEY_F12", SDL_SCANCODE_F12},
+};
+
 std::string GetButtonSymbol(int argc, VALUE* argv) {
   MriCheckArgc(argc, 1);
 
@@ -44,6 +125,137 @@ std::string GetButtonSymbol(int argc, VALUE* argv) {
   }
 
   return sym;
+}
+
+std::string NormalizeScancodeName(const std::string& input) {
+  std::string key;
+  key.reserve(input.size());
+  for (char c : input) {
+    if (c == '-' || c == ' ')
+      key.push_back('_');
+    else
+      key.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+  }
+
+  if (key.rfind("KEY_", 0) == 0)
+    key.erase(0, 4);
+  if (key.rfind("SDL_SCANCODE_", 0) == 0)
+    key.erase(0, 13);
+  if (key.rfind("SCANCODE_", 0) == 0)
+    key.erase(0, 9);
+
+  return key;
+}
+
+int GetScancodeArg(VALUE value) {
+  if (FIXNUM_P(value))
+    return FIX2INT(value);
+
+  std::string raw;
+  if (SYMBOL_P(value)) {
+    raw = rb_id2name(SYM2ID(value));
+  } else if (RB_TYPE_P(value, T_STRING)) {
+    raw = StringValueCStr(value);
+  } else {
+    rb_raise(rb_eTypeError, "expected Integer, Symbol, or String");
+  }
+
+  const std::string key = NormalizeScancodeName(raw);
+  if (key.size() == 1) {
+    char c = key[0];
+    if (c >= 'A' && c <= 'Z')
+      return SDL_SCANCODE_A + (c - 'A');
+    if (c >= '1' && c <= '9')
+      return SDL_SCANCODE_1 + (c - '1');
+    if (c == '0')
+      return SDL_SCANCODE_0;
+  }
+
+  static const std::unordered_map<std::string, int> kNameToScancode = {
+      {"NUMBER_0", SDL_SCANCODE_0},
+      {"NUMBER_1", SDL_SCANCODE_1},
+      {"NUMBER_2", SDL_SCANCODE_2},
+      {"NUMBER_3", SDL_SCANCODE_3},
+      {"NUMBER_4", SDL_SCANCODE_4},
+      {"NUMBER_5", SDL_SCANCODE_5},
+      {"NUMBER_6", SDL_SCANCODE_6},
+      {"NUMBER_7", SDL_SCANCODE_7},
+      {"NUMBER_8", SDL_SCANCODE_8},
+      {"NUMBER_9", SDL_SCANCODE_9},
+      {"NUM_0", SDL_SCANCODE_0},
+      {"NUM_1", SDL_SCANCODE_1},
+      {"NUM_2", SDL_SCANCODE_2},
+      {"NUM_3", SDL_SCANCODE_3},
+      {"NUM_4", SDL_SCANCODE_4},
+      {"NUM_5", SDL_SCANCODE_5},
+      {"NUM_6", SDL_SCANCODE_6},
+      {"NUM_7", SDL_SCANCODE_7},
+      {"NUM_8", SDL_SCANCODE_8},
+      {"NUM_9", SDL_SCANCODE_9},
+      {"SPACE", SDL_SCANCODE_SPACE},
+      {"RETURN", SDL_SCANCODE_RETURN},
+      {"ENTER", SDL_SCANCODE_RETURN},
+      {"KP_ENTER", SDL_SCANCODE_KP_ENTER},
+      {"ESC", SDL_SCANCODE_ESCAPE},
+      {"ESCAPE", SDL_SCANCODE_ESCAPE},
+      {"BACKSPACE", SDL_SCANCODE_BACKSPACE},
+      {"TAB", SDL_SCANCODE_TAB},
+      {"SHIFT", SDL_SCANCODE_LSHIFT},
+      {"LSHIFT", SDL_SCANCODE_LSHIFT},
+      {"LEFT_SHIFT", SDL_SCANCODE_LSHIFT},
+      {"RSHIFT", SDL_SCANCODE_RSHIFT},
+      {"RIGHT_SHIFT", SDL_SCANCODE_RSHIFT},
+      {"CTRL", SDL_SCANCODE_LCTRL},
+      {"LCTRL", SDL_SCANCODE_LCTRL},
+      {"LEFT_CTRL", SDL_SCANCODE_LCTRL},
+      {"RCTRL", SDL_SCANCODE_RCTRL},
+      {"RIGHT_CTRL", SDL_SCANCODE_RCTRL},
+      {"ALT", SDL_SCANCODE_LALT},
+      {"LALT", SDL_SCANCODE_LALT},
+      {"LEFT_ALT", SDL_SCANCODE_LALT},
+      {"RALT", SDL_SCANCODE_RALT},
+      {"RIGHT_ALT", SDL_SCANCODE_RALT},
+      {"GRAVE", SDL_SCANCODE_GRAVE},
+      {"TILDE", SDL_SCANCODE_GRAVE},
+      {"BACKQUOTE", SDL_SCANCODE_GRAVE},
+      {"MINUS", SDL_SCANCODE_MINUS},
+      {"EQUALS", SDL_SCANCODE_EQUALS},
+      {"EQUAL", SDL_SCANCODE_EQUALS},
+      {"LEFTBRACKET", SDL_SCANCODE_LEFTBRACKET},
+      {"LEFT_BRACKET", SDL_SCANCODE_LEFTBRACKET},
+      {"RIGHTBRACKET", SDL_SCANCODE_RIGHTBRACKET},
+      {"RIGHT_BRACKET", SDL_SCANCODE_RIGHTBRACKET},
+      {"BACKSLASH", SDL_SCANCODE_BACKSLASH},
+      {"SEMICOLON", SDL_SCANCODE_SEMICOLON},
+      {"APOSTROPHE", SDL_SCANCODE_APOSTROPHE},
+      {"COMMA", SDL_SCANCODE_COMMA},
+      {"PERIOD", SDL_SCANCODE_PERIOD},
+      {"DOT", SDL_SCANCODE_PERIOD},
+      {"SLASH", SDL_SCANCODE_SLASH},
+      {"UP", SDL_SCANCODE_UP},
+      {"DOWN", SDL_SCANCODE_DOWN},
+      {"LEFT", SDL_SCANCODE_LEFT},
+      {"RIGHT", SDL_SCANCODE_RIGHT},
+      {"F1", SDL_SCANCODE_F1},
+      {"F2", SDL_SCANCODE_F2},
+      {"F3", SDL_SCANCODE_F3},
+      {"F4", SDL_SCANCODE_F4},
+      {"F5", SDL_SCANCODE_F5},
+      {"F6", SDL_SCANCODE_F6},
+      {"F7", SDL_SCANCODE_F7},
+      {"F8", SDL_SCANCODE_F8},
+      {"F9", SDL_SCANCODE_F9},
+      {"F10", SDL_SCANCODE_F10},
+      {"F11", SDL_SCANCODE_F11},
+      {"F12", SDL_SCANCODE_F12},
+  };
+
+  auto it = kNameToScancode.find(key);
+  if (it != kNameToScancode.end())
+    return it->second;
+
+  rb_raise(rb_eRuntimeError, "%s is not a valid keyboard scancode name.",
+           raw.c_str());
 }
 
 // mkxp-z style: string -> SDL_GamepadButton mapping
@@ -65,12 +277,29 @@ static const std::unordered_map<std::string, int> kStrToGPButton = {
     {"DPAD_RIGHT", SDL_GAMEPAD_BUTTON_DPAD_RIGHT},
 };
 
-static int GetControllerButtonArg(VALUE* argv) {
-  const char* name = rb_id2name(SYM2ID(*argv));
+bool TryGetGamepadButtonName(const std::string& key, std::string* button_name) {
+  const char* prefixes[] = {"GAMEPAD_", "PAD_", "CONTROLLER_"};
+  for (const char* prefix : prefixes) {
+    size_t prefix_len = std::strlen(prefix);
+    if (key.rfind(prefix, 0) == 0 && key.size() > prefix_len) {
+      *button_name = key.substr(prefix_len);
+      return true;
+    }
+  }
+  return false;
+}
+
+int GetGamepadButtonByName(const std::string& name) {
   auto it = kStrToGPButton.find(name);
   if (it == kStrToGPButton.end())
-    rb_raise(rb_eRuntimeError, "%s is not a valid gamepad button name.", name);
+    rb_raise(rb_eRuntimeError, "%s is not a valid gamepad button name.",
+             name.c_str());
   return it->second;
+}
+
+static int GetControllerButtonArg(VALUE* argv) {
+  const char* name = rb_id2name(SYM2ID(*argv));
+  return GetGamepadButtonByName(name);
 }
 
 }  // namespace
@@ -126,6 +355,82 @@ MRI_METHOD(input_gamepad_rumble) {
   input->RumbleGamepad(low_freq, high_freq, duration_ms, exception_state);
   MriProcessException(exception_state);
   return Qtrue;
+}
+
+MRI_METHOD(input_press_ex) {
+  MriCheckArgc(argc, 1);
+  scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
+  content::ExceptionState exception_state;
+
+  bool v;
+  if (FIXNUM_P(argv[0])) {
+    v = input->KeyPressed(FIX2INT(argv[0]), exception_state);
+  } else {
+    std::string raw = SYMBOL_P(argv[0]) ? rb_id2name(SYM2ID(argv[0]))
+                                        : StringValueCStr(argv[0]);
+    std::string button_name;
+    if (TryGetGamepadButtonName(NormalizeScancodeName(raw), &button_name))
+      v = input->GamepadPressEx(GetGamepadButtonByName(button_name), exception_state);
+    else
+      v = input->KeyPressed(GetScancodeArg(argv[0]), exception_state);
+  }
+  MriProcessException(exception_state);
+  return MRI_BOOL_VALUE(v);
+}
+
+MRI_METHOD(input_trigger_ex) {
+  MriCheckArgc(argc, 1);
+  scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
+  content::ExceptionState exception_state;
+
+  bool v;
+  if (FIXNUM_P(argv[0])) {
+    v = input->KeyTriggered(FIX2INT(argv[0]), exception_state);
+  } else {
+    std::string raw = SYMBOL_P(argv[0]) ? rb_id2name(SYM2ID(argv[0]))
+                                        : StringValueCStr(argv[0]);
+    std::string button_name;
+    if (TryGetGamepadButtonName(NormalizeScancodeName(raw), &button_name))
+      v = input->GamepadTriggerEx(GetGamepadButtonByName(button_name), exception_state);
+    else
+      v = input->KeyTriggered(GetScancodeArg(argv[0]), exception_state);
+  }
+  MriProcessException(exception_state);
+  return MRI_BOOL_VALUE(v);
+}
+
+MRI_METHOD(input_repeat_ex) {
+  MriCheckArgc(argc, 1);
+  scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
+  content::ExceptionState exception_state;
+
+  bool v;
+  if (FIXNUM_P(argv[0])) {
+    v = input->KeyRepeated(FIX2INT(argv[0]), exception_state);
+  } else {
+    std::string raw = SYMBOL_P(argv[0]) ? rb_id2name(SYM2ID(argv[0]))
+                                        : StringValueCStr(argv[0]);
+    std::string button_name;
+    if (TryGetGamepadButtonName(NormalizeScancodeName(raw), &button_name))
+      v = input->GamepadRepeatEx(GetGamepadButtonByName(button_name), exception_state);
+    else
+      v = input->KeyRepeated(GetScancodeArg(argv[0]), exception_state);
+  }
+  MriProcessException(exception_state);
+  return MRI_BOOL_VALUE(v);
+}
+
+MRI_METHOD(input_raw_key_states) {
+  MriCheckArgc(argc, 0);
+  scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
+  content::ExceptionState exception_state;
+  auto states = input->GetRawKeyStates(exception_state);
+  MriProcessException(exception_state);
+
+  VALUE ret = rb_ary_new();
+  for (size_t i = 0; i < states.size(); ++i)
+    rb_ary_push(ret, MRI_BOOL_VALUE(states[i] != 0));
+  return ret;
 }
 
 // --- Input::Controller module (mkxp-z style) ---
@@ -327,6 +632,10 @@ void ApplyInputPatch() {
   MriDefineModuleFunction(klass, "repeat?", input_is_repeated);
   MriDefineModuleFunction(klass, "gamepad_connected?", input_gamepad_connected);
   MriDefineModuleFunction(klass, "gamepad_rumble", input_gamepad_rumble);
+  MriDefineModuleFunction(klass, "pressex?", input_press_ex);
+  MriDefineModuleFunction(klass, "triggerex?", input_trigger_ex);
+  MriDefineModuleFunction(klass, "repeatex?", input_repeat_ex);
+  MriDefineModuleFunction(klass, "raw_key_states", input_raw_key_states);
 
   // mkxp-z Input::Controller module
   VALUE controller_mod = rb_define_module_under(klass, "Controller");
@@ -347,6 +656,12 @@ void ApplyInputPatch() {
 
   for (size_t i = 0; i < std::size(kKeyboardBindings); ++i) {
     auto& binding_set = kKeyboardBindings[i];
+    ID key = rb_intern(binding_set.name.c_str());
+    rb_const_set(klass, key, INT2FIX(binding_set.key_id));
+  }
+
+  for (size_t i = 0; i < std::size(kScancodeBindings); ++i) {
+    auto& binding_set = kScancodeBindings[i];
     ID key = rb_intern(binding_set.name.c_str());
     rb_const_set(klass, key, INT2FIX(binding_set.key_id));
   }

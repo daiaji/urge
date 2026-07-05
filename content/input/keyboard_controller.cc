@@ -152,6 +152,20 @@ static bool IsGamepadAxisActive(const BindingSource& src,
   return src.dir < 0 ? (val < -threshold) : (val > threshold);
 }
 
+static bool IsValidBindingSource(const BindingSource& source) {
+  switch (source.type) {
+    case BS::Type::Key:
+      return source.code < SDL_SCANCODE_COUNT;
+    case BS::Type::GamepadButton:
+      return source.code < SDL_GAMEPAD_BUTTON_COUNT;
+    case BS::Type::GamepadAxis:
+      return source.code < SDL_GAMEPAD_AXIS_COUNT &&
+             (source.dir == -1 || source.dir == 1);
+    default:
+      return false;
+  }
+}
+
 }  // namespace
 
 KeyboardControllerImpl::KeyboardControllerImpl(
@@ -360,22 +374,30 @@ int32_t KeyboardControllerImpl::Dir8(ExceptionState& exception_state) {
 
 bool KeyboardControllerImpl::KeyPressed(int32_t scancode,
                                         ExceptionState& exception_state) {
+  if (scancode < 0 || scancode >= SDL_SCANCODE_COUNT)
+    return false;
   return key_states_[scancode].pressed;
 }
 
 bool KeyboardControllerImpl::KeyTriggered(int32_t scancode,
                                           ExceptionState& exception_state) {
+  if (scancode < 0 || scancode >= SDL_SCANCODE_COUNT)
+    return false;
   return key_states_[scancode].trigger;
 }
 
 bool KeyboardControllerImpl::KeyRepeated(int32_t scancode,
                                          ExceptionState& exception_state) {
+  if (scancode < 0 || scancode >= SDL_SCANCODE_COUNT)
+    return false;
   return key_states_[scancode].repeat;
 }
 
 std::string KeyboardControllerImpl::GetKeyName(
     int32_t scancode,
     ExceptionState& exception_state) {
+  if (scancode < 0 || scancode >= SDL_SCANCODE_COUNT)
+    return "";
   SDL_Keycode key = SDL_GetKeyFromScancode(static_cast<SDL_Scancode>(scancode),
                                            SDL_KMOD_NONE, false);
   return std::string(SDL_GetKeyName(key));
@@ -408,6 +430,10 @@ void KeyboardControllerImpl::SetKeysFromFlag(
   bindings_.erase(iter, bindings_.end());
 
   for (const auto& key : keys) {
+    if (key < 0 || key >= SDL_SCANCODE_COUNT) {
+      LOG(WARNING) << "[Bindings] Ignoring invalid scancode: " << key;
+      continue;
+    }
     BindingEntry entry;
     entry.sym = flag;
     entry.source.type = BS::Type::Key;
@@ -446,6 +472,15 @@ std::vector<int32_t> KeyboardControllerImpl::GetRecentRepeated(
   return out;
 }
 
+std::vector<uint8_t> KeyboardControllerImpl::GetRawKeyStates(
+    ExceptionState& exception_state) {
+  std::vector<uint8_t> out;
+  out.reserve(raw_states_.size());
+  for (bool pressed : raw_states_)
+    out.push_back(pressed ? 1 : 0);
+  return out;
+}
+
 bool KeyboardControllerImpl::Emulate(int32_t scancode,
                                      bool down,
                                      int32_t modifier,
@@ -470,6 +505,8 @@ void KeyboardControllerImpl::UpdateDir4Internal() {
   bool key_states_arr[std::size(kArrowDirsSymbol)] = {0};
   for (const auto& entry : bindings_) {
     if (entry.source.type != BS::Type::Key)
+      continue;
+    if (entry.source.code >= SDL_SCANCODE_COUNT)
       continue;
     for (size_t i = 0; i < std::size(kArrowDirsSymbol); ++i)
       if (entry.sym == kArrowDirsSymbol[i])
@@ -608,7 +645,7 @@ void KeyboardControllerImpl::LoadAllBindings() {
   }
   SDL_CloseIO(fstream);
 
-  bindings_.clear();
+  BindingList loaded_bindings;
 
   size_t pos = 0;
   while (pos < content.size()) {
@@ -641,7 +678,12 @@ void KeyboardControllerImpl::LoadAllBindings() {
     if (val.starts_with("Key:") || val.starts_with("key:")) {
       entry.source.type = BS::Type::Key;
       try {
-        entry.source.code = static_cast<uint16_t>(std::stoi(val.substr(4)));
+        int code = std::stoi(val.substr(4));
+        if (code < 0 || code >= SDL_SCANCODE_COUNT) {
+          LOG(WARNING) << "[Bindings] Key scancode out of range: " << val;
+          continue;
+        }
+        entry.source.code = static_cast<uint16_t>(code);
       } catch (...) {
         LOG(WARNING) << "[Bindings] Invalid key scancode: " << val;
         continue;
@@ -650,7 +692,12 @@ void KeyboardControllerImpl::LoadAllBindings() {
     } else if (val.starts_with("Btn:") || val.starts_with("btn:")) {
       entry.source.type = BS::Type::GamepadButton;
       try {
-        entry.source.code = static_cast<uint8_t>(std::stoi(val.substr(4)));
+        int code = std::stoi(val.substr(4));
+        if (code < 0 || code >= SDL_GAMEPAD_BUTTON_COUNT) {
+          LOG(WARNING) << "[Bindings] Button index out of range: " << val;
+          continue;
+        }
+        entry.source.code = static_cast<uint8_t>(code);
       } catch (...) {
         LOG(WARNING) << "[Bindings] Invalid button index: " << val;
         continue;
@@ -665,22 +712,41 @@ void KeyboardControllerImpl::LoadAllBindings() {
         continue;
       }
       try {
-        entry.source.code = static_cast<uint8_t>(
-            std::stoi(val.substr(5, colon2 - 5)));
+        int code = std::stoi(val.substr(5, colon2 - 5));
+        if (code < 0 || code >= SDL_GAMEPAD_AXIS_COUNT) {
+          LOG(WARNING) << "[Bindings] Axis index out of range: " << val;
+          continue;
+        }
+        entry.source.code = static_cast<uint8_t>(code);
       } catch (...) {
         LOG(WARNING) << "[Bindings] Invalid axis index: " << val;
         continue;
       }
-      entry.source.dir = (val.size() > colon2 + 1 && val[colon2 + 1] == '-') ? -1 : 1;
+      if (val.size() <= colon2 + 1 ||
+          (val[colon2 + 1] != '-' && val[colon2 + 1] != '+')) {
+        LOG(WARNING) << "[Bindings] Invalid axis direction: " << val;
+        continue;
+      }
+      entry.source.dir = val[colon2 + 1] == '-' ? -1 : 1;
     } else {
       LOG(WARNING) << "[Bindings] Skipping unrecognized format: "
                    << sym << " = " << val;
       continue;
     }
 
-    bindings_.push_back(std::move(entry));
+    if (!IsValidBindingSource(entry.source)) {
+      LOG(WARNING) << "[Bindings] Skipping invalid binding: " << sym;
+      continue;
+    }
+    loaded_bindings.push_back(std::move(entry));
   }
 
+  if (loaded_bindings.empty()) {
+    LOG(WARNING) << "[Bindings] No valid bindings loaded; keeping defaults.";
+    return;
+  }
+
+  bindings_ = std::move(loaded_bindings);
   LOG(INFO) << "[Bindings] Loaded " << bindings_.size() << " bindings.";
 }
 
@@ -736,7 +802,8 @@ void KeyboardControllerImpl::SetBindingList(const BindingList& bindings) {
     auto it = std::find_if(bindings_.begin(), bindings_.end(),
         [&entry](const BindingEntry& e) {
           return e.sym == entry.sym && e.source.type == entry.source.type &&
-                 e.source.code == entry.source.code;
+                 e.source.code == entry.source.code &&
+                 e.source.dir == entry.source.dir;
         });
     if (it == bindings_.end())
       bindings_.push_back(entry);

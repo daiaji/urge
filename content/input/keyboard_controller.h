@@ -86,6 +86,9 @@ class KeyboardControllerImpl : public Input, public EngineObject {
   std::vector<int32_t> GetRecentRepeated(
       ExceptionState& exception_state) override;
 
+  std::vector<uint8_t> GetRawKeyStates(
+      ExceptionState& exception_state) override;
+
   bool Emulate(int32_t scancode,
                bool down,
                int32_t modifier,

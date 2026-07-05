@@ -70,6 +70,9 @@ class URGE_OBJECT(Input) {
   virtual std::vector<int32_t> GetRecentRepeated(
       ExceptionState& exception_state) = 0;
 
+  virtual std::vector<uint8_t> GetRawKeyStates(
+      ExceptionState& exception_state) = 0;
+
   /*--urge(name:emulate,optional:modifier=0,optional:repeat=false)--*/
   virtual bool Emulate(int32_t scancode,
                        bool down,
@@ -86,7 +89,7 @@ class URGE_OBJECT(Input) {
                              uint32_t duration_ms,
                              ExceptionState& exception_state) = 0;
 
-  // mkxp-z style Input::Controller API
+  // Extended gamepad state API
   virtual std::string GetGamepadName(ExceptionState& exception_state) = 0;
   virtual int32_t GetGamepadPowerLevel(ExceptionState& exception_state) = 0;
   virtual std::vector<float> GetGamepadAxisLeft(ExceptionState& exception_state) = 0;
