@@ -95,8 +95,20 @@ void ApplyTwoXAutoFitWindow(ExecutionContext* context, bool enabled) {
   SDL_DisplayID display = SDL_GetDisplayForWindow(win);
   SDL_Rect bounds;
   if (SDL_GetDisplayBounds(display, &bounds)) {
-    int cx = bounds.x + (bounds.w - target.x) / 2;
-    int cy = bounds.y + (bounds.h - target.y) / 2;
+    int top = 0;
+    int left = 0;
+    int bottom = 0;
+    int right = 0;
+    if (!SDL_GetWindowBordersSize(win, &top, &left, &bottom, &right)) {
+      top = 0;
+      left = 0;
+      bottom = 0;
+      right = 0;
+    }
+    const int outer_w = target.x + left + right;
+    const int outer_h = target.y + top + bottom;
+    int cx = bounds.x + (bounds.w - outer_w) / 2 + left;
+    int cy = bounds.y + (bounds.h - outer_h) / 2 + top;
     SDL_SetWindowPosition(win, cx, cy);
   }
 
