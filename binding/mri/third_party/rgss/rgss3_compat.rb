@@ -35,6 +35,7 @@ module MEFade
     @me_volume = me_volume
     @me_pitch = me_pitch
     @bgm_vol = bgm_vol
+    @seen_me_progress = false
   end
 
   def self.update
@@ -53,7 +54,8 @@ module MEFade
 
     when :playing
       me_pos = Audio.me_pos
-      if me_pos.nil? || me_pos == 0
+      @seen_me_progress ||= me_pos && me_pos > 0
+      if @seen_me_progress && (!me_pos || me_pos == 0)
         @phase = :fade_in
         @step = 0
       end
@@ -120,17 +122,6 @@ class << Graphics
   end
 end
 
-# --- Bitmap#text_size ---
-# C++ textSize already performs "str + space" width compensation internally.
-# No additional Ruby-level adjustment needed.
-class Bitmap
-  alias :original_text_size :text_size
-  def text_size(str)
-    return original_text_size(str) unless str.is_a?(String)
-    original_text_size(str)
-  end
-end
-
 # --- Bitmap#draw_text alignment with outline compensation ---
 # Center/Right alignment needs to account for outline stroke
 # width to avoid visual offset. Also handles text squeezing
@@ -160,10 +151,13 @@ class Bitmap
     if tw > 0 && tw > w
       zoom = w.to_f / tw
       temp = Bitmap.new(tw, h)
-      temp.font = font.clone
-      temp.original_draw_text(0, 0, tw, h, str, 0)
-      stretch_blt(Rect.new(x, y, (tw * zoom).to_i, h), temp, temp.rect)
-      temp.dispose
+      begin
+        temp.font = font.clone
+        temp.original_draw_text(0, 0, tw, h, str, 0)
+        stretch_blt(Rect.new(x, y, (tw * zoom).to_i, h), temp, temp.rect)
+      ensure
+        temp.dispose if temp && !temp.disposed?
+      end
       return
     end
 

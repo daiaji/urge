@@ -7,6 +7,11 @@
 #
 # Loading order: urge_compat.rb → ruby1{8,9}_compat.rb → rgss*_patch.rb → rgss3_compat.rb
 
+begin
+  require 'etc'
+rescue LoadError
+end
+
 # --- Kernel output redirection ---
 # URGE is a GUI app — stdout is invisible. Redirect to Console.
 module Kernel
@@ -94,16 +99,16 @@ module System
       Dir.pwd
     end
     def user_language
-      URGE.user_language
+      ENV['LANG']&.split('.')&.first&.tr('_', '-') || 'en-US'
     end
     def nproc
-      URGE.nproc
+      defined?(Etc) ? Etc.nprocessors : 1
     end
     def memory
-      URGE.memory
+      nil
     end
     def power_state
-      URGE.power_state
+      'UNKNOWN'
     end
   end
 end
