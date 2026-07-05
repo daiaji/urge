@@ -7,12 +7,19 @@
 | `rgss3_patch.rb` | RGSS3 (VX Ace) RPG 数据结构 + Ruby 兼容补丁 | RGSS3 |
 | `rgss2_patch.rb` | RGSS2 (VX) RPG 数据结构 + Ruby 兼容补丁 | RGSS2 |
 | `rgss1_patch.rb` | RGSS1 (XP) RPG 数据结构 + Ruby 兼容补丁 | RGSS1 |
+| `urge_compat.rb` | URGE 通用兼容层（Kernel 重定向、caller 重写等，最先加载） | RGSS1/2/3 |
 | `rgss3_compat.rb` | RGSS3 行为兼容层（与 rgss3_patch.rb 配合，单独注入） | RGSS3 |
 | `ruby19_compat.rb` | Ruby 1.9.2 → 3.x 通用兼容（需单独注入，非 RGSS3 必需） | RGSS2/3 |
 | `ruby18_compat.rb` | Ruby 1.8 → 3.x 通用兼容（需单独注入，非 RGSS3 必需） | RGSS1 |
 
 补丁文件通过 `rm-toolkit --inject-script` 按顺序注入到脚本数组，
 **不是**通过 `require_relative` 链式加载（RGSS 的 `eval` 上下文无文件系统路径）。
+
+### 加载顺序
+
+```
+urge_compat.rb → ruby19_compat.rb → rgss3_patch.rb → rgss3_compat.rb
+```
 
 ## 方式一：RM-Toolkit（推荐）
 
@@ -37,9 +44,10 @@ bundle exec exe/rm-toolkit -b /path/to/game --rgss3 --list-scripts
 
 # 4. 注入 URGE 兼容补丁（--inject-script 会自动重新封包）
 bundle exec exe/rm-toolkit -b /path/to/game --rgss3 \
-  --inject-script "0:/absolute/path/to/rgss3_patch.rb" \
+  --inject-script "0:/absolute/path/to/urge_compat.rb" \
   --inject-script "1:/absolute/path/to/ruby19_compat.rb" \
-  --inject-script "2:/absolute/path/to/rgss3_compat.rb"
+  --inject-script "2:/absolute/path/to/rgss3_patch.rb" \
+  --inject-script "3:/absolute/path/to/rgss3_compat.rb"
 ```
 
 ### 完整脚本管理命令
@@ -115,11 +123,12 @@ bundle exec exe/rm-toolkit -b "$GAME" --unpack --rgss3
 # 查看脚本列表确认结构
 bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --list-scripts
 
-# 注入补丁（使用绝对路径，顺序：数据结构 → Ruby 兼容 → RGSS3 行为）
+# 注入补丁（加载顺序：URGE 通用 → Ruby 兼容 → 数据结构 → RGSS3 行为）
 bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
-  --inject-script "0:${URGE}/binding/mri/third_party/rgss/rgss3_patch.rb" \
+  --inject-script "0:${URGE}/binding/mri/third_party/rgss/urge_compat.rb" \
   --inject-script "1:${URGE}/binding/mri/third_party/rgss/ruby19_compat.rb" \
-  --inject-script "2:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"
+  --inject-script "2:${URGE}/binding/mri/third_party/rgss/rgss3_patch.rb" \
+  --inject-script "3:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"
 
 # 日常修改（编辑 Source/scripts/xxx.rb 后）
 bundle exec exe/rm-toolkit -b "$GAME" --repack-scripts
@@ -130,10 +139,10 @@ bundle exec exe/rm-toolkit -b "$GAME" --repack-scripts
 如果不想使用 RM-Toolkit，可直接在 RPG Maker 脚本编辑器中操作：
 
 1. 打开 RPG Maker 的脚本编辑器
-2. 在最顶部创建新脚本，命名为 `URGE Patch`
-3. 将 `rgss3_patch.rb` 全部内容粘贴进去
-4. 再创建一个新脚本，命名为 `URGE Compat`
-5. 将 `rgss3_compat.rb` 全部内容粘贴进去
+2. 在最顶部创建新脚本，命名为 `URGE Base`，粘贴 `urge_compat.rb`
+3. 创建第二个脚本，命名为 `Ruby Compat`，粘贴 `ruby19_compat.rb`
+4. 创建第三个脚本，命名为 `RGSS Patch`，粘贴 `rgss3_patch.rb`
+5. 创建第四个脚本，命名为 `RGSS Compat`，粘贴 `rgss3_compat.rb`
 6. 保存并导出游戏
 
 ## 游戏配置
@@ -181,6 +190,7 @@ FontSubs=simhei>LGBaseFont.ttf, microsoft yahei>LGBaseFont.ttf, ms pgothic>LGBas
 ## 注意事项
 
 - RGSS 脚本按顺序依次执行，补丁必须在引用 RPG 数据结构的脚本**之前**加载
+- 加载顺序：`urge_compat.rb` → `ruby19_compat.rb` → `rgss3_patch.rb` → `rgss3_compat.rb`
 - `Win32API` 调用在 URGE 上不可用，需用 `rescue` 包裹或替换为纯 Ruby 实现
 - `BasicObject#initialize` 覆写会导致 Ruby 3.3 segfault，`ruby19_compat.rb` 中已移除此补丁
 - `require_relative` 在 RGSS 上下文中不可用（无文件系统路径），补丁文件之间不相互依赖
