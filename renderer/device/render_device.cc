@@ -86,10 +86,20 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
   // Setup debugging output
   Diligent::SetDebugMessageCallback(DebugMessageOutputFunc);
 
+  if (!window_target) {
+    LOG(ERROR) << "[Renderer] Cannot create render device without a window";
+    return CreateDeviceResult(nullptr, nullptr);
+  }
+
   // Setup native window
   Diligent::NativeWindow native_window;
+  SDL_Window* sdl_window = window_target->AsSDLWindow();
+  if (!sdl_window) {
+    LOG(ERROR) << "[Renderer] Cannot create render device without SDL window";
+    return CreateDeviceResult(nullptr, nullptr);
+  }
   SDL_PropertiesID window_properties =
-      SDL_GetWindowProperties(window_target->AsSDLWindow());
+      SDL_GetWindowProperties(sdl_window);
 
   // Setup specific platform window handle
   SDL_GLContext glcontext = nullptr;
@@ -116,6 +126,7 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
           xlib_xcb_library, "XGetXCBConnection");
       if (xgetxcb_func)
         xcb_connection = xgetxcb_func(xdisplay);
+      SDL_UnloadObject(xlib_xcb_library);
     }
 
   }
@@ -140,12 +151,12 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
       window_properties, SDL_PROP_WINDOW_EMSCRIPTEN_CANVAS_ID_STRING,
       "#canvas");
 #elif defined(OS_MACOSX)
-  glcontext = SDL_GL_CreateContext(window_target->AsSDLWindow());
+  glcontext = SDL_GL_CreateContext(sdl_window);
   if (glcontext == nullptr) {
     LOG(ERROR) << "[Renderer] SDL_GL_CreateContext failed: " << SDL_GetError();
     return CreateDeviceResult(nullptr, nullptr);
   }
-  if (!SDL_GL_MakeCurrent(window_target->AsSDLWindow(), glcontext)) {
+  if (!SDL_GL_MakeCurrent(sdl_window, glcontext)) {
     LOG(ERROR) << "[Renderer] SDL_GL_MakeCurrent failed: " << SDL_GetError();
     SDL_GL_DestroyContext(glcontext);
     return CreateDeviceResult(nullptr, nullptr);
@@ -256,14 +267,14 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
     if (driver_type == DriverType::OPENGL) {
 #if defined(OS_LINUX)
       if (!glcontext) {
-        glcontext = SDL_GL_CreateContext(window_target->AsSDLWindow());
+        glcontext = SDL_GL_CreateContext(sdl_window);
         if (!glcontext) {
           LOG(ERROR) << "[Renderer] SDL_GL_CreateContext failed: "
                      << SDL_GetError();
           continue;
         }
       }
-      if (!SDL_GL_MakeCurrent(window_target->AsSDLWindow(), glcontext)) {
+      if (!SDL_GL_MakeCurrent(sdl_window, glcontext)) {
         LOG(ERROR) << "[Renderer] SDL_GL_MakeCurrent failed: "
                    << SDL_GetError();
         SDL_GL_DestroyContext(glcontext);
@@ -277,6 +288,10 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
       using Diligent::GetEngineFactoryOpenGL;
 #endif
       auto* factory = GetEngineFactoryOpenGL();
+      if (!factory) {
+        LOG(WARNING) << "[Renderer] OpenGL engine factory unavailable";
+        continue;
+      }
 
       Diligent::EngineGLCreateInfo gl_create_info(engine_create_info);
       gl_create_info.Window = native_window;
@@ -293,6 +308,10 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
       using Diligent::GetEngineFactoryVk;
 #endif
       auto* factory = GetEngineFactoryVk();
+      if (!factory) {
+        LOG(WARNING) << "[Renderer] Vulkan engine factory unavailable";
+        continue;
+      }
 
       Diligent::EngineVkCreateInfo vk_create_info(engine_create_info);
       vk_create_info.FeaturesVk.DynamicRendering =
@@ -311,6 +330,10 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
       using Diligent::GetEngineFactoryD3D11;
 #endif
       auto* pFactory = GetEngineFactoryD3D11();
+      if (!pFactory) {
+        LOG(WARNING) << "[Renderer] D3D11 engine factory unavailable";
+        continue;
+      }
 
       Diligent::EngineD3D11CreateInfo d3d11_create_info(engine_create_info);
       pFactory->CreateDeviceAndContextsD3D11(d3d11_create_info, &device,
@@ -328,6 +351,10 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
       using Diligent::GetEngineFactoryD3D12;
 #endif
       auto* pFactoryD3D12 = GetEngineFactoryD3D12();
+      if (!pFactoryD3D12) {
+        LOG(WARNING) << "[Renderer] D3D12 engine factory unavailable";
+        continue;
+      }
 
       Diligent::EngineD3D12CreateInfo d3d12_create_info(engine_create_info);
       pFactoryD3D12->CreateDeviceAndContextsD3D12(d3d12_create_info, &device,
@@ -345,6 +372,10 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
       using Diligent::GetEngineFactoryWebGPU;
 #endif
       auto* pFactoryWebGPU = GetEngineFactoryWebGPU();
+      if (!pFactoryWebGPU) {
+        LOG(WARNING) << "[Renderer] WebGPU engine factory unavailable";
+        continue;
+      }
 
       Diligent::EngineWebGPUCreateInfo webgpu_create_info(engine_create_info);
       webgpu_create_info.Features.AsyncShaderCompilation =

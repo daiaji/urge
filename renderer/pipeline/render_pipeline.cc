@@ -224,7 +224,8 @@ void RenderPipelineBase::BuildPipeline(
   // Render targets
   const size_t num_render_targets =
       std::min<size_t>(target_formats.size(), DILIGENT_MAX_RENDER_TARGETS);
-  pipeline_state_desc.GraphicsPipeline.NumRenderTargets = target_formats.size();
+  pipeline_state_desc.GraphicsPipeline.NumRenderTargets =
+      static_cast<Diligent::Uint8>(num_render_targets);
   for (size_t i = 0; i < num_render_targets; ++i)
     pipeline_state_desc.GraphicsPipeline.RTVFormats[i] = target_formats[i];
 

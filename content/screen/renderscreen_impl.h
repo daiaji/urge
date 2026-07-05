@@ -198,9 +198,9 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   void GPURecreateUpscaleBufferInternal();
   void GPURecreateAnime4KTargetsInternal();
   void GPURecreateAnime4KTargetsInternal(const base::Vec2i& size);
-  void GPURunUDLPassesInternal(Diligent::IDeviceContext* render_context);
-  void GPURunCuNNyPassesInternal(Diligent::IDeviceContext* render_context,
-                                   int variant);
+  bool GPURunUDLPassesInternal(Diligent::IDeviceContext* render_context);
+  bool GPURunCuNNyPassesInternal(Diligent::IDeviceContext* render_context,
+                                    int variant);
   bool EnsureAnime4KUDLReadyInternal();
   bool EnsureCuNNyReadyInternal(int variant);
   bool EnsureAnime4KUDLBindingsInternal();

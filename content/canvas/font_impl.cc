@@ -560,7 +560,7 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
   SDL_Color outline_color = out_color_impl->AsSDLColor();
   SDL_Color shadow_sdl_color = shadow_color_impl->AsSDLColor();
   if (font_opacity)
-    *font_opacity = 255;
+    *font_opacity = font_color.a;
 
   SDL_Surface* text_surface =
       solid_
