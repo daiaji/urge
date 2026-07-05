@@ -631,17 +631,22 @@ void RenderScreenImpl::FrameProcessInternal(
   // Determine wait delay time
   limiter_.Delay();
 
+  // Only run scaling pipeline if the upscale shader compiled successfully
+  bool scaling_avail = context()->render.pipeline_states->upscale.RawPtr() != nullptr;
+
   // Recreate upscale buffer to match window size (if needed)
-  GPURecreateUpscaleBufferInternal();
+  if (scaling_avail)
+    GPURecreateUpscaleBufferInternal();
 
   // Ensure CAS target exists before present_target selection
-  if (context()->engine_profile->cas_enabled)
+  if (scaling_avail && context()->engine_profile->cas_enabled)
     GPURecreateSharpenedBufferInternal();
 
   // Run scaling pass if upscale buffer is active
-  if (gpu_.upscale_buffer && present_target == gpu_.screen_buffer)
-    GPUScalingPassInternal(context()->primary_render_context);
-  if (gpu_.upscale_buffer) {
+  bool scaling_done = false;
+  if (scaling_avail && gpu_.upscale_buffer && present_target == gpu_.screen_buffer)
+    scaling_done = GPUScalingPassInternal(context()->primary_render_context);
+  if (scaling_done) {
     present_target = gpu_.upscale_buffer;
     if (context()->engine_profile->cas_enabled && gpu_.sharpened_buffer)
       present_target = gpu_.sharpened_buffer;
@@ -695,6 +700,7 @@ void RenderScreenImpl::GPUCreateGraphicsHostInternal() {
   // Create generic quads batch
   gpu_.transition_quads = renderer::QuadBatch::Make(**context()->render_device);
   gpu_.effect_quads = renderer::QuadBatch::Make(**context()->render_device);
+  gpu_.scaling_quads = renderer::QuadBatch::Make(**context()->render_device);
 
   // Create generic shader binding
   gpu_.transition_binding_alpha =
@@ -849,6 +855,7 @@ void RenderScreenImpl::GPURecreateSharpenedBufferInternal() {
       return;
   }
 
+  auto* sc = context()->render_device->GetSwapChain();
   gpu_.sharpened_buffer.Release();
   renderer::CreateTexture2D(
       **context()->render_device, &gpu_.sharpened_buffer,
@@ -868,11 +875,28 @@ static void SetAnime4KScissorAndViewport(Diligent::IDeviceContext* ctx,
   ctx->SetScissorRects(1, &sc, UINT32_MAX, UINT32_MAX);
 }
 
-static void DrawFullscreenTriangle(Diligent::IDeviceContext* ctx) {
-  Diligent::DrawAttribs da;
-  da.NumVertices = 3;
+static void DrawScalingQuad(renderer::QuadBatch& quads,
+                            Diligent::IDeviceContext* ctx,
+                            Diligent::IBuffer* quad_index,
+                            Diligent::VALUE_TYPE index_type) {
+  renderer::Quad quad;
+  renderer::Quad::SetPositionRect(&quad,
+      base::RectF(-1.0f, 1.0f, 2.0f, -2.0f));
+  renderer::Quad::SetTexCoordRectNorm(&quad,
+      base::RectF(base::Vec2(0), base::Vec2(1)));
+  renderer::Quad::SetColor(&quad, base::Vec4(1, 1, 1, 1));
+  quads.QueueWrite(ctx, &quad);
+
+  Diligent::IBuffer* vb = *quads;
+  ctx->SetVertexBuffers(0, 1, &vb, nullptr,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  ctx->SetIndexBuffer(quad_index, 0,
+      Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+  Diligent::DrawIndexedAttribs da;
+  da.NumIndices = 6;
+  da.IndexType = index_type;
   da.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
-  ctx->Draw(da);
+  ctx->DrawIndexed(da);
 }
 
 static void WriteScalingParams(
@@ -885,10 +909,10 @@ static void WriteScalingParams(
     *map = params;
 }
 
-void RenderScreenImpl::GPUScalingPassInternal(
+bool RenderScreenImpl::GPUScalingPassInternal(
     Diligent::IDeviceContext* render_context) {
   if (!gpu_.upscale_buffer || !gpu_.upscale_params_buffer)
-    return;
+    return false;
 
   auto* swapchain = context()->render_device->GetSwapChain();
   base::Vec2i output_size(swapchain->GetDesc().Width,
@@ -902,7 +926,7 @@ void RenderScreenImpl::GPUScalingPassInternal(
   if (mode == 4 || mode == 5) {
     GPURecreateAnime4KTargetsInternal();
     if (!gpu_.enhanced_tex)
-      return;
+      return false;
 
     base::Vec2i native_size = input_size;
     base::Vec2 input_pt = {1.0f / native_size.x, 1.0f / native_size.y};
@@ -941,7 +965,9 @@ void RenderScreenImpl::GPUScalingPassInternal(
     render_context->CommitShaderResources(
         *gpu_.anime4k_enhance_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    DrawFullscreenTriangle(render_context);
+    DrawScalingQuad(gpu_.scaling_quads, render_context,
+                    **context()->render.quad_index,
+                    context()->render.quad_index->GetIndexType());
 
     // Pass 5: Upscale
     mode = 2;
@@ -999,14 +1025,17 @@ void RenderScreenImpl::GPUScalingPassInternal(
         *gpu_.upscale_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    DrawFullscreenTriangle(render_context);
+    DrawScalingQuad(gpu_.scaling_quads, render_context,
+                    **context()->render.quad_index,
+                    context()->render.quad_index->GetIndexType());
   }
 
   // --- CAS post-process (optional, applies to any upscale mode) ---
-  if (profile->cas_enabled) {
+  if (profile->cas_enabled &&
+      context()->render.pipeline_states->cas.RawPtr()) {
     GPURecreateSharpenedBufferInternal();
     if (!gpu_.sharpened_buffer)
-      return;
+      return false;
 
     auto* rtv_cas = gpu_.sharpened_buffer->GetDefaultView(
         Diligent::TEXTURE_VIEW_RENDER_TARGET);
@@ -1043,8 +1072,11 @@ void RenderScreenImpl::GPUScalingPassInternal(
         *gpu_.cas_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
-    DrawFullscreenTriangle(render_context);
+    DrawScalingQuad(gpu_.scaling_quads, render_context,
+                    **context()->render.quad_index,
+                    context()->render.quad_index->GetIndexType());
   }
+  return true;
 }
 
 void RenderScreenImpl::GPUPresentScreenBufferInternal(

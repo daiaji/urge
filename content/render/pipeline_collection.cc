@@ -4,6 +4,8 @@
 
 #include "content/render/pipeline_collection.h"
 
+#include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+
 namespace content {
 
 namespace {
@@ -84,7 +86,8 @@ Diligent::RasterizerStateDesc Get2DRasterizerState() {
 ///////////////////////////////////////////////////////////////////////////////
 // PipelineCollection Implement
 
-PipelineCollection::PipelineCollection(renderer::PipelineSet* loader) {
+PipelineCollection::PipelineCollection(renderer::PipelineSet* loader,
+                                       Diligent::IRenderDevice* device) {
   constexpr auto target_format = Diligent::TEX_FORMAT_RGBA8_UNORM;
   constexpr auto depth_stencil_format = Diligent::TEX_FORMAT_D24_UNORM_S8_UINT;
   constexpr auto primitive_topology =
@@ -272,58 +275,57 @@ PipelineCollection::PipelineCollection(renderer::PipelineSet* loader) {
   }
 
   {  // Upscale - no scissor - no depth
-    Diligent::BlendStateDesc blend_state;
+      Diligent::BlendStateDesc blend_state;
 
-    Diligent::DepthStencilStateDesc depth_stencil_state =
-        GetDefaultDepthStencilState(false);
+      Diligent::DepthStencilStateDesc depth_stencil_state =
+          GetDefaultDepthStencilState(false);
 
-    Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
-    rasterizer_state.ScissorEnable = Diligent::False;
+      Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
+      rasterizer_state.ScissorEnable = Diligent::False;
 
-    loader->upscale.BuildPipeline(
-        &upscale, blend_state, rasterizer_state, depth_stencil_state,
-        Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, {target_format},
-        Diligent::TEX_FORMAT_UNKNOWN, default_sample);
-  }
+      loader->upscale.BuildPipeline(
+          &upscale, blend_state, rasterizer_state, depth_stencil_state,
+          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, {target_format},
+          Diligent::TEX_FORMAT_UNKNOWN, default_sample);
+    }
 
-  {  // Anime4K passes - no scissor - no depth
-    Diligent::BlendStateDesc blend_state;
+    {  // Anime4K passes - no scissor - no depth
+      Diligent::BlendStateDesc blend_state;
 
-    Diligent::DepthStencilStateDesc depth_stencil_state =
-        GetDefaultDepthStencilState(false);
+      Diligent::DepthStencilStateDesc depth_stencil_state =
+          GetDefaultDepthStencilState(false);
 
-    Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
-    rasterizer_state.ScissorEnable = Diligent::False;
+      Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
+      rasterizer_state.ScissorEnable = Diligent::False;
 
-    auto make_anime4k_pso = [&](renderer::RenderPipelineBase& lp,
-                                PipelineObject& out) {
-      lp.BuildPipeline(&out, blend_state, rasterizer_state,
-                       depth_stencil_state,
-                       Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-                       {target_format}, Diligent::TEX_FORMAT_UNKNOWN,
-                       default_sample);
-    };
+      auto make_anime4k_pso = [&](renderer::RenderPipelineBase& lp,
+                                  PipelineObject& out) {
+        lp.BuildPipeline(&out, blend_state, rasterizer_state,
+                         depth_stencil_state,
+                         Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                         {target_format}, Diligent::TEX_FORMAT_UNKNOWN,
+                         default_sample);
+      };
 
-    make_anime4k_pso(loader->anime4k_enhance, anime4k_enhance);
-  }
+      make_anime4k_pso(loader->anime4k_enhance, anime4k_enhance);
+    }
 
-  {  // CAS - no scissor - no depth
-    Diligent::BlendStateDesc blend_state;
+    {  // CAS - no scissor - no depth
+      Diligent::BlendStateDesc blend_state;
 
-    Diligent::DepthStencilStateDesc depth_stencil_state =
-        GetDefaultDepthStencilState(false);
+      Diligent::DepthStencilStateDesc depth_stencil_state =
+          GetDefaultDepthStencilState(false);
 
-    Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
-    rasterizer_state.ScissorEnable = Diligent::False;
+      Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
+      rasterizer_state.ScissorEnable = Diligent::False;
 
-    loader->cas.BuildPipeline(
-        &cas, blend_state, rasterizer_state, depth_stencil_state,
-        Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, {target_format},
-        Diligent::TEX_FORMAT_UNKNOWN, default_sample);
-  }
+      loader->cas.BuildPipeline(
+          &cas, blend_state, rasterizer_state, depth_stencil_state,
+          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, {target_format},
+          Diligent::TEX_FORMAT_UNKNOWN, default_sample);
+    }
 
   {  // Window (present) - with scissor - with depth
-    // With blend
     Diligent::BlendStateDesc blend_state;
     blend_state.RenderTargets[0] = GetBlendState(BLEND_TYPE_NORMAL);
 

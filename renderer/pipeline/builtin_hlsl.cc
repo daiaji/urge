@@ -1066,19 +1066,20 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
 // (Sobel blend mode select in Anime4K Enhance PS: 0=DoG, 1=Sobel adaptive)
 
 const std::string kHLSL_UpscalePass_Vertex = R"(
+struct VSInput {
+  float4 Pos : ATTRIB0;
+  float2 UV : ATTRIB1;
+  float4 Color : ATTRIB2;
+};
+
 struct PSInput {
   float4 Pos : SV_Position;
   float2 UV : TEXCOORD0;
 };
 
-void VSMain(in uint id : SV_VertexID, out PSInput PSIn) {
-  PSIn.Pos.x = (float)(id / 2) * 4.0 - 1.0;
-  PSIn.Pos.y = (float)(id % 2) * 4.0 - 1.0;
-  PSIn.Pos.z = 0.0;
-  PSIn.Pos.w = 1.0;
-
-  PSIn.UV.x = (float)(id / 2) * 2.0;
-  PSIn.UV.y = 1.0 - (float)(id % 2) * 2.0;
+void VSMain(in VSInput VSIn, out PSInput PSIn) {
+  PSIn.Pos = VSIn.Pos;
+  PSIn.UV = VSIn.UV;
 }
 )";
 
@@ -1120,22 +1121,19 @@ float3 LanczosWeight3(float x) {
   return sin(s) * sin(s * rcpRadius) / (s * s);
 }
 
-#define min4(a, b, c, d) min(min(a, b), min(c, d))
-#define max4(a, b, c, d) max(max(a, b), max(c, d))
-
 float3 SampleLanczos3(float2 uv) {
   float2 pos = uv * u_InputSize;
   float2 input_pt = u_InputPt;
 
-  uint i, j;
   float2 f = frac(pos.xy + 0.5);
   float3 linetaps1 = LanczosWeight3(0.5 - f.x * 0.5);
   float3 linetaps2 = LanczosWeight3(1.0 - f.x * 0.5);
   float3 columntaps1 = LanczosWeight3(0.5 - f.y * 0.5);
   float3 columntaps2 = LanczosWeight3(1.0 - f.y * 0.5);
 
-  float suml = dot(linetaps1, float3(1, 1, 1)) + dot(linetaps2, float3(1, 1, 1));
-  float sumc = dot(columntaps1, float3(1, 1, 1)) + dot(columntaps2, float3(1, 1, 1));
+  const float3 kOnes = float3(1.0, 1.0, 1.0);
+  float suml = dot(linetaps1, kOnes) + dot(linetaps2, kOnes);
+  float sumc = dot(columntaps1, kOnes) + dot(columntaps2, kOnes);
   linetaps1 /= suml;
   linetaps2 /= suml;
   columntaps1 /= sumc;
@@ -1145,22 +1143,41 @@ float3 SampleLanczos3(float2 uv) {
 
   float3 src[6][6];
 
-  [unroll] for (i = 0; i <= 4; i += 2) {
-    [unroll] for (j = 0; j <= 4; j += 2) {
+  [unroll] for (uint i = 0; i <= 4; i += 2) {
+    [unroll] for (uint j = 0; j <= 4; j += 2) {
       float2 tpos = (pos + uint2(i, j)) * input_pt;
       const float4 sr = u_Texture.GatherRed(u_Texture_sampler, tpos);
       const float4 sg = u_Texture.GatherGreen(u_Texture_sampler, tpos);
       const float4 sb = u_Texture.GatherBlue(u_Texture_sampler, tpos);
 
-      src[i][j]     = float3(sr.w, sg.w, sb.w);
-      src[i][j + 1] = float3(sr.x, sg.x, sb.x);
-      src[i + 1][j] = float3(sr.z, sg.z, sb.z);
-      src[i + 1][j + 1] = float3(sr.y, sg.y, sb.y);
+      src[i][j].x = sr.w;
+      src[i][j].y = sg.w;
+      src[i][j].z = sb.w;
+      // GLSL Gather returns wzyx instead of HLSL's wxyz.
+      // When URGE_GLSL_GATHER is defined (OpenGL), swap .x and .z.
+#ifdef URGE_GLSL_GATHER
+      src[i][j + 1].x = sr.z;
+      src[i][j + 1].y = sg.z;
+      src[i][j + 1].z = sb.z;
+      src[i + 1][j].x = sr.x;
+      src[i + 1][j].y = sg.x;
+      src[i + 1][j].z = sb.x;
+#else
+      src[i][j + 1].x = sr.x;
+      src[i][j + 1].y = sg.x;
+      src[i][j + 1].z = sb.x;
+      src[i + 1][j].x = sr.z;
+      src[i + 1][j].y = sg.z;
+      src[i + 1][j].z = sb.z;
+#endif
+      src[i + 1][j + 1].x = sr.y;
+      src[i + 1][j + 1].y = sg.y;
+      src[i + 1][j + 1].z = sb.y;
     }
   }
 
   float3 color = float3(0, 0, 0);
-  [unroll] for (i = 0; i <= 4; i += 2) {
+  [unroll] for (uint i = 0; i <= 4; i += 2) {
     color += (mul(linetaps1, float3x3(src[0][i], src[2][i], src[4][i])) +
               mul(linetaps2, float3x3(src[1][i], src[3][i], src[5][i]))) *
              columntaps1[i / 2] +
@@ -1169,8 +1186,8 @@ float3 SampleLanczos3(float2 uv) {
              columntaps2[i / 2];
   }
 
-  float3 min_sample = min4(src[2][2], src[3][2], src[2][3], src[3][3]);
-  float3 max_sample = max4(src[2][2], src[3][2], src[2][3], src[3][3]);
+  float3 min_sample = min(min(src[2][2], src[3][2]), min(src[2][3], src[3][3]));
+  float3 max_sample = max(max(src[2][2], src[3][2]), max(src[2][3], src[3][3]));
   color = lerp(color, clamp(color, min_sample, max_sample), u_ARStrength);
 
   return color;
@@ -1216,12 +1233,13 @@ float3 SampleBicubic(float2 uv) {
 
   float2 uv_base = pos1 * input_pt - input_pt;
 
-  float3 color = 0;
+  float3 color = float3(0.0, 0.0, 0.0);
   [unroll] for (int i = 0; i < 4; i++) {
-    float3 row = 0;
+    float3 row = float3(0.0, 0.0, 0.0);
     [unroll] for (int j = 0; j < 4; j++) {
       float2 sp = uv_base + float2(j, i) * input_pt;
-      row += u_Texture.Sample(u_Texture_sampler, sp).rgb * wx[j];
+      float4 _s = u_Texture.Sample(u_Texture_sampler, sp);
+      row += _s.rgb * wx[j];
     }
     color += row * wy[i];
   }
