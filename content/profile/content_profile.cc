@@ -147,7 +147,7 @@ ContentProfile::ContentProfile(const std::string& app, SDL_IOStream* stream)
     : program_name(app), ini_stream_(stream), ini_path_(app + ".ini") {}
 
 ContentProfile::~ContentProfile() {
-  SaveIfDirty();
+  SaveConfigure();
 }
 
 void ContentProfile::LoadCommandLine(int32_t argc, char** argv) {
@@ -257,8 +257,6 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetBoolean("Renderer", "IntegerScaling", integer_scaling);
   scaling_mode =
       reader->GetInteger("Renderer", "ScalingMode", scaling_mode);
-  if (scaling_mode == 7)
-    scaling_mode = 6;
   scaling_ar_strength =
       reader->GetFloat("Renderer", "ScalingARStrength", scaling_ar_strength);
   scaling_bicubic_b =
@@ -281,8 +279,6 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetBoolean("Renderer", "WinResizable", win_resizable);
   fixed_aspect_ratio =
       reader->GetBoolean("Renderer", "FixedAspectRatio", fixed_aspect_ratio);
-  udl_auto_fit =
-      reader->GetBoolean("Renderer", "UDLAutoFit", udl_auto_fit);
 
   // Font
   font_scale = reader->GetFloat("Engine", "FontScale", font_scale);
@@ -291,7 +287,6 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetInteger("Engine", "FontHinting", font_hinting);
   font_outline_crop =
       reader->GetBoolean("Engine", "FontOutlineCrop", font_outline_crop);
-  save_log = reader->GetBoolean("Engine", "SaveLog", save_log);
 
   {
     std::string subs_line = reader->Get("Engine", "FontSubs", "");
@@ -334,101 +329,55 @@ void ContentProfile::SaveConfigure() {
   fprintf(fp, "[Game]\n");
   fprintf(fp, "Scripts=%s\n", script_path.c_str());
   fprintf(fp, "Title=%s\n", window_title.c_str());
+  fprintf(fp, "RTP=\n");
+  fprintf(fp, "Library=System\\RGSS301.dll\n");
   fprintf(fp, "\n[Engine]\n");
   fprintf(fp, "APIVersion=%d\n", static_cast<int>(api_version));
   fprintf(fp, "DefaultFontPath=%s\n", default_font_path.c_str());
   fprintf(fp, "Resolution=%d|%d\n", resolution.x, resolution.y);
   fprintf(fp, "WindowSize=%d|%d\n", window_size.x, window_size.y);
+  fprintf(fp, "FontScale=%.1f\n", font_scale);
+  fprintf(fp, "FontKerning=%s\n", font_kerning ? "true" : "false");
+  fprintf(fp, "FontHinting=%d\n", font_hinting);
+  fprintf(fp, "FontOutlineCrop=%s\n", font_outline_crop ? "true" : "false");
   fprintf(fp, "I18nXMLPath=%s\n", i18n_xml_path.c_str());
-  if (font_scale != 0.9f)
-    fprintf(fp, "FontScale=%.1f\n", font_scale);
-  if (font_kerning != true)
-    fprintf(fp, "FontKerning=%s\n", font_kerning ? "true" : "false");
-  if (font_hinting != 3)
-    fprintf(fp, "FontHinting=%d\n", font_hinting);
-  if (font_outline_crop != true)
-    fprintf(fp, "FontOutlineCrop=%s\n", font_outline_crop ? "true" : "false");
-  if (save_log != true)
-    fprintf(fp, "SaveLog=%s\n", save_log ? "true" : "false");
   fprintf(fp, "\n[Audio]\n");
-  if (audio_volume != 1.0f)
-    fprintf(fp, "Volume=%.2f\n", audio_volume);
+  fprintf(fp, "Volume=%.2f\n", audio_volume);
   if (!midi_soundfont.empty())
     fprintf(fp, "SoundFont=%s\n", midi_soundfont.c_str());
   fprintf(fp, "\n[Renderer]\n");
-  if (!driver_backend.empty())
-    fprintf(fp, "Backend=%s\n", driver_backend.c_str());
-  if (render_validation !=
-#if DILIGENT_DEVELOPMENT
-      true
-#else
-      false
-#endif
-  )
-    fprintf(fp, "RenderValidation=%s\n", render_validation ? "true" : "false");
-  if (u32_draw_index != true)
-    fprintf(fp, "LargeDrawIndex=%s\n", u32_draw_index ? "true" : "false");
-  {
-    int default_fr = (api_version == APIVersion::RGSS1) ? 40 : 60;
-    if (frame_rate != default_fr)
-      fprintf(fp, "FrameRate=%d\n", frame_rate);
-  }
-  if (vsync != 1)
-    fprintf(fp, "VSync=%u\n", vsync);
-  if (keep_ratio != true)
-    fprintf(fp, "KeepRatio=%s\n", keep_ratio ? "true" : "false");
-  if (allow_skip_frame != true)
-    fprintf(fp, "AllowSkipFrame=%s\n", allow_skip_frame ? "true" : "false");
-  if (fullscreen != false)
-    fprintf(fp, "Fullscreen=%s\n", fullscreen ? "true" : "false");
-  if (background_running != true)
-    fprintf(fp, "BackgroundRunning=%s\n", background_running ? "true" : "false");
-  if (smooth_scale_present != false)
-    fprintf(fp, "SmoothScalePresent=%s\n", smooth_scale_present ? "true" : "false");
-  if (smooth_scaling != 0)
-    fprintf(fp, "SmoothScaling=%d\n", smooth_scaling);
-  if (smooth_scaling_down != 0)
-    fprintf(fp, "SmoothScalingDown=%d\n", smooth_scaling_down);
-  if (integer_scaling != false)
-    fprintf(fp, "IntegerScaling=%s\n", integer_scaling ? "true" : "false");
-  if (scaling_mode != 0)
-    fprintf(fp, "ScalingMode=%d\n", scaling_mode);
-  if (scaling_ar_strength != 0.5f)
-    fprintf(fp, "ScalingARStrength=%.2f\n", scaling_ar_strength);
-  if (scaling_bicubic_b != 0.33f)
-    fprintf(fp, "ScalingBicubicB=%.2f\n", scaling_bicubic_b);
-  if (scaling_bicubic_c != 0.33f)
-    fprintf(fp, "ScalingBicubicC=%.2f\n", scaling_bicubic_c);
-  if (cas_enabled != false)
-    fprintf(fp, "CASEnabled=%s\n", cas_enabled ? "true" : "false");
-  if (cas_sharpness != 0.4f)
-    fprintf(fp, "CASSharpness=%.2f\n", cas_sharpness);
-  if (scaling_sobel_strength != 1.0f)
-    fprintf(fp, "ScalingSobelStrength=%.2f\n", scaling_sobel_strength);
-  if (scaling_warp_strength != 0.0f)
-    fprintf(fp, "ScalingWarpStrength=%.2f\n", scaling_warp_strength);
-  if (scaling_darken_strength != 0.0f)
-    fprintf(fp, "ScalingDarkenStrength=%.2f\n", scaling_darken_strength);
-  if (sync_to_refresh_rate != false)
-    fprintf(fp, "SyncToRefreshRate=%s\n", sync_to_refresh_rate ? "true" : "false");
-  if (win_resizable != true)
-    fprintf(fp, "WinResizable=%s\n", win_resizable ? "true" : "false");
-  if (fixed_aspect_ratio != true)
-    fprintf(fp, "FixedAspectRatio=%s\n", fixed_aspect_ratio ? "true" : "false");
-  if (udl_auto_fit != false)
-    fprintf(fp, "UDLAutoFit=%s\n", udl_auto_fit ? "true" : "false");
+  fprintf(fp, "Backend=%s\n", driver_backend.c_str());
+  fprintf(fp, "RenderValidation=%s\n", render_validation ? "true" : "false");
+  fprintf(fp, "LargeDrawIndex=%s\n", u32_draw_index ? "true" : "false");
+  fprintf(fp, "FrameRate=%d\n", frame_rate);
+  fprintf(fp, "VSync=%u\n", vsync);
+  fprintf(fp, "KeepRatio=%s\n", keep_ratio ? "true" : "false");
+  fprintf(fp, "AllowSkipFrame=%s\n", allow_skip_frame ? "true" : "false");
+  fprintf(fp, "Fullscreen=%s\n", fullscreen ? "true" : "false");
+  fprintf(fp, "BackgroundRunning=%s\n", background_running ? "true" : "false");
+  fprintf(fp, "SmoothScalePresent=%s\n", smooth_scale_present ? "true" : "false");
+  fprintf(fp, "SmoothScaling=%d\n", smooth_scaling);
+  fprintf(fp, "SmoothScalingDown=%d\n", smooth_scaling_down);
+  fprintf(fp, "IntegerScaling=%s\n", integer_scaling ? "true" : "false");
+  fprintf(fp, "ScalingMode=%d\n", scaling_mode);
+  fprintf(fp, "ScalingARStrength=%.2f\n", scaling_ar_strength);
+  fprintf(fp, "ScalingBicubicB=%.2f\n", scaling_bicubic_b);
+  fprintf(fp, "ScalingBicubicC=%.2f\n", scaling_bicubic_c);
+  fprintf(fp, "CASEnabled=%s\n", cas_enabled ? "true" : "false");
+  fprintf(fp, "CASSharpness=%.2f\n", cas_sharpness);
+  fprintf(fp, "ScalingSobelStrength=%.2f\n", scaling_sobel_strength);
+  fprintf(fp, "ScalingWarpStrength=%.2f\n", scaling_warp_strength);
+  fprintf(fp, "ScalingDarkenStrength=%.2f\n", scaling_darken_strength);
+  fprintf(fp, "SyncToRefreshRate=%s\n", sync_to_refresh_rate ? "true" : "false");
+  fprintf(fp, "WinResizable=%s\n", win_resizable ? "true" : "false");
+  fprintf(fp, "FixedAspectRatio=%s\n", fixed_aspect_ratio ? "true" : "false");
   fprintf(fp, "\n[GUI]\n");
-  if (disable_settings != false)
-    fprintf(fp, "DisableSettings=%s\n", disable_settings ? "true" : "false");
-  if (disable_fps_monitor != false)
-    fprintf(fp, "DisableFPSMonitor=%s\n", disable_fps_monitor ? "true" : "false");
-  if (disable_reset != false)
-    fprintf(fp, "DisableReset=%s\n", disable_reset ? "true" : "false");
+  fprintf(fp, "DisableSettings=%s\n", disable_settings ? "true" : "false");
+  fprintf(fp, "DisableFPSMonitor=%s\n", disable_fps_monitor ? "true" : "false");
+  fprintf(fp, "DisableReset=%s\n", disable_reset ? "true" : "false");
   fprintf(fp, "\n[Platform]\n");
-  if (debugging_console != false)
-    fprintf(fp, "DebuggingConsole=%s\n", debugging_console ? "true" : "false");
-  if (disable_ime != false)
-    fprintf(fp, "DisableIME=%s\n", disable_ime ? "true" : "false");
+  fprintf(fp, "DebuggingConsole=%s\n", debugging_console ? "true" : "false");
+  fprintf(fp, "DisableIME=%s\n", disable_ime ? "true" : "false");
 
   fclose(fp);
 }
@@ -469,7 +418,6 @@ void ContentProfile::ResetRendererDefaults() {
   sync_to_refresh_rate = false;
   win_resizable = true;
   fixed_aspect_ratio = true;
-  udl_auto_fit = false;
 }
 
 }  // namespace content

@@ -168,56 +168,47 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
 #error "Unsupport Platform"
 #endif
 
-// Correction backend settings
+// Backend priority per platform
 #if defined(OS_WIN)
-  switch (driver_type) {
-    case DriverType::OPENGL:
-    case DriverType::VULKAN:
-    case DriverType::D3D11:
-    case DriverType::D3D12:
-      break;
-    default:
-      driver_type = DriverType::D3D11;
-      break;
-  }
+  static const DriverType kBackendPriority[] = {
+      DriverType::D3D12,
+      DriverType::VULKAN,
+      DriverType::D3D11,
+      DriverType::OPENGL,
+  };
 #elif defined(OS_LINUX)
-  switch (driver_type) {
-    case DriverType::OPENGL:
-    case DriverType::VULKAN:
-      break;
-    default:
-      driver_type = DriverType::OPENGL;
-      break;
-  }
+  static const DriverType kBackendPriority[] = {
+      DriverType::VULKAN,
+      DriverType::OPENGL,
+  };
 #elif defined(OS_ANDROID)
-  switch (driver_type) {
-    case DriverType::OPENGL:
-    case DriverType::VULKAN:
-      break;
-    default:
-      driver_type = DriverType::OPENGL;
-      break;
-  }
+  static const DriverType kBackendPriority[] = {
+      DriverType::OPENGL,
+      DriverType::VULKAN,
+  };
 #elif defined(OS_EMSCRIPTEN)
-  switch (driver_type) {
-    case DriverType::OPENGL:
-    case DriverType::WEBGPU:
-      break;
-    default:
-      driver_type = DriverType::OPENGL;
-      break;
-  }
+  static const DriverType kBackendPriority[] = {
+      DriverType::WEBGPU,
+      DriverType::OPENGL,
+  };
 #elif defined(OS_MACOSX)
-   switch (driver_type) {
-    case DriverType::OPENGL:
-      break;
-    default:
-      driver_type = DriverType::OPENGL;
-      break;
-  }
+  static const DriverType kBackendPriority[] = {
+      DriverType::OPENGL,
+  };
 #else
 #error "Unsupport Platform"
 #endif
+
+  // If the user-specified backend is not in the priority list, use the first priority
+  bool user_backend_valid = false;
+  for (auto p : kBackendPriority) {
+    if (driver_type == p) {
+      user_backend_valid = true;
+      break;
+    }
+  }
+  if (!user_backend_valid)
+    driver_type = kBackendPriority[0];
 
   Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
   Diligent::RefCntAutoPtr<Diligent::IDeviceContext> context;
@@ -248,8 +239,20 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
   swap_chain_desc.IsPrimary = Diligent::True;
 
   // Create device and fallback when error
-  size_t creating_retry_count = 0;
-  do {
+  // Build effective priority: user's choice first, then platform defaults
+  DriverType priority[8];
+  size_t priority_size = 0;
+  for (auto p : kBackendPriority)
+    if (driver_type == p) {
+      priority[priority_size++] = driver_type;
+      break;
+    }
+  for (auto p : kBackendPriority)
+    if (driver_type != p)
+      priority[priority_size++] = p;
+
+  for (size_t i = 0; i < priority_size; ++i) {
+    driver_type = priority[i];
 #if GL_SUPPORTED || GLES_SUPPORTED
     if (driver_type == DriverType::OPENGL) {
 #if ENGINE_DLL
@@ -351,10 +354,7 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
       // Success
       break;
     }
-
-    // Fallback
-    driver_type = static_cast<DriverType>(creating_retry_count++);
-  } while (creating_retry_count < static_cast<size_t>(DriverType::kNums));
+  }
 
   if (!device || !context || !swapchain) {
     LOG(ERROR) << "[Renderer] Failed to create renderer.";
