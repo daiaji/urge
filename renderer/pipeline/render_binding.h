@@ -232,7 +232,7 @@ class Binding_YUV : public RenderBindingBase {
 
 class Binding_Upscale : public RenderBindingBase {
  public:
-  struct ScalingParams {
+  struct alignas(16) ScalingParams {
     base::Vec2 input_size;
     base::Vec2 output_size;
     base::Vec2 input_pt;
@@ -242,7 +242,9 @@ class Binding_Upscale : public RenderBindingBase {
     float bicubic_b;
     float bicubic_c;
     float cas_sharpness;
+    float padding[3];
   };
+  static_assert(sizeof(ScalingParams) % 16 == 0);
 
   Binding_Upscale() = default;
 

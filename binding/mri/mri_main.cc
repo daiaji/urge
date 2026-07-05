@@ -7,7 +7,9 @@
 
 #include "binding/mri/mri_main.h"
 
+#if defined(OS_LINUX)
 #include <dlfcn.h>
+#endif
 
 #include "SDL3/SDL_messagebox.h"
 #include "zlib/zlib.h"
@@ -171,7 +173,6 @@ void BindingEngineMri::PreEarlyInitialization(
   // (not in .dynsym due to -fvisibility=hidden).
   // Try dlsym first; fall back to dladdr + build-time extracted offset.
 #if defined(OS_LINUX)
-  #include <dlfcn.h>
   auto fn = (void (*)())dlsym(RTLD_DEFAULT, "rb_call_builtin_inits");
   if (!fn) {
     #include "mri_builtin_offset.h"

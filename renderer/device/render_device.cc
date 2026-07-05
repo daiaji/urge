@@ -118,17 +118,6 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
         xcb_connection = xgetxcb_func(xdisplay);
     }
 
-    // OpenGL context (GLX) — needed even for Vulkan fallback chain
-    glcontext = SDL_GL_CreateContext(window_target->AsSDLWindow());
-    if (!glcontext) {
-      LOG(ERROR) << "[Renderer] SDL_GL_CreateContext failed: " << SDL_GetError();
-      return CreateDeviceResult(nullptr, nullptr);
-    }
-    if (!SDL_GL_MakeCurrent(window_target->AsSDLWindow(), glcontext)) {
-      LOG(ERROR) << "[Renderer] SDL_GL_MakeCurrent failed: " << SDL_GetError();
-      SDL_GL_DestroyContext(glcontext);
-      return CreateDeviceResult(nullptr, nullptr);
-    }
   }
 
   // Setup native window
@@ -265,6 +254,23 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
     driver_type = priority[i];
 #if GL_SUPPORTED || GLES_SUPPORTED
     if (driver_type == DriverType::OPENGL) {
+#if defined(OS_LINUX)
+      if (!glcontext) {
+        glcontext = SDL_GL_CreateContext(window_target->AsSDLWindow());
+        if (!glcontext) {
+          LOG(ERROR) << "[Renderer] SDL_GL_CreateContext failed: "
+                     << SDL_GetError();
+          continue;
+        }
+      }
+      if (!SDL_GL_MakeCurrent(window_target->AsSDLWindow(), glcontext)) {
+        LOG(ERROR) << "[Renderer] SDL_GL_MakeCurrent failed: "
+                   << SDL_GetError();
+        SDL_GL_DestroyContext(glcontext);
+        glcontext = nullptr;
+        continue;
+      }
+#endif
 #if ENGINE_DLL
       auto GetEngineFactoryOpenGL = Diligent::LoadGraphicsEngineOpenGL();
 #else

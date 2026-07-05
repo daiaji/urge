@@ -8,12 +8,16 @@
 #include <fcntl.h>
 #include <process.h>
 #include <signal.h>
-#else
+#elif defined(OS_LINUX)
 #include <signal.h>
 #include <unistd.h>
 #include <execinfo.h>
 #include <fcntl.h>
 #include <ucontext.h>
+#else
+#include <signal.h>
+#include <unistd.h>
+#include <fcntl.h>
 #endif
 
 #include <stdio.h>
@@ -81,7 +85,9 @@ static void StartCrashPumpPipe() {
     g_pump_running = false;
     return;
   }
+#if defined(OS_LINUX)
   fcntl(g_crash_pipe[0], F_SETPIPE_SZ, 1048576);
+#endif
   g_orig_stderr = dup(STDERR_FILENO);
   if (pthread_create(&g_pump_thread, nullptr, CrashPumpThread, nullptr) != 0) {
     close(g_crash_pipe[0]);
@@ -263,7 +269,7 @@ void FlushAndRaise(int sig) {
 #if !defined(OS_WIN)
 
 void DumpRegisters(int fd, ucontext_t* uc) {
-#if defined(__x86_64__)
+#if defined(OS_LINUX) && defined(__x86_64__)
   auto* mctx = &uc->uc_mcontext;
   WriteLiteral(fd, "\n  Registers (x86_64):\n");
   WriteLiteral(fd, "    RAX: "); WriteHex(fd, mctx->gregs[REG_RAX]); WriteLiteral(fd, "\n");
@@ -283,7 +289,7 @@ void DumpRegisters(int fd, ucontext_t* uc) {
   WriteLiteral(fd, "    R13: "); WriteHex(fd, mctx->gregs[REG_R13]); WriteLiteral(fd, "\n");
   WriteLiteral(fd, "    R14: "); WriteHex(fd, mctx->gregs[REG_R14]); WriteLiteral(fd, "\n");
   WriteLiteral(fd, "    R15: "); WriteHex(fd, mctx->gregs[REG_R15]); WriteLiteral(fd, "\n");
-#elif defined(__aarch64__)
+#elif defined(OS_LINUX) && defined(__aarch64__)
   auto* mctx = &uc->uc_mcontext;
   WriteLiteral(fd, "\n  Registers (AArch64):\n");
   for (int i = 0; i < 30; ++i) {
@@ -314,12 +320,16 @@ static void WriteCrashDumpToFd(int fd, int sig, siginfo_t* info,
   }
   if (ucontext)
     DumpRegisters(fd, static_cast<ucontext_t*>(ucontext));
+#if defined(OS_LINUX)
   void* callstack[128];
   int frames = backtrace(callstack, 128);
   WriteLiteral(fd, "\n  Backtrace (");
   WriteDecimal(fd, frames);
   WriteLiteral(fd, " frames):\n");
   backtrace_symbols_fd(callstack, frames, fd);
+#else
+  WriteLiteral(fd, "\n  Backtrace unavailable on this platform.\n");
+#endif
 }
 
 void OnCrashSignal(int sig, siginfo_t* info, void* ucontext) {
