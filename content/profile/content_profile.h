@@ -60,6 +60,7 @@ class ContentProfile {
 
   // Audio
   float audio_volume = 1.0f;
+  std::string midi_soundfont;
 
   // Renderer
   std::string driver_backend = "UNDEFINED";

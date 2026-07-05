@@ -53,6 +53,9 @@ class ContentRunner {
     // Graphics renderer target.
     base::WeakPtr<ui::Widget> window;
 
+    // Display refresh rate (for syncToRefreshrate)
+    float display_refresh_rate = 0.0f;
+
     // Binding boot entry,
     // require an unique one.
     std::unique_ptr<EngineBindingBase> entry;

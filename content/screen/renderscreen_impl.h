@@ -82,6 +82,9 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   // Current frame rate
   int32_t FrameRate() const { return frame_rate_; }
 
+  // Sync to display refresh rate (disable limiter, set vsync=1)
+  void SyncToRefreshRate(int32_t refresh_rate);
+
  public:
   void Update(ExceptionState& exception_state) override;
   void Wait(uint32_t duration, ExceptionState& exception_state) override;
@@ -185,6 +188,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   int32_t brightness_;
   uint64_t frame_count_;
   uint32_t frame_rate_;
+  bool unlimited_fps_;
   base::Vec2i origin_;
 };
 

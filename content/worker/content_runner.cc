@@ -153,6 +153,7 @@ void ContentRunner::RunMainLoop() {
 
 std::unique_ptr<ContentRunner> ContentRunner::Create(InitParams params) {
   auto* runner = new ContentRunner(params.profile, std::move(params.entry));
+  runner->display_refresh_rate_ = params.display_refresh_rate;
   if (!runner->InitializeComponents(params.io_service, params.font_context,
                                     params.i18n_profile, params.window))
     return nullptr;
@@ -226,6 +227,12 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
       &ContentRunner::TickHandlerInternal, base::Unretained(this)));
   execution_context_->screen_drawable_node =
       graphics_impl_->GetDrawableController();
+
+  // Apply sync to refresh rate
+  if (profile_->sync_to_refresh_rate && display_refresh_rate_ > 0.0f) {
+    graphics_impl_->SyncToRefreshRate(
+        static_cast<int32_t>(display_refresh_rate_));
+  }
 
   // Other modules
   keyboard_impl_ =
@@ -493,6 +500,9 @@ void ContentRunner::RenderSettingsGUIInternal() {
     // Audio settings
     audio_impl_->CreateButtonGUISettings();
 
+    // Input settings (keyboard + gamepad bindings)
+    keyboard_impl_->CreateButtonGUISettings();
+
     // Engine Info
     DrawEngineInfoGUI(execution_context_->i18n_profile);
 
@@ -740,7 +750,7 @@ void ContentRunner::CreateIMGUIContextInternal() {
   ImGuiIO& io = ImGui::GetIO();
   io.IniFilename = nullptr;
   io.ConfigFlags |=
-      ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
+      ImGuiConfigFlags_NavEnableKeyboard;
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
   // Apply DPI Settings
