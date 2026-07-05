@@ -131,6 +131,14 @@ void RenderScreenImpl::CreateButtonGUISettings() {
                                         "Background Running")
                         .c_str(),
                     &settings_profile.background_running);
+
+    // Scaling algorithm
+    ImGui::Separator();
+    ImGui::Text("Scaling Algorithm");
+    const char* scaling_items[] = {"Bilinear", "Nearest",
+                                   "Lanczos3", "Bicubic", "Anime4K"};
+    ImGui::Combo("##scaling_mode", &settings_profile.scaling_mode,
+                 scaling_items, IM_ARRAYSIZE(scaling_items));
   }
 }
 
@@ -496,6 +504,13 @@ URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     { context()->engine_profile->smooth_scaling_down = value; });
 
 URGE_DEFINE_OVERRIDE_ATTRIBUTE(
+    ScalingMode,
+    int32_t,
+    RenderScreenImpl,
+    { return context()->engine_profile->scaling_mode; },
+    { context()->engine_profile->scaling_mode = value; });
+
+URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     BackgroundRunning,
     bool,
     RenderScreenImpl,
@@ -536,6 +551,15 @@ void RenderScreenImpl::FrameProcessInternal(
 
   // Determine wait delay time
   limiter_.Delay();
+
+  // Recreate upscale buffer to match window size (if needed)
+  GPURecreateUpscaleBufferInternal();
+
+  // Run scaling pass if upscale buffer is active
+  if (gpu_.upscale_buffer && present_target == gpu_.screen_buffer)
+    GPUScalingPassInternal(context()->primary_render_context);
+  if (gpu_.upscale_buffer)
+    present_target = gpu_.upscale_buffer;
 
   // Tick callback
   frame_tick_handler_.Run(present_target);
@@ -593,6 +617,18 @@ void RenderScreenImpl::GPUCreateGraphicsHostInternal() {
       context()->render.pipeline_loader->mappedtrans.CreateBinding();
   gpu_.effect_binding =
       context()->render.pipeline_loader->color.CreateBinding();
+  gpu_.upscale_binding =
+      context()->render.pipeline_loader->upscale.CreateBinding();
+  gpu_.anime4k_enhance_binding =
+      context()->render.pipeline_loader->anime4k_enhance.CreateBinding();
+
+  // Create upscale params buffer (dynamic, no initial data)
+  Diligent::CreateUniformBuffer(
+      **context()->render_device,
+      sizeof(renderer::Binding_Upscale::ScalingParams),
+      "screen.upscale.params", &gpu_.upscale_params_buffer,
+      Diligent::USAGE_DYNAMIC, Diligent::BIND_UNIFORM_BUFFER,
+      Diligent::CPU_ACCESS_WRITE, nullptr);
 
   // Create screen buffer
   GPUResetScreenBufferInternal();
@@ -669,6 +705,189 @@ void RenderScreenImpl::GPUResetScreenBufferInternal() {
 
   // Offset transform
   GPUUpdateScreenWorldInternal();
+}
+
+void RenderScreenImpl::GPURecreateUpscaleBufferInternal() {
+  auto* swapchain = context()->render_device->GetSwapChain();
+  base::Vec2i window_size(swapchain->GetDesc().Width,
+                          swapchain->GetDesc().Height);
+
+  if (gpu_.upscale_buffer) {
+    const auto& desc = gpu_.upscale_buffer->GetDesc();
+    if (desc.Width == static_cast<uint32_t>(window_size.x) &&
+        desc.Height == static_cast<uint32_t>(window_size.y))
+      return;
+  }
+
+  gpu_.upscale_buffer.Release();
+  renderer::CreateTexture2D(
+      **context()->render_device, &gpu_.upscale_buffer,
+      "screen.upscale.buffer", window_size, Diligent::USAGE_DEFAULT,
+      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
+}
+
+void RenderScreenImpl::GPURecreateAnime4KTargetsInternal() {
+  auto res = context()->resolution;
+
+  auto recreate = [&](RRefPtr<Diligent::ITexture>& tex, const char* name,
+                      Diligent::TEXTURE_FORMAT fmt) {
+    if (tex) {
+      const auto& d = tex->GetDesc();
+      if (d.Width == static_cast<uint32_t>(res.x) &&
+          d.Height == static_cast<uint32_t>(res.y) && d.Format == fmt)
+        return;
+    }
+    tex.Release();
+    renderer::CreateTexture2D(**context()->render_device, &tex, name, res,
+                              Diligent::USAGE_DEFAULT,
+                              Diligent::BIND_RENDER_TARGET |
+                                  Diligent::BIND_SHADER_RESOURCE,
+                              Diligent::CPU_ACCESS_NONE, fmt);
+  };
+
+  recreate(gpu_.enhanced_tex, "anime4k.enhanced",
+           Diligent::TEX_FORMAT_RGBA8_UNORM);
+}
+
+static void SetAnime4KScissorAndViewport(Diligent::IDeviceContext* ctx,
+                                         const base::Vec2i& size) {
+  Diligent::Viewport vp;
+  vp.Width = static_cast<float>(size.x);
+  vp.Height = static_cast<float>(size.y);
+  vp.MinDepth = 0.0f;
+  vp.MaxDepth = 1.0f;
+  ctx->SetViewports(1, &vp, size.x, size.y);
+  Diligent::Rect sc(0, 0, size.x, size.y);
+  ctx->SetScissorRects(1, &sc, UINT32_MAX, UINT32_MAX);
+}
+
+static void DrawFullscreenTriangle(Diligent::IDeviceContext* ctx) {
+  Diligent::DrawAttribs da;
+  da.NumVertices = 3;
+  da.Flags = Diligent::DRAW_FLAG_VERIFY_ALL;
+  ctx->Draw(da);
+}
+
+static void WriteScalingParams(
+    Diligent::IDeviceContext* ctx,
+    Diligent::IBuffer* buf,
+    const renderer::Binding_Upscale::ScalingParams& params) {
+  Diligent::MapHelper<renderer::Binding_Upscale::ScalingParams> map(
+      ctx, buf, Diligent::MAP_WRITE, Diligent::MAP_FLAG_DISCARD);
+  if (map)
+    *map = params;
+}
+
+void RenderScreenImpl::GPUScalingPassInternal(
+    Diligent::IDeviceContext* render_context) {
+  if (!gpu_.upscale_buffer || !gpu_.upscale_params_buffer)
+    return;
+
+  auto* swapchain = context()->render_device->GetSwapChain();
+  base::Vec2i output_size(swapchain->GetDesc().Width,
+                          swapchain->GetDesc().Height);
+  base::Vec2i input_size = context()->resolution;
+  auto* profile = context()->engine_profile;
+  int mode = profile->scaling_mode;
+
+  // --- Anime4K single-pass path (inline 7x7 gauss + DoG clamp) ---
+  if (mode == 4) {
+    GPURecreateAnime4KTargetsInternal();
+    if (!gpu_.enhanced_tex)
+      return;
+
+    base::Vec2i native_size = input_size;
+    base::Vec2 input_pt = {1.0f / native_size.x, 1.0f / native_size.y};
+
+    auto* rtv_e = gpu_.enhanced_tex->GetDefaultView(
+        Diligent::TEXTURE_VIEW_RENDER_TARGET);
+    render_context->SetRenderTargets(
+        1, &rtv_e, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    float clr[] = {0, 0, 0, 0};
+    render_context->ClearRenderTarget(
+        rtv_e, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    SetAnime4KScissorAndViewport(render_context, native_size);
+
+    renderer::Binding_Upscale::ScalingParams params;
+    params.input_size = native_size.Recast<float>();
+    params.output_size = native_size.Recast<float>();
+    params.input_pt = input_pt;
+    params.output_pt = input_pt;
+    params.mode = 0;
+    WriteScalingParams(render_context, gpu_.upscale_params_buffer.RawPtr(),
+                       params);
+
+    render_context->SetPipelineState(
+        context()->render.pipeline_states->anime4k_enhance.RawPtr());
+    gpu_.anime4k_enhance_binding.u_texture->Set(
+        gpu_.screen_buffer->GetDefaultView(
+            Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    gpu_.anime4k_enhance_binding.u_params->Set(gpu_.upscale_params_buffer);
+
+    render_context->CommitShaderResources(
+        *gpu_.anime4k_enhance_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    DrawFullscreenTriangle(render_context);
+
+    // Pass 5: Upscale
+    mode = 2;
+    input_size = native_size;
+  }
+
+  // --- Common upscale path (mode 0-3 or Anime4K pass 5) ---
+  {
+    auto* rtv = gpu_.upscale_buffer->GetDefaultView(
+        Diligent::TEXTURE_VIEW_RENDER_TARGET);
+    render_context->SetRenderTargets(
+        1, &rtv, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    float clear_color[] = {0, 0, 0, 0};
+    render_context->ClearRenderTarget(
+        rtv, clear_color,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    Diligent::Viewport viewport;
+    viewport.Width = static_cast<float>(output_size.x);
+    viewport.Height = static_cast<float>(output_size.y);
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+    render_context->SetViewports(1, &viewport, output_size.x, output_size.y);
+
+    Diligent::Rect scissor(0, 0, output_size.x, output_size.y);
+    render_context->SetScissorRects(1, &scissor, UINT32_MAX, UINT32_MAX);
+
+    render_context->SetPipelineState(
+        context()->render.pipeline_states->upscale.RawPtr());
+
+    renderer::Binding_Upscale::ScalingParams params;
+    params.input_size = input_size.Recast<float>();
+    params.output_size = output_size.Recast<float>();
+    params.input_pt =
+        base::Vec2(1.0f / input_size.x, 1.0f / input_size.y);
+    params.output_pt =
+        base::Vec2(1.0f / output_size.x, 1.0f / output_size.y);
+    params.mode = static_cast<uint32_t>(mode);
+    params.ar_strength = profile->scaling_ar_strength;
+    params.bicubic_b = profile->scaling_bicubic_b;
+    params.bicubic_c = profile->scaling_bicubic_c;
+    WriteScalingParams(render_context, gpu_.upscale_params_buffer.RawPtr(),
+                       params);
+
+    auto* source_tex_srv =
+        (mode == 2 && gpu_.enhanced_tex ? gpu_.enhanced_tex
+                                        : gpu_.screen_buffer)
+            ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    gpu_.upscale_binding.u_texture->Set(source_tex_srv);
+    gpu_.upscale_binding.u_params->Set(gpu_.upscale_params_buffer);
+
+    render_context->CommitShaderResources(
+        *gpu_.upscale_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    DrawFullscreenTriangle(render_context);
+  }
 }
 
 void RenderScreenImpl::GPUPresentScreenBufferInternal(

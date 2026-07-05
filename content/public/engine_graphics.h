@@ -150,6 +150,9 @@ class URGE_OBJECT(Graphics) {
   /*--urge(name:smooth_scaling_down)--*/
   URGE_EXPORT_ATTRIBUTE(SmoothScalingDown, int32_t);
 
+  /*--urge(name:scaling_mode)--*/
+  URGE_EXPORT_ATTRIBUTE(ScalingMode, int32_t);
+
   /*--urge(name:background_running)--*/
   URGE_EXPORT_ATTRIBUTE(BackgroundRunning, bool);
 

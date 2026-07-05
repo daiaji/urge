@@ -230,6 +230,32 @@ extern const std::string kHLSL_BitmapHueRender_Pixel;
 extern const std::string kHLSL_YUVRender_Vertex;
 extern const std::string kHLSL_YUVRender_Pixel;
 
+///
+// type:
+//   upscale shader (fullscreen quad via SV_VertexID, no vertex buffer)
+///
+// entry:
+//   vertex: VSMain (SV_VertexID, no input layout)
+//   pixel: PSMain
+///
+// resource:
+//   { Texture2D }
+//   { float2, float2, float2, float2, uint, float, float, float }
+//   (ScalingParamsBuffer: InputSize, OutputSize, InputPt, OutputPt,
+//    Mode, ARStrength, BicubicB, BicubicC)
+///
+extern const std::string kHLSL_UpscalePass_Vertex;
+extern const std::string kHLSL_UpscalePass_Pixel;
+
+///
+// type:
+//   anime4k passes (reuse upscale VS, no vertex buffer)
+///
+extern const std::string kHLSL_Anime4K_Luma_Pixel;
+extern const std::string kHLSL_Anime4K_GaussX_Pixel;
+extern const std::string kHLSL_Anime4K_GaussY_Pixel;
+extern const std::string kHLSL_Anime4K_Enhance_Pixel;
+
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_BUILTIN_HLSL_H_

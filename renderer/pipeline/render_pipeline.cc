@@ -484,6 +484,51 @@ PIPELINE_HEADER(BitmapHue) {
   SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
 }
 
+PIPELINE_HEADER(Upscale) {
+  const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
+                                   kHLSL_UpscalePass_Pixel, "upscale.pass"};
+
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       init_params.immutable_sampler},
+  };
+
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  SetupPipelineBasis(shader_source, {}, {binding0});
+}
+
+PIPELINE_HEADER(Anime4K_Enhance) {
+  const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
+                                   kHLSL_Anime4K_Enhance_Pixel,
+                                   "anime4k.enhance"};
+
+  const std::vector<Diligent::PipelineResourceDesc> variables = {
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+      {Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer",
+       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
+       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+  };
+
+  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
+      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
+       init_params.immutable_sampler},
+  };
+
+  auto binding0 = MakeResourceSignature(variables, samplers, 0);
+  SetupPipelineBasis(shader_source, {}, {binding0});
+}
+
 PIPELINE_HEADER(YUV) {
   const ShaderSource shader_source{kHLSL_YUVRender_Vertex,
                                    kHLSL_YUVRender_Pixel, "yuv.render"};

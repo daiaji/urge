@@ -1046,4 +1046,262 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
 }
 )";
 
+///
+// type:
+//   upscale pass shader
+///
+// entry:
+//   vertex: VSMain (SV_VertexID, no vertex buffer needed)
+//   pixel: PSMain
+///
+// resource:
+//   { Texture2D }
+//   { ScalingParamsBuffer }
+///
+// algorithm modes (u_Mode):
+//   0 = Bilinear
+//   1 = Nearest
+//   2 = Lanczos3
+//   3 = Bicubic
+
+const std::string kHLSL_UpscalePass_Vertex = R"(
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+};
+
+void VSMain(in uint id : SV_VertexID, out PSInput PSIn) {
+  PSIn.Pos.x = (float)(id / 2) * 4.0 - 1.0;
+  PSIn.Pos.y = (float)(id % 2) * 4.0 - 1.0;
+  PSIn.Pos.z = 0.0;
+  PSIn.Pos.w = 1.0;
+
+  PSIn.UV.x = (float)(id / 2) * 2.0;
+  PSIn.UV.y = 1.0 - (float)(id % 2) * 2.0;
+}
+)";
+
+const std::string kHLSL_UpscalePass_Pixel = R"(
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+};
+
+Texture2D u_Texture;
+SamplerState u_Texture_sampler;
+
+cbuffer ScalingParamsBuffer {
+  float2 u_InputSize;
+  float2 u_OutputSize;
+  float2 u_InputPt;
+  float2 u_OutputPt;
+  uint   u_Mode;
+  float  u_ARStrength;
+  float  u_BicubicB;
+  float  u_BicubicC;
+};
+
+struct PSOutput {
+  float4 Color : SV_TARGET;
+};
+
+#define MODE_BILINEAR  0
+#define MODE_NEAREST   1
+#define MODE_LANCZOS3  2
+#define MODE_BICUBIC   3
+
+// ---- Lanczos3 helpers ----
+#define FIX(c) max(abs(c), 1e-5)
+
+float3 LanczosWeight3(float x) {
+  float rcpRadius = 1.0 / 3.0;
+  float3 s = FIX(6.28318530718 * float3(x - 1.5, x - 0.5, x + 0.5));
+  return sin(s) * sin(s * rcpRadius) / (s * s);
+}
+
+#define min4(a, b, c, d) min(min(a, b), min(c, d))
+#define max4(a, b, c, d) max(max(a, b), max(c, d))
+
+float3 SampleLanczos3(float2 uv) {
+  float2 pos = uv * u_InputSize;
+  float2 input_pt = u_InputPt;
+
+  uint i, j;
+  float2 f = frac(pos.xy + 0.5);
+  float3 linetaps1 = LanczosWeight3(0.5 - f.x * 0.5);
+  float3 linetaps2 = LanczosWeight3(1.0 - f.x * 0.5);
+  float3 columntaps1 = LanczosWeight3(0.5 - f.y * 0.5);
+  float3 columntaps2 = LanczosWeight3(1.0 - f.y * 0.5);
+
+  float suml = dot(linetaps1, float3(1, 1, 1)) + dot(linetaps2, float3(1, 1, 1));
+  float sumc = dot(columntaps1, float3(1, 1, 1)) + dot(columntaps2, float3(1, 1, 1));
+  linetaps1 /= suml;
+  linetaps2 /= suml;
+  columntaps1 /= sumc;
+  columntaps2 /= sumc;
+
+  pos -= f + 1.5;
+
+  float3 src[6][6];
+
+  [unroll] for (i = 0; i <= 4; i += 2) {
+    [unroll] for (j = 0; j <= 4; j += 2) {
+      float2 tpos = (pos + uint2(i, j)) * input_pt;
+      const float4 sr = u_Texture.GatherRed(u_Texture_sampler, tpos);
+      const float4 sg = u_Texture.GatherGreen(u_Texture_sampler, tpos);
+      const float4 sb = u_Texture.GatherBlue(u_Texture_sampler, tpos);
+
+      src[i][j]     = float3(sr.w, sg.w, sb.w);
+      src[i][j + 1] = float3(sr.x, sg.x, sb.x);
+      src[i + 1][j] = float3(sr.z, sg.z, sb.z);
+      src[i + 1][j + 1] = float3(sr.y, sg.y, sb.y);
+    }
+  }
+
+  float3 color = float3(0, 0, 0);
+  [unroll] for (i = 0; i <= 4; i += 2) {
+    color += (mul(linetaps1, float3x3(src[0][i], src[2][i], src[4][i])) +
+              mul(linetaps2, float3x3(src[1][i], src[3][i], src[5][i]))) *
+             columntaps1[i / 2] +
+             (mul(linetaps1, float3x3(src[0][i + 1], src[2][i + 1], src[4][i + 1])) +
+              mul(linetaps2, float3x3(src[1][i + 1], src[3][i + 1], src[5][i + 1]))) *
+             columntaps2[i / 2];
+  }
+
+  float3 min_sample = min4(src[2][2], src[3][2], src[2][3], src[3][3]);
+  float3 max_sample = max4(src[2][2], src[3][2], src[2][3], src[3][3]);
+  color = lerp(color, clamp(color, min_sample, max_sample), u_ARStrength);
+
+  return color;
+}
+
+// ---- Bicubic (Mitchell-Netravali) helpers ----
+float MitchellWeight(float x) {
+  float B = u_BicubicB;
+  float C = u_BicubicC;
+  float ax = abs(x);
+  if (ax < 1.0) {
+    float ax2 = ax * ax;
+    float ax3 = ax2 * ax;
+    return ((12.0 - 9.0 * B - 6.0 * C) * ax3 +
+            (-18.0 + 12.0 * B + 6.0 * C) * ax2 +
+            (6.0 - 2.0 * B)) / 6.0;
+  } else if (ax < 2.0) {
+    float ax2 = ax * ax;
+    float ax3 = ax2 * ax;
+    return ((-B - 6.0 * C) * ax3 +
+            (6.0 * B + 30.0 * C) * ax2 +
+            (-12.0 * B - 48.0 * C) * ax +
+            (8.0 * B + 24.0 * C)) / 6.0;
+  }
+  return 0.0;
+}
+
+float3 SampleBicubic(float2 uv) {
+  float2 pos = uv * u_InputSize;
+  float2 input_pt = u_InputPt;
+
+  float2 pos1 = floor(pos - 0.5) + 0.5;
+  float2 f = pos - pos1;
+
+  float wx[4], wy[4];
+  float swx = 0, swy = 0;
+  [unroll] for (int k = 0; k < 4; k++) {
+    wx[k] = MitchellWeight(k - 1.0 - f.x);
+    wy[k] = MitchellWeight(k - 1.0 - f.y);
+    swx += wx[k];
+    swy += wy[k];
+  }
+
+  float2 uv_base = pos1 * input_pt - input_pt;
+
+  float3 color = 0;
+  [unroll] for (int i = 0; i < 4; i++) {
+    float3 row = 0;
+    float rw = 0;
+    [unroll] for (int j = 0; j < 4; j++) {
+      float2 sp = uv_base + float2(j, i) * input_pt;
+      row += u_Texture.Sample(u_Texture_sampler, sp).rgb * wx[j];
+      rw += wx[j];
+    }
+    if (rw > 0) row /= rw;
+    color += row * wy[i];
+  }
+
+  return color / swy;
+}
+
+// ---- Main ----
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
+  float2 uv = PSIn.UV;
+
+  if (u_Mode == MODE_NEAREST) {
+    float2 texel = floor(uv * u_InputSize) + 0.5;
+    uv = texel * u_InputPt;
+    PSOut.Color = u_Texture.Sample(u_Texture_sampler, uv);
+  } else if (u_Mode == MODE_LANCZOS3) {
+    PSOut.Color = float4(SampleLanczos3(uv), 1.0);
+  } else if (u_Mode == MODE_BICUBIC) {
+    PSOut.Color = float4(SampleBicubic(uv), 1.0);
+  } else {
+    PSOut.Color = u_Texture.Sample(u_Texture_sampler, uv);
+  }
+}
+)";
+
+// ---- Anime4K DoG (single-pass, inline 7x7 gauss + min/max clamp) ----
+const std::string kHLSL_Anime4K_Enhance_Pixel = R"(
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+};
+
+Texture2D u_Texture;
+SamplerState u_Texture_sampler;
+
+cbuffer ScalingParamsBuffer {
+  float2 u_InputSize;
+  float2 u_OutputSize;
+  float2 u_InputPt;
+  float2 u_OutputPt;
+  uint   u_Mode;
+  float  u_ARStrength;
+  float  u_BicubicB;
+  float  u_BicubicC;
+};
+
+struct PSOutput {
+  float4 Color : SV_TARGET;
+};
+
+static const float kWeight[4] = { 0.38774, 0.24477, 0.06136, 0.0 };
+
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
+  float2 uv = PSIn.UV;
+  float2 pt = u_InputPt;
+
+  float4 screen = u_Texture.Sample(u_Texture_sampler, uv);
+  float center_luma = dot(screen, float4(0.299, 0.587, 0.114, 0.0));
+
+  float gauss = 0.0;
+  float mn = 1.0, mx = 0.0;
+  [unroll] for (int i = -3; i <= 3; i++) {
+    [unroll] for (int j = -3; j <= 3; j++) {
+      float w = kWeight[abs(i)] * kWeight[abs(j)];
+      float2 s = uv + float2(i * pt.x, j * pt.y);
+      float l = dot(u_Texture.Sample(u_Texture_sampler, s),
+                    float4(0.299, 0.587, 0.114, 0.0));
+      gauss += l * w;
+      mn = min(mn, l);
+      mx = max(mx, l);
+    }
+  }
+
+  float c = (center_luma - gauss) * 0.8;
+  float cc = clamp(c + center_luma, mn, mx) - center_luma;
+
+  PSOut.Color = saturate(screen + cc);
+}
+)";
+
 }  // namespace renderer
