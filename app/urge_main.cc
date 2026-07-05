@@ -21,7 +21,6 @@
 #include "content/profile/i18n_profile.h"
 #include "content/worker/content_runner.h"
 #include "base/debug/crash_handler.h"
-#include "base/platform/console.h"
 #include "ui/widget/widget.h"
 
 #if HAVE_ARB_ENCRYPTO_SUPPORT
@@ -76,17 +75,37 @@ int SetupAndroidStudioTransfer() {
 
 #endif
 
-int main(int argc, char* argv[]) {
-  // Ensure console is available for stdout/stderr (no-op on most platforms)
-  platform::EnsureConsole();
+#if defined(OS_WIN)
+#include <windows.h>
 
-  bool show_console = false;
+void CreateConsoleWin() {
+  if (::GetConsoleWindow())
+    return;
+
+  if (!::AttachConsole(ATTACH_PARENT_PROCESS)) {
+    ::AllocConsole();
+    ::SetConsoleCP(CP_UTF8);
+    ::SetConsoleOutputCP(CP_UTF8);
+    ::SetConsoleTitleW(L"URGE Debugging Console");
+  }
+
+  // Redirect std handle
+  std::freopen("CONIN$", "rb", stdin);
+  std::freopen("CONOUT$", "wb", stdout);
+  std::freopen("CONOUT$", "wb", stderr);
+}
+#endif
+
+int main(int argc, char* argv[]) {
+#if defined(OS_WIN)
+  // Allocate console if need
   for (int i = 0; i < argc; ++i) {
     if (!std::strcmp(argv[i], "console")) {
-      show_console = true;
+      CreateConsoleWin();
       break;
     }
   }
+#endif  //! defined(OS_WIN)
 
 #if defined(OS_ANDROID)
   SetupAndroidStudioTransfer();
@@ -181,8 +200,10 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // Show/hide console window based on config or command-line arg
-  platform::SetConsoleVisible(show_console || profile->debugging_console);
+#if defined(OS_WIN)
+  if (profile->debugging_console)
+    CreateConsoleWin();
+#endif
 
   // Create spdlog logger
 #if defined(OS_ANDROID)
@@ -194,17 +215,20 @@ int main(int argc, char* argv[]) {
       std::make_shared<spdlog::sinks::basic_file_sink_mt>(app + ".log", true);
   file_sink->set_level(spdlog::level::trace);
 #else
-  std::vector<spdlog::sink_ptr> logger_sinks;
-
-  // Always add stdout sink (terminal output)
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   console_sink->set_pattern("[%^%l%$] %v");
+
+  std::vector<spdlog::sink_ptr> logger_sinks;
+#if defined(OS_ANDROID)
+  logger_sinks.push_back(android_sink);
+#else
   logger_sinks.push_back(console_sink);
+#endif
 
   // Conditionally add file sink
   if (profile->save_log) {
     auto file_sink =
-        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Engine.log", false);
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Engine.log", true);
     file_sink->set_pattern("[%^%l%$] %v");
     file_sink->set_level(spdlog::level::trace);
     logger_sinks.push_back(file_sink);
@@ -221,7 +245,7 @@ int main(int argc, char* argv[]) {
   // Create console logger (user-facing output: Console.log + terminal)
   {
     auto console_file_sink =
-        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Console.log", false);
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Console.log", true);
     console_file_sink->set_pattern("[%^%l%$] %v");
     auto console_stdout_sink =
         std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -317,9 +341,6 @@ int main(int argc, char* argv[]) {
       widget_params.opengl = true;
 #endif
       widget_params.size = profile->window_size;
-      if (profile->udl_auto_fit && profile->scaling_mode >= 6 &&
-          profile->scaling_mode <= 8)
-        widget_params.size = profile->resolution * 2;
       widget_params.resizable = profile->win_resizable;
       widget_params.hpixeldensity =
 #if !defined(OS_EMSCRIPTEN)
@@ -334,9 +355,6 @@ int main(int argc, char* argv[]) {
           profile->fullscreen;
 #endif
       widget_params.title = profile->window_title;
-      if (profile->udl_auto_fit && profile->scaling_mode >= 6 &&
-          profile->scaling_mode <= 8)
-        widget_params.window_state = ui::Widget::WindowPlacement::Hide;
       widget->Init(std::move(widget_params));
 
       // Apply fixed aspect ratio from config

@@ -14,6 +14,10 @@ module Kernel
     Console.write(*args)
   end
 
+  def puts(*args)
+    Console.puts(*args)
+  end
+
   def p(*args)
     Console.puts(*args.map(&:inspect))
   end

@@ -4,13 +4,11 @@
 
 #include "content/worker/content_runner.h"
 
-#include <filesystem>
 #include "imgui/backends/imgui_impl_sdl3.h"
 #include "imgui/imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
 #include <algorithm>
 
-#include "Common/interface/FileWrapper.hpp"
 #include "magic_enum/magic_enum.hpp"
 
 #include "components/version/version.h"
@@ -65,8 +63,6 @@ ContentRunner::ContentRunner(ContentProfile* profile,
 }
 
 ContentRunner::~ContentRunner() {
-  SaveShaderBytecodeCacheInternal();
-
   // Flush pending GPU commands before destroying context
   if (device_context_)
     device_context_->Flush();
@@ -189,7 +185,6 @@ bool ContentRunner::InitializeComponents(filesystem::IOService* io_service,
 
   render_device_ = std::move(render_device);
   device_context_ = std::move(render_context);
-  InitializeShaderBytecodeCacheInternal();
 
   // Initialize execution context
   execution_context_ = std::make_unique<ExecutionContext>();
@@ -278,7 +273,6 @@ void ContentRunner::CreateRenderComponents() {
   // Pipeline loaders
   renderer::PipelineInitParams pipeline_params;
   pipeline_params.render_device = **execution_context_->render_device;
-  pipeline_params.bytecode_cache = shader_bytecode_cache_;
 
   // Default sampler
   auto sampler_filter =
@@ -301,73 +295,6 @@ void ContentRunner::CreateRenderComponents() {
   execution_context_->render.pipeline_states =
       std::make_unique<PipelineCollection>(
           loader, **execution_context_->render_device);
-}
-
-void ContentRunner::InitializeShaderBytecodeCacheInternal() {
-  const auto& device_info = (**render_device_)->GetDeviceInfo();
-  Diligent::BytecodeCacheCreateInfo cache_info;
-  cache_info.DeviceType = device_info.Type;
-  Diligent::CreateBytecodeCache(cache_info, &shader_bytecode_cache_);
-  if (!shader_bytecode_cache_) {
-    LOG(WARNING) << "[Graphics] Failed to create shader bytecode cache";
-    return;
-  }
-
-  std::filesystem::path cache_dir("ShaderCache");
-  std::error_code ec;
-  std::filesystem::create_directories(cache_dir, ec);
-  if (ec) {
-    LOG(WARNING) << "[Graphics] Failed to create shader cache directory: "
-                 << ec.message();
-    shader_bytecode_cache_.Release();
-    return;
-  }
-
-  shader_bytecode_cache_path_ =
-      (cache_dir / (std::string("shader_bytecode_cache_") +
-                    std::to_string(static_cast<int>(device_info.Type)) +
-                    ".bin"))
-          .string();
-
-  RRefPtr<Diligent::IDataBlob> cache_blob;
-  if (!Diligent::FileWrapper::ReadWholeFile(shader_bytecode_cache_path_.c_str(),
-                                            &cache_blob, true)) {
-    LOG(INFO) << "[Graphics] Shader bytecode cache miss: "
-              << shader_bytecode_cache_path_;
-    return;
-  }
-
-  if (!shader_bytecode_cache_->Load(cache_blob)) {
-    LOG(WARNING) << "[Graphics] Shader bytecode cache invalid: "
-                 << shader_bytecode_cache_path_;
-    return;
-  }
-
-  LOG(INFO) << "[Graphics] Shader bytecode cache loaded: "
-            << shader_bytecode_cache_path_ << " bytes=" << cache_blob->GetSize();
-}
-
-void ContentRunner::SaveShaderBytecodeCacheInternal() {
-  if (!shader_bytecode_cache_ || shader_bytecode_cache_path_.empty())
-    return;
-
-  RRefPtr<Diligent::IDataBlob> cache_blob;
-  shader_bytecode_cache_->Store(&cache_blob);
-  if (!cache_blob) {
-    LOG(WARNING) << "[Graphics] Failed to serialize shader bytecode cache";
-    return;
-  }
-
-  if (!Diligent::FileWrapper::WriteFile(shader_bytecode_cache_path_.c_str(),
-                                        cache_blob->GetConstDataPtr(),
-                                        cache_blob->GetSize(), true)) {
-    LOG(WARNING) << "[Graphics] Failed to write shader bytecode cache: "
-                 << shader_bytecode_cache_path_;
-    return;
-  }
-
-  LOG(INFO) << "[Graphics] Shader bytecode cache saved: "
-            << shader_bytecode_cache_path_ << " bytes=" << cache_blob->GetSize();
 }
 
 void ContentRunner::TickHandlerInternal(Diligent::ITexture* present_buffer) {
@@ -808,6 +735,7 @@ void ContentRunner::UpdateEventInternal() {
         }
       }
     } else if (queued_event.type == SDL_EVENT_GAMEPAD_REMOVED) {
+      SDL_JoystickID id = queued_event.gdevice.which;
       if (event_controller_->gamepad_handle()) {
         SDL_CloseGamepad(event_controller_->gamepad_handle());
         event_controller_->set_gamepad_handle(nullptr);
@@ -829,8 +757,7 @@ bool ContentRunner::EventWatchHandlerInternal(void* userdata,
   ContentRunner* self = static_cast<ContentRunner*>(userdata);
 #if !defined(OS_ANDROID)
   if (self->profile_->background_running)
-
-  return true;
+    return true;
 #endif
 
   const bool is_focus_lost =

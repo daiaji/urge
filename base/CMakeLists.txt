@@ -21,6 +21,8 @@ set(ENGINE_BASE_SRC
   buildflags/compiler_specific.h
   containers/linked_list.cc
   containers/linked_list.h
+  debug/crash_handler.cc
+  debug/crash_handler.h
   debug/logging.cc
   debug/logging.h
   platform/console.cc

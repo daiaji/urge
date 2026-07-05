@@ -94,8 +94,10 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
 
   // Load all font to memory as cache
   std::vector<std::string> font_files = io->EnumDir(dir);
-  if (font_files.empty())
+  if (font_files.empty()) {
+    LOG(WARNING) << "[Font] No font files found in: " << dir;
     font_files.push_back(default_font);
+  }
 
   for (auto& it : font_files) {
     std::string filepath = dir + it;
@@ -144,6 +146,8 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
       }
 
       LOG(INFO) << "[Font] Loaded Font: " << it;
+    } else {
+      LOG(WARNING) << "[Font] Failed to open font file: " << filepath;
     }
   }
 

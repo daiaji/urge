@@ -14,6 +14,7 @@
 #include "SDL3/SDL_messagebox.h"
 #include "zlib/zlib.h"
 
+#include "base/debug/crash_handler.h"
 #include "binding/mri/binding_patch.h"
 #include "binding/mri/mri_file.h"
 #include "binding/mri/mri_init_autogen.h"
@@ -233,6 +234,11 @@ void BindingEngineMri::PreEarlyInitialization(
   else
     rb_gv_set("TEST", debug);
   rb_gv_set("BTEST", MRI_BOOL_VALUE(profile->game_battle_test));
+
+  // Re-install crash handlers AFTER Ruby init to override Ruby's signal handlers.
+  // This ensures URGE's handler fires first for SIGSEGV with proper siginfo/context,
+  // and chains to Ruby's handler for Ruby-level backtrace.
+  base::debug::InstallCrashHandlers();
 }
 
 void BindingEngineMri::OnMainMessageLoopRun(
@@ -250,16 +256,29 @@ void BindingEngineMri::OnMainMessageLoopRun(
 
   // Console eval callback (evaluates Ruby code, returns result as string)
   execution->eval_ruby = [](const std::string& code) -> std::string {
+    // Create explicit UTF-8 source string to avoid rb_str_new_cstr ASCII-8BIT tagging
+    VALUE code_utf8 = rb_utf8_str_new(code.c_str(), code.length());
+    // Use TOPLEVEL_BINDING so def/class/variables persist between eval calls
+    VALUE top_binding =
+        rb_const_get(rb_cObject, rb_intern("TOPLEVEL_BINDING"));
+    VALUE eval_argv[] = {code_utf8, top_binding,
+                         rb_utf8_str_new_cstr("(console)")};
+
+    auto eval_proc = [](VALUE args) -> VALUE {
+      VALUE* argv = reinterpret_cast<VALUE*>(args);
+      return rb_funcall2(Qnil, rb_intern("eval"), 3, argv);
+    };
+
     int state = 0;
-    VALUE result = rb_eval_string_protect(code.c_str(), &state);
+    VALUE result = rb_protect(eval_proc, reinterpret_cast<VALUE>(eval_argv), &state);
     if (state) {
       VALUE err = rb_errinfo();
       VALUE msg = rb_funcall(err, rb_intern("message"), 0);
-      VALUE full = rb_str_plus(msg, rb_str_new_cstr("\n"));
+      VALUE full = rb_str_plus(msg, rb_utf8_str_new_cstr("\n"));
       VALUE bt = rb_funcall(err, rb_intern("backtrace"), 0);
       if (!NIL_P(bt)) {
         VALUE bt_text = rb_funcall(bt, rb_intern("first"), 1, INT2FIX(5));
-        full = rb_str_plus(full, rb_funcall(bt_text, rb_intern("join"), 1, rb_str_new_cstr("\n")));
+        full = rb_str_plus(full, rb_funcall(bt_text, rb_intern("join"), 1, rb_utf8_str_new_cstr("\n")));
       }
       rb_set_errinfo(Qnil);
       return std::string(RSTRING_PTR(full), RSTRING_LEN(full));
@@ -278,6 +297,10 @@ void BindingEngineMri::OnMainMessageLoopRun(
     exception_state.FetchException(error_message);
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE",
                              error_message.c_str(), nullptr);
+    if (execution) {
+      execution->console.Push("[Ruby Error] Script load error:");
+      execution->console.Push("[Ruby Error] " + error_message);
+    }
   }
 
   // Debug: log any Ruby exception info
@@ -302,6 +325,14 @@ void BindingEngineMri::PostMainLoopRunning() {
   std::string exception_message;
   if (!NIL_P(exception) && !rb_obj_is_kind_of(exception, rb_eSystemExit))
     exception_message = ParseExeceptionInfo(exception);
+
+  // Push error to console overlay and log file if available
+  if (!exception_message.empty() && g_current_execution_context) {
+    g_current_execution_context->console.Push(
+        "[Ruby Error] Unhandled exception:");
+    g_current_execution_context->console.Push("[Ruby Error] " +
+                                              exception_message);
+  }
 
   // Clean up ruby vm
   ruby_finalize();
