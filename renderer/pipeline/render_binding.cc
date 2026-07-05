@@ -168,7 +168,31 @@ Binding_CuNNy_Out::Binding_CuNNy_Out(ShaderBinding* binding)
   u_texture1 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
   u_texture2 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture2");
   u_texture3 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture3");
+  u_texture4 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture4");
+  u_texture5 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture5");
   u_params = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer");
+}
+
+Binding_CuNNy_Compute::Binding_CuNNy_Compute(ShaderBinding* binding)
+    : RenderBindingBase(binding) {
+  u_texture = (*this)->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE,
+                                         "u_Texture");
+  for (size_t i = 0; i < u_textures.size(); ++i) {
+    char name[16];
+    std::snprintf(name, sizeof(name), "u_Texture%zu", i);
+    u_textures[i] = (*this)->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE,
+                                               name);
+  }
+  u_output = (*this)->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE,
+                                        "u_Output");
+  for (size_t i = 0; i < u_outputs.size(); ++i) {
+    char name[16];
+    std::snprintf(name, sizeof(name), "u_Output%zu", i);
+    u_outputs[i] = (*this)->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE,
+                                              name);
+  }
+  u_params = (*this)->GetVariableByName(Diligent::SHADER_TYPE_COMPUTE,
+                                        "ScalingParamsBuffer");
 }
 
 }  // namespace renderer

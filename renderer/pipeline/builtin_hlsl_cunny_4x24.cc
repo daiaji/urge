@@ -41,7 +41,7 @@ MF2 MulAdd(MF4 x, MF4x2 y, MF2 a) { return mul(x, y) + a; }
 MF3 MulAdd(MF4 x, MF4x3 y, MF3 a) { return mul(x, y) + a; }
 MF4 MulAdd(MF4 x, MF4x4 y, MF4 a) { return mul(x, y) + a; }
 
-struct PSOutput { float4 Color0 : SV_TARGET0, float4 Color1 : SV_TARGET1, float4 Color2 : SV_TARGET2, float4 Color3 : SV_TARGET3, float4 Color4 : SV_TARGET4, float4 Color5 : SV_TARGET5; };
+struct PSOutput { float4 Color0 : SV_TARGET0; float4 Color1 : SV_TARGET1; float4 Color2 : SV_TARGET2; float4 Color3 : SV_TARGET3; float4 Color4 : SV_TARGET4; float4 Color5 : SV_TARGET5; };
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float2 uv = PSIn.UV;
@@ -188,7 +188,7 @@ MF2 MulAdd(MF4 x, MF4x2 y, MF2 a) { return mul(x, y) + a; }
 MF3 MulAdd(MF4 x, MF4x3 y, MF3 a) { return mul(x, y) + a; }
 MF4 MulAdd(MF4 x, MF4x4 y, MF4 a) { return mul(x, y) + a; }
 
-struct PSOutput { float4 Color0 : SV_TARGET0, float4 Color1 : SV_TARGET1, float4 Color2 : SV_TARGET2, float4 Color3 : SV_TARGET3, float4 Color4 : SV_TARGET4, float4 Color5 : SV_TARGET5; };
+struct PSOutput { float4 Color0 : SV_TARGET0; float4 Color1 : SV_TARGET1; float4 Color2 : SV_TARGET2; float4 Color3 : SV_TARGET3; float4 Color4 : SV_TARGET4; float4 Color5 : SV_TARGET5; };
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float2 uv = PSIn.UV;
@@ -617,7 +617,7 @@ MF2 MulAdd(MF4 x, MF4x2 y, MF2 a) { return mul(x, y) + a; }
 MF3 MulAdd(MF4 x, MF4x3 y, MF3 a) { return mul(x, y) + a; }
 MF4 MulAdd(MF4 x, MF4x4 y, MF4 a) { return mul(x, y) + a; }
 
-struct PSOutput { float4 Color0 : SV_TARGET0, float4 Color1 : SV_TARGET1, float4 Color2 : SV_TARGET2, float4 Color3 : SV_TARGET3, float4 Color4 : SV_TARGET4, float4 Color5 : SV_TARGET5; };
+struct PSOutput { float4 Color0 : SV_TARGET0; float4 Color1 : SV_TARGET1; float4 Color2 : SV_TARGET2; float4 Color3 : SV_TARGET3; float4 Color4 : SV_TARGET4; float4 Color5 : SV_TARGET5; };
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float2 uv = PSIn.UV;
@@ -1046,7 +1046,7 @@ MF2 MulAdd(MF4 x, MF4x2 y, MF2 a) { return mul(x, y) + a; }
 MF3 MulAdd(MF4 x, MF4x3 y, MF3 a) { return mul(x, y) + a; }
 MF4 MulAdd(MF4 x, MF4x4 y, MF4 a) { return mul(x, y) + a; }
 
-struct PSOutput { float4 Color0 : SV_TARGET0, float4 Color1 : SV_TARGET1, float4 Color2 : SV_TARGET2, float4 Color3 : SV_TARGET3, float4 Color4 : SV_TARGET4, float4 Color5 : SV_TARGET5; };
+struct PSOutput { float4 Color0 : SV_TARGET0; float4 Color1 : SV_TARGET1; float4 Color2 : SV_TARGET2; float4 Color3 : SV_TARGET3; float4 Color4 : SV_TARGET4; float4 Color5 : SV_TARGET5; };
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float2 uv = PSIn.UV;
@@ -1475,7 +1475,7 @@ MF2 MulAdd(MF4 x, MF4x2 y, MF2 a) { return mul(x, y) + a; }
 MF3 MulAdd(MF4 x, MF4x3 y, MF3 a) { return mul(x, y) + a; }
 MF4 MulAdd(MF4 x, MF4x4 y, MF4 a) { return mul(x, y) + a; }
 
-struct PSOutput { float4 Color0 : SV_TARGET0, float4 Color1 : SV_TARGET1, float4 Color2 : SV_TARGET2, float4 Color3 : SV_TARGET3, float4 Color4 : SV_TARGET4, float4 Color5 : SV_TARGET5; };
+struct PSOutput { float4 Color0 : SV_TARGET0; float4 Color1 : SV_TARGET1; float4 Color2 : SV_TARGET2; float4 Color3 : SV_TARGET3; float4 Color4 : SV_TARGET4; float4 Color5 : SV_TARGET5; };
 
 void PSMain(in PSInput PSIn, out PSOutput PSOut) {
   float2 uv = PSIn.UV;

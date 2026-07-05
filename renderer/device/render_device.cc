@@ -240,6 +240,8 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
         Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
   engine_create_info.Features.ComputeShaders =
       Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+  engine_create_info.Features.ShaderFloat16 =
+      Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
 
   // Setup primary swapchain
   swap_chain_desc.ColorBufferFormat = Diligent::TEX_FORMAT_RGBA8_UNORM;

@@ -69,6 +69,23 @@ void RenderPipelineBase::BuildPipeline(
   device_->CreateGraphicsPipelineState(pipeline_state_desc, output);
 }
 
+void RenderPipelineBase::BuildComputePipeline(
+    Diligent::IPipelineState** output) {
+  Diligent::ComputePipelineStateCreateInfo pipeline_state_desc;
+
+  pipeline_state_desc.PSODesc.Name = pipeline_name_.c_str();
+  pipeline_state_desc.PSODesc.PipelineType = Diligent::PIPELINE_TYPE_COMPUTE;
+  pipeline_state_desc.pCS = compute_shader_object_;
+
+  std::vector<Diligent::IPipelineResourceSignature*> signatures;
+  for (auto& it : resource_signatures_)
+    signatures.push_back(it.RawPtr());
+  pipeline_state_desc.ResourceSignaturesCount = signatures.size();
+  pipeline_state_desc.ppResourceSignatures = signatures.data();
+
+  device_->CreateComputePipelineState(pipeline_state_desc, output);
+}
+
 void RenderPipelineBase::SetupPipelineBasis(
     const ShaderSource& shader_source,
     const std::vector<Diligent::LayoutElement>& input_layout,
@@ -113,6 +130,29 @@ void RenderPipelineBase::SetupPipelineBasis(
   resource_signatures_ = signatures;
 }
 
+void RenderPipelineBase::SetupComputePipelineBasis(
+    const ComputeShaderSource& shader_source,
+    const std::vector<RRefPtr<Diligent::IPipelineResourceSignature>>&
+        signatures) {
+  pipeline_name_ = "internal.pipeline<" + shader_source.name + ">";
+
+  Diligent::ShaderCreateInfo shader_desc;
+  shader_desc.SourceLanguage = Diligent::SHADER_SOURCE_LANGUAGE_HLSL;
+  shader_desc.Desc.UseCombinedTextureSamplers = Diligent::True;
+  shader_desc.CompileFlags =
+      Diligent::SHADER_COMPILE_FLAG_PACK_MATRIX_ROW_MAJOR;
+  shader_desc.Desc.ShaderType = Diligent::SHADER_TYPE_COMPUTE;
+  shader_desc.EntryPoint = shader_source.compute_entry.c_str();
+  shader_desc.Desc.Name = shader_source.name.c_str();
+  shader_desc.Source = shader_source.compute_shader.c_str();
+  shader_desc.SourceLength = shader_source.compute_shader.size();
+  shader_desc.Macros.Count = shader_source.macros.size();
+  shader_desc.Macros.Elements = shader_source.macros.data();
+  device_->CreateShader(shader_desc, &compute_shader_object_);
+
+  resource_signatures_ = signatures;
+}
+
 RRefPtr<Diligent::IPipelineResourceSignature>
 RenderPipelineBase::MakeResourceSignature(
     const std::vector<Diligent::PipelineResourceDesc>& variables,
@@ -141,6 +181,291 @@ Diligent::SamplerDesc MakeClampSampler(Diligent::FILTER_TYPE filter) {
                                Diligent::TEXTURE_ADDRESS_CLAMP,
                                Diligent::TEXTURE_ADDRESS_CLAMP,
                                Diligent::TEXTURE_ADDRESS_CLAMP};
+}
+
+const char kHLSL_CuNNyPrelude[] = R"(
+#define MF1x1 float1x1
+#define MF2x2 float2x2
+#define INPUT u_Texture
+#define INPUT_sampler u_Texture_sampler
+#define T0 u_Texture0
+#define T0_sampler u_Texture0_sampler
+#define T1 u_Texture1
+#define T1_sampler u_Texture1_sampler
+#define T2 u_Texture2
+#define T2_sampler u_Texture2_sampler
+#define T3 u_Texture3
+#define T3_sampler u_Texture3_sampler
+#define T4 u_Texture4
+#define T4_sampler u_Texture4_sampler
+#define T5 u_Texture5
+#define T5_sampler u_Texture5_sampler
+#define T6 u_Texture6
+#define T6_sampler u_Texture6_sampler
+#define T7 u_Texture7
+#define T7_sampler u_Texture7_sampler
+#define T8 u_Texture8
+#define T8_sampler u_Texture8_sampler
+#define T9 u_Texture9
+#define T9_sampler u_Texture9_sampler
+#define T10 u_Texture10
+#define T10_sampler u_Texture10_sampler
+#define T11 u_Texture11
+#define T11_sampler u_Texture11_sampler
+#define O(t, x, y) t.SampleLevel(t##_sampler, pos + float2(x, y) * pt, 0)
+#define V4 MF4
+#define M4 MF4x4
+)";
+
+std::string MakeCuNNyPixelShader(const std::string& hlsl) {
+  return std::string(kHLSL_CuNNyPrelude) + hlsl;
+}
+
+const char* GetCuNNyTextureName(int index) {
+  static constexpr const char* kNames[] = {
+      "u_Texture0", "u_Texture1", "u_Texture2",  "u_Texture3",
+      "u_Texture4", "u_Texture5", "u_Texture6",  "u_Texture7",
+      "u_Texture8", "u_Texture9", "u_Texture10", "u_Texture11",
+  };
+  return kNames[index];
+}
+
+const char* GetCuNNyTextureSamplerName(int index) {
+  static constexpr const char* kNames[] = {
+      "u_Texture0_sampler", "u_Texture1_sampler", "u_Texture2_sampler",
+      "u_Texture3_sampler", "u_Texture4_sampler", "u_Texture5_sampler",
+      "u_Texture6_sampler", "u_Texture7_sampler", "u_Texture8_sampler",
+      "u_Texture9_sampler", "u_Texture10_sampler", "u_Texture11_sampler",
+  };
+  return kNames[index];
+}
+
+const char* GetCuNNyOutputName(int index) {
+  static constexpr const char* kNames[] = {
+      "u_Output0", "u_Output1", "u_Output2",
+      "u_Output3", "u_Output4", "u_Output5",
+  };
+  return kNames[index];
+}
+
+std::string ReplaceAll(std::string source,
+                       const std::string& from,
+                       const std::string& to) {
+  size_t pos = 0;
+  while ((pos = source.find(from, pos)) != std::string::npos) {
+    source.replace(pos, from.size(), to);
+    pos += to.size();
+  }
+  return source;
+}
+
+std::string ApplyCuNNyFP16Macros(std::string source) {
+  source = ReplaceAll(source, "#define MF float\n", "#define MF min16float\n");
+
+  for (int i = 1; i <= 4; ++i) {
+    const std::string n = std::to_string(i);
+    source = ReplaceAll(source, "#define MF" + n + " float" + n + "\n",
+                        "#define MF" + n + " min16float" + n + "\n");
+
+    for (int j = 1; j <= 4; ++j) {
+      const std::string m = std::to_string(j);
+      source = ReplaceAll(source,
+                          "#define MF" + n + "x" + m + " float" + n +
+                              "x" + m + "\n",
+                          "#define MF" + n + "x" + m + " min16float" +
+                              n + "x" + m + "\n");
+    }
+  }
+
+  return source;
+}
+
+std::string ApplyCuNNyMadMulAdd(std::string source) {
+  static constexpr const char kMulAddUsingMul[] = R"(MF2 MulAdd(MF2 x, MF2x2 y, MF2 a) { return mul(x, y) + a; }
+MF3 MulAdd(MF2 x, MF2x3 y, MF3 a) { return mul(x, y) + a; }
+MF4 MulAdd(MF2 x, MF2x4 y, MF4 a) { return mul(x, y) + a; }
+MF2 MulAdd(MF3 x, MF3x2 y, MF2 a) { return mul(x, y) + a; }
+MF3 MulAdd(MF3 x, MF3x3 y, MF3 a) { return mul(x, y) + a; }
+MF4 MulAdd(MF3 x, MF3x4 y, MF4 a) { return mul(x, y) + a; }
+MF2 MulAdd(MF4 x, MF4x2 y, MF2 a) { return mul(x, y) + a; }
+MF3 MulAdd(MF4 x, MF4x3 y, MF3 a) { return mul(x, y) + a; }
+MF4 MulAdd(MF4 x, MF4x4 y, MF4 a) { return mul(x, y) + a; }
+)";
+
+  static constexpr const char kMulAddUsingMad[] = R"(MF2 MulAdd(MF2 x, MF2x2 y, MF2 a) {
+  MF2 result = a;
+  result = mad(x.x, y._m00_m01, result);
+  result = mad(x.y, y._m10_m11, result);
+  return result;
+}
+MF3 MulAdd(MF2 x, MF2x3 y, MF3 a) {
+  MF3 result = a;
+  result = mad(x.x, y._m00_m01_m02, result);
+  result = mad(x.y, y._m10_m11_m12, result);
+  return result;
+}
+MF4 MulAdd(MF2 x, MF2x4 y, MF4 a) {
+  MF4 result = a;
+  result = mad(x.x, y._m00_m01_m02_m03, result);
+  result = mad(x.y, y._m10_m11_m12_m13, result);
+  return result;
+}
+MF2 MulAdd(MF3 x, MF3x2 y, MF2 a) {
+  MF2 result = a;
+  result = mad(x.x, y._m00_m01, result);
+  result = mad(x.y, y._m10_m11, result);
+  result = mad(x.z, y._m20_m21, result);
+  return result;
+}
+MF3 MulAdd(MF3 x, MF3x3 y, MF3 a) {
+  MF3 result = a;
+  result = mad(x.x, y._m00_m01_m02, result);
+  result = mad(x.y, y._m10_m11_m12, result);
+  result = mad(x.z, y._m20_m21_m22, result);
+  return result;
+}
+MF4 MulAdd(MF3 x, MF3x4 y, MF4 a) {
+  MF4 result = a;
+  result = mad(x.x, y._m00_m01_m02_m03, result);
+  result = mad(x.y, y._m10_m11_m12_m13, result);
+  result = mad(x.z, y._m20_m21_m22_m23, result);
+  return result;
+}
+MF2 MulAdd(MF4 x, MF4x2 y, MF2 a) {
+  MF2 result = a;
+  result = mad(x.x, y._m00_m01, result);
+  result = mad(x.y, y._m10_m11, result);
+  result = mad(x.z, y._m20_m21, result);
+  result = mad(x.w, y._m30_m31, result);
+  return result;
+}
+MF3 MulAdd(MF4 x, MF4x3 y, MF3 a) {
+  MF3 result = a;
+  result = mad(x.x, y._m00_m01_m02, result);
+  result = mad(x.y, y._m10_m11_m12, result);
+  result = mad(x.z, y._m20_m21_m22, result);
+  result = mad(x.w, y._m30_m31_m32, result);
+  return result;
+}
+MF4 MulAdd(MF4 x, MF4x4 y, MF4 a) {
+  MF4 result = a;
+  result = mad(x.x, y._m00_m01_m02_m03, result);
+  result = mad(x.y, y._m10_m11_m12_m13, result);
+  result = mad(x.z, y._m20_m21_m22_m23, result);
+  result = mad(x.w, y._m30_m31_m32_m33, result);
+  return result;
+}
+)";
+
+  return ReplaceAll(source, kMulAddUsingMul, kMulAddUsingMad);
+}
+
+bool SupportsCuNNyFP16(Diligent::IRenderDevice* device) {
+  if (!device)
+    return false;
+
+  const auto& info = device->GetDeviceInfo();
+  if (info.Type == Diligent::RENDER_DEVICE_TYPE_GL ||
+      info.Type == Diligent::RENDER_DEVICE_TYPE_GLES) {
+    return false;
+  }
+
+  return info.Features.ShaderFloat16 == Diligent::DEVICE_FEATURE_STATE_ENABLED;
+}
+
+std::string MakeCuNNyComputeOutputs(int output_count, bool final_pass) {
+  if (final_pass)
+    return "RWTexture2D<float4> u_Output;\n";
+
+  std::string outputs;
+  for (int i = 0; i < output_count; ++i) {
+    outputs += "RWTexture2D<float4> u_Output" + std::to_string(i) + ";\n";
+  }
+  return outputs;
+}
+
+std::string MakeCuNNyComputeShader(const std::string& hlsl,
+                                    int output_count,
+                                    bool final_pass,
+                                    bool use_fp16) {
+  std::string source = std::string(kHLSL_CuNNyPrelude) +
+                       MakeCuNNyComputeOutputs(output_count, final_pass) +
+                       R"(
+uint __Bfe(uint src, uint off, uint bits) { uint mask = (1u << bits) - 1; return (src >> off) & mask; }
+uint __BfiM(uint src, uint ins, uint bits) { uint mask = (1u << bits) - 1; return (ins & mask) | (src & (~mask)); }
+uint2 Rmp8x8(uint a) { return uint2(__Bfe(a, 1u, 3u), __BfiM(__Bfe(a, 3u, 3u), a, 1u)); }
+)" +
+                        hlsl;
+  if (use_fp16)
+    source = ApplyCuNNyFP16Macros(source);
+  source = ApplyCuNNyMadMulAdd(source);
+
+  if (final_pass) {
+    source = ReplaceAll(
+        source,
+        "void PSMain(in PSInput PSIn, out PSOutput PSOut) {\n"
+        "  uint2 pixel = uint2(PSIn.UV * u_OutputSize);",
+        "[numthreads(64, 1, 1)]\n"
+        "void CSMain(uint3 tid : SV_GroupThreadID, uint3 gid : SV_GroupID) {\n"
+        "  uint2 pixel = Rmp8x8(tid.x) + (gid.xy << 3u);\n"
+        "  if (pixel.x >= uint(u_OutputSize.x) || pixel.y >= uint(u_OutputSize.y)) return;");
+    source = ReplaceAll(
+        source, "u_Texture.SampleLevel(u_Texture_sampler, PSIn.UV, 0)",
+        "u_Texture.SampleLevel(u_Texture_sampler, (float2(pixel) + 0.5) * u_OutputPt, 0)");
+    source = ReplaceAll(source, "PSOut.Color =", "u_Output[pixel] =");
+  } else {
+    source = ReplaceAll(
+        source,
+        "void PSMain(in PSInput PSIn, out PSOutput PSOut) {\n"
+        "  float2 uv = PSIn.UV;\n"
+        "  uint2 gxy = uint2(uv * u_InputSize);",
+        "[numthreads(64, 1, 1)]\n"
+        "void CSMain(uint3 tid : SV_GroupThreadID, uint3 gid : SV_GroupID) {\n"
+        "  uint2 gxy = Rmp8x8(tid.x) + (gid.xy << 3u);\n"
+        "  float2 uv = (float2(gxy) + 0.5) * u_InputPt;");
+    for (int i = 0; i < output_count; ++i) {
+      source = ReplaceAll(source,
+                          "PSOut.Color" + std::to_string(i) + " =",
+                          "u_Output" + std::to_string(i) + "[gxy] =");
+    }
+  }
+
+  return source;
+}
+
+void AddCuNNyComputeInputs(
+    std::vector<Diligent::PipelineResourceDesc>& variables,
+    std::vector<Diligent::ImmutableSamplerDesc>& samplers,
+    const Diligent::SamplerDesc& point_sampler,
+    int input_start,
+    int input_count) {
+  for (int i = 0; i < input_count; ++i) {
+    const char* name = GetCuNNyTextureName(input_start + i);
+    variables.push_back({Diligent::SHADER_TYPE_COMPUTE, name,
+        Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
+        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+    samplers.push_back({Diligent::SHADER_TYPE_COMPUTE, name, point_sampler});
+    samplers.push_back({Diligent::SHADER_TYPE_COMPUTE,
+        GetCuNNyTextureSamplerName(input_start + i), point_sampler});
+  }
+}
+
+void AddCuNNyComputeOutputs(
+    std::vector<Diligent::PipelineResourceDesc>& variables,
+    int output_count,
+    bool final_pass) {
+  if (final_pass) {
+    variables.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Output",
+        Diligent::SHADER_RESOURCE_TYPE_TEXTURE_UAV,
+        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+    return;
+  }
+
+  for (int i = 0; i < output_count; ++i) {
+    variables.push_back({Diligent::SHADER_TYPE_COMPUTE, GetCuNNyOutputName(i),
+        Diligent::SHADER_RESOURCE_TYPE_TEXTURE_UAV,
+        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+  }
 }
 
 }  // namespace
@@ -707,121 +1032,73 @@ PIPELINE_HEADER(Anime4K_UDL_Pass3) {
 
 // CuNNy pipeline implementations
 
-#define MAKE_CUNNY_MT(hlsl, cls, n) \
+#define MAKE_CUNNY_COMPUTE(hlsl, cls, shader_name, in_start, in_count, \
+                           out_count, screen_input, screen_filter, final_pass) \
   PIPELINE_HEADER(cls) { \
-    const ShaderSource src{kHLSL_UpscalePass_Vertex, hlsl, #cls};\
-    const auto ps = MakeClampSampler(Diligent::FILTER_TYPE_POINT);\
-    std::vector<Diligent::PipelineResourceDesc> vars;\
-    for (int i = 0; i < n; i++) {\
-      char nm[16];\
-      if (i == 0) std::snprintf(nm, sizeof(nm), "u_Texture");\
-      else std::snprintf(nm, sizeof(nm), "u_Texture%d", i);\
-      vars.push_back({Diligent::SHADER_TYPE_PIXEL, nm,\
-          Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,\
-          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});\
-    }\
-    vars.push_back({Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer",\
-        Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,\
-        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});\
-    std::vector<Diligent::ImmutableSamplerDesc> smp;\
-    for (int i = 0; i < n; i++) {\
-      char nm[16];\
-      if (i == 0) std::snprintf(nm, sizeof(nm), "u_Texture");\
-      else std::snprintf(nm, sizeof(nm), "u_Texture%d", i);\
-      smp.push_back({Diligent::SHADER_TYPE_PIXEL, nm, ps});\
-    }\
-    auto b0 = MakeResourceSignature(vars, smp, 0);\
-    SetupPipelineBasis(src, Vertex::GetLayout(), {b0});\
+    const auto point_sampler = MakeClampSampler(Diligent::FILTER_TYPE_POINT); \
+    const auto screen_sampler = MakeClampSampler(screen_filter); \
+    std::vector<Diligent::PipelineResourceDesc> vars; \
+    std::vector<Diligent::ImmutableSamplerDesc> samplers; \
+    if (screen_input) { \
+      vars.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Texture", \
+          Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV, \
+          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}); \
+      samplers.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Texture", \
+          screen_sampler}); \
+      samplers.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Texture_sampler", \
+          screen_sampler}); \
+    } \
+    AddCuNNyComputeInputs(vars, samplers, point_sampler, in_start, in_count); \
+    AddCuNNyComputeOutputs(vars, out_count, final_pass); \
+    vars.push_back({Diligent::SHADER_TYPE_COMPUTE, "ScalingParamsBuffer", \
+        Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER, \
+        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}); \
+    auto b0 = MakeResourceSignature(vars, samplers, 0); \
+    const ComputeShaderSource src{ \
+        MakeCuNNyComputeShader(hlsl, out_count, final_pass, \
+                               SupportsCuNNyFP16(init_params.render_device)), \
+        shader_name}; \
+    SetupComputePipelineBasis(src, {b0}); \
   }
 
-PIPELINE_HEADER(CuNNy_4x16_Pass1) {
-  const ShaderSource src{kHLSL_UpscalePass_Vertex, kHLSL_CuNNy_4x16_Pass1_Pixel, "CuNNy_4x16.Pass1"};
-  const auto ps = MakeClampSampler(Diligent::FILTER_TYPE_POINT);
-  const std::vector<Diligent::PipelineResourceDesc> vars = {
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture", Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-      {Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer", Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-  };
-  const std::vector<Diligent::ImmutableSamplerDesc> smp = {
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture", ps},
-  };
-  auto b0 = MakeResourceSignature(vars, smp, 0);
-  SetupPipelineBasis(src, Vertex::GetLayout(), {b0});
-}
-PIPELINE_HEADER(CuNNy_4x24_Pass1) {
-  const ShaderSource src{kHLSL_UpscalePass_Vertex, kHLSL_CuNNy_4x24_Pass1_Pixel, "CuNNy_4x24.Pass1"};
-  const auto ps = MakeClampSampler(Diligent::FILTER_TYPE_POINT);
-  const std::vector<Diligent::PipelineResourceDesc> vars = {
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture", Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-      {Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer", Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-  };
-  const std::vector<Diligent::ImmutableSamplerDesc> smp = {
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture", ps},
-  };
-  auto b0 = MakeResourceSignature(vars, smp, 0);
-  SetupPipelineBasis(src, Vertex::GetLayout(), {b0});
-}
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x16_Pass1_Pixel, CuNNy_4x16_Pass1,
+                   "CuNNy_4x16.Pass1.compute", 0, 0, 4, true,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x16_Pass2_Pixel, CuNNy_4x16_Pass2,
+                   "CuNNy_4x16.Pass2.compute", 0, 4, 4, false,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x16_Pass3_Pixel, CuNNy_4x16_Pass3,
+                   "CuNNy_4x16.Pass3.compute", 4, 4, 4, false,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x16_Pass4_Pixel, CuNNy_4x16_Pass4,
+                   "CuNNy_4x16.Pass4.compute", 0, 4, 4, false,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x16_Pass5_Pixel, CuNNy_4x16_Pass5,
+                   "CuNNy_4x16.Pass5.compute", 4, 4, 4, false,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x16_Pass6_Pixel, CuNNy_4x16_Pass6,
+                   "CuNNy_4x16.Pass6.compute", 0, 4, 1, true,
+                   Diligent::FILTER_TYPE_LINEAR, true);
 
-MAKE_CUNNY_MT(kHLSL_CuNNy_4x16_Pass2_Pixel, CuNNy_4x16_Pass2, 4);
-MAKE_CUNNY_MT(kHLSL_CuNNy_4x16_Pass3_Pixel, CuNNy_4x16_Pass3, 4);
-MAKE_CUNNY_MT(kHLSL_CuNNy_4x16_Pass4_Pixel, CuNNy_4x16_Pass4, 4);
-MAKE_CUNNY_MT(kHLSL_CuNNy_4x16_Pass5_Pixel, CuNNy_4x16_Pass5, 4);
-MAKE_CUNNY_MT(kHLSL_CuNNy_4x24_Pass2_Pixel, CuNNy_4x24_Pass2, 6);
-MAKE_CUNNY_MT(kHLSL_CuNNy_4x24_Pass3_Pixel, CuNNy_4x24_Pass3, 6);
-MAKE_CUNNY_MT(kHLSL_CuNNy_4x24_Pass4_Pixel, CuNNy_4x24_Pass4, 6);
-MAKE_CUNNY_MT(kHLSL_CuNNy_4x24_Pass5_Pixel, CuNNy_4x24_Pass5, 6);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x24_Pass1_Pixel, CuNNy_4x24_Pass1,
+                   "CuNNy_4x24.Pass1.compute", 0, 0, 6, true,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x24_Pass2_Pixel, CuNNy_4x24_Pass2,
+                   "CuNNy_4x24.Pass2.compute", 0, 6, 6, false,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x24_Pass3_Pixel, CuNNy_4x24_Pass3,
+                   "CuNNy_4x24.Pass3.compute", 6, 6, 6, false,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x24_Pass4_Pixel, CuNNy_4x24_Pass4,
+                   "CuNNy_4x24.Pass4.compute", 0, 6, 6, false,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x24_Pass5_Pixel, CuNNy_4x24_Pass5,
+                   "CuNNy_4x24.Pass5.compute", 6, 6, 6, false,
+                   Diligent::FILTER_TYPE_POINT, false);
+MAKE_CUNNY_COMPUTE(kHLSL_CuNNy_4x24_Pass6_Pixel, CuNNy_4x24_Pass6,
+                   "CuNNy_4x24.Pass6.compute", 0, 6, 1, true,
+                   Diligent::FILTER_TYPE_LINEAR, true);
 
-#define MAKE_CUNNY_OUT(hlsl, cls) \
-  PIPELINE_HEADER(cls) { \
-    const ShaderSource src{kHLSL_UpscalePass_Vertex, hlsl, #cls};\
-    const auto ps = MakeClampSampler(Diligent::FILTER_TYPE_POINT);\
-    const auto ls = MakeClampSampler(Diligent::FILTER_TYPE_LINEAR);\
-    std::vector<Diligent::PipelineResourceDesc> vars = {\
-        {Diligent::SHADER_TYPE_PIXEL, "u_Texture", Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},\
-    };\
-    for (int i = 0; i < 4; i++) {\
-      char nm[16]; std::snprintf(nm, sizeof(nm), "u_Texture%d", i);\
-      vars.push_back({Diligent::SHADER_TYPE_PIXEL, nm, Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});\
-    }\
-    vars.push_back({Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer", Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});\
-    const std::vector<Diligent::ImmutableSamplerDesc> smp = {\
-        {Diligent::SHADER_TYPE_PIXEL, "u_Texture", ls},\
-        {Diligent::SHADER_TYPE_PIXEL, "u_Texture0", ps},\
-        {Diligent::SHADER_TYPE_PIXEL, "u_Texture1", ps},\
-        {Diligent::SHADER_TYPE_PIXEL, "u_Texture2", ps},\
-        {Diligent::SHADER_TYPE_PIXEL, "u_Texture3", ps},\
-    };\
-    auto b0 = MakeResourceSignature(vars, smp, 0);\
-    SetupPipelineBasis(src, Vertex::GetLayout(), {b0});\
-  }
-
-MAKE_CUNNY_OUT(kHLSL_CuNNy_4x16_Pass6_Pixel, CuNNy_4x16_Pass6);
-// 4x24 final pass: 6 feature textures (T0-T5)
-PIPELINE_HEADER(CuNNy_4x24_Pass6) {
-  const ShaderSource src{kHLSL_UpscalePass_Vertex, kHLSL_CuNNy_4x24_Pass6_Pixel, "CuNNy_4x24.Pass6"};
-  const auto ps = MakeClampSampler(Diligent::FILTER_TYPE_POINT);
-  const auto ls = MakeClampSampler(Diligent::FILTER_TYPE_LINEAR);
-  std::vector<Diligent::PipelineResourceDesc> vars = {
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture", Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-  };
-  for (int i = 0; i < 6; i++) {
-    char nm[16]; std::snprintf(nm, sizeof(nm), "u_Texture%d", i);
-    vars.push_back({Diligent::SHADER_TYPE_PIXEL, nm, Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
-  }
-  vars.push_back({Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer", Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER, Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
-  const std::vector<Diligent::ImmutableSamplerDesc> smp = {
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture", ls},
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture0", ps},
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture1", ps},
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture2", ps},
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture3", ps},
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture4", ps},
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture5", ps},
-  };
-  auto b0 = MakeResourceSignature(vars, smp, 0);
-  SetupPipelineBasis(src, Vertex::GetLayout(), {b0});
-}
-
-#undef MAKE_CUNNY_MT
-#undef MAKE_CUNNY_OUT
+#undef MAKE_CUNNY_COMPUTE
 
 }  // namespace renderer

@@ -5,6 +5,8 @@
 #ifndef CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 #define CONTENT_SCREEN_RENDERSCREEN_IMPL_H_
 
+#include <array>
+
 #include "imgui/backends/imgui_impl_diligent.h"
 
 #include "base/worker/thread_worker.h"
@@ -66,9 +68,8 @@ class RenderScreenImpl : public Graphics, public EngineObject {
 
     // CuNNy intermediate targets
     std::vector<RRefPtr<Diligent::ITexture>> cunny_tex;
-    renderer::Binding_Upscale cunny_pass1_binding;
-    renderer::Binding_CuNNy_Conv4 cunny_conv_binding;
-    renderer::Binding_CuNNy_Out cunny_out_binding;
+    std::array<renderer::Binding_CuNNy_Compute, 6> cunny_4x16_bindings;
+    std::array<renderer::Binding_CuNNy_Compute, 6> cunny_4x24_bindings;
   };
 
   RenderScreenImpl(ExecutionContext* execution_context, uint32_t frame_rate);

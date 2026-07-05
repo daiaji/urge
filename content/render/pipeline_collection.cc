@@ -370,30 +370,19 @@ PipelineCollection::PipelineCollection(renderer::PipelineSet* loader,
           default_sample);
     }
 
-    {  // CuNNy 4x16 & 4x24
-      Diligent::BlendStateDesc blend_state;
-      Diligent::DepthStencilStateDesc ds = GetDefaultDepthStencilState(false);
-      Diligent::RasterizerStateDesc rs = Get2DRasterizerState();
-      rs.ScissorEnable = Diligent::False;
-      const auto inter_fmt = Diligent::TEX_FORMAT_RGBA8_UNORM;
-      auto mk = [&](auto& loader_pso, PipelineObject& out_pso, int num_rt, Diligent::TEXTURE_FORMAT fmt) {
-        std::vector<Diligent::TEXTURE_FORMAT> fmts(num_rt, fmt);
-        loader_pso.BuildPipeline(&out_pso, blend_state, rs, ds,
-            Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, fmts,
-            Diligent::TEX_FORMAT_UNKNOWN, default_sample);
-      };
-      mk(loader->cunny_4x16_p1, cunny_4x16_p1, 4, inter_fmt);
-      mk(loader->cunny_4x16_p2, cunny_4x16_p2, 4, inter_fmt);
-      mk(loader->cunny_4x16_p3, cunny_4x16_p3, 4, inter_fmt);
-      mk(loader->cunny_4x16_p4, cunny_4x16_p4, 4, inter_fmt);
-      mk(loader->cunny_4x16_p5, cunny_4x16_p5, 4, inter_fmt);
-      mk(loader->cunny_4x16_p6, cunny_4x16_p6, 1, target_format);
-      mk(loader->cunny_4x24_p1, cunny_4x24_p1, 6, inter_fmt);
-      mk(loader->cunny_4x24_p2, cunny_4x24_p2, 6, inter_fmt);
-      mk(loader->cunny_4x24_p3, cunny_4x24_p3, 6, inter_fmt);
-      mk(loader->cunny_4x24_p4, cunny_4x24_p4, 6, inter_fmt);
-      mk(loader->cunny_4x24_p5, cunny_4x24_p5, 6, inter_fmt);
-      mk(loader->cunny_4x24_p6, cunny_4x24_p6, 1, target_format);
+    {  // CuNNy 4x16 & 4x24 compute passes
+      loader->cunny_4x16_p1.BuildComputePipeline(&cunny_4x16_p1);
+      loader->cunny_4x16_p2.BuildComputePipeline(&cunny_4x16_p2);
+      loader->cunny_4x16_p3.BuildComputePipeline(&cunny_4x16_p3);
+      loader->cunny_4x16_p4.BuildComputePipeline(&cunny_4x16_p4);
+      loader->cunny_4x16_p5.BuildComputePipeline(&cunny_4x16_p5);
+      loader->cunny_4x16_p6.BuildComputePipeline(&cunny_4x16_p6);
+      loader->cunny_4x24_p1.BuildComputePipeline(&cunny_4x24_p1);
+      loader->cunny_4x24_p2.BuildComputePipeline(&cunny_4x24_p2);
+      loader->cunny_4x24_p3.BuildComputePipeline(&cunny_4x24_p3);
+      loader->cunny_4x24_p4.BuildComputePipeline(&cunny_4x24_p4);
+      loader->cunny_4x24_p5.BuildComputePipeline(&cunny_4x24_p5);
+      loader->cunny_4x24_p6.BuildComputePipeline(&cunny_4x24_p6);
     }
   {  // Window (present) - with scissor - with depth
     Diligent::BlendStateDesc blend_state;

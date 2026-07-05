@@ -39,6 +39,13 @@ class RenderPipelineBase {
     std::string pixel_entry = "PSMain";
   };
 
+  struct ComputeShaderSource {
+    std::string compute_shader;
+    std::string name = "generic.compute";
+    std::vector<Diligent::ShaderMacro> macros = {};
+    std::string compute_entry = "CSMain";
+  };
+
   virtual ~RenderPipelineBase() = default;
 
   RenderPipelineBase(const RenderPipelineBase&) = default;
@@ -54,6 +61,8 @@ class RenderPipelineBase {
       Diligent::TEXTURE_FORMAT depth_stencil_format,
       const Diligent::SampleDesc& sample_state);
 
+  void BuildComputePipeline(Diligent::IPipelineState** output);
+
   Diligent::IPipelineResourceSignature* GetSignatureAt(size_t index) const {
     return resource_signatures_[index];
   }
@@ -64,6 +73,11 @@ class RenderPipelineBase {
   void SetupPipelineBasis(
       const ShaderSource& shader_source,
       const std::vector<Diligent::LayoutElement>& input_layout,
+      const std::vector<RRefPtr<Diligent::IPipelineResourceSignature>>&
+          signatures);
+
+  void SetupComputePipelineBasis(
+      const ComputeShaderSource& shader_source,
       const std::vector<RRefPtr<Diligent::IPipelineResourceSignature>>&
           signatures);
 
@@ -83,7 +97,8 @@ class RenderPipelineBase {
   RRefPtr<Diligent::IRenderDevice> device_;
 
   std::string pipeline_name_;
-  RRefPtr<Diligent::IShader> vertex_shader_object_, pixel_shader_object_;
+  RRefPtr<Diligent::IShader> vertex_shader_object_, pixel_shader_object_,
+      compute_shader_object_;
   std::vector<Diligent::LayoutElement> input_layout_;
   std::vector<RRefPtr<Diligent::IPipelineResourceSignature>>
       resource_signatures_;
@@ -139,31 +154,31 @@ PIPELINE_DEFINE(Anime4K_UDL_Pass3,
 
 // CuNNy 4x16 pipeline set
 PIPELINE_DEFINE(CuNNy_4x16_Pass1,
-                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x16_Pass2,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x16_Pass3,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x16_Pass4,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x16_Pass5,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x16_Pass6,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Out, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 
 // CuNNy 4x24 pipeline set
 PIPELINE_DEFINE(CuNNy_4x24_Pass1,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x24_Pass2,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x24_Pass3,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x24_Pass4,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x24_Pass5,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(CuNNy_4x24_Pass6,
-                MAKE_BINDING_FUNCTION(Binding_CuNNy_Out, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 
 #undef PIPELINE_DEFINE
 #undef MAKE_BINDING_FUNCTION

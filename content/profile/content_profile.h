@@ -92,7 +92,7 @@ class ContentProfile {
   int32_t scaling_mode = 0;          // Scaling algorithm for post-process
                                        // 0=Bilinear, 1=Nearest, 2=Lanczos3, 3=Bicubic
                                        // 4=Anime4K, 5=Anime4K+Sobel, 6=Anime4K Denoise L
-                                       // 8=CuNNy-4x16-NVL, 9=CuNNy-4x24-NVL
+                                       // 7=CuNNy-4x16-NVL, 8=CuNNy-4x24-NVL
   float scaling_ar_strength = 0.5f;  // Anti-ringing strength (Lanczos3)
   float scaling_bicubic_b = 0.33f;   // Bicubic B (Mitchell-Netravali)
   float scaling_bicubic_c = 0.33f;   // Bicubic C (Mitchell-Netravali)

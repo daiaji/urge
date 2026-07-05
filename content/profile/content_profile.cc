@@ -257,8 +257,6 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetBoolean("Renderer", "IntegerScaling", integer_scaling);
   scaling_mode =
       reader->GetInteger("Renderer", "ScalingMode", scaling_mode);
-  if (scaling_mode == 7)
-    scaling_mode = 6;
   scaling_ar_strength =
       reader->GetFloat("Renderer", "ScalingARStrength", scaling_ar_strength);
   scaling_bicubic_b =
