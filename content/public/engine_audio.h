@@ -35,6 +35,12 @@ class URGE_OBJECT(Audio) {
   /*--urge(name:bgm_pos)--*/
   virtual uint64_t BGMPos(ExceptionState& exception_state) = 0;
 
+  /*--urge(name:bgm_volume)--*/
+  virtual int32_t BGMVolume(ExceptionState& exception_state) = 0;
+
+  /*--urge(name:bgm_volume=)--*/
+  virtual void SetBGMVolume(int32_t volume, ExceptionState& exception_state) = 0;
+
   /*--urge(name:bgs_play,optional:volume=80,optional:pitch=100,optional:pos=0)--*/
   virtual void BGSPlay(const std::string& filename,
                        int32_t volume,
@@ -62,6 +68,9 @@ class URGE_OBJECT(Audio) {
 
   /*--urge(name:me_fade)--*/
   virtual void MEFade(int32_t time, ExceptionState& exception_state) = 0;
+
+  /*--urge(name:me_pos)--*/
+  virtual uint64_t MEPos(ExceptionState& exception_state) = 0;
 
   /*--urge(name:se_play,optional:volume=80,optional:pitch=100)--*/
   virtual void SEPlay(const std::string& filename,

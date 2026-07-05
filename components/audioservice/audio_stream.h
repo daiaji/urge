@@ -1,16 +1,28 @@
-// Copyright 2018-2025 Admenri.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
 #ifndef COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_
 #define COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_
 
 #include <stdint.h>
+#include <memory>
 #include <string>
+
+#include <cmath>
 
 #include "miniaudio.h"
 
+// DirectSound-compatible -35dB logarithmic volume curve.
+// Maps RGSS linear volume (0-100) to a logarithmic scale matching
+// the human ear's perception curve, used by mkxp-z and original RGSS.
+inline float LogVolumeCurve(int32_t volume) {
+  if (volume <= 0)
+    return 0.0f;
+  float normalized = std::min(volume / 100.0f, 1.0f);
+  return std::pow(10.0f, -(35.0f / 20.0f) * (1.0f - normalized));
+}
+
 namespace audioservice {
+
+class MidiPlayer;
+struct MidiStreamSource;
 
 class AudioStream {
  public:
@@ -30,7 +42,6 @@ class AudioStream {
   uint64_t Pos();
 
   // Pause and resume audio stream.
-  // Using for me watcher.
   bool IsPlaying();
   bool IsPausing();
   void Pause();
@@ -40,17 +51,31 @@ class AudioStream {
   bool IsLooping();
   void SetLooping(bool looping);
 
+  // Volume control (0-100, RGSS units)
+  int32_t GetVolume() const { return current_volume_; }
+  void SetVolume(int32_t volume);
+
  private:
   friend class AudioService;
-  AudioStream(ma_engine* engine);
+  AudioStream(ma_engine* engine, MidiPlayer* midi_player);
+
+  ma_result PlayMIDI(const std::string& filename,
+                     int32_t volume,
+                     int32_t pitch,
+                     uint64_t pos);
 
   ma_engine* engine_;
+  MidiPlayer* midi_player_;
   std::string filename_;
   ma_sound handle_;
   ma_uint64 cursor_;
   ma_bool32 looping_;
+  int32_t current_volume_;
+
+  // Streaming MIDI source (alive for duration of MIDI playback)
+  std::unique_ptr<MidiStreamSource> midi_stream_;
 };
 
 }  // namespace audioservice
 
-#endif  //! COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_
+#endif  // !COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_

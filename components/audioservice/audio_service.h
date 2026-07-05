@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_AUDIOSERVICE_AUDIO_SERVICE_H_
 #define COMPONENTS_AUDIOSERVICE_AUDIO_SERVICE_H_
 
+#include <string>
+
 #include "SDL3/SDL_audio.h"
 
 #include "components/filesystem/io_service.h"
@@ -50,6 +52,10 @@ class AudioService {
 
   // Raw miniaudio engine
   ma_engine* GetRawEngine();
+
+  // MIDI support
+  void SetSoundFont(const std::string& sf2_path);
+  bool HasMIDI() const;
 
  private:
   ServiceKernelData* kernel_;

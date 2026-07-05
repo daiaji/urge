@@ -1,13 +1,18 @@
-// Copyright 2018-2025 Admenri.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
 #include "components/audioservice/audio_stream.h"
+
+#include "base/debug/logging.h"
+#include "components/audioservice/midi_player.h"
+#include "components/audioservice/midi_stream_source.h"
 
 namespace audioservice {
 
-AudioStream::AudioStream(ma_engine* engine)
-    : engine_(engine), handle_({}), cursor_(0), looping_(false) {}
+AudioStream::AudioStream(ma_engine* engine, MidiPlayer* midi_player)
+    : engine_(engine),
+      midi_player_(midi_player),
+      handle_({}),
+      cursor_(0),
+      looping_(false),
+      current_volume_(0) {}
 
 AudioStream::~AudioStream() {
   ma_sound_uninit(&handle_);
@@ -20,33 +25,103 @@ ma_result AudioStream::Play(const std::string& filename,
   if (filename.empty())
     return MA_INVALID_ARGS;
 
-  if (!ma_sound_is_playing(&handle_) || filename_ != filename) {
-    // Reset cache filename
-    filename_ = filename;
+  LOG(INFO) << "[Audio] Play: " << filename;
 
-    // Reset audio stream handle
+  // Fast path: explicit MIDI extension (case-insensitive)
+  if (MidiPlayer::IsMIDIFile(filename))
+    return PlayMIDI(filename, volume, pitch, pos);
+
+  if (!ma_sound_is_playing(&handle_) || filename_ != filename) {
+    filename_ = filename;
     ma_sound_uninit(&handle_);
 
-    // Create new handle
     ma_uint32 sound_flags = MA_SOUND_FLAG_ASYNC;
     if (looping_)
       sound_flags |= MA_SOUND_FLAG_LOOPING;
     auto result = ma_sound_init_from_file(
         engine_, filename.c_str(), sound_flags, nullptr, nullptr, &handle_);
 
+    LOG(INFO) << "[Audio] ma_sound_init_from_file result=" << result
+              << " for: " << filename;
+
+    // If miniaudio can't decode it, try MIDI (RGSS paths often lack extension)
+    if (result == MA_INVALID_FILE) {
+      if (midi_player_ && midi_player_->IsAvailable())
+        return PlayMIDI(filename, volume, pitch, pos);
+      return result;
+    }
+
     if (result != MA_SUCCESS)
       return result;
   }
 
-  // Set sound handle attributes
-  ma_sound_set_volume(&handle_, volume / 100.0f);
+  current_volume_ = volume;
+  ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
   ma_sound_set_pitch(&handle_, pitch / 100.0f);
   if (pos)
     ma_sound_seek_to_pcm_frame(&handle_, pos);
-
-  // Start if need
   ma_sound_start(&handle_);
+  return MA_SUCCESS;
+}
 
+void AudioStream::SetVolume(int32_t volume) {
+  current_volume_ = volume;
+  ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
+}
+
+ma_result AudioStream::PlayMIDI(const std::string& filename,
+                                int32_t volume,
+                                int32_t pitch,
+                                uint64_t pos) {
+  LOG(INFO) << "[Audio] PlayMIDI: " << filename;
+
+  if (!midi_player_ || !midi_player_->IsAvailable()) {
+    LOG(WARNING) << "[MIDI] FluidSynth unavailable for: " << filename;
+    return MA_DOES_NOT_EXIST;
+  }
+
+  // Try creating a streaming MIDI source
+  auto stream = std::unique_ptr<MidiStreamSource>(
+      midi_player_->CreateStream(filename));
+  if (!stream) {
+    // Retry with .mid extension for extensionless RGSS paths
+    if (filename.rfind('.') == std::string::npos) {
+      std::string with_ext = filename + ".mid";
+      LOG(INFO) << "[Audio] PlayMIDI retry with: " << with_ext;
+      stream = std::unique_ptr<MidiStreamSource>(
+          midi_player_->CreateStream(with_ext));
+    }
+    if (!stream) {
+      LOG(WARNING) << "[MIDI] Failed to create stream for: " << filename;
+      return MA_DOES_NOT_EXIST;
+    }
+  }
+
+  LOG(INFO) << "[Audio] PlayMIDI stream created OK";
+
+  // Uninit previous sound
+  ma_sound_uninit(&handle_);
+
+  // Init sound from streaming data source
+  ma_uint32 sound_flags = MA_SOUND_FLAG_ASYNC;
+  if (looping_)
+    sound_flags |= MA_SOUND_FLAG_LOOPING;
+
+  auto result = ma_sound_init_from_data_source(
+      engine_, &stream->base, sound_flags, nullptr, &handle_);
+  if (result != MA_SUCCESS) {
+    LOG(ERROR) << "[MIDI] ma_sound_init_from_data_source failed: " << result;
+    return result;
+  }
+
+  // Keep stream alive for duration of playback
+  midi_stream_ = std::move(stream);
+
+  ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
+  ma_sound_set_pitch(&handle_, pitch / 100.0f);
+  if (pos)
+    ma_sound_seek_to_pcm_frame(&handle_, pos);
+  ma_sound_start(&handle_);
   return MA_SUCCESS;
 }
 

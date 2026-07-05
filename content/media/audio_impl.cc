@@ -29,6 +29,15 @@ AudioImpl::AudioImpl(ExecutionContext* execution_context)
   bgs_->SetLooping(true);
   me_->SetLooping(false);
 
+  // Initialize volume from config
+  execution_context->audio_server->SetVolume(
+      execution_context->engine_profile->audio_volume);
+
+  // Configure MIDI SoundFont
+  auto& sf = execution_context->engine_profile->midi_soundfont;
+  if (!sf.empty())
+    execution_context->audio_server->SetSoundFont(sf);
+
 #if !defined(OS_EMSCRIPTEN)
   // Setup watcher
   me_watcher_ = base::ThreadWorker::Create();
@@ -48,17 +57,33 @@ void AudioImpl::CreateButtonGUISettings() {
   if (ImGui::CollapsingHeader(
           i18n_profile_->GetI18NString(IDS_SETTINGS_AUDIO, "Audio").c_str())) {
     // Set global volume
-    float volume = context()->audio_server->GetVolume();
+    auto& profile = *context()->engine_profile;
+    float volume = profile.audio_volume;
     ImGui::SliderFloat(
         i18n_profile_->GetI18NString(IDS_AUDIO_VOLUME, "Volume").c_str(),
         &volume, 0, 1);
+    profile.audio_volume = volume;
     context()->audio_server->SetVolume(volume);
+
+    ImGui::Separator();
+    if (ImGui::Button("Reset")) {
+      profile.ResetAudioDefaults();
+      context()->audio_server->SetVolume(profile.audio_volume);
+      profile.SaveConfigure();
+    }
   }
 }
 
 void AudioImpl::SetupMIDI(ExceptionState& exception_state) {
-  // TODO: unsupport MIDI
-  LOG(WARNING) << "[Content] Unsupport MIDI device setup.";
+  LOG(INFO) << "[Audio] setup_midi called";
+  if (!context()->audio_server)
+    return;
+  auto& sf = context()->engine_profile->midi_soundfont;
+  if (!sf.empty())
+    context()->audio_server->SetSoundFont(sf);
+  else
+    LOG(WARNING) << "[Audio] setup_midi: no SoundFont configured. "
+                    "Set [Audio] SoundFont=<path> in Game.ini to enable MIDI.";
 }
 
 void AudioImpl::BGMPlay(const std::string& filename,
@@ -92,6 +117,20 @@ uint64_t AudioImpl::BGMPos(ExceptionState& exception_state) {
     return 0;
 
   return bgm_->Pos();
+}
+
+int32_t AudioImpl::BGMVolume(ExceptionState& exception_state) {
+  if (!bgm_)
+    return 0;
+
+  return bgm_->GetVolume();
+}
+
+void AudioImpl::SetBGMVolume(int32_t volume, ExceptionState& exception_state) {
+  if (!bgm_)
+    return;
+
+  bgm_->SetVolume(volume);
 }
 
 void AudioImpl::BGSPlay(const std::string& filename,
@@ -150,6 +189,13 @@ void AudioImpl::MEFade(int32_t time, ExceptionState& exception_state) {
     return;
 
   me_->Fade(time);
+}
+
+uint64_t AudioImpl::MEPos(ExceptionState& exception_state) {
+  if (!me_)
+    return 0;
+
+  return me_->Pos();
 }
 
 void AudioImpl::SEPlay(const std::string& filename,

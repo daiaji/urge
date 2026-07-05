@@ -10,6 +10,10 @@ set(COMPONENTS_AUDIOSERVICE_SRC
   audio_service.h
   audio_stream.cc
   audio_stream.h
+  midi_player.cc
+  midi_player.h
+  midi_stream_source.cc
+  midi_stream_source.h
   sound_emit.cc
   sound_emit.h
 )
@@ -21,3 +25,5 @@ target_link_libraries(components_audioservice
   components_filesystem
   miniaudio
 )
+# MIDI support via runtime FluidSynth loading (SDL_LoadObject).
+# No compile-time dependency needed — gracefully degrades if library is absent.
