@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <cstdlib>
+#include <mutex>
 
 #include "base/debug/crash_handler.h"
 
@@ -29,6 +30,7 @@ namespace logging {
 spdlog::logger* g_logger = nullptr;
 spdlog::logger* g_console_logger = nullptr;
 std::function<LogCallback> g_log_callback;
+std::mutex g_log_callback_mutex;
 
 namespace {
 
@@ -217,19 +219,26 @@ LogMessage::~LogMessage() {
       msg += std::to_string(line_);
       g_logger->critical(msg);
       fflush(NULL);
-      abort();
       break;
   }
 
-  if (g_log_callback)
-    g_log_callback(msg, severity_);
+  std::function<LogCallback> callback;
+  {
+    std::lock_guard<std::mutex> lock(g_log_callback_mutex);
+    callback = g_log_callback;
+  }
+  if (callback)
+    callback(msg, severity_);
 
   // Feed into crash-safe ring buffer
   base::debug::AppendCrashLog(msg.data(), msg.size());
 
   // Clear callback on FATAL to prevent use-after-free during abort
-  if (severity_ == LOG_FATAL)
+  if (severity_ == LOG_FATAL) {
+    std::lock_guard<std::mutex> lock(g_log_callback_mutex);
     g_log_callback = nullptr;
+    abort();
+  }
 }
 
 #if defined(OS_WIN)
@@ -303,6 +312,7 @@ void InitWithLogger(spdlog::logger* logger) {
 }
 
 void SetLogCallback(std::function<LogCallback> callback) {
+  std::lock_guard<std::mutex> lock(g_log_callback_mutex);
   g_log_callback = std::move(callback);
 }
 

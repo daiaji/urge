@@ -29,10 +29,6 @@
 #include <atomic>
 #include <cstdint>
 
-#if !defined(OS_WIN)
-#include <pthread.h>
-#endif
-
 namespace base {
 namespace debug {
 
@@ -44,7 +40,8 @@ namespace {
 
 static char g_ring_buffer[kCrashRingSize][kCrashLineMax];
 static int g_ring_lens[kCrashRingSize];
-static int g_ring_total = 0;
+static std::atomic<int> g_ring_write_cursor{0};
+static std::atomic<int> g_ring_total{0};
 static int g_crash_fd = -1;
 
 // Saved old signal actions for chaining to previous handlers (e.g. Ruby's sigsegv)
@@ -54,50 +51,8 @@ static struct sigaction g_old_sigactions[kMaxSignal];
 static bool g_sigactions_saved[kMaxSignal] = {};
 #endif
 
-// Pump pipe + thread for tee-ing crash output to both crash.log and stderr.
-// Normal stderr is not captured; stderr is redirected only inside the crash
-// handler so C++ dump and Ruby's chained crash output reach both destinations.
 #if !defined(OS_WIN)
-static int g_crash_pipe[2] = {-1, -1};
 static int g_orig_stderr = -1;
-static pthread_t g_pump_thread;
-static std::atomic<bool> g_pump_running{false};
-
-static void* CrashPumpThread(void*) {
-  char buf[16384];
-  while (true) {
-    ssize_t n = read(g_crash_pipe[0], buf, sizeof(buf));
-    if (n <= 0) break;
-    if (g_crash_fd >= 0)
-      write(g_crash_fd, buf, static_cast<size_t>(n));
-    if (g_orig_stderr >= 0)
-      write(g_orig_stderr, buf, static_cast<size_t>(n));
-  }
-  close(g_crash_pipe[0]);
-  g_crash_pipe[0] = -1;
-  return nullptr;
-}
-
-static void StartCrashPumpPipe() {
-  if (g_pump_running.exchange(true))
-    return;
-  if (pipe(g_crash_pipe) < 0) {
-    g_pump_running = false;
-    return;
-  }
-#if defined(OS_LINUX)
-  fcntl(g_crash_pipe[0], F_SETPIPE_SZ, 1048576);
-#endif
-  g_orig_stderr = dup(STDERR_FILENO);
-  if (pthread_create(&g_pump_thread, nullptr, CrashPumpThread, nullptr) != 0) {
-    close(g_crash_pipe[0]);
-    close(g_crash_pipe[1]);
-    g_crash_pipe[0] = g_crash_pipe[1] = -1;
-    g_orig_stderr = -1;
-    g_pump_running = false;
-  }
-  pthread_detach(g_pump_thread);
-}
 #endif
 
 #if defined(OS_WIN)
@@ -208,6 +163,38 @@ void WriteCrashHeader(int fd, int sig, const char* sig_name) {
   WriteLiteral(fd, "  Signal #:  "); WriteDecimal(fd, sig); WriteLiteral(fd, "\n");
 }
 
+void WriteRecentLogs(int fd) {
+  int total = g_ring_total.load(std::memory_order_acquire);
+  int count = std::min(total, static_cast<int>(kCrashRingSize));
+  if (count <= 0)
+    return;
+
+  WriteLiteral(fd, "\n  Recent engine log lines:\n");
+  int start = total - count;
+  for (int i = 0; i < count; ++i) {
+    int idx = (start + i) % static_cast<int>(kCrashRingSize);
+    int len = g_ring_lens[idx];
+    if (len <= 0)
+      continue;
+#if defined(OS_WIN)
+    _write(fd, g_ring_buffer[idx], static_cast<unsigned>(len));
+    _write(fd, "\n", 1);
+#else
+    write(fd, g_ring_buffer[idx], static_cast<size_t>(len));
+    write(fd, "\n", 1);
+#endif
+  }
+}
+
+void PublishRingTotal(int total) {
+  int published = g_ring_total.load(std::memory_order_relaxed);
+  while (published < total &&
+         !g_ring_total.compare_exchange_weak(published, total,
+                                             std::memory_order_release,
+                                             std::memory_order_relaxed)) {
+  }
+}
+
 }  // namespace
 
 void OpenCrashLogFile(const char* path) {
@@ -223,17 +210,20 @@ void OpenCrashLogFile(const char* path) {
   g_crash_fd = _open(path, _O_WRONLY | _O_CREAT | _O_APPEND, _S_IREAD | _S_IWRITE);
 #else
   g_crash_fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
-  StartCrashPumpPipe();
+  if (g_orig_stderr < 0)
+    g_orig_stderr = dup(STDERR_FILENO);
 #endif
 }
 
 void AppendCrashLog(const char* msg, size_t len) {
-  int idx = g_ring_total % kCrashRingSize;
+  int total = g_ring_write_cursor.fetch_add(1, std::memory_order_relaxed);
+  int idx = total % static_cast<int>(kCrashRingSize);
   size_t copy_len = std::min(len, kCrashLineMax - 1);
+  g_ring_lens[idx] = 0;
   memcpy(g_ring_buffer[idx], msg, copy_len);
   g_ring_buffer[idx][copy_len] = '\0';
   g_ring_lens[idx] = static_cast<int>(copy_len);
-  ++g_ring_total;
+  PublishRingTotal(total + 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -243,13 +233,6 @@ void AppendCrashLog(const char* msg, size_t len) {
 namespace {
 
 void FlushAndRaise(int sig) {
-  fflush(NULL);
-#if !defined(OS_WIN)
-  if (g_crash_pipe[1] >= 0) {
-    close(g_crash_pipe[1]);
-    g_crash_pipe[1] = -1;
-  }
-#endif
   if (g_crash_fd >= 0) {
 #if defined(OS_WIN)
     _close(g_crash_fd);
@@ -320,25 +303,18 @@ static void WriteCrashDumpToFd(int fd, int sig, siginfo_t* info,
   }
   if (ucontext)
     DumpRegisters(fd, static_cast<ucontext_t*>(ucontext));
-#if defined(OS_LINUX)
-  void* callstack[128];
-  int frames = backtrace(callstack, 128);
-  WriteLiteral(fd, "\n  Backtrace (");
-  WriteDecimal(fd, frames);
-  WriteLiteral(fd, " frames):\n");
-  backtrace_symbols_fd(callstack, frames, fd);
-#else
-  WriteLiteral(fd, "\n  Backtrace unavailable on this platform.\n");
-#endif
+  WriteLiteral(fd, "\n  Backtrace unavailable in signal handler.\n");
 }
 
 void OnCrashSignal(int sig, siginfo_t* info, void* ucontext) {
-  if (g_crash_pipe[1] >= 0)
-    dup2(g_crash_pipe[1], STDERR_FILENO);
+  const int crash_fd = g_crash_fd >= 0 ? g_crash_fd : STDERR_FILENO;
+  WriteCrashDumpToFd(crash_fd, sig, info, ucontext);
+  WriteRecentLogs(crash_fd);
+  if (g_orig_stderr >= 0 && g_orig_stderr != crash_fd)
+    WriteCrashDumpToFd(g_orig_stderr, sig, info, ucontext);
 
-  WriteCrashDumpToFd(STDERR_FILENO, sig, info, ucontext);
-
-  // Ring buffer is intentionally omitted; see Engine.log for full log history.
+  if (g_crash_fd >= 0)
+    dup2(g_crash_fd, STDERR_FILENO);
 
   // Chain to saved old handler (e.g. Ruby's sigsegv).
   struct sigaction* old = &g_old_sigactions[sig];
