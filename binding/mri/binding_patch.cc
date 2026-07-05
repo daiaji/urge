@@ -4,6 +4,7 @@
 
 #include "binding/mri/binding_patch.h"
 
+#include <fstream>
 #include <unordered_map>
 
 #include "content/input/mouse_controller.h"
@@ -385,7 +386,7 @@ MRI_METHOD(console_write) {
 
   auto* ctx = MriGetCurrentContext();
   if (ctx)
-    ctx->console.output.push_back(text);
+    ctx->console.Push("[Script] " + text);
 
   return Qnil;
 }
@@ -399,7 +400,7 @@ MRI_METHOD(console_puts) {
     std::string s(RSTRING_PTR(str), RSTRING_LEN(str));
     auto* ctx = MriGetCurrentContext();
     if (ctx)
-      ctx->console.output.push_back(s);
+      ctx->console.Push("[Script] " + s);
   }
 
   return Qnil;
@@ -412,12 +413,32 @@ MRI_METHOD(console_clear) {
   return Qnil;
 }
 
+MRI_METHOD(console_save) {
+  VALUE path = argv[0];
+  std::string path_str(StringValueCStr(path));
+
+  auto* ctx = MriGetCurrentContext();
+  if (!ctx)
+    return Qfalse;
+
+  std::ofstream log_file(path_str);
+  if (!log_file.is_open())
+    return Qfalse;
+
+  for (const auto& line : ctx->console.output)
+    log_file << line << "\n";
+
+  log_file.close();
+  return Qtrue;
+}
+
 void ApplyConsolePatch() {
   VALUE klass = rb_define_module("Console");
 
   MriDefineModuleFunction(klass, "write", console_write);
   MriDefineModuleFunction(klass, "puts", console_puts);
   MriDefineModuleFunction(klass, "clear", console_clear);
+  MriDefineModuleFunction(klass, "save", console_save);
 }
 
 void MriApplyBindingPatch() {

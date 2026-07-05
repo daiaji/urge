@@ -90,6 +90,7 @@ class ContentRunner {
   void UpdateEventInternal();
 
   static bool EventWatchHandlerInternal(void* userdata, SDL_Event* event);
+  static int ConsoleInputCallback(ImGuiInputTextCallbackData* data);
 
   void CreateIMGUIContextInternal();
   void DestroyIMGUIContextInternal();

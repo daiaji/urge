@@ -204,7 +204,7 @@ void RenderScreenImpl::CreateButtonGUISettings() {
     }
 
     ImGui::Separator();
-    if (ImGui::Button("Reset")) {
+    if (ImGui::Button("Reset##settings")) {
       context()->engine_profile->ResetRendererDefaults();
       frame_rate_ = context()->engine_profile->frame_rate;
       unlimited_fps_ = frame_rate_ == 0;

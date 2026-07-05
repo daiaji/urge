@@ -237,6 +237,12 @@ void BindingEngineMri::OnMainMessageLoopRun(
   // Set global execution context
   g_current_execution_context = execution;
 
+  // Open console log file
+  execution->console.log_file = fopen("Console.log", "w");
+  execution->console.on_message = [](const std::string& line) {
+    LOG(INFO) << line;
+  };
+
   // Define running modules
   MriGetGlobalModules()->Graphics = module_context->graphics;
   MriGetGlobalModules()->Input = module_context->input;
@@ -246,16 +252,25 @@ void BindingEngineMri::OnMainMessageLoopRun(
 
   // Console eval callback (evaluates Ruby code, returns result as string)
   execution->eval_ruby = [](const std::string& code) -> std::string {
+    // Create explicit UTF-8 source string to avoid rb_str_new_cstr ASCII-8BIT tagging
+    VALUE code_utf8 = rb_utf8_str_new(code.c_str(), code.length());
+    VALUE eval_argv[] = {code_utf8, Qnil, rb_utf8_str_new_cstr("(console)")};
+
+    auto eval_proc = [](VALUE args) -> VALUE {
+      VALUE* argv = reinterpret_cast<VALUE*>(args);
+      return rb_funcall2(Qnil, rb_intern("eval"), 3, argv);
+    };
+
     int state = 0;
-    VALUE result = rb_eval_string_protect(code.c_str(), &state);
+    VALUE result = rb_protect(eval_proc, reinterpret_cast<VALUE>(eval_argv), &state);
     if (state) {
       VALUE err = rb_errinfo();
       VALUE msg = rb_funcall(err, rb_intern("message"), 0);
-      VALUE full = rb_str_plus(msg, rb_str_new_cstr("\n"));
+      VALUE full = rb_str_plus(msg, rb_utf8_str_new_cstr("\n"));
       VALUE bt = rb_funcall(err, rb_intern("backtrace"), 0);
       if (!NIL_P(bt)) {
         VALUE bt_text = rb_funcall(bt, rb_intern("first"), 1, INT2FIX(5));
-        full = rb_str_plus(full, rb_funcall(bt_text, rb_intern("join"), 1, rb_str_new_cstr("\n")));
+        full = rb_str_plus(full, rb_funcall(bt_text, rb_intern("join"), 1, rb_utf8_str_new_cstr("\n")));
       }
       rb_set_errinfo(Qnil);
       return std::string(RSTRING_PTR(full), RSTRING_LEN(full));
@@ -274,6 +289,10 @@ void BindingEngineMri::OnMainMessageLoopRun(
     exception_state.FetchException(error_message);
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "URGE",
                              error_message.c_str(), nullptr);
+    if (execution) {
+      execution->console.Push("[Ruby Error] Script load error:");
+      execution->console.Push("[Ruby Error] " + error_message);
+    }
   }
 
   // Debug: log any Ruby exception info
@@ -298,6 +317,22 @@ void BindingEngineMri::PostMainLoopRunning() {
   std::string exception_message;
   if (!NIL_P(exception) && !rb_obj_is_kind_of(exception, rb_eSystemExit))
     exception_message = ParseExeceptionInfo(exception);
+
+  // Push error to console overlay and log file if available
+  if (!exception_message.empty() && g_current_execution_context) {
+    g_current_execution_context->console.Push(
+        "[Ruby Error] Unhandled exception:");
+    g_current_execution_context->console.Push("[Ruby Error] " +
+                                              exception_message);
+  }
+
+  // Close console log file
+  if (g_current_execution_context &&
+      g_current_execution_context->console.log_file) {
+    fclose(g_current_execution_context->console.log_file);
+    g_current_execution_context->console.log_file = nullptr;
+    LOG(INFO) << "[Binding] Console logs closed.";
+  }
 
   // Clean up ruby vm
   ruby_finalize();

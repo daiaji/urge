@@ -211,6 +211,11 @@ int main(int argc, char* argv[]) {
 #else
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   console_sink->set_pattern("[%^%l%$] %v");
+
+  auto file_sink =
+      std::make_shared<spdlog::sinks::basic_file_sink_mt>("Engine.log", true);
+  file_sink->set_pattern("[%^%l%$] %v");
+  file_sink->set_level(spdlog::level::trace);
 #endif
 
   spdlog::sinks_init_list logger_sinks = {
@@ -219,6 +224,7 @@ int main(int argc, char* argv[]) {
       file_sink,
 #else
       console_sink,
+      file_sink,
 #endif
   };
 

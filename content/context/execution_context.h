@@ -5,6 +5,7 @@
 #ifndef CONTENT_CONTEXT_EXECUTION_CONTEXT_H_
 #define CONTENT_CONTEXT_EXECUTION_CONTEXT_H_
 
+#include <cstdio>
 #include <functional>
 #include <memory>
 #include <string>
@@ -59,6 +60,20 @@ struct ExecutionContext {
     std::vector<std::string> output;
     bool show = false;
     bool scroll_to_bottom = false;
+    FILE* log_file = nullptr;
+    std::function<void(const std::string&)> on_message;
+
+    void Push(const std::string& line) {
+      output.push_back(line);
+      fprintf(stdout, "%s\n", line.c_str());
+      fflush(stdout);
+      if (log_file) {
+        fprintf(log_file, "%s\n", line.c_str());
+        fflush(log_file);
+      }
+      if (on_message)
+        on_message(line);
+    }
   } console;
 
   // Ruby eval callback (set by MRI binding, called from content runner console)

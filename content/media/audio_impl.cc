@@ -68,7 +68,7 @@ void AudioImpl::CreateButtonGUISettings() {
       profile.MarkDirty();
 
     ImGui::Separator();
-    if (ImGui::Button("Reset")) {
+    if (ImGui::Button("Reset##audio")) {
       profile.ResetAudioDefaults();
       context()->audio_server->SetVolume(profile.audio_volume);
       profile.SaveConfigure();
