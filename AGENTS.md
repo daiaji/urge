@@ -93,6 +93,19 @@ cmake --build build -j$(nproc)
 - **Diligent shader 编译缓存**：优化运行时 shader creation 卡顿时，优先使用 `IBytecodeCache` 缓存 `IShader::GetBytecode()` 结果，并通过 `ShaderCreateInfo::ByteCode/ByteCodeSize` 回放。缓存文件按 backend 分离（如 `ShaderCache/shader_bytecode_cache_<backend>.bin`），命中失败必须移除该条缓存并 fallback 到 HLSL source compile。当前不要优先接 `IRenderStateCache`/Archiver；该路径在 URGE 现有接入下曾出现 `WriteToBlob()` 序列化失败。
 - **shader cache 验证闭环**：首次运行应看到 cache miss 并在退出时写出缓存；第二次运行应看到 cache loaded/hit，且重型 shader loader 耗时显著下降。不要只看是否生成文件，也要检查 `Create compute shader ... finished in ...ms` 和 lazy loading 总耗时。
 
+## 日志排查
+
+- 普通日志是 append 模式，文件开头可能是旧运行记录。先找最新的 session 分隔线，再只看它后面的内容：
+  - `========== URGE session start run=YYYYMMDD-HHMMSS-PID pid=PID cwd=... config=... ==========`
+  - `run=` 是一次启动的关联 ID，`Engine.log` / `Script.log` / `Console.log` 同一次运行会写入相同 `run`。
+  - 普通日志每行带时间戳：`[YYYY-MM-DD HH:MM:SS.mmm] [level] ...`，可用来判断事件先后顺序。
+- `Engine.log`：引擎内部日志，优先看渲染、音频、输入、配置、资源加载等 C++ 侧问题。
+- `Script.log`：Ruby/RGSS 脚本诊断，优先看脚本 warning、`Console.puts` 输出、未捕获 Ruby 异常和完整 backtrace。
+- `Console.log`：游戏内控制台 overlay 的持久化副本，适合看用户可见脚本输出和 Ruby 异常摘要。
+- `crash.log`：native 崩溃日志，只用于 SIGSEGV、SIGABRT、Windows SEH 等 C/C++ 层 fatal crash；普通 Ruby `ZeroDivisionError`/`NoMethodError` 不应写到这里。
+- 遇到 Ruby 脚本报错时先看 `Script.log`，再看 `Console.log` 摘要；遇到引擎直接崩溃或无 Ruby 弹窗退出时先看 `crash.log`，其中会包含最近日志 breadcrumbs。
+- `crash.log` 仍按 native crash 路径写出，不要求和普通 spdlog 格式完全一致；其中的 recent breadcrumbs 会包含最近普通日志内容，用于定位崩溃前上下文。
+
 ## 提交前检查清单
 
 - [ ] `git diff --stat` — 确认没有无关文件（PNG、build 产物等）
@@ -104,7 +117,7 @@ cmake --build build -j$(nproc)
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **urge** (8060 symbols, 12916 relationships, 290 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **urge** (8066 symbols, 12918 relationships, 282 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

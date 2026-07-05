@@ -15,6 +15,7 @@
 #include "zlib/zlib.h"
 
 #include "base/debug/crash_handler.h"
+#include "base/debug/logging.h"
 #include "binding/mri/binding_patch.h"
 #include "binding/mri/mri_file.h"
 #include "binding/mri/mri_init_autogen.h"
@@ -208,6 +209,24 @@ void BindingEngineMri::PreEarlyInitialization(
 
   // Autogen binding patching
   MriApplyBindingPatch();
+  int warning_hook_state = 0;
+  rb_eval_string_protect(R"RUBY(
+module Warning
+  class << self
+    alias urge_original_warn warn unless method_defined?(:urge_original_warn)
+
+    def warn(message, category: nil)
+      Console.script_log("[Ruby Warning] #{message.to_s.chomp}") if defined?(Console)
+      urge_original_warn(message, category: category)
+    end
+  end
+end
+)RUBY",
+                         &warning_hook_state);
+  if (warning_hook_state) {
+    LOG(WARNING) << "[Binding] Failed to install Ruby warning logger";
+    rb_set_errinfo(Qnil);
+  }
 
 #if defined(OS_EMSCRIPTEN)
   InitEmscriptenBinding();
@@ -302,19 +321,21 @@ void BindingEngineMri::OnMainMessageLoopRun(
     }
   }
 
-  // Debug: log any Ruby exception info
+  // Log any Ruby exception info.
   VALUE rb_ex = rb_errinfo();
   if (!NIL_P(rb_ex) && !rb_obj_is_kind_of(rb_ex, rb_eSystemExit)) {
     VALUE msg = rb_funcall(rb_ex, rb_intern("message"), 0);
+    VALUE klass = rb_funcall(rb_ex, rb_intern("class"), 0);
+    VALUE klass_name = rb_funcall(klass, rb_intern("to_s"), 0);
     VALUE bt  = rb_funcall(rb_ex, rb_intern("backtrace"), 0);
     std::string msg_str = StringValueCStr(msg);
+    std::string type_str = StringValueCStr(klass_name);
     std::string bt_str;
     if (!NIL_P(bt)) {
       VALUE bt_val = rb_funcall(bt, rb_intern("join"), 1, rb_str_new_cstr("\n"));
       bt_str.assign(RSTRING_PTR(bt_val), RSTRING_LEN(bt_val));
     }
-    LOG(ERROR) << "[Binding] Ruby exception: " << msg_str;
-    LOG(ERROR) << "[Binding] Backtrace:\n" << bt_str;
+    base::logging::LogScriptException(type_str, msg_str, bt_str);
   }
 }
 
@@ -322,15 +343,25 @@ void BindingEngineMri::PostMainLoopRunning() {
   // Show exception info
   VALUE exception = rb_errinfo();
   std::string exception_message;
-  if (!NIL_P(exception) && !rb_obj_is_kind_of(exception, rb_eSystemExit))
+  std::string exception_summary;
+  if (!NIL_P(exception) && !rb_obj_is_kind_of(exception, rb_eSystemExit)) {
     exception_message = ParseExeceptionInfo(exception);
+    VALUE msg = rb_funcall(exception, rb_intern("message"), 0);
+    VALUE klass = rb_funcall(exception, rb_intern("class"), 0);
+    VALUE klass_name = rb_funcall(klass, rb_intern("to_s"), 0);
+    exception_summary = StringValueCStr(klass_name);
+    exception_summary += ": ";
+    exception_summary += StringValueCStr(msg);
+  }
 
   // Push error to console overlay and log file if available
   if (!exception_message.empty() && g_current_execution_context) {
     g_current_execution_context->console.Push(
         "[Ruby Error] Unhandled exception:");
     g_current_execution_context->console.Push("[Ruby Error] " +
-                                              exception_message);
+                                               exception_summary);
+    g_current_execution_context->console.Push(
+        "[Ruby Error] Full backtrace written to Script.log");
   }
 
   // Clean up ruby vm

@@ -713,10 +713,24 @@ class ErrnoLogMessage {
 
 void InitWithLogger(spdlog::logger* logger);
 
+// Set the per-process run identifier used to correlate Engine/Script/Console
+// logs from the same launch.
+void SetRunId(const std::string& run_id);
+const std::string& GetRunId();
+
 // Initialize a separate logger for console/user-facing output.
 void InitConsoleLogger(spdlog::logger* logger);
 // Log a message to the console logger (file + terminal).
 void ConsoleLog(const std::string& message);
+
+// Initialize a separate logger for Ruby/RGSS script diagnostics.
+void InitScriptLogger(spdlog::logger* logger);
+// Log a message to the script logger.
+void ScriptLog(LogSeverity severity, const std::string& message);
+// Route a fatal Ruby exception to Script.log, Engine.log, and Console.log.
+void LogScriptException(const std::string& type,
+                        const std::string& message,
+                        const std::string& backtrace);
 
 // Callback invoked for every log message at the LogMessage level.
 // Called AFTER the message has been dispatched to spdlog.

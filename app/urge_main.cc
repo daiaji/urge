@@ -2,7 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <chrono>
+#include <cstdint>
 #include <filesystem>
+#include <iomanip>
+#include <sstream>
 
 #include "SDL3/SDL_main.h"
 #include "SDL3/SDL_messagebox.h"
@@ -32,15 +36,60 @@
 #include <jni.h>
 #include <sys/system_properties.h>
 #include <unistd.h>
+#elif defined(OS_WIN)
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+namespace {
+
+uint32_t GetProcessIdForLog() {
+#if defined(OS_WIN)
+  return static_cast<uint32_t>(::GetCurrentProcessId());
+#elif defined(OS_POSIX)
+  return static_cast<uint32_t>(::getpid());
+#else
+  return 0;
+#endif
+}
+
+std::string CreateRunId() {
+  const auto now = std::chrono::system_clock::now();
+  const auto time = std::chrono::system_clock::to_time_t(now);
+  std::tm local_time{};
+#if defined(OS_WIN)
+  localtime_s(&local_time, &time);
+#else
+  localtime_r(&time, &local_time);
+#endif
+
+  std::ostringstream stream;
+  stream << std::put_time(&local_time, "%Y%m%d-%H%M%S") << '-'
+         << GetProcessIdForLog();
+  return stream.str();
+}
+
+std::string CreateSessionStartLine(const std::string& run_id,
+                                   const char* current_path,
+                                   const char* ini) {
+  std::ostringstream stream;
+  stream << "========== URGE session start run=" << run_id
+         << " pid=" << GetProcessIdForLog() << " cwd=" << current_path
+         << " config=" << ini << " ==========";
+  return stream.str();
+}
+
+}  // namespace
 
 #if defined(OS_WIN)
-#include <windows.h>
 extern "C" {
 __declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif  //! OS_WIN
 
+#if defined(OS_ANDROID)
 static int g_pfd[2];
 static pthread_t g_android_stdio_thread;
 
@@ -184,12 +233,18 @@ int main(int argc, char* argv[]) {
   // Show/hide console window based on config or command-line arg
   platform::SetConsoleVisible(show_console || profile->debugging_console);
 
+  const std::string log_pattern = "[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v";
+  const std::string run_id = CreateRunId();
+  base::logging::SetRunId(run_id);
+  const std::string session_start = CreateSessionStartLine(
+      run_id, reinterpret_cast<const char*>(current_path.c_str()), ini.c_str());
+
   // Create spdlog logger
   std::vector<spdlog::sink_ptr> logger_sinks;
 #if defined(OS_ANDROID)
   auto android_sink =
       std::make_shared<spdlog::sinks::android_sink_mt>("urgecore");
-  android_sink->set_pattern("[%^%l%$] %v");
+  android_sink->set_pattern(log_pattern);
   logger_sinks.push_back(android_sink);
 
   auto file_sink =
@@ -199,14 +254,14 @@ int main(int argc, char* argv[]) {
 #else
   // Always add stdout sink (terminal output)
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-  console_sink->set_pattern("[%^%l%$] %v");
+  console_sink->set_pattern(log_pattern);
   logger_sinks.push_back(console_sink);
 
   // Conditionally add file sink
   if (profile->save_log) {
     auto file_sink =
         std::make_shared<spdlog::sinks::basic_file_sink_mt>("Engine.log", false);
-    file_sink->set_pattern("[%^%l%$] %v");
+    file_sink->set_pattern(log_pattern);
     file_sink->set_level(spdlog::level::trace);
     logger_sinks.push_back(file_sink);
   }
@@ -223,15 +278,29 @@ int main(int argc, char* argv[]) {
   {
     auto console_file_sink =
         std::make_shared<spdlog::sinks::basic_file_sink_mt>("Console.log", false);
-    console_file_sink->set_pattern("[%^%l%$] %v");
+    console_file_sink->set_pattern(log_pattern);
     auto console_stdout_sink =
         std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    console_stdout_sink->set_pattern("[%^%l%$] %v");
+    console_stdout_sink->set_pattern(log_pattern);
     static spdlog::logger console_logger("console",
-                                         {console_stdout_sink, console_file_sink});
+                                          {console_stdout_sink, console_file_sink});
     console_logger.flush_on(spdlog::level::info);
     base::logging::InitConsoleLogger(&console_logger);
   }
+
+  // Create script logger (Ruby/RGSS diagnostics and full backtraces)
+  {
+    auto script_file_sink =
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Script.log", false);
+    script_file_sink->set_pattern(log_pattern);
+    static spdlog::logger script_logger("script", {script_file_sink});
+    script_logger.flush_on(spdlog::level::info);
+    base::logging::InitScriptLogger(&script_logger);
+  }
+
+  LOG(INFO) << session_start;
+  base::logging::ConsoleLog(session_start);
+  base::logging::ScriptLog(base::logging::LOG_INFO, session_start);
 
   LOG(INFO) << "[App] Current Path: "
             << reinterpret_cast<const char*>(current_path.c_str());

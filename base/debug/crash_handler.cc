@@ -169,7 +169,7 @@ void WriteRecentLogs(int fd) {
   if (count <= 0)
     return;
 
-  WriteLiteral(fd, "\n  Recent engine log lines:\n");
+  WriteLiteral(fd, "\n  Recent log breadcrumbs:\n");
   int start = total - count;
   for (int i = 0; i < count; ++i) {
     int idx = (start + i) % static_cast<int>(kCrashRingSize);
@@ -392,6 +392,8 @@ static LONG CALLBACK WinVectoredHandler(PEXCEPTION_POINTERS ep) {
   if (ep->ContextRecord)
     DumpWinRegisters(fd, ep->ContextRecord);
 
+  WriteRecentLogs(fd);
+
   void* callstack[128];
   WORD frames = CaptureStackBackTrace(0, 128, callstack, nullptr);
   WriteLiteral(fd, "\n  Backtrace ("); WriteDecimal(fd, frames); WriteLiteral(fd, " frames):\n");
@@ -418,6 +420,8 @@ void WinAbortHandler(int) {
     WriteHex(fd, reinterpret_cast<uintptr_t>(callstack[i]));
     WriteLiteral(fd, "\n");
   }
+
+  WriteRecentLogs(fd);
 
   FlushAndRaise(SIGABRT);
 }

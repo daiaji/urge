@@ -29,6 +29,8 @@ namespace logging {
 
 spdlog::logger* g_logger = nullptr;
 spdlog::logger* g_console_logger = nullptr;
+spdlog::logger* g_script_logger = nullptr;
+std::string g_run_id;
 std::function<LogCallback> g_log_callback;
 std::mutex g_log_callback_mutex;
 
@@ -311,6 +313,14 @@ void InitWithLogger(spdlog::logger* logger) {
   g_logger = logger;
 }
 
+void SetRunId(const std::string& run_id) {
+  g_run_id = run_id;
+}
+
+const std::string& GetRunId() {
+  return g_run_id;
+}
+
 void SetLogCallback(std::function<LogCallback> callback) {
   std::lock_guard<std::mutex> lock(g_log_callback_mutex);
   g_log_callback = std::move(callback);
@@ -321,8 +331,68 @@ void InitConsoleLogger(spdlog::logger* logger) {
 }
 
 void ConsoleLog(const std::string& message) {
-  if (g_console_logger)
+  if (g_console_logger) {
     g_console_logger->info(message);
+    base::debug::AppendCrashLog(message.data(), message.size());
+  }
+}
+
+void InitScriptLogger(spdlog::logger* logger) {
+  g_script_logger = logger;
+}
+
+void ScriptLog(LogSeverity severity, const std::string& message) {
+  if (!g_script_logger)
+    return;
+
+  switch (severity) {
+    default:
+    case LOG_INFO:
+      g_script_logger->info(message);
+      break;
+    case LOG_WARNING:
+      g_script_logger->warn(message);
+      break;
+    case LOG_ERROR:
+      g_script_logger->error(message);
+      break;
+    case LOG_FATAL:
+      g_script_logger->critical(message);
+      break;
+  }
+  base::debug::AppendCrashLog(message.data(), message.size());
+}
+
+void LogScriptException(const std::string& type,
+                        const std::string& message,
+                        const std::string& backtrace) {
+  std::string summary = type.empty() ? message : type + ": " + message;
+  if (summary.empty())
+    summary = "unknown Ruby exception";
+
+  std::string script_message = "[Ruby Error] Unhandled exception\n";
+  script_message += summary;
+  if (!backtrace.empty()) {
+    script_message += "\n\nBacktrace:\n";
+    script_message += backtrace;
+  }
+  ScriptLog(LOG_ERROR, script_message);
+
+  if (g_logger) {
+    g_logger->error("[Script] Fatal Ruby exception run=" + g_run_id + ": " +
+                    summary);
+    g_logger->error("[Script] Full Ruby backtrace written to Script.log run=" +
+                    g_run_id);
+    g_logger->flush();
+  }
+
+  ConsoleLog("[Ruby Error] run=" + g_run_id + " " + summary);
+  ConsoleLog("[Ruby Error] Full backtrace written to Script.log run=" +
+             g_run_id);
+  if (g_script_logger)
+    g_script_logger->flush();
+  if (g_console_logger)
+    g_console_logger->flush();
 }
 
 }  // namespace logging

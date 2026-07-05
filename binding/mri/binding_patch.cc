@@ -11,6 +11,7 @@
 
 #include "SDL3/SDL_scancode.h"
 
+#include "base/debug/logging.h"
 #include "content/input/mouse_controller.h"
 #include "content/public/engine_input.h"
 
@@ -700,8 +701,10 @@ MRI_METHOD(console_write) {
   }
 
   auto* ctx = MriGetCurrentContext();
+  std::string line = "[Script] " + text;
+  base::logging::ScriptLog(base::logging::LOG_INFO, line);
   if (ctx)
-    ctx->console.Push("[Script] " + text);
+    ctx->console.Push(line);
 
   return Qnil;
 }
@@ -714,8 +717,10 @@ MRI_METHOD(console_puts) {
     VALUE str = rb_obj_as_string(argv[i]);
     std::string s(RSTRING_PTR(str), RSTRING_LEN(str));
     auto* ctx = MriGetCurrentContext();
+    std::string line = "[Script] " + s;
+    base::logging::ScriptLog(base::logging::LOG_INFO, line);
     if (ctx)
-      ctx->console.Push("[Script] " + s);
+      ctx->console.Push(line);
   }
 
   return Qnil;
@@ -747,6 +752,16 @@ MRI_METHOD(console_save) {
   return Qtrue;
 }
 
+MRI_METHOD(console_script_log) {
+  if (argc < 1)
+    return Qnil;
+
+  VALUE str = rb_obj_as_string(argv[0]);
+  std::string line(RSTRING_PTR(str), RSTRING_LEN(str));
+  base::logging::ScriptLog(base::logging::LOG_INFO, line);
+  return Qnil;
+}
+
 void ApplyConsolePatch() {
   VALUE klass = rb_define_module("Console");
 
@@ -754,6 +769,7 @@ void ApplyConsolePatch() {
   MriDefineModuleFunction(klass, "puts", console_puts);
   MriDefineModuleFunction(klass, "clear", console_clear);
   MriDefineModuleFunction(klass, "save", console_save);
+  MriDefineModuleFunction(klass, "script_log", console_script_log);
 }
 
 void MriApplyBindingPatch() {
