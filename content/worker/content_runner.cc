@@ -484,6 +484,10 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
   if (execution_context_->console.show)
     RenderConsoleGUIInternal();
 
+  const bool capture_keyboard_for_gui = show_settings_menu_ ||
+                                        execution_context_->console.show ||
+                                        ImGui::GetIO().WantCaptureKeyboard;
+
   // Present game window
   ImGui::SetNextWindowPos(ImVec2(0, 0));
   ImGui::SetNextWindowSize(ImVec2(swapchain_desc.Width, swapchain_desc.Height));
@@ -560,13 +564,17 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
   ImGui::PopStyleVar(3);
 
   // Enable input dispatch for input & mouse
-  if (process_game_input) {
+  if (process_game_input && !capture_keyboard_for_gui) {
     for (auto& it : event_controller_->key_events())
       keyboard_impl_->ProcessEvent(it);
+  } else {
+    keyboard_impl_->ProcessEvent(std::nullopt);
+  }
+
+  if (process_game_input) {
     for (auto& it : event_controller_->mouse_events())
       mouse_impl_->ProcessEvent(it);
   } else {
-    keyboard_impl_->ProcessEvent(std::nullopt);
     mouse_impl_->ProcessEvent(std::nullopt);
   }
 
