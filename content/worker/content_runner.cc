@@ -63,6 +63,10 @@ ContentRunner::ContentRunner(ContentProfile* profile,
 }
 
 ContentRunner::~ContentRunner() {
+  // Flush pending GPU commands before destroying context
+  if (device_context_)
+    device_context_->Flush();
+
   // Remove watch
   SDL_RemoveEventWatch(&ContentRunner::EventWatchHandlerInternal, this);
 
@@ -537,6 +541,42 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
   ImGui::End();
 }
 
+
+int ContentRunner::ConsoleInputCallback(ImGuiInputTextCallbackData* data) {
+  auto* runner = static_cast<ContentRunner*>(data->UserData);
+  if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) {
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.KeyCtrl)
+      return 0;
+    auto& h = runner->console_history_;
+    auto& p = runner->console_history_pos_;
+    if (data->EventKey == ImGuiKey_UpArrow && !h.empty()) {
+      if (p == -1)
+        p = static_cast<int>(h.size()) - 1;
+      else if (p > 0)
+        p--;
+      data->DeleteChars(0, data->BufTextLen);
+      data->InsertChars(0, h[p].c_str());
+      data->BufDirty = true;
+    } else if (data->EventKey == ImGuiKey_DownArrow) {
+      if (p >= 0) {
+        p++;
+        if (p < static_cast<int>(h.size())) {
+          data->DeleteChars(0, data->BufTextLen);
+          data->InsertChars(0, h[p].c_str());
+          data->BufDirty = true;
+        } else {
+          data->DeleteChars(0, data->BufTextLen);
+          p = -1;
+          data->BufDirty = true;
+        }
+      }
+    }
+    return 0;
+  }
+  return 0;
+// Console input callback for ImGui
+}
 void ContentRunner::RenderConsoleGUIInternal() {
   auto* swapchain = execution_context_->render_device->GetSwapChain();
   if (!swapchain)
@@ -565,39 +605,26 @@ void ContentRunner::RenderConsoleGUIInternal() {
     }
     ImGui::EndChild();
 
-    // Input area (CallbackHistory not supported with Multiline per ImGui assert)
-    ImGuiInputTextFlags iflags = ImGuiInputTextFlags_EnterReturnsTrue;
+    // Input area
+    // CtrlEnterForNewLine: Enter submits, Ctrl+Enter adds newline
+    ImGuiInputTextFlags iflags =
+        ImGuiInputTextFlags_EnterReturnsTrue |
+        ImGuiInputTextFlags_CtrlEnterForNewLine |
+        ImGuiInputTextFlags_CallbackHistory;
 
     if (ImGui::InputTextMultiline(
             "##console_in", &console_input_buffer_,
-            ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags)) {
+            ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags,
+            &ConsoleInputCallback, this)) {
+      // Trim trailing newline added by InputTextMultiline on Enter
+      while (!console_input_buffer_.empty() &&
+             (console_input_buffer_.back() == '\n' ||
+              console_input_buffer_.back() == '\r'))
+        console_input_buffer_.pop_back();
       ExecuteConsoleCommand(console_input_buffer_);
       console_input_buffer_.clear();
       console_history_pos_ = -1;
       execution_context_->console.scroll_to_bottom = true;
-    }
-
-    // Manual history navigation (Up/Down)
-    if (ImGui::IsItemActive()) {
-      if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-        if (!console_history_.empty()) {
-          if (console_history_pos_ == -1)
-            console_history_pos_ = console_history_.size() - 1;
-          else if (console_history_pos_ > 0)
-            console_history_pos_--;
-          console_input_buffer_ = console_history_[console_history_pos_];
-        }
-      } else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-        if (console_history_pos_ >= 0) {
-          console_history_pos_++;
-          if (console_history_pos_ < (int)console_history_.size())
-            console_input_buffer_ = console_history_[console_history_pos_];
-          else {
-            console_input_buffer_.clear();
-            console_history_pos_ = -1;
-          }
-        }
-      }
     }
 
     if (!ImGui::IsAnyItemActive())
@@ -607,8 +634,8 @@ void ContentRunner::RenderConsoleGUIInternal() {
 }
 
 void ContentRunner::ExecuteConsoleCommand(const std::string& code) {
-  auto& output = execution_context_->console.output;
-  output.push_back(">>> " + code);
+  auto& console = execution_context_->console;
+  console.Push("[Input] >>> " + code);
 
   if (code.empty())
     return;
@@ -618,13 +645,13 @@ void ContentRunner::ExecuteConsoleCommand(const std::string& code) {
     console_history_.pop_front();
 
   if (!execution_context_->eval_ruby) {
-    output.push_back("(eval not available)");
+    console.Push("[Result] (eval not available)");
     return;
   }
 
   std::string result = execution_context_->eval_ruby(code);
   if (!result.empty())
-    output.push_back(result);
+    console.Push("[Result] " + result);
 }
 
 void ContentRunner::UpdateEventInternal() {
@@ -796,6 +823,22 @@ void ContentRunner::CreateIMGUIContextInternal() {
   io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(font_data), font_data_size,
                                  20.0f * window_scale, &font_config,
                                  io.Fonts->GetGlyphRangesChineseFull());
+
+  // Merge CJK font for Chinese/Japanese glyph support in ImGui Console
+  // Reuse fonts already loaded by the game's font context
+  auto& data_cache = execution_context_->font_context->data_cache;
+  std::string default_key = execution_context_->font_context->default_font;
+  for (auto& [name, pair] : data_cache) {
+    if (name == default_key)
+      continue;
+    ImFontConfig cjk_config;
+    cjk_config.FontDataOwnedByAtlas = false;
+    cjk_config.MergeMode = true;
+    io.Fonts->AddFontFromMemoryTTF(pair.second, pair.first,
+                                   20.0f * window_scale, &cjk_config,
+                                   io.Fonts->GetGlyphRangesChineseFull());
+    break;
+  }
 
   // Setup Dear ImGui style
   ImGui::StyleColorsClassic();
