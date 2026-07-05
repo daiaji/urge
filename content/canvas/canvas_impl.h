@@ -253,10 +253,9 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
                                          const base::Vec4& color2,
                                          bool vertical);
   void GPUCanvasDrawTextSurfaceInternal(const base::Rect& region,
-                                         SDL_Surface* text,
-                                         float opacity,
-                                         int32_t align,
-                                         int32_t outline = 0);
+                                        SDL_Surface* text,
+                                        float opacity,
+                                        int32_t align);
   void GPUCanvasHueChange(int32_t hue);
 
   // Sequenced command id
@@ -300,7 +299,6 @@ class CanvasImpl : public base::LinkNode<CanvasImpl>,
     SDL_Surface* text;
     float opacity;
     int32_t align;
-    int32_t outline;
 
     Command_DrawText() : Command(CommandID::DRAW_TEXT) {}
   };
