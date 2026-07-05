@@ -6,6 +6,8 @@
 
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 
+#include "base/debug/logging.h"
+
 namespace content {
 
 namespace {
@@ -325,27 +327,6 @@ PipelineCollection::PipelineCollection(renderer::PipelineSet* loader,
           Diligent::TEX_FORMAT_UNKNOWN, default_sample);
     }
 
-    {  // Anime4K Upscale_Denoise_L compute passes
-      loader->anime4k_udl_pass0.BuildComputePipeline(&anime4k_udl_pass0);
-      loader->anime4k_udl_pass1.BuildComputePipeline(&anime4k_udl_pass1);
-      loader->anime4k_udl_pass2.BuildComputePipeline(&anime4k_udl_pass2);
-      loader->anime4k_udl_pass3.BuildComputePipeline(&anime4k_udl_pass3);
-    }
-
-    {  // CuNNy 4x16 & 4x24 compute passes
-      loader->cunny_4x16_p1.BuildComputePipeline(&cunny_4x16_p1);
-      loader->cunny_4x16_p2.BuildComputePipeline(&cunny_4x16_p2);
-      loader->cunny_4x16_p3.BuildComputePipeline(&cunny_4x16_p3);
-      loader->cunny_4x16_p4.BuildComputePipeline(&cunny_4x16_p4);
-      loader->cunny_4x16_p5.BuildComputePipeline(&cunny_4x16_p5);
-      loader->cunny_4x16_p6.BuildComputePipeline(&cunny_4x16_p6);
-      loader->cunny_4x24_p1.BuildComputePipeline(&cunny_4x24_p1);
-      loader->cunny_4x24_p2.BuildComputePipeline(&cunny_4x24_p2);
-      loader->cunny_4x24_p3.BuildComputePipeline(&cunny_4x24_p3);
-      loader->cunny_4x24_p4.BuildComputePipeline(&cunny_4x24_p4);
-      loader->cunny_4x24_p5.BuildComputePipeline(&cunny_4x24_p5);
-      loader->cunny_4x24_p6.BuildComputePipeline(&cunny_4x24_p6);
-    }
   {  // Window (present) - with scissor - with depth
     Diligent::BlendStateDesc blend_state;
     blend_state.RenderTargets[0] = GetBlendState(BLEND_TYPE_NORMAL);
@@ -440,6 +421,138 @@ PipelineCollection::PipelineCollection(renderer::PipelineSet* loader,
         depth_stencil_state, primitive_topology, {target_format},
         Diligent::TEX_FORMAT_UNKNOWN, default_sample);
   }
+}
+
+bool PipelineCollection::EnsureAnime4KUDLPipelines(
+    renderer::PipelineSet* loader) {
+  if (anime4k_udl_pass0 && anime4k_udl_pass1 && anime4k_udl_pass2 &&
+      anime4k_udl_pass3) {
+    return true;
+  }
+  if (!loader || !loader->anime4k_udl_pass0 || !loader->anime4k_udl_pass1 ||
+      !loader->anime4k_udl_pass2 || !loader->anime4k_udl_pass3) {
+    LOG(ERROR) << "[Graphics] Anime4K UDL pipeline loaders are not ready";
+    return false;
+  }
+
+  auto fail = [&](const char* pass) {
+    LOG(ERROR) << "[Graphics] Failed to create Anime4K UDL " << pass
+               << " compute pipeline";
+    anime4k_udl_pass0.Release();
+    anime4k_udl_pass1.Release();
+    anime4k_udl_pass2.Release();
+    anime4k_udl_pass3.Release();
+    return false;
+  };
+
+  loader->anime4k_udl_pass0->BuildComputePipeline(&anime4k_udl_pass0);
+  if (!anime4k_udl_pass0)
+    return fail("Pass0");
+  loader->anime4k_udl_pass1->BuildComputePipeline(&anime4k_udl_pass1);
+  if (!anime4k_udl_pass1)
+    return fail("Pass1");
+  loader->anime4k_udl_pass2->BuildComputePipeline(&anime4k_udl_pass2);
+  if (!anime4k_udl_pass2)
+    return fail("Pass2");
+  loader->anime4k_udl_pass3->BuildComputePipeline(&anime4k_udl_pass3);
+  if (!anime4k_udl_pass3)
+    return fail("Pass3");
+
+  return true;
+}
+
+bool PipelineCollection::EnsureCuNNy4x16Pipelines(
+    renderer::PipelineSet* loader) {
+  if (cunny_4x16_p1 && cunny_4x16_p2 && cunny_4x16_p3 &&
+      cunny_4x16_p4 && cunny_4x16_p5 && cunny_4x16_p6) {
+    return true;
+  }
+  if (!loader || !loader->cunny_4x16_p1 || !loader->cunny_4x16_p2 ||
+      !loader->cunny_4x16_p3 || !loader->cunny_4x16_p4 ||
+      !loader->cunny_4x16_p5 || !loader->cunny_4x16_p6) {
+    LOG(ERROR) << "[Graphics] CuNNy-4x16 pipeline loaders are not ready";
+    return false;
+  }
+
+  auto fail = [&](const char* pass) {
+    LOG(ERROR) << "[Graphics] Failed to create CuNNy-4x16 " << pass
+               << " compute pipeline";
+    cunny_4x16_p1.Release();
+    cunny_4x16_p2.Release();
+    cunny_4x16_p3.Release();
+    cunny_4x16_p4.Release();
+    cunny_4x16_p5.Release();
+    cunny_4x16_p6.Release();
+    return false;
+  };
+
+  loader->cunny_4x16_p1->BuildComputePipeline(&cunny_4x16_p1);
+  if (!cunny_4x16_p1)
+    return fail("Pass1");
+  loader->cunny_4x16_p2->BuildComputePipeline(&cunny_4x16_p2);
+  if (!cunny_4x16_p2)
+    return fail("Pass2");
+  loader->cunny_4x16_p3->BuildComputePipeline(&cunny_4x16_p3);
+  if (!cunny_4x16_p3)
+    return fail("Pass3");
+  loader->cunny_4x16_p4->BuildComputePipeline(&cunny_4x16_p4);
+  if (!cunny_4x16_p4)
+    return fail("Pass4");
+  loader->cunny_4x16_p5->BuildComputePipeline(&cunny_4x16_p5);
+  if (!cunny_4x16_p5)
+    return fail("Pass5");
+  loader->cunny_4x16_p6->BuildComputePipeline(&cunny_4x16_p6);
+  if (!cunny_4x16_p6)
+    return fail("Pass6");
+
+  return true;
+}
+
+bool PipelineCollection::EnsureCuNNy4x24Pipelines(
+    renderer::PipelineSet* loader) {
+  if (cunny_4x24_p1 && cunny_4x24_p2 && cunny_4x24_p3 &&
+      cunny_4x24_p4 && cunny_4x24_p5 && cunny_4x24_p6) {
+    return true;
+  }
+  if (!loader || !loader->cunny_4x24_p1 || !loader->cunny_4x24_p2 ||
+      !loader->cunny_4x24_p3 || !loader->cunny_4x24_p4 ||
+      !loader->cunny_4x24_p5 || !loader->cunny_4x24_p6) {
+    LOG(ERROR) << "[Graphics] CuNNy-4x24 pipeline loaders are not ready";
+    return false;
+  }
+
+  auto fail = [&](const char* pass) {
+    LOG(ERROR) << "[Graphics] Failed to create CuNNy-4x24 " << pass
+               << " compute pipeline";
+    cunny_4x24_p1.Release();
+    cunny_4x24_p2.Release();
+    cunny_4x24_p3.Release();
+    cunny_4x24_p4.Release();
+    cunny_4x24_p5.Release();
+    cunny_4x24_p6.Release();
+    return false;
+  };
+
+  loader->cunny_4x24_p1->BuildComputePipeline(&cunny_4x24_p1);
+  if (!cunny_4x24_p1)
+    return fail("Pass1");
+  loader->cunny_4x24_p2->BuildComputePipeline(&cunny_4x24_p2);
+  if (!cunny_4x24_p2)
+    return fail("Pass2");
+  loader->cunny_4x24_p3->BuildComputePipeline(&cunny_4x24_p3);
+  if (!cunny_4x24_p3)
+    return fail("Pass3");
+  loader->cunny_4x24_p4->BuildComputePipeline(&cunny_4x24_p4);
+  if (!cunny_4x24_p4)
+    return fail("Pass4");
+  loader->cunny_4x24_p5->BuildComputePipeline(&cunny_4x24_p5);
+  if (!cunny_4x24_p5)
+    return fail("Pass5");
+  loader->cunny_4x24_p6->BuildComputePipeline(&cunny_4x24_p6);
+  if (!cunny_4x24_p6)
+    return fail("Pass6");
+
+  return true;
 }
 
 }  // namespace content

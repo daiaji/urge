@@ -5,12 +5,15 @@
 #ifndef RENDERER_PIPELINE_RENDER_PIPELINE_H_
 #define RENDERER_PIPELINE_RENDER_PIPELINE_H_
 
+#include <memory>
+
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/PipelineResourceSignature.h"
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsTools/interface/GraphicsUtilities.h"
+#include "Graphics/GraphicsTools/interface/BytecodeCache.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 
 #include "renderer/layout/vertex_layout.h"
@@ -23,6 +26,7 @@ namespace renderer {
 ///
 struct PipelineInitParams {
   Diligent::IRenderDevice* render_device;
+  Diligent::IBytecodeCache* bytecode_cache = nullptr;
   Diligent::SamplerDesc immutable_sampler;
 };
 
@@ -68,7 +72,8 @@ class RenderPipelineBase {
   }
 
  protected:
-  RenderPipelineBase(Diligent::IRenderDevice* device);
+  RenderPipelineBase(Diligent::IRenderDevice* device,
+                     Diligent::IBytecodeCache* bytecode_cache);
 
   void SetupPipelineBasis(
       const ShaderSource& shader_source,
@@ -94,7 +99,11 @@ class RenderPipelineBase {
   }
 
  private:
+  bool CreateShaderWithCache(const Diligent::ShaderCreateInfo& shader_desc,
+                             Diligent::IShader** output);
+
   RRefPtr<Diligent::IRenderDevice> device_;
+  RRefPtr<Diligent::IBytecodeCache> bytecode_cache_;
 
   std::string pipeline_name_;
   RRefPtr<Diligent::IShader> vertex_shader_object_, pixel_shader_object_,
@@ -204,27 +213,32 @@ struct PipelineSet {
   Pipeline_CAS cas;
 
   // Anime4K Upscale_Denoise_L
-  Pipeline_Anime4K_UDL_Pass0 anime4k_udl_pass0;
-  Pipeline_Anime4K_UDL_Pass1 anime4k_udl_pass1;
-  Pipeline_Anime4K_UDL_Pass2 anime4k_udl_pass2;
-  Pipeline_Anime4K_UDL_Pass3 anime4k_udl_pass3;
+  std::unique_ptr<Pipeline_Anime4K_UDL_Pass0> anime4k_udl_pass0;
+  std::unique_ptr<Pipeline_Anime4K_UDL_Pass1> anime4k_udl_pass1;
+  std::unique_ptr<Pipeline_Anime4K_UDL_Pass2> anime4k_udl_pass2;
+  std::unique_ptr<Pipeline_Anime4K_UDL_Pass3> anime4k_udl_pass3;
   // CuNNy 4x16
-  Pipeline_CuNNy_4x16_Pass1 cunny_4x16_p1;
-  Pipeline_CuNNy_4x16_Pass2 cunny_4x16_p2;
-  Pipeline_CuNNy_4x16_Pass3 cunny_4x16_p3;
-  Pipeline_CuNNy_4x16_Pass4 cunny_4x16_p4;
-  Pipeline_CuNNy_4x16_Pass5 cunny_4x16_p5;
-  Pipeline_CuNNy_4x16_Pass6 cunny_4x16_p6;
+  std::unique_ptr<Pipeline_CuNNy_4x16_Pass1> cunny_4x16_p1;
+  std::unique_ptr<Pipeline_CuNNy_4x16_Pass2> cunny_4x16_p2;
+  std::unique_ptr<Pipeline_CuNNy_4x16_Pass3> cunny_4x16_p3;
+  std::unique_ptr<Pipeline_CuNNy_4x16_Pass4> cunny_4x16_p4;
+  std::unique_ptr<Pipeline_CuNNy_4x16_Pass5> cunny_4x16_p5;
+  std::unique_ptr<Pipeline_CuNNy_4x16_Pass6> cunny_4x16_p6;
   // CuNNy 4x24
-  Pipeline_CuNNy_4x24_Pass1 cunny_4x24_p1;
-  Pipeline_CuNNy_4x24_Pass2 cunny_4x24_p2;
-  Pipeline_CuNNy_4x24_Pass3 cunny_4x24_p3;
-  Pipeline_CuNNy_4x24_Pass4 cunny_4x24_p4;
-  Pipeline_CuNNy_4x24_Pass5 cunny_4x24_p5;
-  Pipeline_CuNNy_4x24_Pass6 cunny_4x24_p6;
+  std::unique_ptr<Pipeline_CuNNy_4x24_Pass1> cunny_4x24_p1;
+  std::unique_ptr<Pipeline_CuNNy_4x24_Pass2> cunny_4x24_p2;
+  std::unique_ptr<Pipeline_CuNNy_4x24_Pass3> cunny_4x24_p3;
+  std::unique_ptr<Pipeline_CuNNy_4x24_Pass4> cunny_4x24_p4;
+  std::unique_ptr<Pipeline_CuNNy_4x24_Pass5> cunny_4x24_p5;
+  std::unique_ptr<Pipeline_CuNNy_4x24_Pass6> cunny_4x24_p6;
+
+  bool EnsureAnime4KUDLLoaders();
+  bool EnsureCuNNy4x16Loaders();
+  bool EnsureCuNNy4x24Loaders();
 
   PipelineSet(const PipelineInitParams& init_params)
-      : base(init_params),
+      : init_params(init_params),
+        base(init_params),
         bitmapblt(init_params),
         bitmapclipblt(init_params),
         color(init_params),
@@ -238,23 +252,10 @@ struct PipelineSet {
         yuv(init_params),
         upscale(init_params),
         anime4k_enhance(init_params),
-        cas(init_params),
-        anime4k_udl_pass0(init_params),
-        anime4k_udl_pass1(init_params),
-        anime4k_udl_pass2(init_params),
-        anime4k_udl_pass3(init_params),
-        cunny_4x16_p1(init_params),
-        cunny_4x16_p2(init_params),
-        cunny_4x16_p3(init_params),
-        cunny_4x16_p4(init_params),
-        cunny_4x16_p5(init_params),
-        cunny_4x16_p6(init_params),
-        cunny_4x24_p1(init_params),
-        cunny_4x24_p2(init_params),
-        cunny_4x24_p3(init_params),
-        cunny_4x24_p4(init_params),
-        cunny_4x24_p5(init_params),
-        cunny_4x24_p6(init_params) {}
+        cas(init_params) {}
+
+ private:
+  PipelineInitParams init_params;
 };
 
 }  // namespace renderer

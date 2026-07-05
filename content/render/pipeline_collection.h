@@ -82,6 +82,10 @@ struct PipelineCollection {
 
   PipelineCollection(renderer::PipelineSet* loader,
                      Diligent::IRenderDevice* device);
+
+  bool EnsureAnime4KUDLPipelines(renderer::PipelineSet* loader);
+  bool EnsureCuNNy4x16Pipelines(renderer::PipelineSet* loader);
+  bool EnsureCuNNy4x24Pipelines(renderer::PipelineSet* loader);
 };
 
 }  // namespace content

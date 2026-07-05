@@ -317,6 +317,9 @@ int main(int argc, char* argv[]) {
       widget_params.opengl = true;
 #endif
       widget_params.size = profile->window_size;
+      if (profile->udl_auto_fit && profile->scaling_mode >= 6 &&
+          profile->scaling_mode <= 8)
+        widget_params.size = profile->resolution * 2;
       widget_params.resizable = profile->win_resizable;
       widget_params.hpixeldensity =
 #if !defined(OS_EMSCRIPTEN)
@@ -331,6 +334,9 @@ int main(int argc, char* argv[]) {
           profile->fullscreen;
 #endif
       widget_params.title = profile->window_title;
+      if (profile->udl_auto_fit && profile->scaling_mode >= 6 &&
+          profile->scaling_mode <= 8)
+        widget_params.window_state = ui::Widget::WindowPlacement::Hide;
       widget->Init(std::move(widget_params));
 
       // Apply fixed aspect ratio from config
