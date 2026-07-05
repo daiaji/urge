@@ -4,6 +4,7 @@
 
 #include "components/audioservice/sound_emit.h"
 
+#include "components/audioservice/audio_stream.h"
 #include "base/debug/logging.h"
 
 namespace audioservice {
@@ -41,7 +42,7 @@ ma_result SoundEmit::Play(const std::string& filename,
     sound_queue_.push(sound_handle);
 
     // Setup handle
-    ma_sound_set_volume(sound_handle, volume / 100.0f);
+    ma_sound_set_volume(sound_handle, LogVolumeCurve(volume));
     ma_sound_set_pitch(sound_handle, pitch / 100.0f);
 
     // Start sound playing

@@ -54,7 +54,7 @@ ma_result AudioStream::Play(const std::string& filename,
       return result;
   }
 
-  ma_sound_set_volume(&handle_, volume / 100.0f);
+  ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
   ma_sound_set_pitch(&handle_, pitch / 100.0f);
   if (pos)
     ma_sound_seek_to_pcm_frame(&handle_, pos);
@@ -110,7 +110,7 @@ ma_result AudioStream::PlayMIDI(const std::string& filename,
   // Keep stream alive for duration of playback
   midi_stream_ = std::move(stream);
 
-  ma_sound_set_volume(&handle_, volume / 100.0f);
+  ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
   ma_sound_set_pitch(&handle_, pitch / 100.0f);
   if (pos)
     ma_sound_seek_to_pcm_frame(&handle_, pos);

@@ -5,7 +5,19 @@
 #include <memory>
 #include <string>
 
+#include <cmath>
+
 #include "miniaudio.h"
+
+// DirectSound-compatible -35dB logarithmic volume curve.
+// Maps RGSS linear volume (0-100) to a logarithmic scale matching
+// the human ear's perception curve, used by mkxp-z and original RGSS.
+inline float LogVolumeCurve(int32_t volume) {
+  if (volume <= 0)
+    return 0.0f;
+  float normalized = std::min(volume / 100.0f, 1.0f);
+  return std::pow(10.0f, -(35.0f / 20.0f) * (1.0f - normalized));
+}
 
 namespace audioservice {
 
