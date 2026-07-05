@@ -43,6 +43,11 @@ class MidiPlayer {
   void FluidSynthSystemReset(void* synth) {
     api_.synth_system_reset(synth);
   }
+  void* FluidNewPlayer(void* synth) { return api_.new_player(synth); }
+  int FluidPlayerAddMem(void* player, const void* data, size_t len) {
+    return api_.player_add_mem(player, data, len);
+  }
+  int FluidPlayerPlay(void* player) { return api_.player_play(player); }
   void FluidDeletePlayer(void* player) { api_.delete_player(player); }
   void FluidDeleteSynth(void* synth) { api_.delete_synth(synth); }
   void FluidDeleteSettings(void* settings) { api_.delete_settings(settings); }

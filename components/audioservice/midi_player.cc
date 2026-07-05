@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "base/debug/logging.h"
@@ -225,8 +226,8 @@ MidiStreamSource* MidiPlayer::CreateStream(const std::string& midi_path) {
 
   const int kSampleRate = 44100;
   const int kChannels = 2;
-  return new MidiStreamSource(this, synth, player, settings, kSampleRate,
-                              kChannels);
+  return new MidiStreamSource(this, synth, player, settings, std::move(midi_data),
+                              kSampleRate, kChannels);
 }
 
 }  // namespace audioservice

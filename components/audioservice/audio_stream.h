@@ -63,6 +63,7 @@ class AudioStream {
                      int32_t volume,
                      int32_t pitch,
                      uint64_t pos);
+  void UninitSound();
 
   ma_engine* engine_;
   MidiPlayer* midi_player_;
@@ -71,6 +72,7 @@ class AudioStream {
   ma_uint64 cursor_;
   ma_bool32 looping_;
   int32_t current_volume_;
+  bool initialized_ = false;
 
   // Streaming MIDI source (alive for duration of MIDI playback)
   std::unique_ptr<MidiStreamSource> midi_stream_;

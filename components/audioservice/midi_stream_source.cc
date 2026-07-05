@@ -1,11 +1,20 @@
 #include "components/audioservice/midi_stream_source.h"
 
+#include <algorithm>
 #include <cstring>
+#include <utility>
 
 #include "base/debug/logging.h"
 #include "components/audioservice/midi_player.h"
 
 namespace audioservice {
+
+namespace {
+
+constexpr int kFluidPlayerDone = 2;
+constexpr int kSeekDiscardFrames = 512;
+
+}
 
 ma_data_source_vtable MidiStreamSource::k_VTable = {
     .onRead = MidiStreamSource::OnRead,
@@ -18,6 +27,7 @@ ma_data_source_vtable MidiStreamSource::k_VTable = {
 
 MidiStreamSource::MidiStreamSource(MidiPlayer* owner, void* synth,
                                    void* player, void* settings,
+                                   std::vector<char> midi_data,
                                    int sample_rate, int channels)
     : owner(owner),
       synth(synth),
@@ -26,7 +36,8 @@ MidiStreamSource::MidiStreamSource(MidiPlayer* owner, void* synth,
       sample_rate(sample_rate),
       channels(channels),
       cursor(0),
-      has_ended(false) {
+      has_ended(false),
+      midi_data(std::move(midi_data)) {
   ma_data_source_config config = ma_data_source_config_init();
   config.vtable = &k_VTable;
   ma_data_source_init(&config, &base);
@@ -56,7 +67,7 @@ ma_result MidiStreamSource::OnRead(ma_data_source* ds, void* frames_out,
   // Render from FluidSynth directly into miniaudio's buffer
   float* out = static_cast<float*>(frames_out);
   int status = self->owner->FluidPlayerGetStatus(self->player);
-  if (status == 0) {  // FLUID_PLAYER_DONE
+  if (status == kFluidPlayerDone) {
     // Final flush: render any remaining samples
     const int kBlockFrames = 512;
     float block[2 * kBlockFrames];
@@ -89,8 +100,32 @@ ma_result MidiStreamSource::OnSeek(ma_data_source* ds, ma_uint64 frame_index) {
   auto* self = reinterpret_cast<MidiStreamSource*>(
       reinterpret_cast<char*>(ds) - offsetof(MidiStreamSource, base));
   self->owner->FluidSynthSystemReset(self->synth);
+  if (self->player)
+    self->owner->FluidDeletePlayer(self->player);
+  self->player = self->owner->FluidNewPlayer(self->synth);
+  if (!self->player ||
+      self->owner->FluidPlayerAddMem(self->player, self->midi_data.data(),
+                                     self->midi_data.size()) != 0 ||
+      self->owner->FluidPlayerPlay(self->player) != 0) {
+    LOG(ERROR) << "[MIDI] Failed to restart FluidSynth player";
+    return MA_ERROR;
+  }
   self->cursor = 0;
   self->has_ended = false;
+  float discard[2 * kSeekDiscardFrames];
+  ma_uint64 remaining = frame_index;
+  while (remaining > 0) {
+    int frames = static_cast<int>(std::min<ma_uint64>(remaining,
+                                                      kSeekDiscardFrames));
+    self->owner->FluidSynthWriteFloat(self->synth, frames, discard, 0, 2,
+                                      discard, 1, 2);
+    self->cursor += frames;
+    remaining -= frames;
+    if (self->owner->FluidPlayerGetStatus(self->player) == kFluidPlayerDone) {
+      self->has_ended = true;
+      break;
+    }
+  }
   return MA_SUCCESS;
 }
 

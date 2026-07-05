@@ -6,6 +6,22 @@
 
 namespace audioservice {
 
+namespace {
+
+bool HasPathExtension(const std::string& filename) {
+  const size_t dot = filename.find_last_of('.');
+  if (dot == std::string::npos)
+    return false;
+  const size_t slash = filename.find_last_of("/\\");
+  return slash == std::string::npos || dot > slash;
+}
+
+bool ShouldTryMidiFallback(ma_result result) {
+  return result == MA_INVALID_FILE || result == MA_DOES_NOT_EXIST;
+}
+
+}  // namespace
+
 AudioStream::AudioStream(ma_engine* engine, MidiPlayer* midi_player)
     : engine_(engine),
       midi_player_(midi_player),
@@ -15,7 +31,7 @@ AudioStream::AudioStream(ma_engine* engine, MidiPlayer* midi_player)
       current_volume_(0) {}
 
 AudioStream::~AudioStream() {
-  ma_sound_uninit(&handle_);
+  UninitSound();
 }
 
 ma_result AudioStream::Play(const std::string& filename,
@@ -31,9 +47,11 @@ ma_result AudioStream::Play(const std::string& filename,
   if (MidiPlayer::IsMIDIFile(filename))
     return PlayMIDI(filename, volume, pitch, pos);
 
-  if (!ma_sound_is_playing(&handle_) || filename_ != filename) {
+  const bool need_new_sound = !initialized_ || filename_ != filename ||
+                              midi_stream_ || pos == 0;
+  if (need_new_sound) {
     filename_ = filename;
-    ma_sound_uninit(&handle_);
+    UninitSound();
 
     ma_uint32 sound_flags = MA_SOUND_FLAG_ASYNC;
     if (looping_)
@@ -44,8 +62,8 @@ ma_result AudioStream::Play(const std::string& filename,
     LOG(INFO) << "[Audio] ma_sound_init_from_file result=" << result
               << " for: " << filename;
 
-    // If miniaudio can't decode it, try MIDI (RGSS paths often lack extension)
-    if (result == MA_INVALID_FILE) {
+    // If miniaudio can't open/decode it, try MIDI (RGSS paths often lack extension).
+    if (ShouldTryMidiFallback(result)) {
       if (midi_player_ && midi_player_->IsAvailable())
         return PlayMIDI(filename, volume, pitch, pos);
       return result;
@@ -53,6 +71,9 @@ ma_result AudioStream::Play(const std::string& filename,
 
     if (result != MA_SUCCESS)
       return result;
+
+    initialized_ = true;
+    midi_stream_.reset();
   }
 
   current_volume_ = volume;
@@ -66,7 +87,8 @@ ma_result AudioStream::Play(const std::string& filename,
 
 void AudioStream::SetVolume(int32_t volume) {
   current_volume_ = volume;
-  ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
+  if (initialized_)
+    ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
 }
 
 ma_result AudioStream::PlayMIDI(const std::string& filename,
@@ -85,8 +107,14 @@ ma_result AudioStream::PlayMIDI(const std::string& filename,
       midi_player_->CreateStream(filename));
   if (!stream) {
     // Retry with .mid extension for extensionless RGSS paths
-    if (filename.rfind('.') == std::string::npos) {
+    if (!HasPathExtension(filename)) {
       std::string with_ext = filename + ".mid";
+      LOG(INFO) << "[Audio] PlayMIDI retry with: " << with_ext;
+      stream = std::unique_ptr<MidiStreamSource>(
+          midi_player_->CreateStream(with_ext));
+    }
+    if (!stream && !HasPathExtension(filename)) {
+      std::string with_ext = filename + ".midi";
       LOG(INFO) << "[Audio] PlayMIDI retry with: " << with_ext;
       stream = std::unique_ptr<MidiStreamSource>(
           midi_player_->CreateStream(with_ext));
@@ -100,7 +128,7 @@ ma_result AudioStream::PlayMIDI(const std::string& filename,
   LOG(INFO) << "[Audio] PlayMIDI stream created OK";
 
   // Uninit previous sound
-  ma_sound_uninit(&handle_);
+  UninitSound();
 
   // Init sound from streaming data source
   ma_uint32 sound_flags = MA_SOUND_FLAG_ASYNC;
@@ -113,10 +141,12 @@ ma_result AudioStream::PlayMIDI(const std::string& filename,
     LOG(ERROR) << "[MIDI] ma_sound_init_from_data_source failed: " << result;
     return result;
   }
+  initialized_ = true;
 
   // Keep stream alive for duration of playback
   midi_stream_ = std::move(stream);
 
+  current_volume_ = volume;
   ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
   ma_sound_set_pitch(&handle_, pitch / 100.0f);
   if (pos)
@@ -126,21 +156,28 @@ ma_result AudioStream::PlayMIDI(const std::string& filename,
 }
 
 void AudioStream::Stop() {
-  ma_sound_stop(&handle_);
+  if (initialized_) {
+    ma_sound_stop(&handle_);
+    cursor_ = 0;
+  }
 }
 
 void AudioStream::Fade(int32_t time) {
-  ma_sound_stop_with_fade_in_milliseconds(&handle_, time);
+  if (initialized_)
+    ma_sound_stop_with_fade_in_milliseconds(&handle_, time);
 }
 
 uint64_t AudioStream::Pos() {
-  ma_uint64 cursor;
-  ma_sound_get_cursor_in_pcm_frames(&handle_, &cursor);
+  ma_uint64 cursor = 0;
+  if (!initialized_)
+    return 0;
+  if (ma_sound_get_cursor_in_pcm_frames(&handle_, &cursor) != MA_SUCCESS)
+    return 0;
   return cursor;
 }
 
 bool AudioStream::IsPlaying() {
-  return ma_sound_is_playing(&handle_);
+  return initialized_ && ma_sound_is_playing(&handle_);
 }
 
 bool AudioStream::IsPausing() {
@@ -148,11 +185,16 @@ bool AudioStream::IsPausing() {
 }
 
 void AudioStream::Pause() {
-  ma_sound_get_cursor_in_pcm_frames(&handle_, &cursor_);
+  if (!initialized_)
+    return;
+  if (ma_sound_get_cursor_in_pcm_frames(&handle_, &cursor_) != MA_SUCCESS)
+    cursor_ = 0;
   ma_sound_stop(&handle_);
 }
 
 void AudioStream::Resume() {
+  if (!initialized_)
+    return;
   ma_sound_seek_to_pcm_frame(&handle_, cursor_);
   ma_sound_start(&handle_);
   cursor_ = 0;
@@ -164,6 +206,15 @@ bool AudioStream::IsLooping() {
 
 void AudioStream::SetLooping(bool looping) {
   looping_ = looping;
+}
+
+void AudioStream::UninitSound() {
+  if (initialized_) {
+    ma_sound_uninit(&handle_);
+    initialized_ = false;
+  }
+  midi_stream_.reset();
+  cursor_ = 0;
 }
 
 }  // namespace audioservice

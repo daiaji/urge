@@ -22,9 +22,11 @@ struct MidiStreamSource {
   int channels;
   ma_uint64 cursor;
   bool has_ended;
+  std::vector<char> midi_data;
 
   MidiStreamSource(MidiPlayer* owner, void* synth, void* player,
-                   void* settings, int sample_rate, int channels);
+                   void* settings, std::vector<char> midi_data,
+                   int sample_rate, int channels);
   ~MidiStreamSource();
 
   MidiStreamSource(const MidiStreamSource&) = delete;
