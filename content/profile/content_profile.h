@@ -103,6 +103,9 @@ class ContentProfile {
   bool win_resizable = true;
   bool fixed_aspect_ratio = true;
 
+  // Log
+  bool save_log = true;
+
   // Font
   float font_scale = 0.9f;
   bool font_kerning = true;

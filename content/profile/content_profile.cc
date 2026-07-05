@@ -287,6 +287,7 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetInteger("Engine", "FontHinting", font_hinting);
   font_outline_crop =
       reader->GetBoolean("Engine", "FontOutlineCrop", font_outline_crop);
+  save_log = reader->GetBoolean("Engine", "SaveLog", save_log);
 
   {
     std::string subs_line = reader->Get("Engine", "FontSubs", "");
@@ -343,6 +344,8 @@ void ContentProfile::SaveConfigure() {
     fprintf(fp, "FontHinting=%d\n", font_hinting);
   if (font_outline_crop != true)
     fprintf(fp, "FontOutlineCrop=%s\n", font_outline_crop ? "true" : "false");
+  if (save_log != true)
+    fprintf(fp, "SaveLog=%s\n", save_log ? "true" : "false");
   fprintf(fp, "\n[Audio]\n");
   if (audio_volume != 1.0f)
     fprintf(fp, "Volume=%.2f\n", audio_volume);
