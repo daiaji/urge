@@ -1181,11 +1181,19 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
             if (!first_src) ImGui::SameLine();
             first_src = false;
             const auto& src = sources[si];
-            ImGui::Text("%s", SourceDescription(src));
-            if (ImGui::IsItemHovered()) {
+            const char* label = SourceDescription(src);
+            ImVec2 text_pos = ImGui::GetCursorScreenPos();
+            ImVec2 text_size = ImGui::CalcTextSize(label);
+            ImVec2 mouse = ImGui::GetMousePos();
+            bool hovered = mouse.x >= text_pos.x &&
+                           mouse.x <= text_pos.x + text_size.x &&
+                           mouse.y >= text_pos.y &&
+                           mouse.y <= text_pos.y + text_size.y;
+            if (hovered) {
               text_hovered = true;
               ImGui::GetWindowDrawList()->AddRectFilled(
-                  ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
+                  text_pos, ImVec2(text_pos.x + text_size.x,
+                                   text_pos.y + text_size.y),
                   IM_COL32(80, 80, 70, 255));
               if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
                 for (auto it = bindings_.begin(); it != bindings_.end(); ++it) {
@@ -1197,6 +1205,7 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
                 SaveAllBindings();
               }
             }
+            ImGui::Text("%s", label);
           }
           // Empty area: check mouse within column 1 cell but not on text
           if (!text_hovered) {
