@@ -230,6 +230,90 @@ extern const std::string kHLSL_BitmapHueRender_Pixel;
 extern const std::string kHLSL_YUVRender_Vertex;
 extern const std::string kHLSL_YUVRender_Pixel;
 
+///
+// type:
+//   upscale shader (fullscreen quad via SV_VertexID, no vertex buffer)
+///
+// entry:
+//   vertex: VSMain (SV_VertexID, no input layout)
+//   pixel: PSMain
+///
+// resource:
+//   { Texture2D }
+//   { float2, float2, float2, float2, uint, float, float, float }
+//   (ScalingParamsBuffer: InputSize, OutputSize, InputPt, OutputPt,
+//    Mode, ARStrength, BicubicB, BicubicC)
+///
+extern const std::string kHLSL_UpscalePass_Vertex;
+extern const std::string kHLSL_UpscalePass_Pixel;
+
+///
+// type:
+//   anime4k enhance pass (reuse upscale VS, no vertex buffer)
+///
+extern const std::string kHLSL_Anime4K_Enhance_Pixel;
+
+///
+// type:
+//   CAS sharpen shader (fullscreen quad via SV_VertexID, no vertex buffer)
+///
+// entry:
+//   vertex: VSMain (SV_VertexID, no input layout)
+//   pixel: PSMain
+///
+// resource:
+//   { Texture2D }
+//   { float2, float2, float2, float2, uint, float, float, float, float }
+//   (ScalingParamsBuffer: InputSize, OutputSize, InputPt, OutputPt,
+//    Mode, ARStrength, BicubicB, BicubicC, CASSharpness)
+///
+extern const std::string kHLSL_CAS_Pixel;
+
+///
+// type:
+//   Anime4K Mode A pipeline
+//   All passes reuse kHLSL_UpscalePass_Vertex (fullscreen quad)
+///
+// resource:
+//   { Texture2D }
+//   { ScalingParamsBuffer }
+///
+// Note: multi-texture passes (merge, depth-to-space) declare multiple Texture2D
+//       in their pixel shader, bound sequentially.
+///
+extern const std::string kHLSL_Anime4K_Clamp_Highlights_Pass0_Pixel;
+extern const std::string kHLSL_Anime4K_Clamp_Highlights_Pass1_Pixel;
+extern const std::string kHLSL_Anime4K_Clamp_Highlights_Pass2_Pixel;
+extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass0_Pixel;
+extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass1_Pixel;
+extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass2_Pixel;
+extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass3_Pixel;
+extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass4_Pixel;
+extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass5_Pixel;
+extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass6_Pixel;
+extern const std::string kHLSL_Anime4K_Restore_CNN_M_Pass7_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass0_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass1_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass2_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass3_Pixel;
+extern const std::string kHLSL_Anime4K_Upscale_CNN_x2_S_Pass4_Pixel;
+
+
+// CuNNy 4x16 pipeline
+extern const std::string kHLSL_CuNNy_4x16_Pass1_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass2_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass3_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass4_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass5_Pixel;
+extern const std::string kHLSL_CuNNy_4x16_Pass6_Pixel;
+
+// CuNNy 4x24 pipeline
+extern const std::string kHLSL_CuNNy_4x24_Pass1_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass2_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass3_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass4_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass5_Pixel;
+extern const std::string kHLSL_CuNNy_4x24_Pass6_Pixel;
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_BUILTIN_HLSL_H_

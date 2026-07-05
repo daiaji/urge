@@ -42,6 +42,33 @@ class RenderScreenImpl : public Graphics, public EngineObject {
     renderer::QuadBatch transition_quads;
     renderer::Binding_AlphaTrans transition_binding_alpha;
     renderer::Binding_VagueTrans transition_binding_vague;
+
+    RRefPtr<Diligent::ITexture> upscale_buffer;
+    RRefPtr<Diligent::IBuffer> upscale_params_buffer;
+    renderer::Binding_Upscale upscale_binding;
+
+    renderer::QuadBatch scaling_quads;
+    RRefPtr<Diligent::ITexture> enhanced_tex;
+    renderer::Binding_Upscale anime4k_enhance_binding;
+
+    RRefPtr<Diligent::ITexture> sharpened_buffer;
+    renderer::Binding_Upscale cas_binding;
+
+    // Anime4K Upscale_Denoise_L intermediate targets
+    RRefPtr<Diligent::ITexture> udl_tex1;  // 640×480 RGBA16F
+    RRefPtr<Diligent::ITexture> udl_tex2;  // 640×480 RGBA16F
+    RRefPtr<Diligent::ITexture> udl_tex3;  // 640×480 RGBA16F
+    RRefPtr<Diligent::ITexture> udl_tex4;  // 640×480 RGBA16F
+    renderer::Binding_Upscale udl_pass0_binding;  // Pass0 single-texture
+    renderer::Binding_Upscale udl_pass1_binding;  // Pass1-2 dual-texture (u_Texture + u_Texture1)
+    renderer::Binding_UDL_D2S udl_pass3_binding;  // Pass3 triple-texture
+    // enhanced_tex reused as 1280×960 output target
+
+    // CuNNy intermediate targets
+    std::vector<RRefPtr<Diligent::ITexture>> cunny_tex;
+    renderer::Binding_Upscale cunny_pass1_binding;
+    renderer::Binding_CuNNy_Conv4 cunny_conv_binding;
+    renderer::Binding_CuNNy_Out cunny_out_binding;
   };
 
   RenderScreenImpl(ExecutionContext* execution_context, uint32_t frame_rate);
@@ -132,6 +159,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(IntegerScaling, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(SmoothScaling, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(SmoothScalingDown, int32_t);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(ScalingMode, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(BackgroundRunning, bool);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Ox, int32_t);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Oy, int32_t);
@@ -160,6 +188,16 @@ class RenderScreenImpl : public Graphics, public EngineObject {
       Diligent::ITextureView* trans_mapping,
       float progress,
       float vague);
+
+  bool GPUScalingPassInternal(Diligent::IDeviceContext* render_context);
+  void GPURecreateUpscaleBufferInternal();
+  void GPURecreateAnime4KTargetsInternal();
+  void GPURecreateAnime4KTargetsInternal(const base::Vec2i& size);
+  void GPURunUDLPassesInternal(Diligent::IDeviceContext* render_context);
+  void GPURunCuNNyPassesInternal(Diligent::IDeviceContext* render_context,
+                                  int variant);
+  void GPURecreateCuNNyTargetsInternal(int tex_count);
+  void GPURecreateSharpenedBufferInternal();
 
   GPUData gpu_;
   DrawNodeController controller_;

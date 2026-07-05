@@ -119,4 +119,56 @@ Binding_YUV::Binding_YUV(ShaderBinding* binding) : RenderBindingBase(binding) {
       (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_TextureV");
 }
 
+Binding_Upscale::Binding_Upscale(ShaderBinding* binding)
+    : RenderBindingBase(binding) {
+  u_texture =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
+  u_params = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                        "ScalingParamsBuffer");
+}
+
+Binding_UDL_D2S::Binding_UDL_D2S(ShaderBinding* binding)
+    : RenderBindingBase(binding) {
+  u_texture =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
+  u_texture1 =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
+  u_texture2 =
+      (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture2");
+  u_params = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL,
+                                        "ScalingParamsBuffer");
+}
+
+
+
+Binding_CuNNy_Conv4::Binding_CuNNy_Conv4(ShaderBinding* binding)
+    : RenderBindingBase(binding) {
+  u_texture0 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture0");
+  u_texture1 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
+  u_texture2 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture2");
+  u_texture3 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture3");
+  u_params = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer");
+}
+
+Binding_CuNNy_Conv6::Binding_CuNNy_Conv6(ShaderBinding* binding)
+    : RenderBindingBase(binding) {
+  u_texture0 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture0");
+  u_texture1 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
+  u_texture2 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture2");
+  u_texture3 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture3");
+  u_texture4 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture4");
+  u_texture5 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture5");
+  u_params = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer");
+}
+
+Binding_CuNNy_Out::Binding_CuNNy_Out(ShaderBinding* binding)
+    : RenderBindingBase(binding) {
+  u_texture = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture");
+  u_texture0 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture0");
+  u_texture1 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
+  u_texture2 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture2");
+  u_texture3 = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture3");
+  u_params = (*this)->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer");
+}
+
 }  // namespace renderer

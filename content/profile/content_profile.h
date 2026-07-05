@@ -31,6 +31,13 @@ class ContentProfile {
   void LoadCommandLine(int32_t argc, char** argv);
   bool LoadConfigure(const std::string& app);
   void SaveConfigure();
+  void MarkDirty() { dirty_ = true; }
+  void SaveIfDirty() {
+    if (dirty_) {
+      SaveConfigure();
+      dirty_ = false;
+    }
+  }
   void ResetAudioDefaults();
   void ResetRendererDefaults();
 
@@ -63,7 +70,7 @@ class ContentProfile {
   std::string midi_soundfont;
 
   // Renderer
-  std::string driver_backend = "UNDEFINED";
+  std::string driver_backend;
   int32_t pipeline_default_sampler = 0;
   bool render_validation =
 #if DILIGENT_DEVELOPMENT
@@ -83,7 +90,9 @@ class ContentProfile {
   int32_t smooth_scaling_down = 0;   // 0=Nearest, 1=Bilinear (down-scale)
   bool integer_scaling = false;      // Integer multiple scaling
   int32_t scaling_mode = 0;          // Scaling algorithm for post-process
-                                     // 0=Bilinear, 1=Nearest, 2=Lanczos3, 3=Bicubic
+                                       // 0=Bilinear, 1=Nearest, 2=Lanczos3, 3=Bicubic
+                                       // 4=Anime4K, 5=Anime4K+Sobel, 6=Anime4K Denoise L
+                                       // 8=CuNNy-4x16-NVL, 9=CuNNy-4x24-NVL
   float scaling_ar_strength = 0.5f;  // Anti-ringing strength (Lanczos3)
   float scaling_bicubic_b = 0.33f;   // Bicubic B (Mitchell-Netravali)
   float scaling_bicubic_c = 0.33f;   // Bicubic C (Mitchell-Netravali)
@@ -95,6 +104,10 @@ class ContentProfile {
   bool sync_to_refresh_rate = false;
   bool win_resizable = true;
   bool fixed_aspect_ratio = true;
+  bool udl_auto_fit = false;     // UDL: auto-fit window to 2x scale
+
+  // Log
+  bool save_log = true;
 
   // Font
   float font_scale = 0.9f;
@@ -111,6 +124,7 @@ class ContentProfile {
  private:
   SDL_IOStream* ini_stream_;
   std::string ini_path_;
+  bool dirty_ = false;
 };
 
 }  // namespace content

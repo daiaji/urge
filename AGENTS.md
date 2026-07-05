@@ -42,10 +42,13 @@ bash /home/daiaji/repo/urge/build_and_deploy.sh
 如果需要更新 Ruby 兼容脚本并集成到游戏中，阅读 `INTEGRATION.md`。核心流程：
 
 ```bash
-# 首次注入用 --inject-script
+# 0. 先查看当前脚本列表，确认索引
 GAME=/path/to/game
-URGE=/home/daiaji/repo/urge
 cd ~/repo/RM-Toolkit
+bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --list-scripts
+
+# 1. 首次注入用 --inject-script
+URGE=/home/daiaji/repo/urge
 bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
   --inject-script "0:${URGE}/binding/mri/third_party/rgss/urge_compat.rb" \
   --inject-script "1:${URGE}/binding/mri/third_party/rgss/ruby19_compat.rb" \
@@ -56,6 +59,9 @@ bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
 ⚠️ **不要重复 `--inject-script`**：每次会在脚本数组中插入新条目，多次注入会产生重复脚本。更新已有补丁用 `--replace-script` 替换对应索引位置。
 
 ```bash
+# 更新前先查看脚本列表确认索引
+bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --list-scripts
+
 # 更新脚本用 --replace-script（保留序号，不会新增条目）
 bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
   --replace-script "3:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"

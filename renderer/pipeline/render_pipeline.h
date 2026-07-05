@@ -118,6 +118,53 @@ PIPELINE_DEFINE(Tilemap, MAKE_BINDING_FUNCTION(Binding_Tilemap, 0););
 PIPELINE_DEFINE(Tilemap2, MAKE_BINDING_FUNCTION(Binding_Tilemap2, 0););
 PIPELINE_DEFINE(YUV, MAKE_BINDING_FUNCTION(Binding_YUV, 0););
 
+PIPELINE_DEFINE(Upscale, MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+
+PIPELINE_DEFINE(Anime4K_Enhance,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+
+PIPELINE_DEFINE(CAS,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+
+// Anime4K Upscale_Denoise_L pipeline set
+PIPELINE_DEFINE(Anime4K_UDL_Pass0,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_UDL_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_UDL_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(Anime4K_UDL_Pass3,
+                MAKE_BINDING_FUNCTION(Binding_UDL_D2S, 0););
+
+
+// CuNNy 4x16 pipeline set
+PIPELINE_DEFINE(CuNNy_4x16_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+PIPELINE_DEFINE(CuNNy_4x16_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
+PIPELINE_DEFINE(CuNNy_4x16_Pass3,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
+PIPELINE_DEFINE(CuNNy_4x16_Pass4,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
+PIPELINE_DEFINE(CuNNy_4x16_Pass5,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv4, 0););
+PIPELINE_DEFINE(CuNNy_4x16_Pass6,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Out, 0););
+
+// CuNNy 4x24 pipeline set
+PIPELINE_DEFINE(CuNNy_4x24_Pass1,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+PIPELINE_DEFINE(CuNNy_4x24_Pass2,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+PIPELINE_DEFINE(CuNNy_4x24_Pass3,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+PIPELINE_DEFINE(CuNNy_4x24_Pass4,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+PIPELINE_DEFINE(CuNNy_4x24_Pass5,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Conv6, 0););
+PIPELINE_DEFINE(CuNNy_4x24_Pass6,
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Out, 0););
+
 #undef PIPELINE_DEFINE
 #undef MAKE_BINDING_FUNCTION
 
@@ -137,6 +184,29 @@ struct PipelineSet {
   Pipeline_Tilemap2 tilemap2;
   Pipeline_BitmapHue bitmaphue;
   Pipeline_YUV yuv;
+  Pipeline_Upscale upscale;
+  Pipeline_Anime4K_Enhance anime4k_enhance;
+  Pipeline_CAS cas;
+
+  // Anime4K Upscale_Denoise_L
+  Pipeline_Anime4K_UDL_Pass0 anime4k_udl_pass0;
+  Pipeline_Anime4K_UDL_Pass1 anime4k_udl_pass1;
+  Pipeline_Anime4K_UDL_Pass2 anime4k_udl_pass2;
+  Pipeline_Anime4K_UDL_Pass3 anime4k_udl_pass3;
+  // CuNNy 4x16
+  Pipeline_CuNNy_4x16_Pass1 cunny_4x16_p1;
+  Pipeline_CuNNy_4x16_Pass2 cunny_4x16_p2;
+  Pipeline_CuNNy_4x16_Pass3 cunny_4x16_p3;
+  Pipeline_CuNNy_4x16_Pass4 cunny_4x16_p4;
+  Pipeline_CuNNy_4x16_Pass5 cunny_4x16_p5;
+  Pipeline_CuNNy_4x16_Pass6 cunny_4x16_p6;
+  // CuNNy 4x24
+  Pipeline_CuNNy_4x24_Pass1 cunny_4x24_p1;
+  Pipeline_CuNNy_4x24_Pass2 cunny_4x24_p2;
+  Pipeline_CuNNy_4x24_Pass3 cunny_4x24_p3;
+  Pipeline_CuNNy_4x24_Pass4 cunny_4x24_p4;
+  Pipeline_CuNNy_4x24_Pass5 cunny_4x24_p5;
+  Pipeline_CuNNy_4x24_Pass6 cunny_4x24_p6;
 
   PipelineSet(const PipelineInitParams& init_params)
       : base(init_params),
@@ -150,7 +220,26 @@ struct PipelineSet {
         tilemap(init_params),
         tilemap2(init_params),
         bitmaphue(init_params),
-        yuv(init_params) {}
+        yuv(init_params),
+        upscale(init_params),
+        anime4k_enhance(init_params),
+        cas(init_params),
+        anime4k_udl_pass0(init_params),
+        anime4k_udl_pass1(init_params),
+        anime4k_udl_pass2(init_params),
+        anime4k_udl_pass3(init_params),
+        cunny_4x16_p1(init_params),
+        cunny_4x16_p2(init_params),
+        cunny_4x16_p3(init_params),
+        cunny_4x16_p4(init_params),
+        cunny_4x16_p5(init_params),
+        cunny_4x16_p6(init_params),
+        cunny_4x24_p1(init_params),
+        cunny_4x24_p2(init_params),
+        cunny_4x24_p3(init_params),
+        cunny_4x24_p4(init_params),
+        cunny_4x24_p5(init_params),
+        cunny_4x24_p6(init_params) {}
 };
 
 }  // namespace renderer

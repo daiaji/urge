@@ -47,6 +47,29 @@ struct PipelineCollection {
   PipelineObject vague_transition;
 
   PipelineObject yuv;
+  PipelineObject upscale;
+  PipelineObject anime4k_enhance;
+  PipelineObject cas;
+
+  // Anime4K Mode A pipeline states
+
+  // Anime4K Upscale_Denoise_L pipeline states (MRT for Pass0-2, single for Pass3)
+  PipelineObject anime4k_udl_pass0;
+  PipelineObject anime4k_udl_pass1;
+  PipelineObject anime4k_udl_pass2;
+  PipelineObject anime4k_udl_pass3;
+  PipelineObject cunny_4x16_p1;
+  PipelineObject cunny_4x16_p2;
+  PipelineObject cunny_4x16_p3;
+  PipelineObject cunny_4x16_p4;
+  PipelineObject cunny_4x16_p5;
+  PipelineObject cunny_4x16_p6;
+  PipelineObject cunny_4x24_p1;
+  PipelineObject cunny_4x24_p2;
+  PipelineObject cunny_4x24_p3;
+  PipelineObject cunny_4x24_p4;
+  PipelineObject cunny_4x24_p5;
+  PipelineObject cunny_4x24_p6;
 
   PipelineObject window;
   PipelineObject window_with_stencil;
@@ -57,7 +80,8 @@ struct PipelineCollection {
     PipelineObject base;
   } window2;
 
-  PipelineCollection(renderer::PipelineSet* loader);
+  PipelineCollection(renderer::PipelineSet* loader,
+                     Diligent::IRenderDevice* device);
 };
 
 }  // namespace content

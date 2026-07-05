@@ -228,6 +228,89 @@ class Binding_YUV : public RenderBindingBase {
   Binding_YUV(ShaderBinding* binding);
 };
 
+class Binding_Upscale : public RenderBindingBase {
+ public:
+  struct ScalingParams {
+    base::Vec2 input_size;
+    base::Vec2 output_size;
+    base::Vec2 input_pt;
+    base::Vec2 output_pt;
+    uint32_t mode;
+    float ar_strength;
+    float bicubic_b;
+    float bicubic_c;
+    float cas_sharpness;
+  };
+
+  Binding_Upscale() = default;
+
+  RRefPtr<ShaderVariable> u_texture;
+  RRefPtr<ShaderVariable> u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_Upscale(ShaderBinding* binding);
+};
+
+// Anime4K UDL: D2S pass binding (3 textures + params)
+class Binding_UDL_D2S : public RenderBindingBase {
+ public:
+  Binding_UDL_D2S() = default;
+
+  RRefPtr<ShaderVariable> u_texture;   // INPUT (screen, bilinear)
+  RRefPtr<ShaderVariable> u_texture1;  // tex1 (point)
+  RRefPtr<ShaderVariable> u_texture2;  // tex2 (point)
+  RRefPtr<ShaderVariable> u_params;
+
+ private:
+  friend class RenderBindingBase;
+  Binding_UDL_D2S(ShaderBinding* binding);
+};
+
+
+// CuNNy: multi-texture binding for intermediate passes
+class Binding_CuNNy_Conv4 : public RenderBindingBase {
+ public:
+  Binding_CuNNy_Conv4() = default;
+  RRefPtr<ShaderVariable> u_texture0;
+  RRefPtr<ShaderVariable> u_texture1;
+  RRefPtr<ShaderVariable> u_texture2;
+  RRefPtr<ShaderVariable> u_texture3;
+  RRefPtr<ShaderVariable> u_params;
+ private:
+  friend class RenderBindingBase;
+  Binding_CuNNy_Conv4(ShaderBinding* binding);
+};
+
+class Binding_CuNNy_Conv6 : public RenderBindingBase {
+ public:
+  Binding_CuNNy_Conv6() = default;
+  RRefPtr<ShaderVariable> u_texture0;
+  RRefPtr<ShaderVariable> u_texture1;
+  RRefPtr<ShaderVariable> u_texture2;
+  RRefPtr<ShaderVariable> u_texture3;
+  RRefPtr<ShaderVariable> u_texture4;
+  RRefPtr<ShaderVariable> u_texture5;
+  RRefPtr<ShaderVariable> u_params;
+ private:
+  friend class RenderBindingBase;
+  Binding_CuNNy_Conv6(ShaderBinding* binding);
+};
+
+class Binding_CuNNy_Out : public RenderBindingBase {
+ public:
+  Binding_CuNNy_Out() = default;
+  RRefPtr<ShaderVariable> u_texture;
+  RRefPtr<ShaderVariable> u_texture0;
+  RRefPtr<ShaderVariable> u_texture1;
+  RRefPtr<ShaderVariable> u_texture2;
+  RRefPtr<ShaderVariable> u_texture3;
+  RRefPtr<ShaderVariable> u_params;
+ private:
+  friend class RenderBindingBase;
+  Binding_CuNNy_Out(ShaderBinding* binding);
+};
+
 }  // namespace renderer
 
 #endif  // !RENDERER_PIPELINE_RENDER_BINDING_H_
