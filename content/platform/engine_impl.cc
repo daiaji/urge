@@ -7,11 +7,8 @@
 #include <iostream>
 
 #include "SDL3/SDL_clipboard.h"
-#include "SDL3/SDL_cpuinfo.h"
-#include "SDL3/SDL_locale.h"
 #include "SDL3/SDL_messagebox.h"
 #include "SDL3/SDL_misc.h"
-#include "SDL3/SDL_power.h"
 #include "SDL3/SDL_platform.h"
 
 #include "components/version/version.h"
@@ -153,37 +150,6 @@ std::string EngineImpl::GetClipboardText(ExceptionState& exception_state) {
 void EngineImpl::SetClipboardText(const std::string& text,
                                   ExceptionState& exception_state) {
   SDL_SetClipboardText(text.c_str());
-}
-
-std::string EngineImpl::GetUserLanguage(ExceptionState& exception_state) {
-  int count = 0;
-  SDL_Locale** locales = SDL_GetPreferredLocales(&count);
-  if (!locales || count < 1)
-    return "en-US";
-  std::string lang(locales[0]->language);
-  if (locales[0]->country)
-    lang += "-" + std::string(locales[0]->country);
-  SDL_free(locales);
-  return lang;
-}
-
-int32_t EngineImpl::GetProcessorCount(ExceptionState& exception_state) {
-  return SDL_GetNumLogicalCPUCores();
-}
-
-int32_t EngineImpl::GetSystemMemory(ExceptionState& exception_state) {
-  return SDL_GetSystemRAM();
-}
-
-std::string EngineImpl::GetPowerState(ExceptionState& exception_state) {
-  int secs, pct;
-  switch (SDL_GetPowerInfo(&secs, &pct)) {
-    case SDL_POWERSTATE_ON_BATTERY: return "ON_BATTERY";
-    case SDL_POWERSTATE_CHARGING:   return "CHARGING";
-    case SDL_POWERSTATE_CHARGED:    return "CHARGED";
-    case SDL_POWERSTATE_NO_BATTERY: return "NO_BATTERY";
-    default:                        return "UNKNOWN";
-  }
 }
 
 void EngineImpl::AddDisposable(Disposable* disp) {

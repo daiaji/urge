@@ -112,8 +112,11 @@ void Widget::Init(InitParams params) {
         property_id, SDL_PROP_WINDOW_CREATE_OPENGL_BOOLEAN, true);
 
   window_ = SDL_CreateWindowWithProperties(property_id);
-  if (!window_)
-    LOG(INFO) << "[UI] " << SDL_GetError();
+  if (!window_) {
+    LOG(ERROR) << "[UI] " << SDL_GetError();
+    SDL_DestroyProperties(property_id);
+    return;
+  }
 
   if (params.dpi_awareness) {
     const float dpi = SDL_GetWindowDisplayScale(window_);

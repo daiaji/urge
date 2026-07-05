@@ -61,11 +61,6 @@ class EngineImpl : public URGE,
   void SetClipboardText(const std::string& text,
                         ExceptionState& exception_state) override;
 
-  std::string GetUserLanguage(ExceptionState& exception_state) override;
-  int32_t GetProcessorCount(ExceptionState& exception_state) override;
-  int32_t GetSystemMemory(ExceptionState& exception_state) override;
-  std::string GetPowerState(ExceptionState& exception_state) override;
-
   // DisposableCollection methods:
   void AddDisposable(Disposable* disp) override;
 

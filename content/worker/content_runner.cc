@@ -324,7 +324,7 @@ void ContentRunner::InitializeShaderBytecodeCacheInternal() {
   }
 
   shader_bytecode_cache_path_ =
-      (cache_dir / (std::string("shader_bytecode_cache_") +
+      (cache_dir / (std::string("shader_bytecode_cache_v2_") +
                     std::to_string(static_cast<int>(device_info.Type)) +
                     ".bin"))
           .string();
@@ -626,39 +626,7 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
 
 
 int ContentRunner::ConsoleInputCallback(ImGuiInputTextCallbackData* data) {
-  auto* runner = static_cast<ContentRunner*>(data->UserData);
-  if (data->EventFlag == ImGuiInputTextFlags_CallbackHistory) {
-    ImGuiIO& io = ImGui::GetIO();
-    if (!io.KeyCtrl)
-      return 0;
-    auto& h = runner->console_history_;
-    auto& p = runner->console_history_pos_;
-    if (data->EventKey == ImGuiKey_UpArrow && !h.empty()) {
-      if (p == -1)
-        p = static_cast<int>(h.size()) - 1;
-      else if (p > 0)
-        p--;
-      data->DeleteChars(0, data->BufTextLen);
-      data->InsertChars(0, h[p].c_str());
-      data->BufDirty = true;
-    } else if (data->EventKey == ImGuiKey_DownArrow) {
-      if (p >= 0) {
-        p++;
-        if (p < static_cast<int>(h.size())) {
-          data->DeleteChars(0, data->BufTextLen);
-          data->InsertChars(0, h[p].c_str());
-          data->BufDirty = true;
-        } else {
-          data->DeleteChars(0, data->BufTextLen);
-          p = -1;
-          data->BufDirty = true;
-        }
-      }
-    }
-    return 0;
-  }
   return 0;
-// Console input callback for ImGui
 }
 void ContentRunner::RenderConsoleGUIInternal() {
   auto* swapchain = execution_context_->render_device->GetSwapChain();
@@ -706,13 +674,12 @@ void ContentRunner::RenderConsoleGUIInternal() {
     // CtrlEnterForNewLine: Enter submits, Ctrl+Enter adds newline
     ImGuiInputTextFlags iflags =
         ImGuiInputTextFlags_EnterReturnsTrue |
-        ImGuiInputTextFlags_CtrlEnterForNewLine |
-        ImGuiInputTextFlags_CallbackHistory;
+        ImGuiInputTextFlags_CtrlEnterForNewLine;
 
     if (ImGui::InputTextMultiline(
-            "##console_in", &console_input_buffer_,
-            ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags,
-            &ConsoleInputCallback, this)) {
+        "##console_in", &console_input_buffer_,
+        ImVec2(-1, ImGui::GetTextLineHeightWithSpacing() * 2.5f), iflags,
+        nullptr, nullptr)) {
       // Trim trailing newline added by InputTextMultiline on Enter
       while (!console_input_buffer_.empty() &&
              (console_input_buffer_.back() == '\n' ||
@@ -757,26 +724,11 @@ void ContentRunner::UpdateEventInternal() {
 
   // Poll event queue
   SDL_Event queued_event = {};
-  while (SDL_PollEvent(&queued_event)
-#if !defined(OS_EMSCRIPTEN)
-         || background_running_
-#endif  //! OS_EMSCRIPTEN
-  ) {
-    const bool got_event = (queued_event.type != 0);
-
+  while (SDL_PollEvent(&queued_event)) {
     // Quit event
-    if (got_event && queued_event.type == SDL_EVENT_QUIT) {
+    if (queued_event.type == SDL_EVENT_QUIT) {
       binding_quit_flag_.store(1);
       break;
-    }
-
-    // Only process event data if SDL_PollEvent filled the struct
-    if (!got_event) {
-      if (background_running_) {
-        SDL_Delay(16);
-        queued_event = {};
-      }
-      continue;
     }
 
     // GUI event process
@@ -839,8 +791,7 @@ bool ContentRunner::EventWatchHandlerInternal(void* userdata,
   ContentRunner* self = static_cast<ContentRunner*>(userdata);
 #if !defined(OS_ANDROID)
   if (self->profile_->background_running)
-
-  return true;
+    return true;
 #endif
 
   const bool is_focus_lost =
@@ -946,8 +897,13 @@ void ContentRunner::CreateIMGUIContextInternal() {
   ImGui_ImplSDL3_InitForOther(execution_context_->window->AsSDLWindow());
 
   // Setup renderer backend
+  auto* swapchain = render_device->GetSwapChain();
+  if (!swapchain) {
+    LOG(ERROR) << "[Graphics] Cannot initialize ImGui renderer without swapchain";
+    return;
+  }
   Diligent::ImGuiDiligentCreateInfo imgui_create_info(
-      **render_device, render_device->GetSwapChain()->GetDesc());
+      **render_device, swapchain->GetDesc());
 
   auto FilterFromConfig = [](int cfg) {
     return cfg > 0 ? Diligent::FILTER_TYPE_LINEAR : Diligent::FILTER_TYPE_POINT;

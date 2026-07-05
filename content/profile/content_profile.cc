@@ -7,6 +7,11 @@
 #include "base/buildflags/build.h"
 
 #include <cstdio>
+#include <fstream>
+#include <map>
+#include <set>
+#include <sstream>
+#include <utility>
 
 #include "inih/INIReader.h"
 
@@ -72,6 +77,19 @@ void ReplaceStringWidth(std::string& str, char before, char after) {
       str[i] = after;
 }
 
+std::string JoinStrings(const std::vector<std::string>& values,
+                        const char* separator) {
+  std::string out;
+  for (const auto& value : values) {
+    if (value.empty())
+      continue;
+    if (!out.empty())
+      out += separator;
+    out += value;
+  }
+  return out;
+}
+
 base::Vec2i GetVec2iFromString(std::string in,
                                const base::Vec2i& default_value) {
   size_t sep = in.find("|");
@@ -99,6 +117,161 @@ char* IniStreamReader(char* str, int32_t num, void* stream) {
 
   str[i] = '\0';
   return i ? str : nullptr;
+}
+
+std::string TrimCopy(const std::string& value) {
+  const size_t begin = value.find_first_not_of(" \t\r\n");
+  if (begin == std::string::npos)
+    return "";
+  const size_t end = value.find_last_not_of(" \t\r\n");
+  return value.substr(begin, end - begin + 1);
+}
+
+bool ParseIniKeyLine(const std::string& line, std::string* key) {
+  std::string trimmed = TrimCopy(line);
+  if (trimmed.empty() || trimmed[0] == ';' || trimmed[0] == '#')
+    return false;
+  size_t equal = trimmed.find('=');
+  if (equal == std::string::npos)
+    return false;
+  *key = TrimCopy(trimmed.substr(0, equal));
+  return !key->empty();
+}
+
+bool ParseIniSectionLine(const std::string& line, std::string* section) {
+  std::string trimmed = TrimCopy(line);
+  if (trimmed.size() < 3 || trimmed.front() != '[' || trimmed.back() != ']')
+    return false;
+  *section = TrimCopy(trimmed.substr(1, trimmed.size() - 2));
+  return !section->empty();
+}
+
+std::string FormatBool(bool value) {
+  return value ? "true" : "false";
+}
+
+std::string FormatFloat(float value, int precision) {
+  std::ostringstream stream;
+  stream.setf(std::ios::fixed);
+  stream.precision(precision);
+  stream << value;
+  return stream.str();
+}
+
+using IniValues = std::map<std::string, std::map<std::string, std::string>>;
+using IniKeySet = std::map<std::string, std::set<std::string>>;
+
+void SetIniValue(IniValues* values,
+                 const char* section,
+                 const char* key,
+                 std::string value) {
+  (*values)[section][key] = std::move(value);
+}
+
+void AddKnownIniKey(IniKeySet* keys, const char* section, const char* key) {
+  (*keys)[section].insert(key);
+}
+
+bool IsKnownIniKey(const IniKeySet& keys,
+                   const std::string& section,
+                   const std::string& key) {
+  auto section_it = keys.find(section);
+  return section_it != keys.end() && section_it->second.contains(key);
+}
+
+void WriteKnownSection(std::string* output,
+                       const std::string& section,
+                       const std::map<std::string, std::string>& values,
+                       std::set<std::string>* written_keys) {
+  if (values.empty())
+    return;
+  if (!output->empty() && output->back() != '\n')
+    *output += '\n';
+  if (!output->empty())
+    *output += '\n';
+  *output += "[" + section + "]\n";
+  for (const auto& [key, value] : values) {
+    *output += key + "=" + value + "\n";
+    written_keys->insert(section + "." + key);
+  }
+}
+
+void WriteMissingKeys(std::string* output,
+                      const std::string& section,
+                      const IniValues& values,
+                      std::set<std::string>* written_keys) {
+  auto section_it = values.find(section);
+  if (section_it == values.end())
+    return;
+  for (const auto& [key, value] : section_it->second) {
+    const std::string full_key = section + "." + key;
+    if (written_keys->contains(full_key))
+      continue;
+    *output += key + "=" + value + "\n";
+    written_keys->insert(full_key);
+  }
+}
+
+void WriteMergedIniFile(const std::string& path,
+                        const IniValues& values,
+                        const IniKeySet& known_keys,
+                        const std::vector<std::string>& section_order) {
+  std::ifstream in(path);
+  std::vector<std::string> lines;
+  std::string line;
+  while (std::getline(in, line))
+    lines.push_back(line);
+
+  std::string output;
+  std::string current_section;
+  std::set<std::string> seen_sections;
+  std::set<std::string> written_keys;
+
+  for (const auto& original_line : lines) {
+    std::string section;
+    if (ParseIniSectionLine(original_line, &section)) {
+      WriteMissingKeys(&output, current_section, values, &written_keys);
+      current_section = section;
+      seen_sections.insert(section);
+      output += original_line + "\n";
+      continue;
+    }
+
+    std::string key;
+    if (ParseIniKeyLine(original_line, &key)) {
+      if (IsKnownIniKey(known_keys, current_section, key)) {
+        auto section_it = values.find(current_section);
+        if (section_it != values.end()) {
+          auto key_it = section_it->second.find(key);
+          if (key_it != section_it->second.end()) {
+            output += key + "=" + key_it->second + "\n";
+            written_keys.insert(current_section + "." + key);
+          }
+        }
+        continue;
+      }
+    }
+
+    output += original_line + "\n";
+  }
+  WriteMissingKeys(&output, current_section, values, &written_keys);
+
+  for (const auto& section : section_order) {
+    if (seen_sections.contains(section))
+      continue;
+    auto section_it = values.find(section);
+    if (section_it == values.end())
+      continue;
+    std::map<std::string, std::string> missing;
+    for (const auto& [key, value] : section_it->second) {
+      if (!written_keys.contains(section + "." + key))
+        missing[key] = value;
+    }
+    WriteKnownSection(&output, section, missing, &written_keys);
+  }
+
+  std::ofstream out(path, std::ios::trunc);
+  out << output;
 }
 
 #if defined(OS_WIN)
@@ -185,6 +358,7 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   }
 
   // Engine
+  api_version_configured = !reader->Get("Engine", "APIVersion", "").empty();
   api_version = static_cast<APIVersion>(reader->GetInteger(
       "Engine", "APIVersion", static_cast<int32_t>(api_version)));
   if (api_version == APIVersion::UNKNOWN) {
@@ -325,37 +499,104 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
 }
 
 void ContentProfile::SaveConfigure() {
-  FILE* fp = fopen(ini_path_.c_str(), "w");
-  if (!fp)
-    return;
+  IniValues values;
+  IniKeySet known_keys;
+  auto known = [&known_keys](const char* section, const char* key) {
+    AddKnownIniKey(&known_keys, section, key);
+  };
+  known("Game", "Scripts");
+  known("Game", "Title");
+  known("Engine", "APIVersion");
+  known("Engine", "DefaultFontPath");
+  known("Engine", "Resolution");
+  known("Engine", "WindowSize");
+  known("Engine", "I18nXMLPath");
+  known("Engine", "FontScale");
+  known("Engine", "FontKerning");
+  known("Engine", "FontHinting");
+  known("Engine", "FontOutlineCrop");
+  known("Engine", "SaveLog");
+  known("Engine", "FontSubs");
+  known("Audio", "Volume");
+  known("Audio", "SoundFont");
+  known("Renderer", "Backend");
+  known("Renderer", "PipelineDefaultSampler");
+  known("Renderer", "RenderValidation");
+  known("Renderer", "LargeDrawIndex");
+  known("Renderer", "FrameRate");
+  known("Renderer", "VSync");
+  known("Renderer", "KeepRatio");
+  known("Renderer", "AllowSkipFrame");
+  known("Renderer", "Fullscreen");
+  known("Renderer", "BackgroundRunning");
+  known("Renderer", "SmoothScalePresent");
+  known("Renderer", "SmoothScaling");
+  known("Renderer", "SmoothScalingDown");
+  known("Renderer", "IntegerScaling");
+  known("Renderer", "ScalingMode");
+  known("Renderer", "ScalingARStrength");
+  known("Renderer", "ScalingBicubicB");
+  known("Renderer", "ScalingBicubicC");
+  known("Renderer", "CASEnabled");
+  known("Renderer", "CASSharpness");
+  known("Renderer", "ScalingSobelStrength");
+  known("Renderer", "ScalingWarpStrength");
+  known("Renderer", "ScalingDarkenStrength");
+  known("Renderer", "SyncToRefreshRate");
+  known("Renderer", "WinResizable");
+  known("Renderer", "FixedAspectRatio");
+  known("Renderer", "UDLAutoFit");
+  known("GUI", "DisableSettings");
+  known("GUI", "DisableFPSMonitor");
+  known("GUI", "DisableReset");
+  known("Platform", "DebuggingConsole");
+  known("Platform", "DisableIME");
+  known("Platform", "Orientations");
 
-  fprintf(fp, "[Game]\n");
-  fprintf(fp, "Scripts=%s\n", script_path.c_str());
-  fprintf(fp, "Title=%s\n", window_title.c_str());
-  fprintf(fp, "\n[Engine]\n");
-  fprintf(fp, "APIVersion=%d\n", static_cast<int>(api_version));
-  fprintf(fp, "DefaultFontPath=%s\n", default_font_path.c_str());
-  fprintf(fp, "Resolution=%d|%d\n", resolution.x, resolution.y);
-  fprintf(fp, "WindowSize=%d|%d\n", window_size.x, window_size.y);
-  fprintf(fp, "I18nXMLPath=%s\n", i18n_xml_path.c_str());
+  if (script_path != "Data/Scripts.rxdata")
+    SetIniValue(&values, "Game", "Scripts", script_path);
+  if (window_title != "URGE Widget")
+    SetIniValue(&values, "Game", "Title", window_title);
+  if (api_version_configured)
+    SetIniValue(&values, "Engine", "APIVersion",
+                std::to_string(static_cast<int>(api_version)));
+  if (default_font_path != "Fonts/Default.ttf")
+    SetIniValue(&values, "Engine", "DefaultFontPath", default_font_path);
+  const base::Vec2i default_resolution =
+      (api_version == APIVersion::RGSS1) ? base::Vec2i(640, 480)
+                                        : base::Vec2i(544, 416);
+  if (resolution.x != default_resolution.x ||
+      resolution.y != default_resolution.y)
+    SetIniValue(&values, "Engine", "Resolution",
+                std::to_string(resolution.x) + "|" + std::to_string(resolution.y));
+  if (window_size.x != resolution.x || window_size.y != resolution.y)
+    SetIniValue(&values, "Engine", "WindowSize",
+                std::to_string(window_size.x) + "|" + std::to_string(window_size.y));
+  if (i18n_xml_path != program_name + ".xml")
+    SetIniValue(&values, "Engine", "I18nXMLPath", i18n_xml_path);
   if (font_scale != 0.9f)
-    fprintf(fp, "FontScale=%.1f\n", font_scale);
+    SetIniValue(&values, "Engine", "FontScale", FormatFloat(font_scale, 1));
   if (font_kerning != true)
-    fprintf(fp, "FontKerning=%s\n", font_kerning ? "true" : "false");
+    SetIniValue(&values, "Engine", "FontKerning", FormatBool(font_kerning));
   if (font_hinting != 3)
-    fprintf(fp, "FontHinting=%d\n", font_hinting);
+    SetIniValue(&values, "Engine", "FontHinting", std::to_string(font_hinting));
   if (font_outline_crop != true)
-    fprintf(fp, "FontOutlineCrop=%s\n", font_outline_crop ? "true" : "false");
+    SetIniValue(&values, "Engine", "FontOutlineCrop", FormatBool(font_outline_crop));
   if (save_log != true)
-    fprintf(fp, "SaveLog=%s\n", save_log ? "true" : "false");
-  fprintf(fp, "\n[Audio]\n");
+    SetIniValue(&values, "Engine", "SaveLog", FormatBool(save_log));
+  if (!font_subs.empty())
+    SetIniValue(&values, "Engine", "FontSubs", JoinStrings(font_subs, ","));
+
   if (audio_volume != 1.0f)
-    fprintf(fp, "Volume=%.2f\n", audio_volume);
+    SetIniValue(&values, "Audio", "Volume", FormatFloat(audio_volume, 2));
   if (!midi_soundfont.empty())
-    fprintf(fp, "SoundFont=%s\n", midi_soundfont.c_str());
-  fprintf(fp, "\n[Renderer]\n");
+    SetIniValue(&values, "Audio", "SoundFont", midi_soundfont);
+
   if (!driver_backend.empty())
-    fprintf(fp, "Backend=%s\n", driver_backend.c_str());
+    SetIniValue(&values, "Renderer", "Backend", driver_backend);
+  if (pipeline_default_sampler != 0)
+    SetIniValue(&values, "Renderer", "PipelineDefaultSampler",
+                std::to_string(pipeline_default_sampler));
   if (render_validation !=
 #if DILIGENT_DEVELOPMENT
       true
@@ -363,76 +604,81 @@ void ContentProfile::SaveConfigure() {
       false
 #endif
   )
-    fprintf(fp, "RenderValidation=%s\n", render_validation ? "true" : "false");
+    SetIniValue(&values, "Renderer", "RenderValidation", FormatBool(render_validation));
   if (u32_draw_index != true)
-    fprintf(fp, "LargeDrawIndex=%s\n", u32_draw_index ? "true" : "false");
+    SetIniValue(&values, "Renderer", "LargeDrawIndex", FormatBool(u32_draw_index));
   {
     int default_fr = (api_version == APIVersion::RGSS1) ? 40 : 60;
     if (frame_rate != default_fr)
-      fprintf(fp, "FrameRate=%d\n", frame_rate);
+      SetIniValue(&values, "Renderer", "FrameRate", std::to_string(frame_rate));
   }
   if (vsync != 1)
-    fprintf(fp, "VSync=%u\n", vsync);
+    SetIniValue(&values, "Renderer", "VSync", std::to_string(vsync));
   if (keep_ratio != true)
-    fprintf(fp, "KeepRatio=%s\n", keep_ratio ? "true" : "false");
+    SetIniValue(&values, "Renderer", "KeepRatio", FormatBool(keep_ratio));
   if (allow_skip_frame != true)
-    fprintf(fp, "AllowSkipFrame=%s\n", allow_skip_frame ? "true" : "false");
+    SetIniValue(&values, "Renderer", "AllowSkipFrame", FormatBool(allow_skip_frame));
   if (fullscreen != false)
-    fprintf(fp, "Fullscreen=%s\n", fullscreen ? "true" : "false");
+    SetIniValue(&values, "Renderer", "Fullscreen", FormatBool(fullscreen));
   if (background_running != true)
-    fprintf(fp, "BackgroundRunning=%s\n", background_running ? "true" : "false");
+    SetIniValue(&values, "Renderer", "BackgroundRunning", FormatBool(background_running));
   if (smooth_scale_present != false)
-    fprintf(fp, "SmoothScalePresent=%s\n", smooth_scale_present ? "true" : "false");
+    SetIniValue(&values, "Renderer", "SmoothScalePresent", FormatBool(smooth_scale_present));
   if (smooth_scaling != 0)
-    fprintf(fp, "SmoothScaling=%d\n", smooth_scaling);
+    SetIniValue(&values, "Renderer", "SmoothScaling", std::to_string(smooth_scaling));
   if (smooth_scaling_down != 0)
-    fprintf(fp, "SmoothScalingDown=%d\n", smooth_scaling_down);
+    SetIniValue(&values, "Renderer", "SmoothScalingDown", std::to_string(smooth_scaling_down));
   if (integer_scaling != false)
-    fprintf(fp, "IntegerScaling=%s\n", integer_scaling ? "true" : "false");
+    SetIniValue(&values, "Renderer", "IntegerScaling", FormatBool(integer_scaling));
   if (scaling_mode != 0)
-    fprintf(fp, "ScalingMode=%d\n", scaling_mode);
+    SetIniValue(&values, "Renderer", "ScalingMode", std::to_string(scaling_mode));
   if (scaling_ar_strength != 0.5f)
-    fprintf(fp, "ScalingARStrength=%.2f\n", scaling_ar_strength);
+    SetIniValue(&values, "Renderer", "ScalingARStrength", FormatFloat(scaling_ar_strength, 2));
   if (scaling_bicubic_b != 0.33f)
-    fprintf(fp, "ScalingBicubicB=%.2f\n", scaling_bicubic_b);
+    SetIniValue(&values, "Renderer", "ScalingBicubicB", FormatFloat(scaling_bicubic_b, 2));
   if (scaling_bicubic_c != 0.33f)
-    fprintf(fp, "ScalingBicubicC=%.2f\n", scaling_bicubic_c);
+    SetIniValue(&values, "Renderer", "ScalingBicubicC", FormatFloat(scaling_bicubic_c, 2));
   if (cas_enabled != false)
-    fprintf(fp, "CASEnabled=%s\n", cas_enabled ? "true" : "false");
+    SetIniValue(&values, "Renderer", "CASEnabled", FormatBool(cas_enabled));
   if (cas_sharpness != 0.4f)
-    fprintf(fp, "CASSharpness=%.2f\n", cas_sharpness);
+    SetIniValue(&values, "Renderer", "CASSharpness", FormatFloat(cas_sharpness, 2));
   if (scaling_sobel_strength != 1.0f)
-    fprintf(fp, "ScalingSobelStrength=%.2f\n", scaling_sobel_strength);
+    SetIniValue(&values, "Renderer", "ScalingSobelStrength", FormatFloat(scaling_sobel_strength, 2));
   if (scaling_warp_strength != 0.0f)
-    fprintf(fp, "ScalingWarpStrength=%.2f\n", scaling_warp_strength);
+    SetIniValue(&values, "Renderer", "ScalingWarpStrength", FormatFloat(scaling_warp_strength, 2));
   if (scaling_darken_strength != 0.0f)
-    fprintf(fp, "ScalingDarkenStrength=%.2f\n", scaling_darken_strength);
+    SetIniValue(&values, "Renderer", "ScalingDarkenStrength", FormatFloat(scaling_darken_strength, 2));
   if (sync_to_refresh_rate != false)
-    fprintf(fp, "SyncToRefreshRate=%s\n", sync_to_refresh_rate ? "true" : "false");
+    SetIniValue(&values, "Renderer", "SyncToRefreshRate", FormatBool(sync_to_refresh_rate));
   if (win_resizable != true)
-    fprintf(fp, "WinResizable=%s\n", win_resizable ? "true" : "false");
+    SetIniValue(&values, "Renderer", "WinResizable", FormatBool(win_resizable));
   if (fixed_aspect_ratio != true)
-    fprintf(fp, "FixedAspectRatio=%s\n", fixed_aspect_ratio ? "true" : "false");
+    SetIniValue(&values, "Renderer", "FixedAspectRatio", FormatBool(fixed_aspect_ratio));
   if (udl_auto_fit != false)
-    fprintf(fp, "UDLAutoFit=%s\n", udl_auto_fit ? "true" : "false");
-  fprintf(fp, "\n[GUI]\n");
-  if (disable_settings != false)
-    fprintf(fp, "DisableSettings=%s\n", disable_settings ? "true" : "false");
-  if (disable_fps_monitor != false)
-    fprintf(fp, "DisableFPSMonitor=%s\n", disable_fps_monitor ? "true" : "false");
-  if (disable_reset != false)
-    fprintf(fp, "DisableReset=%s\n", disable_reset ? "true" : "false");
-  fprintf(fp, "\n[Platform]\n");
-  if (debugging_console != false)
-    fprintf(fp, "DebuggingConsole=%s\n", debugging_console ? "true" : "false");
-  if (disable_ime != false)
-    fprintf(fp, "DisableIME=%s\n", disable_ime ? "true" : "false");
+    SetIniValue(&values, "Renderer", "UDLAutoFit", FormatBool(udl_auto_fit));
 
-  fclose(fp);
+  if (disable_settings != false)
+    SetIniValue(&values, "GUI", "DisableSettings", FormatBool(disable_settings));
+  if (disable_fps_monitor != false)
+    SetIniValue(&values, "GUI", "DisableFPSMonitor", FormatBool(disable_fps_monitor));
+  if (disable_reset != false)
+    SetIniValue(&values, "GUI", "DisableReset", FormatBool(disable_reset));
+
+  if (debugging_console != false)
+    SetIniValue(&values, "Platform", "DebuggingConsole", FormatBool(debugging_console));
+  if (disable_ime != false)
+    SetIniValue(&values, "Platform", "DisableIME", FormatBool(disable_ime));
+  if (orientation != "LandscapeLeft LandscapeRight")
+    SetIniValue(&values, "Platform", "Orientations", orientation);
+
+  WriteMergedIniFile(
+      ini_path_, values, known_keys,
+      {"Game", "Engine", "Audio", "Renderer", "GUI", "Platform"});
 }
 
 void ContentProfile::ResetAudioDefaults() {
   audio_volume = 1.0f;
+  midi_soundfont.clear();
 }
 
 void ContentProfile::ResetRendererDefaults() {

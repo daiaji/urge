@@ -78,21 +78,6 @@ class URGE_OBJECT(URGE) {
   virtual void SetClipboardText(const std::string& text,
                                 ExceptionState& exception_state) = 0;
 
-  /*--urge(name:user_language)--*/
-  virtual std::string GetUserLanguage(
-      ExceptionState& exception_state) = 0;
-
-  /*--urge(name:nproc)--*/
-  virtual int32_t GetProcessorCount(
-      ExceptionState& exception_state) = 0;
-
-  /*--urge(name:memory)--*/
-  virtual int32_t GetSystemMemory(
-      ExceptionState& exception_state) = 0;
-
-  /*--urge(name:power_state)--*/
-  virtual std::string GetPowerState(
-      ExceptionState& exception_state) = 0;
 };
 
 }  // namespace content
