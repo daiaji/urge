@@ -31,6 +31,13 @@ class ContentProfile {
   void LoadCommandLine(int32_t argc, char** argv);
   bool LoadConfigure(const std::string& app);
   void SaveConfigure();
+  void MarkDirty() { dirty_ = true; }
+  void SaveIfDirty() {
+    if (dirty_) {
+      SaveConfigure();
+      dirty_ = false;
+    }
+  }
   void ResetAudioDefaults();
   void ResetRendererDefaults();
 
@@ -60,10 +67,9 @@ class ContentProfile {
 
   // Audio
   float audio_volume = 1.0f;
-  std::string midi_soundfont;
 
   // Renderer
-  std::string driver_backend;
+  std::string driver_backend = "UNDEFINED";
   int32_t pipeline_default_sampler = 0;
   bool render_validation =
 #if DILIGENT_DEVELOPMENT
@@ -111,6 +117,7 @@ class ContentProfile {
  private:
   SDL_IOStream* ini_stream_;
   std::string ini_path_;
+  bool dirty_ = false;
 };
 
 }  // namespace content

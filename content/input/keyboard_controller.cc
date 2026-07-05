@@ -1270,11 +1270,6 @@ void KeyboardControllerImpl::CreateButtonGUISettings() {
                            .c_str())) {
       ResetBindingsToDefault();
     }
-    ImGui::SameLine();
-    if (ImGui::Button(
-            i18n->GetI18NString(IDS_BUTTON_SAVE_SETTINGS, "Save").c_str())) {
-      SaveBindingsInternal();
-    }
   }
 }
 
