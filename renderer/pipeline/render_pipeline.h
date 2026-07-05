@@ -143,13 +143,13 @@ PIPELINE_DEFINE(CAS,
 
 // Anime4K Upscale_Denoise_L pipeline set
 PIPELINE_DEFINE(Anime4K_UDL_Pass0,
-                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(Anime4K_UDL_Pass1,
-                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(Anime4K_UDL_Pass2,
-                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 PIPELINE_DEFINE(Anime4K_UDL_Pass3,
-                MAKE_BINDING_FUNCTION(Binding_UDL_D2S, 0););
+                MAKE_BINDING_FUNCTION(Binding_CuNNy_Compute, 0););
 
 
 // CuNNy 4x16 pipeline set

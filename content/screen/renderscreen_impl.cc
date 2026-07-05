@@ -17,6 +17,7 @@
 #include "Graphics/GraphicsEngineOpenGL/interface/RenderDeviceGLES.h"
 #endif
 
+#include "base/debug/logging.h"
 #include "content/canvas/canvas_scheduler.h"
 #include "content/common/rect_impl.h"
 #include "content/context/execution_context.h"
@@ -27,6 +28,44 @@
 #include "renderer/utils/texture_utils.h"
 
 namespace content {
+
+namespace {
+
+bool IsTwoXUpscaleMode(int mode) {
+  return mode >= 6 && mode <= 8;
+}
+
+void ApplyTwoXAutoFitWindow(ExecutionContext* context, bool enabled) {
+  SDL_Window* win = context->window->AsSDLWindow();
+  auto native = context->resolution;
+  auto target = enabled ? native * 2 : context->engine_profile->window_size;
+  if (target.x <= 0 || target.y <= 0)
+    target = native;
+
+  SDL_SetWindowResizable(win, !enabled && context->engine_profile->win_resizable);
+  if (enabled) {
+    SDL_SetWindowMinimumSize(win, target.x, target.y);
+    SDL_SetWindowMaximumSize(win, target.x, target.y);
+  } else {
+    SDL_SetWindowMinimumSize(win, 0, 0);
+    SDL_SetWindowMaximumSize(win, 0, 0);
+  }
+
+  SDL_SetWindowSize(win, target.x, target.y);
+
+  SDL_DisplayID display = SDL_GetDisplayForWindow(win);
+  SDL_Rect bounds;
+  if (SDL_GetDisplayBounds(display, &bounds)) {
+    int cx = bounds.x + (bounds.w - target.x) / 2;
+    int cy = bounds.y + (bounds.h - target.y) / 2;
+    SDL_SetWindowPosition(win, cx, cy);
+  }
+
+  LOG(INFO) << "[Graphics] 2x auto-fit " << (enabled ? "enabled" : "disabled")
+            << ": window=" << target.x << "x" << target.y;
+}
+
+}  // namespace
 
 ///////////////////////////////////////////////////////////////////////////////
 // RenderScreenImpl Implement
@@ -42,6 +81,9 @@ RenderScreenImpl::RenderScreenImpl(ExecutionContext* execution_context,
       unlimited_fps_(frame_rate == 0) {
   // Setup render device on render thread if possible
   GPUCreateGraphicsHostInternal();
+  auto_fit_window_pending_ =
+      context()->engine_profile->udl_auto_fit &&
+      IsTwoXUpscaleMode(context()->engine_profile->scaling_mode);
 
   // Initialize fps limiter
   limiter_.Reset();
@@ -178,8 +220,17 @@ void RenderScreenImpl::CreateButtonGUISettings() {
                                     "Anime4K Denoise L",
                                     "CuNNy-4x16-NVL", "CuNNy-4x24-NVL"};
     if (ImGui::Combo("##scaling_mode", &settings_profile.scaling_mode,
-                 scaling_items, IM_ARRAYSIZE(scaling_items)))
+                 scaling_items, IM_ARRAYSIZE(scaling_items))) {
+      if (settings_profile.udl_auto_fit &&
+          IsTwoXUpscaleMode(settings_profile.scaling_mode))
+        ApplyTwoXAutoFitWindow(context(), true);
+      if (settings_profile.udl_auto_fit &&
+          !IsTwoXUpscaleMode(settings_profile.scaling_mode)) {
+        settings_profile.udl_auto_fit = false;
+        ApplyTwoXAutoFitWindow(context(), false);
+      }
       context()->engine_profile->MarkDirty();
+    }
 
     if (settings_profile.scaling_mode == 5) {
       ImGui::SliderFloat("##sobel_strength",
@@ -204,27 +255,20 @@ void RenderScreenImpl::CreateButtonGUISettings() {
       ImGui::SameLine();
       ImGui::TextDisabled("(4-pass)");
 
-      if (ImGui::Checkbox("Auto-fit Window", &settings_profile.udl_auto_fit))
+      if (ImGui::Checkbox("Auto-fit Window", &settings_profile.udl_auto_fit)) {
+        ApplyTwoXAutoFitWindow(context(), settings_profile.udl_auto_fit);
         context()->engine_profile->MarkDirty();
+      }
+    }
 
-      if (settings_profile.udl_auto_fit) {
-        ImGui::SameLine();
-        if (ImGui::Button("Apply##udlautofit")) {
-          auto native = context()->resolution;
-          SDL_Window* win = context()->window->AsSDLWindow();
-          int display = SDL_GetDisplayForWindow(win);
-          SDL_Rect bounds;
-          SDL_GetDisplayBounds(display, &bounds);
-          int max_factor = std::min(bounds.w / native.x, bounds.h / native.y);
-          if (max_factor < 2) max_factor = 2;
-          int factor = (max_factor / 2) * 2;
-          int w = native.x * factor;
-          int h = native.y * factor;
-          SDL_SetWindowSize(win, w, h);
-          int cx = bounds.x + (bounds.w - w) / 2;
-          int cy = bounds.y + (bounds.h - h) / 2;
-          SDL_SetWindowPosition(win, cx, cy);
-        }
+    if (settings_profile.scaling_mode == 7 || settings_profile.scaling_mode == 8) {
+      ImGui::TextDisabled("2x super-resolution");
+      ImGui::SameLine();
+      ImGui::TextDisabled(settings_profile.scaling_mode == 8 ? "(4x24)" : "(4x16)");
+
+      if (ImGui::Checkbox("Auto-fit Window", &settings_profile.udl_auto_fit)) {
+        ApplyTwoXAutoFitWindow(context(), settings_profile.udl_auto_fit);
+        context()->engine_profile->MarkDirty();
       }
     }
 
@@ -276,6 +320,16 @@ void RenderScreenImpl::Update(ExceptionState& exception_state) {
   // Process frame delay
   // This calling will yield to event coroutine and present
   FrameProcessInternal(gpu_.screen_buffer);
+}
+
+void RenderScreenImpl::ApplyPendingAutoFitWindowInternal() {
+  if (!auto_fit_window_pending_)
+    return;
+
+  auto_fit_window_pending_ = false;
+  auto* profile = context()->engine_profile;
+  if (profile->udl_auto_fit && IsTwoXUpscaleMode(profile->scaling_mode))
+    ApplyTwoXAutoFitWindow(context(), true);
 }
 
 void RenderScreenImpl::Wait(uint32_t duration,
@@ -448,6 +502,9 @@ void RenderScreenImpl::ResizeScreen(uint32_t width,
                                     ExceptionState& exception_state) {
   context()->resolution = base::Vec2i(width, height);
   GPUResetScreenBufferInternal();
+  if (context()->engine_profile->udl_auto_fit &&
+      IsTwoXUpscaleMode(context()->engine_profile->scaling_mode))
+    auto_fit_window_pending_ = true;
 
   if (context()->engine_profile->fixed_aspect_ratio) {
     float ratio = static_cast<float>(width) / static_cast<float>(height);
@@ -477,6 +534,9 @@ void RenderScreenImpl::MoveWindow(int32_t x,
   auto* window = context()->window->AsSDLWindow();
   SDL_SetWindowSize(window, width, height);
   SDL_SetWindowPosition(window, x, y);
+  if (context()->engine_profile->udl_auto_fit &&
+      IsTwoXUpscaleMode(context()->engine_profile->scaling_mode))
+    auto_fit_window_pending_ = true;
 }
 
 void RenderScreenImpl::Center(ExceptionState& exception_state) {
@@ -637,7 +697,11 @@ URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     int32_t,
     RenderScreenImpl,
     { return context()->engine_profile->scaling_mode; },
-    { context()->engine_profile->scaling_mode = value; });
+    {
+      context()->engine_profile->scaling_mode = value;
+      if (context()->engine_profile->udl_auto_fit && IsTwoXUpscaleMode(value))
+        auto_fit_window_pending_ = true;
+    });
 
 URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     BackgroundRunning,
@@ -681,6 +745,8 @@ void RenderScreenImpl::FrameProcessInternal(
   // Determine wait delay time
   limiter_.Delay();
 
+  ApplyPendingAutoFitWindowInternal();
+
   // Only run scaling pipeline if the upscale shader compiled successfully
   bool scaling_avail = context()->render.pipeline_states->upscale.RawPtr() != nullptr;
 
@@ -693,11 +759,11 @@ void RenderScreenImpl::FrameProcessInternal(
     GPURecreateSharpenedBufferInternal();
 
   // Run scaling pass if upscale buffer is active
-  bool scaling_done = false;
+  Diligent::ITexture* scaled_target = nullptr;
   if (scaling_avail && gpu_.upscale_buffer && present_target == gpu_.screen_buffer)
-    scaling_done = GPUScalingPassInternal(context()->primary_render_context);
-  if (scaling_done) {
-    present_target = gpu_.upscale_buffer;
+    scaled_target = GPUScalingPassInternal(context()->primary_render_context);
+  if (scaled_target) {
+    present_target = scaled_target;
     if (context()->engine_profile->cas_enabled && gpu_.sharpened_buffer)
       present_target = gpu_.sharpened_buffer;
   }
@@ -771,6 +837,8 @@ void RenderScreenImpl::GPUCreateGraphicsHostInternal() {
       context()->render.pipeline_loader->anime4k_udl_pass0.CreateBinding();
   gpu_.udl_pass1_binding =
       context()->render.pipeline_loader->anime4k_udl_pass1.CreateBinding();
+  gpu_.udl_pass2_binding =
+      context()->render.pipeline_loader->anime4k_udl_pass2.CreateBinding();
   gpu_.udl_pass3_binding =
       context()->render.pipeline_loader->anime4k_udl_pass3.CreateBinding();
 
@@ -1028,10 +1096,8 @@ void RenderScreenImpl::GPURunUDLPassesInternal(
     return;
 
   // Check bindings
-  if (!gpu_.udl_pass0_binding.u_texture || !gpu_.udl_pass0_binding.u_params ||
-      !gpu_.udl_pass1_binding.u_texture || !gpu_.udl_pass1_binding.u_params ||
-      !gpu_.udl_pass3_binding.u_texture || !gpu_.udl_pass3_binding.u_texture1 ||
-      !gpu_.udl_pass3_binding.u_texture2 || !gpu_.udl_pass3_binding.u_params)
+  if (!gpu_.udl_pass0_binding() || !gpu_.udl_pass1_binding() ||
+      !gpu_.udl_pass2_binding() || !gpu_.udl_pass3_binding())
     return;
 
   if (!gpu_.screen_buffer || !gpu_.upscale_params_buffer)
@@ -1044,14 +1110,16 @@ void RenderScreenImpl::GPURunUDLPassesInternal(
     if (tex) {
       const auto& d = tex->GetDesc();
       if (d.Width == static_cast<uint32_t>(size.x) &&
-          d.Height == static_cast<uint32_t>(size.y))
+          d.Height == static_cast<uint32_t>(size.y) &&
+          d.Format == Diligent::TEX_FORMAT_RGBA16_FLOAT)
         return;
     }
     tex.Release();
     renderer::CreateTexture2D(**context()->render_device, &tex, name, size,
                               Diligent::USAGE_DEFAULT,
                               Diligent::BIND_RENDER_TARGET |
-                                  Diligent::BIND_SHADER_RESOURCE,
+                                  Diligent::BIND_SHADER_RESOURCE |
+                                  Diligent::BIND_UNORDERED_ACCESS,
                               Diligent::CPU_ACCESS_NONE,
                               Diligent::TEX_FORMAT_RGBA16_FLOAT);
   };
@@ -1064,18 +1132,11 @@ void RenderScreenImpl::GPURunUDLPassesInternal(
   if (!gpu_.udl_tex1 || !gpu_.udl_tex2 || !gpu_.udl_tex3 || !gpu_.udl_tex4)
     return;
 
-  auto* quad_index = **context()->render.quad_index;
-  auto index_type = context()->render.quad_index->GetIndexType();
-
-  auto set_viewport = [&](const base::Vec2i& size) {
-    SetAnime4KScissorAndViewport(render_context, size);
-  };
-
-  auto get_rtv = [](RRefPtr<Diligent::ITexture>& tex) {
-    return tex->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
-  };
   auto get_srv = [](RRefPtr<Diligent::ITexture>& tex) {
     return tex->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+  };
+  auto get_uav = [](RRefPtr<Diligent::ITexture>& tex) {
+    return tex->GetDefaultView(Diligent::TEXTURE_VIEW_UNORDERED_ACCESS);
   };
 
   auto write_params = [&](const renderer::Binding_Upscale::ScalingParams& p) {
@@ -1097,92 +1158,75 @@ void RenderScreenImpl::GPURunUDLPassesInternal(
   auto& t3 = gpu_.udl_tex3;
   auto& t4 = gpu_.udl_tex4;
 
-  // ════════════════════════════════════════════
-  // Pass0: Conv-4x3x3x3 (screen → tex1 + tex2, MRT)
-  // ════════════════════════════════════════════
+  auto dispatch8 = [&](const base::Vec2i& size) {
+    Diligent::DispatchComputeAttribs attrs(
+        static_cast<uint32_t>((size.x + 7) / 8),
+        static_cast<uint32_t>((size.y + 7) / 8), 1);
+    render_context->DispatchCompute(attrs);
+  };
+  auto dispatch16 = [&](const base::Vec2i& size) {
+    Diligent::DispatchComputeAttribs attrs(
+        static_cast<uint32_t>((size.x + 15) / 16),
+        static_cast<uint32_t>((size.y + 15) / 16), 1);
+    render_context->DispatchCompute(attrs);
+  };
+
+  // Pass1: Conv-4x3x3x3 (screen -> tex1 + tex2)
   {
-    auto* rtv0 = get_rtv(t1);
-    auto* rtv1 = get_rtv(t2);
-    Diligent::ITextureView* rtvs[] = {rtv0, rtv1};
-    render_context->SetRenderTargets(
-        2, rtvs, nullptr,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    float clr[] = {0, 0, 0, 0};
-    render_context->ClearRenderTarget(
-        rtv0, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    render_context->ClearRenderTarget(
-        rtv1, clr, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    set_viewport(native);
+    auto& binding = gpu_.udl_pass0_binding;
+    if (!binding.u_texture || !binding.u_outputs[0] || !binding.u_outputs[1] ||
+        !binding.u_params)
+      return;
     render_context->SetPipelineState(states.anime4k_udl_pass0);
-    gpu_.udl_pass0_binding.u_texture->Set(get_srv(screen));
-    gpu_.udl_pass0_binding.u_params->Set(gpu_.upscale_params_buffer);
-    render_context->CommitShaderResources(
-        *gpu_.udl_pass0_binding,
+    binding.u_texture->Set(get_srv(screen));
+    binding.u_outputs[0]->Set(get_uav(t1));
+    binding.u_outputs[1]->Set(get_uav(t2));
+    binding.u_params->Set(gpu_.upscale_params_buffer);
+    render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+    dispatch16(native);
   }
 
-  // ════════════════════════════════════════════
-  // Pass1: Conv-4x3x3x16 (tex1 + tex2 → tex3 + tex4, MRT)
-  // ════════════════════════════════════════════
+  // Pass2: Conv-4x3x3x16 (tex1 + tex2 -> tex3 + tex4)
   {
-    auto* rtv0 = get_rtv(t3);
-    auto* rtv1 = get_rtv(t4);
-    Diligent::ITextureView* rtvs[] = {rtv0, rtv1};
-    render_context->SetRenderTargets(
-        2, rtvs, nullptr,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    set_viewport(native);
+    auto& binding = gpu_.udl_pass1_binding;
+    if (!binding.u_textures[1] || !binding.u_textures[2] ||
+        !binding.u_outputs[0] || !binding.u_outputs[1] || !binding.u_params)
+      return;
     render_context->SetPipelineState(states.anime4k_udl_pass1);
-    gpu_.udl_pass1_binding.u_texture->Set(get_srv(t1));
-    gpu_.udl_pass1_binding.u_params->Set(gpu_.upscale_params_buffer);
-    auto* tex1_var = (*gpu_.udl_pass1_binding)
-        ->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
-    if (tex1_var)
-      tex1_var->Set(get_srv(t2));
-    render_context->CommitShaderResources(
-        *gpu_.udl_pass1_binding,
+    binding.u_textures[1]->Set(get_srv(t1));
+    binding.u_textures[2]->Set(get_srv(t2));
+    binding.u_outputs[0]->Set(get_uav(t3));
+    binding.u_outputs[1]->Set(get_uav(t4));
+    binding.u_params->Set(gpu_.upscale_params_buffer);
+    render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+    dispatch8(native);
   }
 
-  // ════════════════════════════════════════════
-  // Pass2: Conv-4x3x3x16 (tex3 + tex4 → tex1 + tex2, MRT)
-  // ════════════════════════════════════════════
+  // Pass3: Conv-4x3x3x16 (tex3 + tex4 -> tex1 + tex2)
   {
-    auto* rtv0 = get_rtv(t1);
-    auto* rtv1 = get_rtv(t2);
-    Diligent::ITextureView* rtvs[] = {rtv0, rtv1};
-    render_context->SetRenderTargets(
-        2, rtvs, nullptr,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    set_viewport(native);
+    auto& binding = gpu_.udl_pass2_binding;
+    if (!binding.u_textures[3] || !binding.u_textures[4] ||
+        !binding.u_outputs[0] || !binding.u_outputs[1] || !binding.u_params)
+      return;
     render_context->SetPipelineState(states.anime4k_udl_pass2);
-    gpu_.udl_pass1_binding.u_texture->Set(get_srv(t3));
-    gpu_.udl_pass1_binding.u_params->Set(gpu_.upscale_params_buffer);
-    auto* tex1_var = (*gpu_.udl_pass1_binding)
-        ->GetVariableByName(Diligent::SHADER_TYPE_PIXEL, "u_Texture1");
-    if (tex1_var)
-      tex1_var->Set(get_srv(t4));
-    render_context->CommitShaderResources(
-        *gpu_.udl_pass1_binding,
+    binding.u_textures[3]->Set(get_srv(t3));
+    binding.u_textures[4]->Set(get_srv(t4));
+    binding.u_outputs[0]->Set(get_uav(t1));
+    binding.u_outputs[1]->Set(get_uav(t2));
+    binding.u_params->Set(gpu_.upscale_params_buffer);
+    render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+    dispatch8(native);
   }
 
-  // ════════════════════════════════════════════
-  // Pass3: D2S merge (screen + tex1 + tex2 → enhanced_tex, 1280×960)
-  // ════════════════════════════════════════════
+  // Pass4: D2S merge (screen + tex1 + tex2 -> enhanced_tex)
   {
     auto upscaled = native * 2;
     GPURecreateAnime4KTargetsInternal(upscaled);
     if (!gpu_.enhanced_tex)
       return;
-
-    auto* rtv = get_rtv(gpu_.enhanced_tex);
-    render_context->SetRenderTargets(
-        1, &rtv, nullptr,
-        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     // Update params for 2x output
     renderer::Binding_Upscale::ScalingParams upscale_params;
@@ -1193,16 +1237,19 @@ void RenderScreenImpl::GPURunUDLPassesInternal(
     upscale_params.mode = 0;
     write_params(upscale_params);
 
-    set_viewport(upscaled);
+    auto& binding = gpu_.udl_pass3_binding;
+    if (!binding.u_texture || !binding.u_textures[1] ||
+        !binding.u_textures[2] || !binding.u_output || !binding.u_params)
+      return;
     render_context->SetPipelineState(states.anime4k_udl_pass3);
-    gpu_.udl_pass3_binding.u_texture->Set(get_srv(screen));
-    gpu_.udl_pass3_binding.u_texture1->Set(get_srv(t1));
-    gpu_.udl_pass3_binding.u_texture2->Set(get_srv(t2));
-    gpu_.udl_pass3_binding.u_params->Set(gpu_.upscale_params_buffer);
-    render_context->CommitShaderResources(
-        *gpu_.udl_pass3_binding,
+    binding.u_texture->Set(get_srv(screen));
+    binding.u_textures[1]->Set(get_srv(t1));
+    binding.u_textures[2]->Set(get_srv(t2));
+    binding.u_output->Set(get_uav(gpu_.enhanced_tex));
+    binding.u_params->Set(gpu_.upscale_params_buffer);
+    render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    DrawScalingQuad(gpu_.scaling_quads, render_context, quad_index, index_type);
+    dispatch16(upscaled);
   }
 }
 
@@ -1375,18 +1422,17 @@ void RenderScreenImpl::GPURunCuNNyPassesInternal(
     binding.u_params->Set(gpu_.upscale_params_buffer);
     render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    dispatch(upscaled);
+    dispatch(native);
   }
 }
 
-bool RenderScreenImpl::GPUScalingPassInternal(
+Diligent::ITexture* RenderScreenImpl::GPUScalingPassInternal(
     Diligent::IDeviceContext* render_context) {
   if (!gpu_.upscale_buffer || !gpu_.upscale_params_buffer)
-    return false;
-
+    return nullptr;
   auto* swapchain = context()->render_device->GetSwapChain();
   if (!swapchain)
-    return false;
+    return nullptr;
   base::Vec2i output_size(swapchain->GetDesc().Width,
                           swapchain->GetDesc().Height);
   base::Vec2i input_size = context()->resolution;
@@ -1400,6 +1446,9 @@ bool RenderScreenImpl::GPUScalingPassInternal(
     if (gpu_.enhanced_tex)
       anime4k_active = true;
     input_size = input_size * 2;
+    if (anime4k_active && !profile->cas_enabled &&
+        output_size.x == input_size.x && output_size.y == input_size.y)
+      return gpu_.enhanced_tex;
     mode = (output_size.x == input_size.x && output_size.y == input_size.y)
                ? 1
                : 2;  // Identity at 1:1, Lanczos3 for final upscale to window
@@ -1409,6 +1458,9 @@ bool RenderScreenImpl::GPUScalingPassInternal(
     if (gpu_.enhanced_tex)
       anime4k_active = true;
     input_size = input_size * 2;
+    if (anime4k_active && !profile->cas_enabled &&
+        output_size.x == input_size.x && output_size.y == input_size.y)
+      return gpu_.enhanced_tex;
     mode = (output_size.x == input_size.x && output_size.y == input_size.y)
                ? 1
                : 2;
@@ -1418,7 +1470,7 @@ bool RenderScreenImpl::GPUScalingPassInternal(
     anime4k_active = true;
     GPURecreateAnime4KTargetsInternal();
     if (!gpu_.enhanced_tex)
-      return false;
+      return nullptr;
 
     base::Vec2i native_size = input_size;
     base::Vec2 input_pt = {1.0f / native_size.x, 1.0f / native_size.y};
@@ -1527,7 +1579,7 @@ bool RenderScreenImpl::GPUScalingPassInternal(
       context()->render.pipeline_states->cas.RawPtr()) {
     GPURecreateSharpenedBufferInternal();
     if (!gpu_.sharpened_buffer)
-      return false;
+      return nullptr;
 
     auto* rtv_cas = gpu_.sharpened_buffer->GetDefaultView(
         Diligent::TEXTURE_VIEW_RENDER_TARGET);
@@ -1568,7 +1620,7 @@ bool RenderScreenImpl::GPUScalingPassInternal(
                     **context()->render.quad_index,
                     context()->render.quad_index->GetIndexType());
   }
-  return true;
+  return gpu_.upscale_buffer;
 }
 
 void RenderScreenImpl::GPUPresentScreenBufferInternal(

@@ -61,9 +61,10 @@ class RenderScreenImpl : public Graphics, public EngineObject {
     RRefPtr<Diligent::ITexture> udl_tex2;  // 640×480 RGBA16F
     RRefPtr<Diligent::ITexture> udl_tex3;  // 640×480 RGBA16F
     RRefPtr<Diligent::ITexture> udl_tex4;  // 640×480 RGBA16F
-    renderer::Binding_Upscale udl_pass0_binding;  // Pass0 single-texture
-    renderer::Binding_Upscale udl_pass1_binding;  // Pass1-2 dual-texture (u_Texture + u_Texture1)
-    renderer::Binding_UDL_D2S udl_pass3_binding;  // Pass3 triple-texture
+    renderer::Binding_CuNNy_Compute udl_pass0_binding;
+    renderer::Binding_CuNNy_Compute udl_pass1_binding;
+    renderer::Binding_CuNNy_Compute udl_pass2_binding;
+    renderer::Binding_CuNNy_Compute udl_pass3_binding;
     // enhanced_tex reused as 1280×960 output target
 
     // CuNNy intermediate targets
@@ -190,7 +191,8 @@ class RenderScreenImpl : public Graphics, public EngineObject {
       float progress,
       float vague);
 
-  bool GPUScalingPassInternal(Diligent::IDeviceContext* render_context);
+  Diligent::ITexture* GPUScalingPassInternal(
+      Diligent::IDeviceContext* render_context);
   void GPURecreateUpscaleBufferInternal();
   void GPURecreateAnime4KTargetsInternal();
   void GPURecreateAnime4KTargetsInternal(const base::Vec2i& size);
@@ -199,6 +201,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
                                   int variant);
   void GPURecreateCuNNyTargetsInternal(int tex_count);
   void GPURecreateSharpenedBufferInternal();
+  void ApplyPendingAutoFitWindowInternal();
 
   GPUData gpu_;
   DrawNodeController controller_;
@@ -208,6 +211,7 @@ class RenderScreenImpl : public Graphics, public EngineObject {
 
   bool frozen_;
   bool rebuild_buffers_pending_ = false;
+  bool auto_fit_window_pending_ = false;
   int32_t brightness_;
   uint64_t frame_count_;
   uint32_t frame_rate_;

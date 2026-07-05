@@ -183,59 +183,11 @@ Diligent::SamplerDesc MakeClampSampler(Diligent::FILTER_TYPE filter) {
                                Diligent::TEXTURE_ADDRESS_CLAMP};
 }
 
-const char kHLSL_CuNNyPrelude[] = R"(
-#define MF1x1 float1x1
-#define MF2x2 float2x2
-#define INPUT u_Texture
-#define INPUT_sampler u_Texture_sampler
-#define T0 u_Texture0
-#define T0_sampler u_Texture0_sampler
-#define T1 u_Texture1
-#define T1_sampler u_Texture1_sampler
-#define T2 u_Texture2
-#define T2_sampler u_Texture2_sampler
-#define T3 u_Texture3
-#define T3_sampler u_Texture3_sampler
-#define T4 u_Texture4
-#define T4_sampler u_Texture4_sampler
-#define T5 u_Texture5
-#define T5_sampler u_Texture5_sampler
-#define T6 u_Texture6
-#define T6_sampler u_Texture6_sampler
-#define T7 u_Texture7
-#define T7_sampler u_Texture7_sampler
-#define T8 u_Texture8
-#define T8_sampler u_Texture8_sampler
-#define T9 u_Texture9
-#define T9_sampler u_Texture9_sampler
-#define T10 u_Texture10
-#define T10_sampler u_Texture10_sampler
-#define T11 u_Texture11
-#define T11_sampler u_Texture11_sampler
-#define O(t, x, y) t.SampleLevel(t##_sampler, pos + float2(x, y) * pt, 0)
-#define V4 MF4
-#define M4 MF4x4
-)";
-
-std::string MakeCuNNyPixelShader(const std::string& hlsl) {
-  return std::string(kHLSL_CuNNyPrelude) + hlsl;
-}
-
 const char* GetCuNNyTextureName(int index) {
   static constexpr const char* kNames[] = {
       "u_Texture0", "u_Texture1", "u_Texture2",  "u_Texture3",
       "u_Texture4", "u_Texture5", "u_Texture6",  "u_Texture7",
       "u_Texture8", "u_Texture9", "u_Texture10", "u_Texture11",
-  };
-  return kNames[index];
-}
-
-const char* GetCuNNyTextureSamplerName(int index) {
-  static constexpr const char* kNames[] = {
-      "u_Texture0_sampler", "u_Texture1_sampler", "u_Texture2_sampler",
-      "u_Texture3_sampler", "u_Texture4_sampler", "u_Texture5_sampler",
-      "u_Texture6_sampler", "u_Texture7_sampler", "u_Texture8_sampler",
-      "u_Texture9_sampler", "u_Texture10_sampler", "u_Texture11_sampler",
   };
   return kNames[index];
 }
@@ -373,63 +325,11 @@ bool SupportsCuNNyFP16(Diligent::IRenderDevice* device) {
   return info.Features.ShaderFloat16 == Diligent::DEVICE_FEATURE_STATE_ENABLED;
 }
 
-std::string MakeCuNNyComputeOutputs(int output_count, bool final_pass) {
-  if (final_pass)
-    return "RWTexture2D<float4> u_Output;\n";
-
-  std::string outputs;
-  for (int i = 0; i < output_count; ++i) {
-    outputs += "RWTexture2D<float4> u_Output" + std::to_string(i) + ";\n";
-  }
-  return outputs;
-}
-
-std::string MakeCuNNyComputeShader(const std::string& hlsl,
-                                    int output_count,
-                                    bool final_pass,
-                                    bool use_fp16) {
-  std::string source = std::string(kHLSL_CuNNyPrelude) +
-                       MakeCuNNyComputeOutputs(output_count, final_pass) +
-                       R"(
-uint __Bfe(uint src, uint off, uint bits) { uint mask = (1u << bits) - 1; return (src >> off) & mask; }
-uint __BfiM(uint src, uint ins, uint bits) { uint mask = (1u << bits) - 1; return (ins & mask) | (src & (~mask)); }
-uint2 Rmp8x8(uint a) { return uint2(__Bfe(a, 1u, 3u), __BfiM(__Bfe(a, 3u, 3u), a, 1u)); }
-)" +
-                        hlsl;
+std::string MakeCuNNyComputeShader(const std::string& hlsl, bool use_fp16) {
+  std::string source = hlsl;
   if (use_fp16)
     source = ApplyCuNNyFP16Macros(source);
   source = ApplyCuNNyMadMulAdd(source);
-
-  if (final_pass) {
-    source = ReplaceAll(
-        source,
-        "void PSMain(in PSInput PSIn, out PSOutput PSOut) {\n"
-        "  uint2 pixel = uint2(PSIn.UV * u_OutputSize);",
-        "[numthreads(64, 1, 1)]\n"
-        "void CSMain(uint3 tid : SV_GroupThreadID, uint3 gid : SV_GroupID) {\n"
-        "  uint2 pixel = Rmp8x8(tid.x) + (gid.xy << 3u);\n"
-        "  if (pixel.x >= uint(u_OutputSize.x) || pixel.y >= uint(u_OutputSize.y)) return;");
-    source = ReplaceAll(
-        source, "u_Texture.SampleLevel(u_Texture_sampler, PSIn.UV, 0)",
-        "u_Texture.SampleLevel(u_Texture_sampler, (float2(pixel) + 0.5) * u_OutputPt, 0)");
-    source = ReplaceAll(source, "PSOut.Color =", "u_Output[pixel] =");
-  } else {
-    source = ReplaceAll(
-        source,
-        "void PSMain(in PSInput PSIn, out PSOutput PSOut) {\n"
-        "  float2 uv = PSIn.UV;\n"
-        "  uint2 gxy = uint2(uv * u_InputSize);",
-        "[numthreads(64, 1, 1)]\n"
-        "void CSMain(uint3 tid : SV_GroupThreadID, uint3 gid : SV_GroupID) {\n"
-        "  uint2 gxy = Rmp8x8(tid.x) + (gid.xy << 3u);\n"
-        "  float2 uv = (float2(gxy) + 0.5) * u_InputPt;");
-    for (int i = 0; i < output_count; ++i) {
-      source = ReplaceAll(source,
-                          "PSOut.Color" + std::to_string(i) + " =",
-                          "u_Output" + std::to_string(i) + "[gxy] =");
-    }
-  }
-
   return source;
 }
 
@@ -445,8 +345,6 @@ void AddCuNNyComputeInputs(
         Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
     samplers.push_back({Diligent::SHADER_TYPE_COMPUTE, name, point_sampler});
-    samplers.push_back({Diligent::SHADER_TYPE_COMPUTE,
-        GetCuNNyTextureSamplerName(input_start + i), point_sampler});
   }
 }
 
@@ -934,99 +832,52 @@ PIPELINE_HEADER(YUV) {
   SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
 }
 
-// ── Anime4K Upscale_Denoise_L pipeline definitions ──
-// Pass0: 1 input (screen) → MRT (2 outputs), point sampler
-PIPELINE_HEADER(Anime4K_UDL_Pass0) {
-  const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
-                                   kHLSL_Anime4K_UDL_Pass0_Pixel,
-                                   "anime4k_udl.Pass0"};
-  const std::vector<Diligent::PipelineResourceDesc> variables = {
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
-       Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
-       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-      {Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer",
-       Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
-       Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-  };
-  const std::vector<Diligent::ImmutableSamplerDesc> samplers = {
-      {Diligent::SHADER_TYPE_PIXEL, "u_Texture",
-       init_params.immutable_sampler},
-  };
-  auto binding0 = MakeResourceSignature(variables, samplers, 0);
-  SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
-}
+// Anime4K Upscale_Denoise_L compute pipeline definitions.
+#define MAKE_ANIME4K_UDL_COMPUTE(hlsl, cls, shader_name, in_start, in_count, \
+                                 out_count, screen_input, final_pass) \
+  PIPELINE_HEADER(cls) { \
+    const auto point_sampler = MakeClampSampler(Diligent::FILTER_TYPE_POINT); \
+    const auto linear_sampler = MakeClampSampler(Diligent::FILTER_TYPE_LINEAR); \
+    std::vector<Diligent::PipelineResourceDesc> vars; \
+    std::vector<Diligent::ImmutableSamplerDesc> samplers; \
+    if (screen_input) { \
+      vars.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Texture", \
+          Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV, \
+          Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}); \
+      samplers.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Texture",\
+          final_pass ? linear_sampler : point_sampler}); \
+    } \
+    AddCuNNyComputeInputs(vars, samplers, point_sampler, in_start, in_count); \
+    AddCuNNyComputeOutputs(vars, out_count, final_pass); \
+    vars.push_back({Diligent::SHADER_TYPE_COMPUTE, "ScalingParamsBuffer", \
+        Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER, \
+        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}); \
+    auto b0 = MakeResourceSignature(vars, samplers, 0); \
+    const ComputeShaderSource src{ \
+        MakeCuNNyComputeShader(hlsl, \
+            SupportsCuNNyFP16(init_params.render_device)), \
+        shader_name}; \
+    SetupComputePipelineBasis(src, {b0}); \
+  }
 
-// Pass1: 2 inputs → MRT (2 outputs), point samplers
-PIPELINE_HEADER(Anime4K_UDL_Pass1) {
-  const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
-                                   kHLSL_Anime4K_UDL_Pass1_Pixel,
-                                   "anime4k_udl.Pass1"};
-  const char* tex_names[] = {"u_Texture", "u_Texture1"};
-  std::vector<Diligent::PipelineResourceDesc> variables;
-  for (const char* name : tex_names) {
-    variables.push_back({Diligent::SHADER_TYPE_PIXEL, name,
-        Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
-        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
-  }
-  variables.push_back({Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer",
-      Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
-      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
-  std::vector<Diligent::ImmutableSamplerDesc> mt_samplers;
-  for (const char* name : tex_names) {
-    mt_samplers.push_back({Diligent::SHADER_TYPE_PIXEL, name,
-        init_params.immutable_sampler});
-  }
-  auto binding0 = MakeResourceSignature(variables, mt_samplers, 0);
-  SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
-}
+MAKE_ANIME4K_UDL_COMPUTE(kHLSL_Anime4K_UDL_Pass0_Compute,
+                         Anime4K_UDL_Pass0,
+                         "anime4k_udl.Pass0.compute", 0, 0, 2, true,
+                         false);
+MAKE_ANIME4K_UDL_COMPUTE(kHLSL_Anime4K_UDL_Pass1_Compute,
+                         Anime4K_UDL_Pass1,
+                         "anime4k_udl.Pass1.compute", 1, 2, 2, false,
+                         false);
+MAKE_ANIME4K_UDL_COMPUTE(kHLSL_Anime4K_UDL_Pass2_Compute,
+                         Anime4K_UDL_Pass2,
+                         "anime4k_udl.Pass2.compute", 3, 2, 2, false,
+                         false);
+MAKE_ANIME4K_UDL_COMPUTE(kHLSL_Anime4K_UDL_Pass3_Compute,
+                         Anime4K_UDL_Pass3,
+                         "anime4k_udl.Pass3.compute", 1, 2, 1, true,
+                         true);
 
-// Pass2: 2 inputs → MRT (2 outputs), point samplers
-PIPELINE_HEADER(Anime4K_UDL_Pass2) {
-  const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
-                                   kHLSL_Anime4K_UDL_Pass2_Pixel,
-                                   "anime4k_udl.Pass2"};
-  const char* tex_names[] = {"u_Texture", "u_Texture1"};
-  std::vector<Diligent::PipelineResourceDesc> variables;
-  for (const char* name : tex_names) {
-    variables.push_back({Diligent::SHADER_TYPE_PIXEL, name,
-        Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
-        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
-  }
-  variables.push_back({Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer",
-      Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
-      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
-  std::vector<Diligent::ImmutableSamplerDesc> mt_samplers;
-  for (const char* name : tex_names) {
-    mt_samplers.push_back({Diligent::SHADER_TYPE_PIXEL, name,
-        init_params.immutable_sampler});
-  }
-  auto binding0 = MakeResourceSignature(variables, mt_samplers, 0);
-  SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
-}
-
-// Pass3: 3 inputs (INPUT + tex1 + tex2) → single output
-PIPELINE_HEADER(Anime4K_UDL_Pass3) {
-  const ShaderSource shader_source{kHLSL_UpscalePass_Vertex,
-                                   kHLSL_Anime4K_UDL_Pass3_Pixel,
-                                   "anime4k_udl.Pass3"};
-  const char* tex_names[] = {"u_Texture", "u_Texture1", "u_Texture2"};
-  std::vector<Diligent::PipelineResourceDesc> variables;
-  for (const char* name : tex_names) {
-    variables.push_back({Diligent::SHADER_TYPE_PIXEL, name,
-        Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV,
-        Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
-  }
-  variables.push_back({Diligent::SHADER_TYPE_PIXEL, "ScalingParamsBuffer",
-      Diligent::SHADER_RESOURCE_TYPE_CONSTANT_BUFFER,
-      Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
-  std::vector<Diligent::ImmutableSamplerDesc> mt_samplers;
-  for (const char* name : tex_names) {
-    mt_samplers.push_back({Diligent::SHADER_TYPE_PIXEL, name,
-        init_params.immutable_sampler});
-  }
-  auto binding0 = MakeResourceSignature(variables, mt_samplers, 0);
-  SetupPipelineBasis(shader_source, Vertex::GetLayout(), {binding0});
-}
+#undef MAKE_ANIME4K_UDL_COMPUTE
 
 
 
@@ -1043,10 +894,7 @@ PIPELINE_HEADER(Anime4K_UDL_Pass3) {
       vars.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Texture", \
           Diligent::SHADER_RESOURCE_TYPE_TEXTURE_SRV, \
           Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}); \
-      samplers.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Texture", \
-          screen_sampler}); \
-      samplers.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Texture_sampler", \
-          screen_sampler}); \
+      samplers.push_back({Diligent::SHADER_TYPE_COMPUTE, "u_Texture", screen_sampler}); \
     } \
     AddCuNNyComputeInputs(vars, samplers, point_sampler, in_start, in_count); \
     AddCuNNyComputeOutputs(vars, out_count, final_pass); \
@@ -1055,8 +903,8 @@ PIPELINE_HEADER(Anime4K_UDL_Pass3) {
         Diligent::SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}); \
     auto b0 = MakeResourceSignature(vars, samplers, 0); \
     const ComputeShaderSource src{ \
-        MakeCuNNyComputeShader(hlsl, out_count, final_pass, \
-                               SupportsCuNNyFP16(init_params.render_device)), \
+        MakeCuNNyComputeShader(hlsl, \
+                                SupportsCuNNyFP16(init_params.render_device)), \
         shader_name}; \
     SetupComputePipelineBasis(src, {b0}); \
   }

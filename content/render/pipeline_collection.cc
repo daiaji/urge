@@ -325,49 +325,11 @@ PipelineCollection::PipelineCollection(renderer::PipelineSet* loader,
           Diligent::TEX_FORMAT_UNKNOWN, default_sample);
     }
 
-    {  // Anime4K Upscale_Denoise_L passes
-      Diligent::BlendStateDesc blend_state;
-
-      Diligent::DepthStencilStateDesc depth_stencil_state =
-          GetDefaultDepthStencilState(false);
-
-      Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
-      rasterizer_state.ScissorEnable = Diligent::False;
-
-      // Intermediate textures use RGBA16F for CNN feature values
-      const auto intermediate_format = Diligent::TEX_FORMAT_RGBA16_FLOAT;
-
-      // Pass0: 1 input → MRT (2 outputs), RGBA16F intermediate
-      loader->anime4k_udl_pass0.BuildPipeline(
-          &anime4k_udl_pass0, blend_state, rasterizer_state,
-          depth_stencil_state,
-          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-          {intermediate_format, intermediate_format},
-          Diligent::TEX_FORMAT_UNKNOWN, default_sample);
-
-      // Pass1: 2 inputs → MRT (2 outputs), RGBA16F intermediate
-      loader->anime4k_udl_pass1.BuildPipeline(
-          &anime4k_udl_pass1, blend_state, rasterizer_state,
-          depth_stencil_state,
-          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-          {intermediate_format, intermediate_format},
-          Diligent::TEX_FORMAT_UNKNOWN, default_sample);
-
-      // Pass2: 2 inputs → MRT (2 outputs), RGBA16F intermediate
-      loader->anime4k_udl_pass2.BuildPipeline(
-          &anime4k_udl_pass2, blend_state, rasterizer_state,
-          depth_stencil_state,
-          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-          {intermediate_format, intermediate_format},
-          Diligent::TEX_FORMAT_UNKNOWN, default_sample);
-
-      // Pass3: 3 inputs → single output, RGBA8 final
-      loader->anime4k_udl_pass3.BuildPipeline(
-          &anime4k_udl_pass3, blend_state, rasterizer_state,
-          depth_stencil_state,
-          Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-          {target_format}, Diligent::TEX_FORMAT_UNKNOWN,
-          default_sample);
+    {  // Anime4K Upscale_Denoise_L compute passes
+      loader->anime4k_udl_pass0.BuildComputePipeline(&anime4k_udl_pass0);
+      loader->anime4k_udl_pass1.BuildComputePipeline(&anime4k_udl_pass1);
+      loader->anime4k_udl_pass2.BuildComputePipeline(&anime4k_udl_pass2);
+      loader->anime4k_udl_pass3.BuildComputePipeline(&anime4k_udl_pass3);
     }
 
     {  // CuNNy 4x16 & 4x24 compute passes
