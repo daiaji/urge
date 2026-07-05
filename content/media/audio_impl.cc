@@ -33,6 +33,11 @@ AudioImpl::AudioImpl(ExecutionContext* execution_context)
   execution_context->audio_server->SetVolume(
       execution_context->engine_profile->audio_volume);
 
+  // Configure MIDI SoundFont
+  auto& sf = execution_context->engine_profile->midi_soundfont;
+  if (!sf.empty())
+    execution_context->audio_server->SetSoundFont(sf);
+
 #if !defined(OS_EMSCRIPTEN)
   // Setup watcher
   me_watcher_ = base::ThreadWorker::Create();
