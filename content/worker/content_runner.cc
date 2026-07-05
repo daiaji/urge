@@ -289,7 +289,8 @@ void ContentRunner::CreateRenderComponents() {
   // Pipeline states
   auto* loader = execution_context_->render.pipeline_loader.get();
   execution_context_->render.pipeline_states =
-      std::make_unique<PipelineCollection>(loader);
+      std::make_unique<PipelineCollection>(
+          loader, **execution_context_->render_device);
 }
 
 void ContentRunner::TickHandlerInternal(Diligent::ITexture* present_buffer) {
