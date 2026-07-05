@@ -430,6 +430,17 @@ URGE_DEFINE_STATIC_ATTRIBUTE(
           *ColorImpl::From(value);
     });
 
+URGE_DEFINE_STATIC_ATTRIBUTE(
+    Font,
+    DefaultShadowColor,
+    scoped_refptr<Color>,
+    { return execution_context->font_context->default_shadow_color; },
+    {
+      CHECK_ATTRIBUTE_VALUE;
+      *execution_context->font_context->default_shadow_color =
+          *ColorImpl::From(value);
+    });
+
 ///////////////////////////////////////////////////////////////////////////////
 // Font Implement
 
@@ -444,11 +455,13 @@ FontImpl::FontImpl(ScopedFontData* parent)
       color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
       out_color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
       gradient_color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
+      shadow_color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
       parent_(parent),
       font_(nullptr) {
   *color_ = *parent->default_color;
   *out_color_ = *parent->default_out_color;
   *gradient_color_ = *parent->default_gradient_color;
+  *shadow_color_ = *parent->default_shadow_color;
 }
 
 FontImpl::FontImpl(const std::string& name,
@@ -464,11 +477,13 @@ FontImpl::FontImpl(const std::string& name,
       color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
       out_color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
       gradient_color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
+      shadow_color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
       parent_(parent),
       font_(nullptr) {
   *color_ = *parent->default_color;
   *out_color_ = *parent->default_out_color;
   *gradient_color_ = *parent->default_gradient_color;
+  *shadow_color_ = *parent->default_shadow_color;
 }
 
 FontImpl::FontImpl(const FontImpl& other)
@@ -482,11 +497,13 @@ FontImpl::FontImpl(const FontImpl& other)
       color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
       out_color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
       gradient_color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
+      shadow_color_(base::MakeRefCounted<ColorImpl>(base::Vec4())),
       parent_(other.parent_),
       font_(nullptr) {
   *color_ = *other.color_;
   *out_color_ = *other.out_color_;
   *gradient_color_ = *other.gradient_color_;
+  *shadow_color_ = *other.shadow_color_;
 }
 
 FontImpl& FontImpl::operator=(const FontImpl& other) {
@@ -500,6 +517,7 @@ FontImpl& FontImpl::operator=(const FontImpl& other) {
   *color_ = *other.color_;
   *out_color_ = *other.out_color_;
   *gradient_color_ = *other.gradient_color_;
+  *shadow_color_ = *other.shadow_color_;
   font_ = nullptr;
   return *this;
 }
@@ -540,9 +558,11 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
 
   auto color_impl = ColorImpl::From(color_);
   auto out_color_impl = ColorImpl::From(out_color_);
+  auto shadow_color_impl = ColorImpl::From(shadow_color_);
 
   SDL_Color font_color = color_impl->AsSDLColor();
   SDL_Color outline_color = out_color_impl->AsSDLColor();
+  SDL_Color shadow_sdl_color = shadow_color_impl->AsSDLColor();
   if (font_opacity)
     *font_opacity = 255;
 
@@ -629,7 +649,7 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
 
   EnsureFontSurfaceFormatInternal(text_surface);
   if (shadow_)
-    RenderShadowSurface(text_surface, font_color);
+    RenderShadowSurface(text_surface, shadow_sdl_color);
 
   return text_surface;
 }
@@ -717,6 +737,16 @@ URGE_DEFINE_OVERRIDE_ATTRIBUTE(
     {
       CHECK_ATTRIBUTE_VALUE;
       *gradient_color_ = *ColorImpl::From(value);
+    });
+
+URGE_DEFINE_OVERRIDE_ATTRIBUTE(
+    ShadowColor,
+    scoped_refptr<Color>,
+    FontImpl,
+    { return shadow_color_; },
+    {
+      CHECK_ATTRIBUTE_VALUE;
+      *shadow_color_ = *ColorImpl::From(value);
     });
 
 void FontImpl::LoadFontInternal(ExceptionState& exception_state) {

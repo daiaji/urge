@@ -9,6 +9,12 @@
 
 RGSS_VERSION = "3.0.1"
 
+# --- Font shadow color ---
+# RGSS shadow is always black. URGE defaults to black (0,0,0,128) in engine,
+# but also exposes Font#shadow_color and Font.default_shadow_color for
+# game authors who want custom shadow effects.
+# No override needed — the C++ default is already black.
+
 # --- Kernel#msgbox / msgbox_p ---
 # RGSS3 kernel functions for popup messages.
 # Currently logs to Console; upgrade to native MessageBox when

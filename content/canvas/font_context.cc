@@ -71,7 +71,9 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
       default_out_color(
           base::MakeRefCounted<ColorImpl>(base::Vec4(0, 0, 0, 255.0f))),
       default_gradient_color(
-          base::MakeRefCounted<ColorImpl>(base::Vec4(0.0f, 0.0f, 0.0f, 0.0f))) {
+          base::MakeRefCounted<ColorImpl>(base::Vec4(0.0f, 0.0f, 0.0f, 0.0f))),
+      default_shadow_color(
+          base::MakeRefCounted<ColorImpl>(base::Vec4(0.0f, 0.0f, 0.0f, 128.0f))) {
   // Get font load dir and default font
   std::string filename = default_font_name;
   std::string dir("."), file;

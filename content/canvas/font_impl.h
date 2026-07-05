@@ -47,6 +47,7 @@ class FontImpl : public Font {
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(Color, scoped_refptr<Color>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(OutColor, scoped_refptr<Color>);
   URGE_DECLARE_OVERRIDE_ATTRIBUTE(GradientColor, scoped_refptr<Color>);
+  URGE_DECLARE_OVERRIDE_ATTRIBUTE(ShadowColor, scoped_refptr<Color>);
 
  private:
   void LoadFontInternal(ExceptionState& exception_state);
@@ -63,6 +64,7 @@ class FontImpl : public Font {
   scoped_refptr<ColorImpl> color_;
   scoped_refptr<ColorImpl> out_color_;
   scoped_refptr<ColorImpl> gradient_color_;
+  scoped_refptr<ColorImpl> shadow_color_;
 
   ScopedFontData* parent_;
   TTF_Font* font_;

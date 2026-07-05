@@ -40,6 +40,7 @@ struct ScopedFontData {
   scoped_refptr<ColorImpl> default_color = nullptr;
   scoped_refptr<ColorImpl> default_out_color = nullptr;
   scoped_refptr<ColorImpl> default_gradient_color = nullptr;
+  scoped_refptr<ColorImpl> default_shadow_color = nullptr;
 
   // Font rendering preferences (INI overridable, RGSS defaults)
   float font_scale = kDefaultFontScale;
