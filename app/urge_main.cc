@@ -194,7 +194,6 @@ int main(int argc, char* argv[]) {
   }
 
 #if defined(OS_WIN)
-  // Create console on windows
   if (profile->debugging_console)
     CreateConsoleWin();
 #endif
@@ -212,23 +211,24 @@ int main(int argc, char* argv[]) {
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   console_sink->set_pattern("[%^%l%$] %v");
 
-  auto file_sink =
-      std::make_shared<spdlog::sinks::basic_file_sink_mt>("Engine.log", true);
-  file_sink->set_pattern("[%^%l%$] %v");
-  file_sink->set_level(spdlog::level::trace);
-#endif
-
-  spdlog::sinks_init_list logger_sinks = {
+  std::vector<spdlog::sink_ptr> logger_sinks;
 #if defined(OS_ANDROID)
-      android_sink,
-      file_sink,
+  logger_sinks.push_back(android_sink);
 #else
-      console_sink,
-      file_sink,
+  logger_sinks.push_back(console_sink);
 #endif
-  };
 
-  spdlog::logger logger_sink("urgecore", logger_sinks);
+  // Conditionally add file sink
+  if (profile->save_log) {
+    auto file_sink =
+        std::make_shared<spdlog::sinks::basic_file_sink_mt>("Engine.log", true);
+    file_sink->set_pattern("[%^%l%$] %v");
+    file_sink->set_level(spdlog::level::trace);
+    logger_sinks.push_back(file_sink);
+  }
+#endif
+
+  spdlog::logger logger_sink("urgecore", logger_sinks.begin(), logger_sinks.end());
   base::logging::InitWithLogger(&logger_sink);
 
   LOG(INFO) << "[App] Current Path: "

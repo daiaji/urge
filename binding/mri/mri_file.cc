@@ -87,7 +87,7 @@ MRI_METHOD(marshal_load_utf8) {
   MriParseArgsTo(argc, argv, "o|o", &port, &proc);
 
   VALUE marshal_klass = rb_const_get(rb_cObject, rb_intern("Marshal"));
-  VALUE block = rb_proc_new((VALUE (*)(ANYARGS))StringForceUTF8, proc);
+  VALUE block = rb_proc_new(reinterpret_cast<rb_block_call_func_t>(StringForceUTF8), proc);
   VALUE v[] = {port, block};
   return rb_funcall2(marshal_klass, rb_intern("load"), 2, v);
 }

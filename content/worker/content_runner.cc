@@ -741,7 +741,8 @@ bool ContentRunner::EventWatchHandlerInternal(void* userdata,
   ContentRunner* self = static_cast<ContentRunner*>(userdata);
 #if !defined(OS_ANDROID)
   if (self->profile_->background_running)
-    return true;
+
+  return true;
 #endif
 
   const bool is_focus_lost =

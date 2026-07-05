@@ -103,9 +103,9 @@ MRI_METHOD(MRI_RGSSMain) {
       gc_required = false;
     }
 
-    rb_rescue2(reinterpret_cast<VALUE (*)(ANYARGS)>(RescueCallBlock),
+    rb_rescue2(RescueCallBlock,
                rb_block_proc(),
-               reinterpret_cast<VALUE (*)(ANYARGS)>(RescueException),
+               RescueException,
                (VALUE)&exception, rb_eException, nullptr);
 
     if (NIL_P(exception))
