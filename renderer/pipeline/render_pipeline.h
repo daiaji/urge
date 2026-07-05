@@ -123,6 +123,9 @@ PIPELINE_DEFINE(Upscale, MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
 PIPELINE_DEFINE(Anime4K_Enhance,
                 MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
 
+PIPELINE_DEFINE(CAS,
+                MAKE_BINDING_FUNCTION(Binding_Upscale, 0););
+
 #undef PIPELINE_DEFINE
 #undef MAKE_BINDING_FUNCTION
 
@@ -144,6 +147,7 @@ struct PipelineSet {
   Pipeline_YUV yuv;
   Pipeline_Upscale upscale;
   Pipeline_Anime4K_Enhance anime4k_enhance;
+  Pipeline_CAS cas;
 
   PipelineSet(const PipelineInitParams& init_params)
       : base(init_params),
@@ -159,7 +163,8 @@ struct PipelineSet {
         bitmaphue(init_params),
         yuv(init_params),
         upscale(init_params),
-        anime4k_enhance(init_params) {}
+        anime4k_enhance(init_params),
+        cas(init_params) {}
 };
 
 }  // namespace renderer

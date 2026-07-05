@@ -253,6 +253,16 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
       reader->GetFloat("Renderer", "ScalingBicubicB", scaling_bicubic_b);
   scaling_bicubic_c =
       reader->GetFloat("Renderer", "ScalingBicubicC", scaling_bicubic_c);
+  cas_enabled =
+      reader->GetBoolean("Renderer", "CASEnabled", cas_enabled);
+  cas_sharpness =
+      reader->GetFloat("Renderer", "CASSharpness", cas_sharpness);
+  scaling_sobel_strength =
+      reader->GetFloat("Renderer", "ScalingSobelStrength", scaling_sobel_strength);
+  scaling_warp_strength =
+      reader->GetFloat("Renderer", "ScalingWarpStrength", scaling_warp_strength);
+  scaling_darken_strength =
+      reader->GetFloat("Renderer", "ScalingDarkenStrength", scaling_darken_strength);
   sync_to_refresh_rate =
       reader->GetBoolean("Renderer", "SyncToRefreshRate", sync_to_refresh_rate);
   win_resizable =

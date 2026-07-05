@@ -49,6 +49,7 @@ struct PipelineCollection {
   PipelineObject yuv;
   PipelineObject upscale;
   PipelineObject anime4k_enhance;
+  PipelineObject cas;
 
   PipelineObject window;
   PipelineObject window_with_stencil;

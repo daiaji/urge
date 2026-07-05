@@ -307,6 +307,21 @@ PipelineCollection::PipelineCollection(renderer::PipelineSet* loader) {
     make_anime4k_pso(loader->anime4k_enhance, anime4k_enhance);
   }
 
+  {  // CAS - no scissor - no depth
+    Diligent::BlendStateDesc blend_state;
+
+    Diligent::DepthStencilStateDesc depth_stencil_state =
+        GetDefaultDepthStencilState(false);
+
+    Diligent::RasterizerStateDesc rasterizer_state = Get2DRasterizerState();
+    rasterizer_state.ScissorEnable = Diligent::False;
+
+    loader->cas.BuildPipeline(
+        &cas, blend_state, rasterizer_state, depth_stencil_state,
+        Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, {target_format},
+        Diligent::TEX_FORMAT_UNKNOWN, default_sample);
+  }
+
   {  // Window (present) - with scissor - with depth
     // With blend
     Diligent::BlendStateDesc blend_state;

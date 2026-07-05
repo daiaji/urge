@@ -136,9 +136,33 @@ void RenderScreenImpl::CreateButtonGUISettings() {
     ImGui::Separator();
     ImGui::Text("Scaling Algorithm");
     const char* scaling_items[] = {"Bilinear", "Nearest",
-                                   "Lanczos3", "Bicubic", "Anime4K"};
+                                   "Lanczos3", "Bicubic",
+                                   "Anime4K", "Anime4K+Sobel"};
     ImGui::Combo("##scaling_mode", &settings_profile.scaling_mode,
                  scaling_items, IM_ARRAYSIZE(scaling_items));
+
+    if (settings_profile.scaling_mode == 5) {
+      ImGui::SameLine();
+      ImGui::SliderFloat("##sobel_strength",
+                         &settings_profile.scaling_sobel_strength,
+                         0.0f, 2.0f, "Sobel:%.1f");
+      ImGui::SameLine();
+      ImGui::SliderFloat("##warp_strength",
+                         &settings_profile.scaling_warp_strength,
+                         0.0f, 1.0f, "Warp:%.2f");
+      ImGui::SameLine();
+      ImGui::SliderFloat("##darken_strength",
+                         &settings_profile.scaling_darken_strength,
+                         0.0f, 2.0f, "Dark:%.1f");
+    }
+
+    // CAS sharpening
+    ImGui::Checkbox("CAS Sharpen", &settings_profile.cas_enabled);
+    if (settings_profile.cas_enabled) {
+      ImGui::SameLine();
+      ImGui::SliderFloat("##cas_sharpness", &settings_profile.cas_sharpness,
+                         0.0f, 1.0f, "%.2f");
+    }
   }
 }
 
@@ -558,8 +582,11 @@ void RenderScreenImpl::FrameProcessInternal(
   // Run scaling pass if upscale buffer is active
   if (gpu_.upscale_buffer && present_target == gpu_.screen_buffer)
     GPUScalingPassInternal(context()->primary_render_context);
-  if (gpu_.upscale_buffer)
+  if (gpu_.upscale_buffer) {
     present_target = gpu_.upscale_buffer;
+    if (context()->engine_profile->cas_enabled && gpu_.sharpened_buffer)
+      present_target = gpu_.sharpened_buffer;
+  }
 
   // Tick callback
   frame_tick_handler_.Run(present_target);
@@ -621,6 +648,8 @@ void RenderScreenImpl::GPUCreateGraphicsHostInternal() {
       context()->render.pipeline_loader->upscale.CreateBinding();
   gpu_.anime4k_enhance_binding =
       context()->render.pipeline_loader->anime4k_enhance.CreateBinding();
+  gpu_.cas_binding =
+      context()->render.pipeline_loader->cas.CreateBinding();
 
   // Create upscale params buffer (dynamic, no initial data)
   Diligent::CreateUniformBuffer(
@@ -749,6 +778,25 @@ void RenderScreenImpl::GPURecreateAnime4KTargetsInternal() {
            Diligent::TEX_FORMAT_RGBA8_UNORM);
 }
 
+void RenderScreenImpl::GPURecreateSharpenedBufferInternal() {
+  auto* swapchain = context()->render_device->GetSwapChain();
+  base::Vec2i window_size(swapchain->GetDesc().Width,
+                          swapchain->GetDesc().Height);
+
+  if (gpu_.sharpened_buffer) {
+    const auto& desc = gpu_.sharpened_buffer->GetDesc();
+    if (desc.Width == static_cast<uint32_t>(window_size.x) &&
+        desc.Height == static_cast<uint32_t>(window_size.y))
+      return;
+  }
+
+  gpu_.sharpened_buffer.Release();
+  renderer::CreateTexture2D(
+      **context()->render_device, &gpu_.sharpened_buffer,
+      "screen.cas.buffer", window_size, Diligent::USAGE_DEFAULT,
+      Diligent::BIND_RENDER_TARGET | Diligent::BIND_SHADER_RESOURCE);
+}
+
 static void SetAnime4KScissorAndViewport(Diligent::IDeviceContext* ctx,
                                          const base::Vec2i& size) {
   Diligent::Viewport vp;
@@ -791,7 +839,8 @@ void RenderScreenImpl::GPUScalingPassInternal(
   int mode = profile->scaling_mode;
 
   // --- Anime4K single-pass path (inline 7x7 gauss + DoG clamp) ---
-  if (mode == 4) {
+  // mode 5 = Anime4K + Sobel adaptive blend
+  if (mode == 4 || mode == 5) {
     GPURecreateAnime4KTargetsInternal();
     if (!gpu_.enhanced_tex)
       return;
@@ -814,7 +863,12 @@ void RenderScreenImpl::GPUScalingPassInternal(
     params.output_size = native_size.Recast<float>();
     params.input_pt = input_pt;
     params.output_pt = input_pt;
-    params.mode = 0;
+    params.mode = (mode == 5) ? 1 : 0;
+    params.bicubic_c = profile->scaling_darken_strength;
+    if (mode == 5) {
+      params.ar_strength = profile->scaling_sobel_strength;
+      params.bicubic_b = profile->scaling_warp_strength;
+    }
     WriteScalingParams(render_context, gpu_.upscale_params_buffer.RawPtr(),
                        params);
 
@@ -884,6 +938,50 @@ void RenderScreenImpl::GPUScalingPassInternal(
 
     render_context->CommitShaderResources(
         *gpu_.upscale_binding,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    DrawFullscreenTriangle(render_context);
+  }
+
+  // --- CAS post-process (optional, applies to any upscale mode) ---
+  if (profile->cas_enabled) {
+    GPURecreateSharpenedBufferInternal();
+    if (!gpu_.sharpened_buffer)
+      return;
+
+    auto* rtv_cas = gpu_.sharpened_buffer->GetDefaultView(
+        Diligent::TEXTURE_VIEW_RENDER_TARGET);
+    render_context->SetRenderTargets(
+        1, &rtv_cas, nullptr,
+        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+
+    Diligent::Viewport vp;
+    vp.Width = static_cast<float>(output_size.x);
+    vp.Height = static_cast<float>(output_size.y);
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    render_context->SetViewports(1, &vp, output_size.x, output_size.y);
+
+    Diligent::Rect sc(0, 0, output_size.x, output_size.y);
+    render_context->SetScissorRects(1, &sc, UINT32_MAX, UINT32_MAX);
+
+    render_context->SetPipelineState(
+        context()->render.pipeline_states->cas.RawPtr());
+
+    renderer::Binding_Upscale::ScalingParams params = {};
+    params.output_pt =
+        base::Vec2(1.0f / output_size.x, 1.0f / output_size.y);
+    params.cas_sharpness = profile->cas_sharpness;
+    WriteScalingParams(render_context, gpu_.upscale_params_buffer.RawPtr(),
+                       params);
+
+    gpu_.cas_binding.u_texture->Set(
+        gpu_.upscale_buffer->GetDefaultView(
+            Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    gpu_.cas_binding.u_params->Set(gpu_.upscale_params_buffer);
+
+    render_context->CommitShaderResources(
+        *gpu_.cas_binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
 
     DrawFullscreenTriangle(render_context);

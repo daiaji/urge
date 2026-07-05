@@ -1058,11 +1058,12 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
 //   { Texture2D }
 //   { ScalingParamsBuffer }
 ///
-// algorithm modes (u_Mode):
+// algorithm modes (u_Mode in Upscale PS):
 //   0 = Bilinear
 //   1 = Nearest
 //   2 = Lanczos3
 //   3 = Bicubic
+// (Sobel blend mode select in Anime4K Enhance PS: 0=DoG, 1=Sobel adaptive)
 
 const std::string kHLSL_UpscalePass_Vertex = R"(
 struct PSInput {
@@ -1285,6 +1286,7 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
 
   float gauss = 0.0;
   float mn = 1.0, mx = 0.0;
+  float luma33[3][3];
   [unroll] for (int i = -3; i <= 3; i++) {
     [unroll] for (int j = -3; j <= 3; j++) {
       float w = kWeight[abs(i)] * kWeight[abs(j)];
@@ -1294,13 +1296,110 @@ void PSMain(in PSInput PSIn, out PSOutput PSOut) {
       gauss += l * w;
       mn = min(mn, l);
       mx = max(mx, l);
+      if (i >= -1 && i <= 1 && j >= -1 && j <= 1)
+        luma33[i + 1][j + 1] = l;
     }
   }
 
   float c = (center_luma - gauss) * 0.8;
   float cc = clamp(c + center_luma, mn, mx) - center_luma;
+  float4 enhanced = saturate(screen + cc);
 
-  PSOut.Color = saturate(screen + cc);
+  // Line darken (applies to both mode 0 and 1)
+  float dark = min(center_luma - gauss, 0.0) * u_BicubicC;
+  enhanced = saturate(enhanced + dark);
+
+  // Sobel adaptive blend (mode 1) + thin warp
+  float4 result = enhanced;
+  if (u_Mode == 1) {
+    float gx = (-luma33[0][0] + luma33[0][2]
+                - 2.0 * luma33[1][0] + 2.0 * luma33[1][2]
+                - luma33[2][0] + luma33[2][2]) / 4.0;
+    float gy = (-luma33[0][0] - 2.0 * luma33[0][1] - luma33[0][2]
+                + luma33[2][0] + 2.0 * luma33[2][1] + luma33[2][2]) / 4.0;
+    float norm = saturate(sqrt(gx * gx + gy * gy) * 2.0);
+    float dval = pow(norm, u_ARStrength);
+    result = lerp(screen, enhanced, dval);
+
+    // Thin warp (u_BicubicB = warp strength)
+    float warp = u_BicubicB;
+    if (warp > 0.0) {
+      float len = max(abs(gx) + abs(gy), 1e-6);
+      float2 dir = float2(gx, gy) / len;
+      float2 wuv = uv - dir * dval * warp * pt;
+      float4 warped = u_Texture.Sample(u_Texture_sampler, wuv);
+      result = lerp(result, warped, dval * saturate(warp * 2.0));
+    }
+  }
+
+  PSOut.Color = result;
+}
+)";
+
+// ---- CAS (Contrast Adaptive Sharpening) ----
+// Ported from AMD FidelityFX-CAS (ffx_cas.h)
+// 5-tap cross pattern, green-channel uniform weight
+const std::string kHLSL_CAS_Pixel = R"(
+struct PSInput {
+  float4 Pos : SV_Position;
+  float2 UV : TEXCOORD0;
+};
+
+Texture2D u_Texture;
+SamplerState u_Texture_sampler;
+
+cbuffer ScalingParamsBuffer {
+  float2 u_InputSize;
+  float2 u_OutputSize;
+  float2 u_InputPt;
+  float2 u_OutputPt;
+  uint   u_Mode;
+  float  u_ARStrength;
+  float  u_BicubicB;
+  float  u_BicubicC;
+  float  u_CASSharpness;
+};
+
+struct PSOutput {
+  float4 Color : SV_TARGET;
+};
+
+void PSMain(in PSInput PSIn, out PSOutput PSOut) {
+  float2 uv = PSIn.UV;
+  float2 pt = u_OutputPt;
+
+  // 5-tap cross pattern
+  //   b
+  // d e f
+  //   h
+  float3 b = u_Texture.Sample(u_Texture_sampler, uv + float2(0, -pt.y)).rgb;
+  float3 d = u_Texture.Sample(u_Texture_sampler, uv + float2(-pt.x, 0)).rgb;
+  float3 e = u_Texture.Sample(u_Texture_sampler, uv).rgb;
+  float3 f = u_Texture.Sample(u_Texture_sampler, uv + float2(pt.x, 0)).rgb;
+  float3 h = u_Texture.Sample(u_Texture_sampler, uv + float2(0, pt.y)).rgb;
+
+  // Soft min and max per channel
+  float mnR = min(min(d.r, e.r), min(min(b.r, f.r), h.r));
+  float mnG = min(min(d.g, e.g), min(min(b.g, f.g), h.g));
+  float mnB = min(min(d.b, e.b), min(min(b.b, f.b), h.b));
+  float mxR = max(max(d.r, e.r), max(max(b.r, f.r), h.r));
+  float mxG = max(max(d.g, e.g), max(max(b.g, f.g), h.g));
+  float mxB = max(max(d.b, e.b), max(max(b.b, f.b), h.b));
+
+  // Smooth minimum distance to signal limit divided by smooth max
+  float ampR = sqrt(saturate(min(mnR, 1.0 - mxR) * rcp(mxR)));
+  float ampG = sqrt(saturate(min(mnG, 1.0 - mxG) * rcp(mxG)));
+  float ampB = sqrt(saturate(min(mnB, 1.0 - mxB) * rcp(mxB)));
+
+  // Filter shape (green channel weight used uniformly)
+  float peak = -rcp(lerp(8.0, 5.0, u_CASSharpness));
+  float wG = ampG * peak;
+  float rcpWeight = rcp(1.0 + 4.0 * wG);
+
+  PSOut.Color.r = saturate((b.r * wG + d.r * wG + f.r * wG + h.r * wG + e.r) * rcpWeight);
+  PSOut.Color.g = saturate((b.g * wG + d.g * wG + f.g * wG + h.g * wG + e.g) * rcpWeight);
+  PSOut.Color.b = saturate((b.b * wG + d.b * wG + f.b * wG + h.b * wG + e.b) * rcpWeight);
+  PSOut.Color.a = 1.0;
 }
 )";
 
