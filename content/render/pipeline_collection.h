@@ -51,8 +51,6 @@ struct PipelineCollection {
   PipelineObject anime4k_enhance;
   PipelineObject cas;
 
-  // Anime4K Mode A pipeline states
-
   // Anime4K Upscale_Denoise_L pipeline states (MRT for Pass0-2, single for Pass3)
   PipelineObject anime4k_udl_pass0;
   PipelineObject anime4k_udl_pass1;

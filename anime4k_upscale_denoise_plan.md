@@ -61,7 +61,6 @@ python3 -B tools/generate_cunny_hlsl.py
 | UDL final 输出 dispatch 只覆盖左上四分之一 | final Pass4 按 2x 输出尺寸 dispatch | `renderscreen_impl.cc` |
 | UDL 2x 输出仍走 1:1 blit 到 `upscale_buffer` | 窗口尺寸等于 `native * 2` 且 CAS 关闭时直接 present `enhanced_tex` | `renderscreen_impl.cc` |
 | `UDLAutoFit=true` 启动时太早锁窗口，被脚本初始化覆盖后窗口偏移/黑边 | 启动只记录 pending，`RenderScreenImpl` 首帧和 `ResizeScreen`/`MoveWindow` 后再应用 2x auto-fit | `renderscreen_impl.cc` |
-| Mode A 移除不彻底 | 删除函数体/管线/绑定/PSO，HLSL 保留编译不引用 | 多文件 |
 
 ## 中间纹理格式
 
