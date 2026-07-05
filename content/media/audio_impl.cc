@@ -84,7 +84,8 @@ void AudioImpl::SetupMIDI(ExceptionState& exception_state) {
   if (!sf.empty())
     context()->audio_server->SetSoundFont(sf);
   else
-    LOG(WARNING) << "[Audio] setup_midi: no SoundFont configured";
+    LOG(WARNING) << "[Audio] setup_midi: no SoundFont configured. "
+                    "Set [Audio] SoundFont=<path> in Game.ini to enable MIDI.";
 }
 
 void AudioImpl::BGMPlay(const std::string& filename,

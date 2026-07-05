@@ -162,7 +162,8 @@ MidiStreamSource* MidiPlayer::CreateStream(const std::string& midi_path) {
 
   if (soundfont_path_.empty()) {
     LOG(WARNING) << "[MIDI] No SoundFont configured, cannot play "
-                 << midi_path;
+                 << midi_path << ". "
+                 << "Set [Audio] SoundFont=<path> in Game.ini to enable MIDI.";
     return nullptr;
   }
 
