@@ -2,6 +2,7 @@
 #define COMPONENTS_AUDIOSERVICE_AUDIO_STREAM_H_
 
 #include <stdint.h>
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -46,6 +47,10 @@ class AudioStream {
   bool IsPausing();
   void Pause();
   void Resume();
+  void BeginMEPause();
+  void PauseForME();
+  bool ResumeFromME();
+  bool IsPausedForME() const { return paused_for_me_; }
 
   // Playback controller
   bool IsLooping();
@@ -54,6 +59,8 @@ class AudioStream {
   // Volume control (0-100, RGSS units)
   int32_t GetVolume() const { return current_volume_; }
   void SetVolume(int32_t volume);
+  float GetExternalVolume() const { return external_volume_; }
+  void SetExternalVolume(float volume);
 
  private:
   friend class AudioService;
@@ -63,6 +70,7 @@ class AudioStream {
                      int32_t volume,
                      int32_t pitch,
                      uint64_t pos);
+  void ApplyVolume();
   void UninitSound();
 
   ma_engine* engine_;
@@ -72,6 +80,9 @@ class AudioStream {
   ma_uint64 cursor_;
   ma_bool32 looping_;
   int32_t current_volume_;
+  float external_volume_ = 1.0f;
+  bool paused_for_me_ = false;
+  bool no_resume_after_me_ = false;
   bool initialized_ = false;
 
   // Streaming MIDI source (alive for duration of MIDI playback)

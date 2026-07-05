@@ -66,12 +66,22 @@ class AudioImpl : public Audio, public EngineObject {
   void Reset(ExceptionState& exception_state) override;
 
  private:
+  enum class MeWatchState {
+    kMeNotPlaying,
+    kBgmFadingOut,
+    kMePlaying,
+    kBgmFadingIn,
+  };
+
   void HandleAudioServiceError(ma_result result,
                                const std::string& filename,
                                ExceptionState& exception_state);
 
   I18NProfile* i18n_profile_;
   std::unique_ptr<base::ThreadWorker> me_watcher_;
+  MeWatchState me_watch_state_ = MeWatchState::kMeNotPlaying;
+  uint64_t me_watch_state_start_ = 0;
+  float me_watch_fade_start_volume_ = 1.0f;
 
   std::unique_ptr<audioservice::AudioStream> bgm_;
   std::unique_ptr<audioservice::AudioStream> bgs_;

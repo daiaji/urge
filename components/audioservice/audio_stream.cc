@@ -28,7 +28,8 @@ AudioStream::AudioStream(ma_engine* engine, MidiPlayer* midi_player)
       handle_({}),
       cursor_(0),
       looping_(false),
-      current_volume_(0) {}
+      current_volume_(0),
+      external_volume_(1.0f) {}
 
 AudioStream::~AudioStream() {
   UninitSound();
@@ -77,18 +78,28 @@ ma_result AudioStream::Play(const std::string& filename,
   }
 
   current_volume_ = volume;
-  ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
+  ApplyVolume();
   ma_sound_set_pitch(&handle_, pitch / 100.0f);
   if (pos)
     ma_sound_seek_to_pcm_frame(&handle_, pos);
-  ma_sound_start(&handle_);
+  if (!paused_for_me_) {
+    no_resume_after_me_ = false;
+    ma_sound_start(&handle_);
+  } else {
+    cursor_ = pos;
+    no_resume_after_me_ = false;
+  }
   return MA_SUCCESS;
 }
 
 void AudioStream::SetVolume(int32_t volume) {
   current_volume_ = volume;
-  if (initialized_)
-    ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
+  ApplyVolume();
+}
+
+void AudioStream::SetExternalVolume(float volume) {
+  external_volume_ = std::clamp(volume, 0.0f, 1.0f);
+  ApplyVolume();
 }
 
 ma_result AudioStream::PlayMIDI(const std::string& filename,
@@ -147,15 +158,22 @@ ma_result AudioStream::PlayMIDI(const std::string& filename,
   midi_stream_ = std::move(stream);
 
   current_volume_ = volume;
-  ma_sound_set_volume(&handle_, LogVolumeCurve(volume));
+  ApplyVolume();
   ma_sound_set_pitch(&handle_, pitch / 100.0f);
   if (pos)
     ma_sound_seek_to_pcm_frame(&handle_, pos);
-  ma_sound_start(&handle_);
+  if (!paused_for_me_) {
+    no_resume_after_me_ = false;
+    ma_sound_start(&handle_);
+  } else {
+    cursor_ = pos;
+    no_resume_after_me_ = false;
+  }
   return MA_SUCCESS;
 }
 
 void AudioStream::Stop() {
+  no_resume_after_me_ = true;
   if (initialized_) {
     ma_sound_stop(&handle_);
     cursor_ = 0;
@@ -163,6 +181,7 @@ void AudioStream::Stop() {
 }
 
 void AudioStream::Fade(int32_t time) {
+  no_resume_after_me_ = true;
   if (initialized_)
     ma_sound_stop_with_fade_in_milliseconds(&handle_, time);
 }
@@ -195,9 +214,45 @@ void AudioStream::Pause() {
 void AudioStream::Resume() {
   if (!initialized_)
     return;
+  if (paused_for_me_) {
+    ResumeFromME();
+    return;
+  }
   ma_sound_seek_to_pcm_frame(&handle_, cursor_);
   ma_sound_start(&handle_);
   cursor_ = 0;
+}
+
+void AudioStream::BeginMEPause() {
+  if (paused_for_me_)
+    return;
+  const bool should_resume = initialized_ && ma_sound_is_playing(&handle_);
+  paused_for_me_ = true;
+  no_resume_after_me_ = !should_resume;
+}
+
+void AudioStream::PauseForME() {
+  if (!initialized_ || !paused_for_me_)
+    return;
+  if (ma_sound_get_cursor_in_pcm_frames(&handle_, &cursor_) != MA_SUCCESS)
+    cursor_ = 0;
+  ma_sound_stop(&handle_);
+}
+
+bool AudioStream::ResumeFromME() {
+  if (!initialized_)
+    return false;
+  if (no_resume_after_me_) {
+    paused_for_me_ = false;
+    no_resume_after_me_ = false;
+    cursor_ = 0;
+    return false;
+  }
+  ma_sound_seek_to_pcm_frame(&handle_, cursor_);
+  ma_sound_start(&handle_);
+  cursor_ = 0;
+  paused_for_me_ = false;
+  return true;
 }
 
 bool AudioStream::IsLooping() {
@@ -206,6 +261,12 @@ bool AudioStream::IsLooping() {
 
 void AudioStream::SetLooping(bool looping) {
   looping_ = looping;
+}
+
+void AudioStream::ApplyVolume() {
+  if (initialized_)
+    ma_sound_set_volume(&handle_, LogVolumeCurve(current_volume_) *
+                                      external_volume_);
 }
 
 void AudioStream::UninitSound() {

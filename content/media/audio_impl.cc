@@ -12,6 +12,26 @@
 
 namespace content {
 
+namespace {
+
+constexpr uint64_t kBgmFadeOutForMETime = 200;
+constexpr uint64_t kBgmFadeInAfterMETime = 1000;
+
+float FadeProgress(uint64_t start, uint64_t duration) {
+  if (duration == 0)
+    return 1.0f;
+  const uint64_t elapsed = SDL_GetTicks() - start;
+  if (elapsed >= duration)
+    return 1.0f;
+  return static_cast<float>(elapsed) / static_cast<float>(duration);
+}
+
+float LerpVolume(float from, float to, float progress) {
+  return from + (to - from) * progress;
+}
+
+}  // namespace
+
 AudioImpl::AudioImpl(ExecutionContext* execution_context)
     : EngineObject(execution_context),
       i18n_profile_(execution_context->i18n_profile) {
@@ -219,14 +239,19 @@ void AudioImpl::SEStop(ExceptionState& exception_state) {
 }
 
 void AudioImpl::Reset(ExceptionState& exception_state) {
-  if (bgm_)
+  if (bgm_) {
     bgm_->Stop();
+    bgm_->SetExternalVolume(1.0f);
+  }
   if (bgs_)
     bgs_->Stop();
   if (me_)
     me_->Stop();
   if (se_)
     se_->Stop();
+  me_watch_state_ = MeWatchState::kMeNotPlaying;
+  me_watch_state_start_ = 0;
+  me_watch_fade_start_volume_ = 1.0f;
 }
 
 void AudioImpl::HandleAudioServiceError(ma_result result,
@@ -246,11 +271,75 @@ void AudioImpl::HandleAudioServiceError(ma_result result,
 void AudioImpl::MeThreadMonitorInternal() {
   if (!me_ || !bgm_)
     return;
-  if (me_->IsPlaying() && bgm_->IsPlaying())
-    bgm_->Pause();
+  switch (me_watch_state_) {
+    case MeWatchState::kMeNotPlaying:
+      if (me_->IsPlaying()) {
+        LOG(INFO) << "[Audio] ME started; fading out BGM";
+        bgm_->BeginMEPause();
+        me_watch_state_ = MeWatchState::kBgmFadingOut;
+        me_watch_state_start_ = SDL_GetTicks();
+        me_watch_fade_start_volume_ = bgm_->GetExternalVolume();
+      }
+      break;
 
-  if (!me_->IsPlaying() && bgm_->IsPausing())
-    bgm_->Resume();
+    case MeWatchState::kBgmFadingOut: {
+      if (!me_->IsPlaying()) {
+        me_watch_state_ = MeWatchState::kBgmFadingIn;
+        me_watch_state_start_ = SDL_GetTicks();
+        break;
+      }
+
+      const float progress = FadeProgress(me_watch_state_start_,
+                                          kBgmFadeOutForMETime);
+      bgm_->SetExternalVolume(
+          LerpVolume(me_watch_fade_start_volume_, 0.0f, progress));
+      if (progress >= 1.0f || !bgm_->IsPlaying()) {
+        bgm_->SetExternalVolume(0.0f);
+        bgm_->PauseForME();
+        me_watch_state_ = MeWatchState::kMePlaying;
+      }
+      break;
+    }
+
+    case MeWatchState::kMePlaying:
+      if (!me_->IsPlaying()) {
+        LOG(INFO) << "[Audio] ME ended; fading in BGM";
+        if (bgm_->ResumeFromME()) {
+          me_watch_state_ = MeWatchState::kBgmFadingIn;
+          me_watch_state_start_ = SDL_GetTicks();
+          me_watch_fade_start_volume_ = bgm_->GetExternalVolume();
+        } else {
+          bgm_->SetExternalVolume(1.0f);
+          me_watch_state_ = MeWatchState::kMeNotPlaying;
+        }
+      }
+      break;
+
+    case MeWatchState::kBgmFadingIn: {
+      if (me_->IsPlaying()) {
+        LOG(INFO) << "[Audio] ME restarted during BGM fade-in";
+        bgm_->BeginMEPause();
+        me_watch_state_ = MeWatchState::kBgmFadingOut;
+        me_watch_state_start_ = SDL_GetTicks();
+        me_watch_fade_start_volume_ = bgm_->GetExternalVolume();
+        break;
+      }
+
+      if (!bgm_->IsPlaying()) {
+        bgm_->SetExternalVolume(1.0f);
+        me_watch_state_ = MeWatchState::kMeNotPlaying;
+        break;
+      }
+
+      const float progress = FadeProgress(me_watch_state_start_,
+                                          kBgmFadeInAfterMETime);
+      bgm_->SetExternalVolume(
+          LerpVolume(me_watch_fade_start_volume_, 1.0f, progress));
+      if (progress >= 1.0f)
+        me_watch_state_ = MeWatchState::kMeNotPlaying;
+      break;
+    }
+  }
 
 #if !defined(OS_EMSCRIPTEN)
   // Delay for yield
