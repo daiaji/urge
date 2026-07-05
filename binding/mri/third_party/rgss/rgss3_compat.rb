@@ -8,6 +8,7 @@ class << Graphics
   alias :original_resize_screen :resize_screen
   def resize_screen(width, height)
     original_resize_screen(width, height)
-    move_window(0, 0, width, height)
+    rect = window_rect
+    move_window(rect.x, rect.y, width, height)
   end
 end

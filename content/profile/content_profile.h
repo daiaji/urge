@@ -72,6 +72,12 @@ class ContentProfile {
   bool allow_skip_frame = true;
   bool background_running = true;
   bool smooth_scale_present = false;
+  int32_t smooth_scaling = 0;        // 0=Nearest, 1=Bilinear (up-scale)
+  int32_t smooth_scaling_down = 0;   // 0=Nearest, 1=Bilinear (down-scale)
+  bool integer_scaling = false;      // Integer multiple scaling
+  bool sync_to_refresh_rate = false;
+  bool win_resizable = true;
+  bool fixed_aspect_ratio = true;
 
   // Font
   float font_scale = 0.9f;
