@@ -387,7 +387,7 @@ void ContentProfile::ResetAudioDefaults() {
 }
 
 void ContentProfile::ResetRendererDefaults() {
-  driver_backend = "UNDEFINED";
+  driver_backend = "Vulkan";
   pipeline_default_sampler = 0;
   render_validation =
 #if DILIGENT_DEVELOPMENT

@@ -63,7 +63,7 @@ class ContentProfile {
   std::string midi_soundfont;
 
   // Renderer
-  std::string driver_backend = "UNDEFINED";
+  std::string driver_backend = "Vulkan";
   int32_t pipeline_default_sampler = 0;
   bool render_validation =
 #if DILIGENT_DEVELOPMENT

@@ -186,7 +186,7 @@ RenderDevice::CreateDeviceResult RenderDevice::Create(
     case DriverType::VULKAN:
       break;
     default:
-      driver_type = DriverType::OPENGL;
+      driver_type = DriverType::VULKAN;
       break;
   }
 #elif defined(OS_ANDROID)
