@@ -87,6 +87,8 @@ uint __BfiM(uint src, uint ins, uint bits) { uint mask = (1u << bits) - 1; retur
 uint2 Rmp8x8(uint a) { return uint2(__Bfe(a, 1u, 3u), __BfiM(__Bfe(a, 3u, 3u), a, 1u)); }
 """
 
+RAW_STRING_CHUNK_SIZE = 16000
+
 
 @dataclass
 class PassBlock:
@@ -236,11 +238,34 @@ def block_shift(block_size: int) -> int:
     return block_size.bit_length() - 1
 
 
+def raw_string_literal_chunks(text: str) -> str:
+    chunks: list[str] = []
+    chunk_start = 0
+    last_break = 0
+
+    for index, char in enumerate(text):
+        if char == "\n":
+            last_break = index + 1
+        if index - chunk_start < RAW_STRING_CHUNK_SIZE:
+            continue
+
+        chunk_end = last_break if last_break > chunk_start else index + 1
+        chunks.append(text[chunk_start:chunk_end])
+        chunk_start = chunk_end
+        last_break = chunk_start
+
+    chunks.append(text[chunk_start:])
+    return "\n".join(f'R"({chunk})"' for chunk in chunks)
+
+
+def render_string_definition(symbol: str, source: str) -> str:
+    return f"extern const std::string {symbol} = {raw_string_literal_chunks(source)};"
+
+
 def render_pass(pass_block: PassBlock, variant: str) -> str:
     body = rewrite_body(pass_block)
     shift = block_shift(pass_block.block_size)
-    return f"""// CuNNy_{variant} Pass{pass_block.number}: {pass_block.desc}
-extern const std::string kHLSL_CuNNy_{variant}_Pass{pass_block.number}_Pixel = R"(
+    source = f"""
 {texture_decls(pass_block.inputs)}
 
 {output_decls(pass_block.outputs)}
@@ -261,7 +286,9 @@ void Pass{pass_block.number}(uint2 blockStart, uint3 tid) {{
 void CSMain(uint3 tid : SV_GroupThreadID, uint3 gid : SV_GroupID) {{
   Pass{pass_block.number}(gid.xy << {shift}u, tid);
 }}
-)";
+"""
+    return f"""// CuNNy_{variant} Pass{pass_block.number}: {pass_block.desc}
+{render_string_definition(f"kHLSL_CuNNy_{variant}_Pass{pass_block.number}_Pixel", source)}
 // {len(body)} body chars
 """
 
@@ -270,8 +297,7 @@ def render_anime4k_udl_pass(pass_block: PassBlock) -> str:
     body = rewrite_anime4k_body(pass_block)
     shift = block_shift(pass_block.block_size)
     symbol_index = pass_block.number - 1
-    return f"""// Anime4K_Upscale_Denoise_L Magpie Pass{pass_block.number}: {pass_block.desc}
-extern const std::string kHLSL_Anime4K_UDL_Pass{symbol_index}_Compute = R"(
+    source = f"""
 {anime4k_texture_decls(pass_block.inputs)}
 
 {output_decls(pass_block.outputs)}
@@ -291,14 +317,16 @@ void Pass{pass_block.number}(uint2 blockStart, uint3 threadId) {{
 void CSMain(uint3 threadId : SV_GroupThreadID, uint3 gid : SV_GroupID) {{
   Pass{pass_block.number}(gid.xy << {shift}u, threadId);
 }}
-)";
+"""
+    return f"""// Anime4K_Upscale_Denoise_L Magpie Pass{pass_block.number}: {pass_block.desc}
+{render_string_definition(f"kHLSL_Anime4K_UDL_Pass{symbol_index}_Compute", source)}
 // {len(body)} body chars
 """
 
 
 def generate_variant(variant: str, source_name: str, output_name: str) -> None:
     source_path = MAGPIE_CUNNY / source_name
-    source = source_path.read_text()
+    source = source_path.read_text(encoding="utf-8")
     source_hash = hashlib.sha256(source.encode()).hexdigest()
     passes = parse_passes(source)
     if [p.number for p in passes] != [1, 2, 3, 4, 5, 6]:
@@ -313,13 +341,13 @@ namespace renderer {{
 {pass_sources}
 }}  // namespace renderer
 """
-    (REPO_ROOT / "renderer" / "pipeline" / output_name).write_text(output)
+    (REPO_ROOT / "renderer" / "pipeline" / output_name).write_text(output, encoding="utf-8")
 
 
 def generate_anime4k_udl() -> None:
     source_name = "Anime4K_Upscale_Denoise_L.hlsl"
     source_path = MAGPIE_ANIME4K / source_name
-    source = source_path.read_text()
+    source = source_path.read_text(encoding="utf-8")
     source_hash = hashlib.sha256(source.encode()).hexdigest()
     passes = parse_passes(source)
     if [p.number for p in passes] != [1, 2, 3, 4]:
@@ -334,7 +362,7 @@ namespace renderer {{
 {pass_sources}
 }}  // namespace renderer
 """
-    (REPO_ROOT / "renderer" / "pipeline" / "builtin_hlsl_anime4k_udl.cc").write_text(output)
+    (REPO_ROOT / "renderer" / "pipeline" / "builtin_hlsl_anime4k_udl.cc").write_text(output, encoding="utf-8")
 
 
 def main() -> None:
