@@ -28,18 +28,20 @@ urge_compat.rb → ruby19_compat.rb → rgss3_patch.rb → rgss3_compat.rb
 - Ruby 3.0+
 - RM-Toolkit（`~/repo/RM-Toolkit`）
 - 已编译的 C 扩展（用于解密游戏存档）
+- 只对可信来源的 RGSS 项目使用 `--allow-unsafe-marshal`；该参数会允许 RM-Toolkit 对 `.rxdata` / `.rvdata` / `.rvdata2` 执行 Ruby `Marshal.load`
 
 ### 快速开始
 
 ```bash
 # 1. 解包项目数据
-bundle exec exe/rm-toolkit -b /path/to/game --unpack --rgss3
+bundle exec exe/rm-toolkit -b /path/to/game --unpack --rgss3 --allow-unsafe-marshal
 
 # 2. 查看脚本列表（输出取 stdout，格式: 序号|名称）
-bundle exec exe/rm-toolkit -b /path/to/game --rgss3 --list-scripts
+bundle exec exe/rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --list-scripts
 
 # 3. 注入 URGE 兼容补丁（--inject-script 会自动重新封包）
 bundle exec exe/rm-toolkit -b /path/to/game --rgss3 \
+  --allow-unsafe-marshal \
   --inject-script "0:/absolute/path/to/urge_compat.rb" \
   --inject-script "1:/absolute/path/to/ruby19_compat.rb" \
   --inject-script "2:/absolute/path/to/rgss3_patch.rb" \
@@ -54,11 +56,11 @@ bundle exec exe/rm-toolkit -b /path/to/game --rgss3 \
 
 ```bash
 # 列出所有脚本序号和名称（stdout，格式: 序号|名称）
-rm-toolkit -b /path/to/game --rgss3 --list-scripts
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --list-scripts
 
 # 导出单个脚本到文件（stdout，格式: 序号|名称|路径|字节数）
-rm-toolkit -b /path/to/game --rgss3 --export-script 3
-rm-toolkit -b /path/to/game --rgss3 --export-script 3:custom_name.rb
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --export-script 3
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --export-script 3:custom_name.rb
 ```
 
 #### 增删改
@@ -66,34 +68,35 @@ rm-toolkit -b /path/to/game --rgss3 --export-script 3:custom_name.rb
 ```bash
 # ⚠️ 首次注入用 --inject-script（插入到指定序号，原序号及后续后移）
 #    切勿在同一份 Scripts.rvdata2 上多次 --inject-script，否则会重复
-rm-toolkit -b /path/to/game --rgss3 --inject-script 0:patch.rb
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --inject-script 0:patch.rb
 
 # 注入多个脚本（按顺序依次插入）
 rm-toolkit -b /path/to/game --rgss3 \
+  --allow-unsafe-marshal \
   --inject-script 0:compat_a.rb \
   --inject-script 1:compat_b.rb
 
 # ✅ 更新已有脚本用 --replace-script（保留序号，不会新增条目）
 #    适用于仓库中的补丁文件变更后，更新到游戏
-rm-toolkit -b /path/to/game --rgss3 --replace-script 5:fixed_script.rb
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --replace-script 5:fixed_script.rb
 
 # 创建空脚本
-rm-toolkit -b /path/to/game --rgss3 --create-script 2
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --create-script 2
 
 # 清空脚本内容（保留位置和名称）
-rm-toolkit -b /path/to/game --rgss3 --clear-script 7
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --clear-script 7
 
 # 删除脚本
-rm-toolkit -b /path/to/game --rgss3 --remove-script 42
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --remove-script 42
 
 # 批量删除空脚本
-rm-toolkit -b /path/to/game --rgss3 --prune-empty-scripts
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --prune-empty-scripts
 
 # 重命名脚本
-rm-toolkit -b /path/to/game --rgss3 --rename-script "3:新名称"
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --rename-script "3:新名称"
 
 # 移动脚本
-rm-toolkit -b /path/to/game --rgss3 --move-script 10:3
+rm-toolkit -b /path/to/game --rgss3 --allow-unsafe-marshal --move-script 10:3
 ```
 
 #### 封包
@@ -115,13 +118,14 @@ URGE=/path/to/urge/repo
 cd ~/repo/RM-Toolkit
 
 # 首次配置
-bundle exec exe/rm-toolkit -b "$GAME" --unpack --rgss3
+bundle exec exe/rm-toolkit -b "$GAME" --unpack --rgss3 --allow-unsafe-marshal
 
 # 查看脚本列表确认结构
-bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --list-scripts
+bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --allow-unsafe-marshal --list-scripts
 
 # 注入补丁（加载顺序：URGE 通用 → Ruby 兼容 → 数据结构 → RGSS3 行为）
 bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
+  --allow-unsafe-marshal \
   --inject-script "0:${URGE}/binding/mri/third_party/rgss/urge_compat.rb" \
   --inject-script "1:${URGE}/binding/mri/third_party/rgss/ruby19_compat.rb" \
   --inject-script "2:${URGE}/binding/mri/third_party/rgss/rgss3_patch.rb" \
@@ -129,6 +133,7 @@ bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
 
 # 更新 URGE 补丁（当仓库中的脚本文件变更时，替换对应索引位置）
 bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
+  --allow-unsafe-marshal \
   --replace-script "3:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"
 # （只替换变更的脚本，不会新增条目；切勿重复 --inject-script，会导致重复）
 ```
@@ -189,6 +194,7 @@ FontSubs=simhei>LGBaseFont.ttf, microsoft yahei>LGBaseFont.ttf, ms pgothic>LGBas
 ## 注意事项
 
 - RGSS 脚本按顺序依次执行，补丁必须在引用 RPG 数据结构的脚本**之前**加载
+- RM-Toolkit 解析 RGSS 数据文件时需要 `--allow-unsafe-marshal`；该参数只用于可信项目，不用于未知来源样本
 - 加载顺序：`urge_compat.rb` → `ruby19_compat.rb` → `rgss3_patch.rb` → `rgss3_compat.rb`
 - `Win32API` 调用在 URGE 上不可用，需用 `rescue` 包裹或替换为纯 Ruby 实现
 - `BasicObject#initialize` 覆写会导致 Ruby 3.3 segfault，`ruby19_compat.rb` 中已移除此补丁

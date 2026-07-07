@@ -45,25 +45,29 @@ bash /home/daiaji/repo/urge/build_and_deploy.sh
 # 0. 先查看当前脚本列表，确认索引
 GAME=/path/to/game
 cd ~/repo/RM-Toolkit
-bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --list-scripts
+bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --allow-unsafe-marshal --list-scripts
 
 # 1. 首次注入用 --inject-script
 URGE=/home/daiaji/repo/urge
 bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
+  --allow-unsafe-marshal \
   --inject-script "0:${URGE}/binding/mri/third_party/rgss/urge_compat.rb" \
   --inject-script "1:${URGE}/binding/mri/third_party/rgss/ruby19_compat.rb" \
   --inject-script "2:${URGE}/binding/mri/third_party/rgss/rgss3_patch.rb" \
   --inject-script "3:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"
 ```
 
+RM-Toolkit 读取 RGSS `.rxdata` / `.rvdata` / `.rvdata2` 时会使用 Ruby `Marshal.load`。只对可信来源的游戏项目追加 `--allow-unsafe-marshal`；纯 archive 提取不需要该参数。
+
 ⚠️ **不要重复 `--inject-script`**：每次会在脚本数组中插入新条目，多次注入会产生重复脚本。更新已有补丁用 `--replace-script` 替换对应索引位置。
 
 ```bash
 # 更新前先查看脚本列表确认索引
-bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --list-scripts
+bundle exec exe/rm-toolkit -b "$GAME" --rgss3 --allow-unsafe-marshal --list-scripts
 
 # 更新脚本用 --replace-script（保留序号，不会新增条目）
 bundle exec exe/rm-toolkit -b "$GAME" --rgss3 \
+  --allow-unsafe-marshal \
   --replace-script "3:${URGE}/binding/mri/third_party/rgss/rgss3_compat.rb"
 ```
 
@@ -117,7 +121,7 @@ cmake --build build -j$(nproc)
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **urge** (8082 symbols, 12966 relationships, 283 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **urge** (8124 symbols, 13035 relationships, 283 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
