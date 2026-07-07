@@ -139,6 +139,8 @@ class ContentRunner {
   int64_t total_delta_;
   int32_t frame_count_;
   std::vector<float> fps_history_;
+  std::vector<float> frame_time_history_;
+  float one_percent_low_fps_ = 0.0f;
 
 #if defined(OS_EMSCRIPTEN)
   int32_t DetermineRepeatNumberInternal(double delta_rate);

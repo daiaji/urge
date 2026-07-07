@@ -4,6 +4,7 @@
 
 #include "content/worker/content_runner.h"
 
+#include <functional>
 #include <filesystem>
 #include "imgui/backends/imgui_impl_sdl3.h"
 #include "imgui/imgui.h"
@@ -20,6 +21,29 @@
 namespace content {
 
 namespace {
+
+constexpr size_t kMaxFPSHistorySize = 20;
+constexpr size_t kMaxFrameTimeHistorySize = 300;
+
+float CalculateOnePercentLowFPS(const std::vector<float>& frame_times_ms) {
+  if (frame_times_ms.empty())
+    return 0.0f;
+
+  std::vector<float> sorted_frame_times = frame_times_ms;
+  std::sort(sorted_frame_times.begin(), sorted_frame_times.end(),
+            std::greater<>());
+
+  const size_t sample_count =
+      std::max<size_t>(1, sorted_frame_times.size() / 100);
+  float slowest_frame_total_ms = 0.0f;
+  for (size_t i = 0; i < sample_count; ++i)
+    slowest_frame_total_ms += sorted_frame_times[i];
+
+  const float slowest_frame_average_ms =
+      slowest_frame_total_ms / static_cast<float>(sample_count);
+  return slowest_frame_average_ms > 0.0f ? 1000.0f / slowest_frame_average_ms
+                                        : 0.0f;
+}
 
 void DrawEngineInfoGUI(I18NProfile* i18n_profile) {
   if (ImGui::CollapsingHeader(
@@ -416,16 +440,23 @@ void ContentRunner::UpdateDisplayFPSInternal() {
 
   total_delta_ += delta_tick;
   const uint64_t timer_freq = SDL_GetPerformanceFrequency();
+  const float frame_time_ms =
+      1000.0f * static_cast<float>(delta_tick) / static_cast<float>(timer_freq);
+  frame_time_history_.push_back(frame_time_ms);
+  if (frame_time_history_.size() > kMaxFrameTimeHistorySize)
+    frame_time_history_.erase(frame_time_history_.begin());
+
   if (total_delta_ >= static_cast<int64_t>(timer_freq)) {
     const float fps_scale = static_cast<float>(
         SDL_GetPerformanceFrequency() / static_cast<float>(total_delta_));
     const float current_fps = static_cast<float>(frame_count_) * fps_scale;
+    one_percent_low_fps_ = CalculateOnePercentLowFPS(frame_time_history_);
 
     total_delta_ = 0;
     frame_count_ = 0;
 
     fps_history_.push_back(current_fps);
-    if (fps_history_.size() > 20)
+    if (fps_history_.size() > kMaxFPSHistorySize)
       fps_history_.erase(fps_history_.begin());
   }
 }
@@ -626,6 +657,7 @@ void ContentRunner::RenderFPSMonitorGUIInternal() {
     // Draw current fps
     double current_fps = fps_history_.empty() ? 0.0 : fps_history_.back();
     ImGui::Text("FPS: %.2f", current_fps);
+    ImGui::Text("1%% Low: %.2f", one_percent_low_fps_);
     // Draw plot for fps monitor
     if (!fps_history_.empty()) {
       ImGui::PlotHistogram("##FPSDisplay", fps_history_.data(),
@@ -836,6 +868,12 @@ bool ContentRunner::EventWatchHandlerInternal(void* userdata,
     if (self->audio_server_)
       self->audio_server_->ResumeDevice();
     self->graphics_impl_->ResetFPSCounter();
+    self->total_delta_ = 0;
+    self->frame_count_ = 0;
+    self->last_tick_ = SDL_GetPerformanceCounter();
+    self->frame_time_history_.clear();
+    self->fps_history_.clear();
+    self->one_percent_low_fps_ = 0.0f;
     self->background_running_ = false;
 
 #if defined(OS_EMSCRIPTEN)
