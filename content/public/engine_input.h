@@ -84,10 +84,10 @@ class URGE_OBJECT(Input) {
   virtual bool IsGamepadConnected(ExceptionState& exception_state) = 0;
 
   /*--urge(name:gamepad_rumble)--*/
-  virtual void RumbleGamepad(uint16_t low_freq,
-                             uint16_t high_freq,
-                             uint32_t duration_ms,
-                             ExceptionState& exception_state) = 0;
+  virtual bool RumbleGamepad(uint16_t low_freq,
+                              uint16_t high_freq,
+                              uint32_t duration_ms,
+                              ExceptionState& exception_state) = 0;
 
   // Extended gamepad state API
   virtual std::string GetGamepadName(ExceptionState& exception_state) = 0;

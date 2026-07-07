@@ -10,6 +10,10 @@ EventController::EventController() {}
 
 EventController::~EventController() = default;
 
+bool EventController::IsCurrentGamepadEvent(SDL_JoystickID id) const {
+  return gamepad_handle_ && id == gamepad_id_;
+}
+
 void EventController::ClearPendingEvents() {
   key_events_.clear();
   mouse_events_.clear();
@@ -18,6 +22,7 @@ void EventController::ClearPendingEvents() {
 }
 
 void EventController::DispatchEvent(const SDL_Event* event,
+                                    SDL_WindowID window_id,
                                     const base::Vec2i& window_size,
                                     const base::Vec2i& screen_size,
                                     const base::Rect& bound_in_screen) {
@@ -34,6 +39,8 @@ void EventController::DispatchEvent(const SDL_Event* event,
     case SDL_EVENT_KEY_DOWN:
     case SDL_EVENT_KEY_UP: {
       auto& raw_event = event->key;
+      if (raw_event.windowID != window_id)
+        break;
       KeyEventData out_event{};
       out_event.timestamp = raw_event.timestamp;
       out_event.type = static_cast<decltype(out_event.type)>(
@@ -48,6 +55,8 @@ void EventController::DispatchEvent(const SDL_Event* event,
     } break;
     case SDL_EVENT_MOUSE_MOTION: {
       auto& raw_event = event->motion;
+      if (raw_event.windowID != window_id)
+        break;
       MouseEventData out_event{};
       out_event.timestamp = raw_event.timestamp;
       out_event.type = static_cast<decltype(out_event.type)>(
@@ -65,6 +74,8 @@ void EventController::DispatchEvent(const SDL_Event* event,
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP: {
       auto& raw_event = event->button;
+      if (raw_event.windowID != window_id)
+        break;
       MouseEventData out_event{};
       out_event.timestamp = raw_event.timestamp;
       out_event.type = static_cast<decltype(out_event.type)>(
@@ -79,6 +90,8 @@ void EventController::DispatchEvent(const SDL_Event* event,
     } break;
     case SDL_EVENT_MOUSE_WHEEL: {
       auto& raw_event = event->wheel;
+      if (raw_event.windowID != window_id)
+        break;
       MouseEventData out_event{};
       out_event.timestamp = raw_event.timestamp;
       out_event.type = static_cast<decltype(out_event.type)>(
@@ -113,6 +126,8 @@ void EventController::DispatchEvent(const SDL_Event* event,
     } break;
     case SDL_EVENT_TEXT_EDITING: {
       auto& raw_event = event->edit;
+      if (raw_event.windowID != window_id)
+        break;
       TextInputEventData out_event{};
       out_event.timestamp = raw_event.timestamp;
       out_event.type = static_cast<decltype(out_event.type)>(
@@ -124,6 +139,8 @@ void EventController::DispatchEvent(const SDL_Event* event,
     } break;
     case SDL_EVENT_TEXT_INPUT: {
       auto& raw_event = event->text;
+      if (raw_event.windowID != window_id)
+        break;
       TextInputEventData out_event{};
       out_event.timestamp = raw_event.timestamp;
       out_event.type = static_cast<decltype(out_event.type)>(
@@ -136,18 +153,23 @@ void EventController::DispatchEvent(const SDL_Event* event,
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
     case SDL_EVENT_GAMEPAD_BUTTON_UP: {
       auto& raw_event = event->gbutton;
+      if (!IsCurrentGamepadEvent(raw_event.which))
+        break;
       gamepad_state_.connected = true;
       UpdateGamepadButton(raw_event.button, raw_event.down);
     } break;
 
     case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
       auto& raw_event = event->gaxis;
+      if (!IsCurrentGamepadEvent(raw_event.which))
+        break;
       gamepad_state_.connected = true;
       UpdateGamepadAxis(raw_event.axis, raw_event.value);
     } break;
 
     case SDL_EVENT_GAMEPAD_REMOVED:
-      ResetGamepadState();
+      if (IsCurrentGamepadEvent(event->gdevice.which))
+        ResetGamepadState();
       break;
 
     default:

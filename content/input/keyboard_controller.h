@@ -99,10 +99,10 @@ class KeyboardControllerImpl : public Input, public EngineObject {
   bool IsGamepadConnected(ExceptionState& exception_state) override;
 
   // Rumble / force feedback
-  void RumbleGamepad(uint16_t low_freq,
-                     uint16_t high_freq,
-                     uint32_t duration_ms,
-                     ExceptionState& exception_state) override;
+  bool RumbleGamepad(uint16_t low_freq,
+                      uint16_t high_freq,
+                      uint32_t duration_ms,
+                      ExceptionState& exception_state) override;
 
   // ImGui settings page
   void CreateButtonGUISettings();
@@ -146,9 +146,9 @@ class KeyboardControllerImpl : public Input, public EngineObject {
 
   BindingList bindings_;
 
-  std::array<bool, SDL_SCANCODE_COUNT> raw_states_;
-  std::array<KeyState, SDL_SCANCODE_COUNT> key_states_;
-  std::array<KeyState, SDL_SCANCODE_COUNT> recent_key_states_;
+  std::array<bool, SDL_SCANCODE_COUNT> raw_states_{};
+  std::array<KeyState, SDL_SCANCODE_COUNT> key_states_{};
+  std::array<KeyState, SDL_SCANCODE_COUNT> recent_key_states_{};
 
   struct {
     int32_t active = 0;

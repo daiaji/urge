@@ -26,8 +26,11 @@ static const char* kGamepadButtonNames[] = {
     "A", "B", "X", "Y", "Back", "Guide", "Start",
     "LS", "RS", "LB", "RB",
     "DPad_Up", "DPad_Down", "DPad_Left", "DPad_Right",
-    "Misc", "Paddle1", "Paddle2", "Paddle3", "Paddle4", "Touchpad",
+    "Misc1", "RightPaddle1", "LeftPaddle1", "RightPaddle2", "LeftPaddle2",
+    "Touchpad", "Misc2", "Misc3", "Misc4", "Misc5", "Misc6",
 };
+static_assert(sizeof(kGamepadButtonNames) / sizeof(kGamepadButtonNames[0]) ==
+              SDL_GAMEPAD_BUTTON_COUNT);
 
 // SDL_GamepadAxis names for UI display
 static const char* kGamepadAxisNames[] = {
@@ -69,9 +72,14 @@ static const int16_t kGamepadAxisThreshold = 0x4000;
 static void LoadGameControllerDB() {
   SDL_IOStream* db = SDL_IOFromFile("gamecontrollerdb.txt", "r");
   if (db) {
-    SDL_AddGamepadMappingsFromIO(db, true);
-    SDL_CloseIO(db);
-    LOG(INFO) << "[Gamepad] Loaded gamecontrollerdb.txt";
+    const int count = SDL_AddGamepadMappingsFromIO(db, true);
+    if (count < 0) {
+      LOG(WARNING) << "[Gamepad] Failed to load gamecontrollerdb.txt: "
+                   << SDL_GetError();
+    } else {
+      LOG(INFO) << "[Gamepad] Loaded " << count
+                << " mappings from gamecontrollerdb.txt";
+    }
   }
 }
 
@@ -197,6 +205,8 @@ KeyboardControllerImpl::~KeyboardControllerImpl() = default;
 void KeyboardControllerImpl::ProcessEvent(
     const std::optional<EventController::KeyEventData>& event) {
   if (event) {
+    if (event->is_repeat)
+      return;
     raw_states_[event->scancode] = event->is_down;
   } else {
     for (auto& it : raw_states_)
@@ -231,6 +241,9 @@ void KeyboardControllerImpl::Update(ExceptionState& exception_state) {
       } else {
         ++gp_repeat_count_[b];
       }
+    } else {
+      gp_repeat_count_[b] = 0;
+      gp_button_time_[b] = 0;
     }
   }
 
@@ -670,7 +683,12 @@ void KeyboardControllerImpl::LoadAllBindings() {
     std::string sym = line.substr(0, eq);
     std::string val = line.substr(eq + 1);
     sym = sym.substr(0, sym.find_last_not_of(" \t") + 1);
-    val = val.substr(val.find_first_not_of(" \t"));
+    const size_t val_start = val.find_first_not_of(" \t");
+    if (val_start == std::string::npos) {
+      LOG(WARNING) << "[Bindings] Skipping empty binding value: " << line;
+      continue;
+    }
+    val = val.substr(val_start);
 
     BindingEntry entry;
     entry.sym = sym;
@@ -979,7 +997,8 @@ std::string KeyboardControllerImpl::GetGamepadAxisName(int32_t axis) {
 }
 
 std::string KeyboardControllerImpl::GetGamepadButtonName(int32_t button) {
-  if (button >= 0 && button < SDL_GAMEPAD_BUTTON_COUNT)
+  if (button >= 0 && button < static_cast<int32_t>(
+          sizeof(kGamepadButtonNames) / sizeof(kGamepadButtonNames[0])))
     return kGamepadButtonNames[button];
   return "Unknown";
 }
@@ -989,13 +1008,14 @@ bool KeyboardControllerImpl::IsGamepadConnected(
   return gp_connected_;
 }
 
-void KeyboardControllerImpl::RumbleGamepad(uint16_t low_freq,
-                                           uint16_t high_freq,
-                                           uint32_t duration_ms,
-                                           ExceptionState& exception_state) {
+bool KeyboardControllerImpl::RumbleGamepad(uint16_t low_freq,
+                                            uint16_t high_freq,
+                                            uint32_t duration_ms,
+                                            ExceptionState& exception_state) {
   auto* pad = context()->event_controller->gamepad_handle();
-  if (pad)
-    SDL_RumbleGamepad(pad, low_freq, high_freq, duration_ms);
+  if (!pad)
+    return false;
+  return SDL_RumbleGamepad(pad, low_freq, high_freq, duration_ms);
 }
 
 std::string KeyboardControllerImpl::GetGamepadName(
@@ -1011,20 +1031,9 @@ int32_t KeyboardControllerImpl::GetGamepadPowerLevel(
     ExceptionState& exception_state) {
   auto* pad = context()->event_controller->gamepad_handle();
   if (!pad)
-    return 0;
+    return SDL_POWERSTATE_UNKNOWN;
   int percent;
-  SDL_PowerState ps = SDL_GetGamepadPowerInfo(pad, &percent);
-  switch (ps) {
-    case SDL_POWERSTATE_NO_BATTERY: return 5;  // wired
-    case SDL_POWERSTATE_ON_BATTERY:
-      if (percent >= 75) return 4;
-      if (percent >= 50) return 3;
-      if (percent >= 25) return 2;
-      return 1;
-    case SDL_POWERSTATE_CHARGED: return 4;
-    case SDL_POWERSTATE_CHARGING: return 3;
-    default: return 0;
-  }
+  return SDL_GetGamepadPowerInfo(pad, &percent);
 }
 
 std::vector<float> KeyboardControllerImpl::GetGamepadAxisLeft(
@@ -1082,7 +1091,7 @@ bool KeyboardControllerImpl::GamepadRepeatEx(
 
 bool KeyboardControllerImpl::GamepadReleaseEx(
     int32_t button, ExceptionState& exception_state) {
-  return gp_connected_ && button >= 0 &&
+  return button >= 0 &&
          button < SDL_GAMEPAD_BUTTON_COUNT &&
          !gp_buttons_[button] && gp_buttons_prev_[button];
 }
@@ -1140,7 +1149,7 @@ static const char* SourceDescription(const BindingSource& src) {
       return name ? name : "?";
     }
     case BS::Type::GamepadButton:
-      if (src.code < SDL_GAMEPAD_BUTTON_COUNT)
+      if (src.code < sizeof(kGamepadButtonNames) / sizeof(kGamepadButtonNames[0]))
         return kGamepadButtonNames[src.code];
       snprintf(buf, sizeof(buf), "Btn#%u", src.code);
       return buf;

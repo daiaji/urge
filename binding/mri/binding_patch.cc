@@ -353,9 +353,9 @@ MRI_METHOD(input_gamepad_rumble) {
   high_freq = static_cast<uint16_t>(NUM2INT(argv[1]));
   duration_ms = static_cast<uint32_t>(NUM2UINT(argv[2]));
 
-  input->RumbleGamepad(low_freq, high_freq, duration_ms, exception_state);
+  bool v = input->RumbleGamepad(low_freq, high_freq, duration_ms, exception_state);
   MriProcessException(exception_state);
-  return Qtrue;
+  return MRI_BOOL_VALUE(v);
 }
 
 MRI_METHOD(input_press_ex) {
@@ -506,6 +506,7 @@ MRI_METHOD(input_controller_axes_trigger) {
 }
 
 MRI_METHOD(input_controller_press_ex) {
+  MriCheckArgc(argc, 1);
   scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
   content::ExceptionState exception_state;
 
@@ -522,6 +523,7 @@ MRI_METHOD(input_controller_press_ex) {
 }
 
 MRI_METHOD(input_controller_trigger_ex) {
+  MriCheckArgc(argc, 1);
   scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
   content::ExceptionState exception_state;
 
@@ -538,6 +540,7 @@ MRI_METHOD(input_controller_trigger_ex) {
 }
 
 MRI_METHOD(input_controller_repeat_ex) {
+  MriCheckArgc(argc, 1);
   scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
   content::ExceptionState exception_state;
 
@@ -554,6 +557,7 @@ MRI_METHOD(input_controller_repeat_ex) {
 }
 
 MRI_METHOD(input_controller_release_ex) {
+  MriCheckArgc(argc, 1);
   scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
   content::ExceptionState exception_state;
 
@@ -570,6 +574,7 @@ MRI_METHOD(input_controller_release_ex) {
 }
 
 MRI_METHOD(input_controller_repeat_count) {
+  MriCheckArgc(argc, 1);
   scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
   content::ExceptionState exception_state;
 
@@ -586,6 +591,7 @@ MRI_METHOD(input_controller_repeat_count) {
 }
 
 MRI_METHOD(input_controller_repeat_time_ex) {
+  MriCheckArgc(argc, 1);
   scoped_refptr<content::Input> input = MriGetGlobalModules()->Input;
   content::ExceptionState exception_state;
 

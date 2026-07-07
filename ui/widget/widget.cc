@@ -17,6 +17,8 @@ const char kNativeWidgetKey[] = "UIBase::Widget";
 
 Widget* Widget::FromWindowID(SDL_WindowID window_id) {
   SDL_Window* sdl_window = SDL_GetWindowFromID(window_id);
+  if (!sdl_window)
+    return nullptr;
   return static_cast<Widget*>(SDL_GetPointerProperty(
       SDL_GetWindowProperties(sdl_window), kNativeWidgetKey, nullptr));
 }

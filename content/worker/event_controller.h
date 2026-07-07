@@ -87,6 +87,7 @@ class EventController {
   // Process game window
   void ClearPendingEvents();
   void DispatchEvent(const SDL_Event* event,
+                     SDL_WindowID window_id,
                      const base::Vec2i& window_size,
                      const base::Vec2i& screen_size,
                      const base::Rect& bound_in_screen);
@@ -121,8 +122,12 @@ class EventController {
   // Gamepad handle lifecycle (managed by ContentRunner)
   SDL_Gamepad* gamepad_handle() const { return gamepad_handle_; }
   void set_gamepad_handle(SDL_Gamepad* handle) { gamepad_handle_ = handle; }
+  SDL_JoystickID gamepad_id() const { return gamepad_id_; }
+  void set_gamepad_id(SDL_JoystickID id) { gamepad_id_ = id; }
 
  private:
+  bool IsCurrentGamepadEvent(SDL_JoystickID id) const;
+
   std::vector<KeyEventData> key_events_;
   std::vector<MouseEventData> mouse_events_;
   std::vector<TouchEventData> touch_events_;
@@ -130,6 +135,7 @@ class EventController {
 
   GamepadState gamepad_state_;
   SDL_Gamepad* gamepad_handle_ = nullptr;
+  SDL_JoystickID gamepad_id_ = 0;
 };
 
 }  // namespace content

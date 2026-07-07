@@ -144,9 +144,6 @@ void ContentRunner::RunMainLoop() {
     for (int32_t i = 0; i < repeat_time; ++i)
       emscripten_fiber_swap(&primary_fiber_, &main_loop_fiber_);
 
-    // Update audio thread
-    if (audio_server_)
-      audio_impl_->MeThreadMonitorInternal();
   });
 
   // Start main loop
@@ -374,6 +371,9 @@ void ContentRunner::TickHandlerInternal(Diligent::ITexture* present_buffer) {
   // Poll event
   UpdateEventInternal();
 
+  if (audio_server_)
+    audio_impl_->MeThreadMonitorInternal();
+
 #if !defined(OS_EMSCRIPTEN)
   // Update network service queue
   network_service_->DispatchEvent();
@@ -436,10 +436,15 @@ void ContentRunner::CheckResizeInternal() {
   if (!swapchain)
     return;
   const auto window_size = window->GetSize();
+  if (window_size.x <= 0 || window_size.y <= 0)
+    return;
 
   // Update backing scale factor (physical / logical)
-  int32_t pixel_w, pixel_h;
-  SDL_GetWindowSizeInPixels(window->AsSDLWindow(), &pixel_w, &pixel_h);
+  int32_t pixel_w = 0;
+  int32_t pixel_h = 0;
+  if (!SDL_GetWindowSizeInPixels(window->AsSDLWindow(), &pixel_w, &pixel_h) ||
+      pixel_w <= 0 || pixel_h <= 0)
+    return;
   backing_scale_factor_ =
       (window_size.x > 0) ? static_cast<float>(pixel_w) / window_size.x : 1.0f;
 
@@ -485,8 +490,7 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
     RenderConsoleGUIInternal();
 
   const bool capture_keyboard_for_gui = show_settings_menu_ ||
-                                        execution_context_->console.show ||
-                                        ImGui::GetIO().WantCaptureKeyboard;
+                                        execution_context_->console.show;
 
   // Present game window
   ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -564,7 +568,7 @@ void ContentRunner::RenderGUIInternal(Diligent::ITexture* present_buffer) {
   ImGui::PopStyleVar(3);
 
   // Enable input dispatch for input & mouse
-  if (process_game_input && !capture_keyboard_for_gui) {
+  if (!capture_keyboard_for_gui) {
     for (auto& it : event_controller_->key_events())
       keyboard_impl_->ProcessEvent(it);
   } else {
@@ -770,6 +774,7 @@ void ContentRunner::UpdateEventInternal() {
         SDL_Gamepad* pad = SDL_OpenGamepad(id);
         if (pad) {
           event_controller_->set_gamepad_handle(pad);
+          event_controller_->set_gamepad_id(SDL_GetGamepadID(pad));
           event_controller_->SetGamepadConnected(true);
           LOG(INFO) << "[Gamepad] Opened: "
                      << SDL_GetGamepadName(pad);
@@ -778,9 +783,11 @@ void ContentRunner::UpdateEventInternal() {
         }
       }
     } else if (queued_event.type == SDL_EVENT_GAMEPAD_REMOVED) {
-      if (event_controller_->gamepad_handle()) {
+      if (event_controller_->gamepad_handle() &&
+          queued_event.gdevice.which == event_controller_->gamepad_id()) {
         SDL_CloseGamepad(event_controller_->gamepad_handle());
         event_controller_->set_gamepad_handle(nullptr);
+        event_controller_->set_gamepad_id(0);
         event_controller_->ResetGamepadState();
         LOG(INFO) << "[Gamepad] Removed.";
       }
@@ -789,8 +796,9 @@ void ContentRunner::UpdateEventInternal() {
     // Game input process
     const auto window_size = execution_context_->window->GetSize();
     const auto screen_size = execution_context_->resolution;
-    event_controller_->DispatchEvent(&queued_event, window_size, screen_size,
-                                     screen_bound_);
+    event_controller_->DispatchEvent(&queued_event,
+                                     execution_context_->window->GetWindowID(),
+                                     window_size, screen_size, screen_bound_);
   }
 }
 
