@@ -5,6 +5,7 @@
 #include "content/profile/content_profile.h"
 
 #include "base/buildflags/build.h"
+#include "base/debug/logging.h"
 
 #include <cstdio>
 #include <fstream>
@@ -77,6 +78,14 @@ void ReplaceStringWidth(std::string& str, char before, char after) {
       str[i] = after;
 }
 
+std::string TrimASCIIWhitespace(std::string value) {
+  size_t start = value.find_first_not_of(" \t");
+  if (start == std::string::npos)
+    return {};
+  size_t end = value.find_last_not_of(" \t");
+  return value.substr(start, end - start + 1);
+}
+
 std::string JoinStrings(const std::vector<std::string>& values,
                         const char* separator) {
   std::string out;
@@ -94,9 +103,14 @@ base::Vec2i GetVec2iFromString(std::string in,
                                const base::Vec2i& default_value) {
   size_t sep = in.find("|");
   if (sep != std::string::npos) {
-    int32_t num1 = std::stoi(in.substr(0, sep).c_str());
-    int32_t num2 = std::stoi(in.substr(sep + 1).c_str());
-    return base::Vec2i(num1, num2);
+    try {
+      int32_t num1 = std::stoi(in.substr(0, sep).c_str());
+      int32_t num2 = std::stoi(in.substr(sep + 1).c_str());
+      if (num1 > 0 && num2 > 0)
+        return base::Vec2i(num1, num2);
+    } catch (...) {
+      LOG(WARNING) << "[Profile] Invalid size value: " << in;
+    }
   }
 
   return default_value;
@@ -466,6 +480,7 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
   save_log = reader->GetBoolean("Engine", "SaveLog", save_log);
 
   {
+    font_subs.clear();
     std::string subs_line = reader->Get("Engine", "FontSubs", "");
     if (!subs_line.empty()) {
       size_t pos = 0;
@@ -473,8 +488,13 @@ bool ContentProfile::LoadConfigure(const std::string& app) {
         size_t comma = subs_line.find(',', pos);
         std::string entry = subs_line.substr(pos, comma - pos);
         if (!entry.empty()) {
-          entry.erase(0, entry.find_first_not_of(" \t"));
-          entry.erase(entry.find_last_not_of(" \t") + 1);
+          entry = TrimASCIIWhitespace(entry);
+          size_t sep = entry.find('>');
+          if (sep != std::string::npos) {
+            std::string from = TrimASCIIWhitespace(entry.substr(0, sep));
+            std::string to = TrimASCIIWhitespace(entry.substr(sep + 1));
+            entry = from.empty() || to.empty() ? std::string() : from + ">" + to;
+          }
           if (!entry.empty())
             font_subs.push_back(entry);
         }

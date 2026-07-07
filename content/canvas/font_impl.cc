@@ -169,7 +169,6 @@ int CalculateFontPPEM(const void* font_data, int64_t font_size, int size, float 
   FT_Library ft_lib = cached_ft_lib;
   if (FT_New_Memory_Face(ft_lib, static_cast<const FT_Byte*>(font_data),
                          static_cast<FT_Long>(font_size), 0, &ft_face) != 0) {
-    FT_Done_FreeType(ft_lib);
     return std::max(static_cast<int>(size * font_scale), 1);
   }
 
@@ -198,7 +197,7 @@ void BlendTextSurface(SDL_Surface* txt_srf, const SDL_Rect& in_rect,
                       const SDL_Color& txt_color,
                       SDL_Surface* out_srf, const SDL_Rect& out_rect,
                       const SDL_Color& out_color) {
-  if (in_rect.w <= 0 || in_rect.h <= 0)
+  if (in_rect.w <= 0 || in_rect.h <= 0 || txt_color.a == 0)
     return;
 
   auto* txt_fmt = SDL_GetPixelFormatDetails(txt_srf->format);
@@ -561,6 +560,8 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
   SDL_Color shadow_sdl_color = shadow_color_impl->AsSDLColor();
   if (font_opacity)
     *font_opacity = font_color.a;
+  font_color.a = 255;
+  outline_color.a = 255;
 
   SDL_Surface* text_surface =
       solid_
@@ -570,7 +571,8 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
     return nullptr;
 
   // Gradient effect
-  EnsureFontSurfaceFormatInternal(text_surface);
+  if (!EnsureFontSurfaceFormatInternal(text_surface))
+    return nullptr;
   const SDL_Color gradient_top_color = color_->AsSDLColor();
   const SDL_Color gradient_bottom_color = gradient_color_->AsSDLColor();
   if (gradient_bottom_color.a) {
@@ -626,7 +628,10 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
       return nullptr;
     }
 
-    EnsureFontSurfaceFormatInternal(outline_surface);
+    if (!EnsureFontSurfaceFormatInternal(outline_surface)) {
+      SDL_DestroySurface(text_surface);
+      return nullptr;
+    }
 
     // Blend text onto outline with proper alpha compositing,
     // preventing overlapping glyph edges from becoming overly opaque.
@@ -643,7 +648,8 @@ SDL_Surface* FontImpl::RenderText(const std::string& text,
     text_surface = outline_surface;
   }
 
-  EnsureFontSurfaceFormatInternal(text_surface);
+  if (!EnsureFontSurfaceFormatInternal(text_surface))
+    return nullptr;
   if (shadow_)
     RenderShadowSurface(text_surface, shadow_sdl_color);
 
@@ -748,6 +754,7 @@ URGE_DEFINE_OVERRIDE_ATTRIBUTE(
 void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
   std::vector<std::string> load_names(name_);
   load_names.push_back(parent_->default_font);
+  resolved_font_names_.clear();
 
   // Apply font substitution from INI FontSubs config
   auto& subs = parent_->font_subs;
@@ -777,6 +784,7 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
     if (cached != name_cache.end())
       name = cached->second;
   }
+  resolved_font_names_ = load_names;
 
   auto& font_cache = parent_->font_cache;
   if (size_ >= 6 && size_ <= 96) {
@@ -785,6 +793,7 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
       auto it = font_cache.find(std::make_pair(font_name, size_));
       if (it != font_cache.end()) {
         font_ = it->second;
+        SetupFontFallbackInternal();
         return;
       }
 
@@ -798,6 +807,7 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
         font_cache.emplace(std::make_pair(font_name, size_), font_);
         parent_->size_to_ppem.emplace(
             std::make_pair(font_name, size_), ppem);
+        SetupFontFallbackInternal();
         return;
       }
     }
@@ -816,6 +826,7 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
       font_cache.emplace(std::make_pair(parent_->default_font, size_), font_);
       parent_->size_to_ppem.emplace(
           std::make_pair(parent_->default_font, size_), emb_ppem);
+      SetupFontFallbackInternal();
       return;
     }
   }
@@ -829,38 +840,45 @@ void FontImpl::LoadFontInternal(ExceptionState& exception_state) {
                              "failed to load font: %s", font_names.c_str());
 }
 
-void FontImpl::EnsureFontSurfaceFormatInternal(SDL_Surface*& surf) {
-  SDL_Surface* format_surf = nullptr;
+bool FontImpl::EnsureFontSurfaceFormatInternal(SDL_Surface*& surf) {
+  if (!surf)
+    return false;
+
   if (surf->format != SDL_PIXELFORMAT_ABGR8888) {
-    format_surf = SDL_ConvertSurface(surf, SDL_PIXELFORMAT_ABGR8888);
+    SDL_Surface* format_surf = SDL_ConvertSurface(surf, SDL_PIXELFORMAT_ABGR8888);
+    if (!format_surf)
+      return false;
+
     SDL_DestroySurface(surf);
     surf = format_surf;
   }
+  return true;
 }
 
 void FontImpl::SetupFontFallbackInternal() {
   TTF_ClearFallbackFonts(font_);
   auto& font_cache = parent_->font_cache;
-  auto it = font_cache.find(std::make_pair(parent_->default_font, size_));
-  if (it != font_cache.end()) {
-    if (it->second == font_)
-      return;
+  for (const auto& fallback_name : resolved_font_names_) {
+    if (fallback_name.empty())
+      continue;
 
-    // Add fallback option
-    TTF_AddFallbackFont(font_, it->second);
-  } else {
-    // Create new size font object with ppem
-    int32_t ppem = 0;
-    TTF_Font* font_obj =
-        ReadFontFromMemory(parent_->data_cache, parent_->default_font, size_,
-                           parent_->font_scale, &ppem);
-    if (font_obj) {
-      TTF_AddFallbackFont(font_, font_obj);
-      font_cache.emplace(std::make_pair(parent_->default_font, size_),
-                         font_obj);
-      parent_->size_to_ppem.emplace(
-          std::make_pair(parent_->default_font, size_), ppem);
+    TTF_Font* fallback = nullptr;
+    auto it = font_cache.find(std::make_pair(fallback_name, size_));
+    if (it != font_cache.end()) {
+      fallback = it->second;
+    } else {
+      int32_t ppem = 0;
+      fallback = ReadFontFromMemory(parent_->data_cache, fallback_name, size_,
+                                    parent_->font_scale, &ppem);
+      if (fallback) {
+        font_cache.emplace(std::make_pair(fallback_name, size_), fallback);
+        parent_->size_to_ppem.emplace(
+            std::make_pair(fallback_name, size_), ppem);
+      }
     }
+
+    if (fallback && fallback != font_)
+      TTF_AddFallbackFont(font_, fallback);
   }
 }
 

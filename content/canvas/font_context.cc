@@ -55,9 +55,31 @@ std::string Utf32BeToUtf8(const char* data, size_t len) {
 
 std::pair<int64_t, void*> ReadFontToMemory(SDL_IOStream* io) {
   int64_t font_size = SDL_GetIOSize(io);
+  if (font_size <= 0)
+    return std::make_pair(0, nullptr);
+
   void* font_ptr = SDL_malloc(font_size);
-  SDL_ReadIO(io, font_ptr, font_size);
+  if (!font_ptr)
+    return std::make_pair(0, nullptr);
+
+  const size_t read_size = SDL_ReadIO(io, font_ptr, font_size);
+  if (read_size != static_cast<size_t>(font_size)) {
+    SDL_free(font_ptr);
+    return std::make_pair(0, nullptr);
+  }
+
   return std::make_pair(font_size, font_ptr);
+}
+
+bool HasFontExtension(const std::string& filename) {
+  size_t dot_pos = filename.find_last_of('.');
+  if (dot_pos == std::string::npos || dot_pos + 1 >= filename.size())
+    return false;
+
+  std::string ext = filename.substr(dot_pos + 1);
+  std::transform(ext.begin(), ext.end(), ext.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return ext == "ttf" || ext == "otf" || ext == "ttc";
 }
 
 }  // namespace
@@ -90,7 +112,8 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
   default_font = file;
 
   LOG(INFO) << "[Font] Search Path: " << dir;
-  LOG(INFO) << "[Font] Default Font: \"" << file << "\" (from path: \"" << filename << "\")";
+  LOG(INFO) << "[Font] Optional engine default font: \"" << file
+            << "\" (from path: \"" << filename << "\")";
 
   // Load all font to memory as cache
   std::vector<std::string> font_files = io->EnumDir(dir);
@@ -100,14 +123,24 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
   }
 
   for (auto& it : font_files) {
+    if (!HasFontExtension(it))
+      continue;
+
     std::string filepath = dir + it;
     SDL_IOStream* font_stream = io->OpenReadRaw(filepath, nullptr);
     if (font_stream) {
       // Cached in memory
-      auto& entry = data_cache.emplace(it, ReadFontToMemory(font_stream)).first->second;
+      auto font_data = ReadFontToMemory(font_stream);
 
       // Close i/o stream
       SDL_CloseIO(font_stream);
+
+      if (!font_data.second || font_data.first <= 0) {
+        LOG(WARNING) << "[Font] Failed to read font data: " << filepath;
+        continue;
+      }
+
+      auto& entry = data_cache.emplace(it, font_data).first->second;
 
       // Read all SFNT family names using FreeType for robust name→filename lookup
       FT_Library ft_lib;
@@ -174,7 +207,7 @@ ScopedFontData::ScopedFontData(filesystem::IOService* io,
   }
 
   if (default_font_it == data_cache.end()) {
-    LOG(INFO) << "[Font] Default font missing, use internal font for instead.";
+    LOG(INFO) << "[Font] Optional engine default font missing, use internal fallback font instead.";
 
     void* internal_duplicate_data = SDL_malloc(embed_ttf_len);
     std::memcpy(internal_duplicate_data, embed_ttf, embed_ttf_len);

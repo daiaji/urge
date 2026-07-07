@@ -51,10 +51,11 @@ class FontImpl : public Font {
 
  private:
   void LoadFontInternal(ExceptionState& exception_state);
-  void EnsureFontSurfaceFormatInternal(SDL_Surface*& surf);
+  bool EnsureFontSurfaceFormatInternal(SDL_Surface*& surf);
   void SetupFontFallbackInternal();
 
   std::vector<std::string> name_;
+  std::vector<std::string> resolved_font_names_;
   uint32_t size_;
   bool bold_;
   bool italic_;

@@ -1372,6 +1372,18 @@ bool RenderScreenImpl::GPURunUDLPassesInternal(
   auto& t2 = gpu_.udl_tex2;
   auto& t3 = gpu_.udl_tex3;
   auto& t4 = gpu_.udl_tex4;
+  auto* screen_srv = get_srv(screen);
+  auto* t1_srv = get_srv(t1);
+  auto* t2_srv = get_srv(t2);
+  auto* t3_srv = get_srv(t3);
+  auto* t4_srv = get_srv(t4);
+  auto* t1_uav = get_uav(t1);
+  auto* t2_uav = get_uav(t2);
+  auto* t3_uav = get_uav(t3);
+  auto* t4_uav = get_uav(t4);
+  if (!screen_srv || !t1_srv || !t2_srv || !t3_srv || !t4_srv ||
+      !t1_uav || !t2_uav || !t3_uav || !t4_uav)
+    return false;
 
   auto dispatch8 = [&](const base::Vec2i& size) {
     Diligent::DispatchComputeAttribs attrs(
@@ -1393,9 +1405,9 @@ bool RenderScreenImpl::GPURunUDLPassesInternal(
         !binding.u_params)
       return false;
     render_context->SetPipelineState(states.anime4k_udl_pass0);
-    binding.u_texture->Set(get_srv(screen));
-    binding.u_outputs[0]->Set(get_uav(t1));
-    binding.u_outputs[1]->Set(get_uav(t2));
+    binding.u_texture->Set(screen_srv);
+    binding.u_outputs[0]->Set(t1_uav);
+    binding.u_outputs[1]->Set(t2_uav);
     binding.u_params->Set(gpu_.upscale_params_buffer);
     render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1409,10 +1421,10 @@ bool RenderScreenImpl::GPURunUDLPassesInternal(
         !binding.u_outputs[0] || !binding.u_outputs[1] || !binding.u_params)
       return false;
     render_context->SetPipelineState(states.anime4k_udl_pass1);
-    binding.u_textures[1]->Set(get_srv(t1));
-    binding.u_textures[2]->Set(get_srv(t2));
-    binding.u_outputs[0]->Set(get_uav(t3));
-    binding.u_outputs[1]->Set(get_uav(t4));
+    binding.u_textures[1]->Set(t1_srv);
+    binding.u_textures[2]->Set(t2_srv);
+    binding.u_outputs[0]->Set(t3_uav);
+    binding.u_outputs[1]->Set(t4_uav);
     binding.u_params->Set(gpu_.upscale_params_buffer);
     render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1426,10 +1438,10 @@ bool RenderScreenImpl::GPURunUDLPassesInternal(
         !binding.u_outputs[0] || !binding.u_outputs[1] || !binding.u_params)
       return false;
     render_context->SetPipelineState(states.anime4k_udl_pass2);
-    binding.u_textures[3]->Set(get_srv(t3));
-    binding.u_textures[4]->Set(get_srv(t4));
-    binding.u_outputs[0]->Set(get_uav(t1));
-    binding.u_outputs[1]->Set(get_uav(t2));
+    binding.u_textures[3]->Set(t3_srv);
+    binding.u_textures[4]->Set(t4_srv);
+    binding.u_outputs[0]->Set(t1_uav);
+    binding.u_outputs[1]->Set(t2_uav);
     binding.u_params->Set(gpu_.upscale_params_buffer);
     render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1441,6 +1453,9 @@ bool RenderScreenImpl::GPURunUDLPassesInternal(
     auto upscaled = native * 2;
     GPURecreateAnime4KTargetsInternal(upscaled);
     if (!gpu_.enhanced_tex)
+      return false;
+    auto* enhanced_uav = get_uav(gpu_.enhanced_tex);
+    if (!enhanced_uav)
       return false;
 
     // Update params for 2x output
@@ -1457,10 +1472,10 @@ bool RenderScreenImpl::GPURunUDLPassesInternal(
         !binding.u_textures[2] || !binding.u_output || !binding.u_params)
       return false;
     render_context->SetPipelineState(states.anime4k_udl_pass3);
-    binding.u_texture->Set(get_srv(screen));
-    binding.u_textures[1]->Set(get_srv(t1));
-    binding.u_textures[2]->Set(get_srv(t2));
-    binding.u_output->Set(get_uav(gpu_.enhanced_tex));
+    binding.u_texture->Set(screen_srv);
+    binding.u_textures[1]->Set(t1_srv);
+    binding.u_textures[2]->Set(t2_srv);
+    binding.u_output->Set(enhanced_uav);
     binding.u_params->Set(gpu_.upscale_params_buffer);
     render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1532,14 +1547,22 @@ bool RenderScreenImpl::GPURunCuNNyPassesInternal(
   for (int i = 0; i < num_tex; i++)
     if (!ct[i]) return false;
 
+  std::vector<Diligent::ITextureView*> srvs(num_tex);
+  std::vector<Diligent::ITextureView*> uavs(num_tex);
+  for (int i = 0; i < num_tex; ++i) {
+    srvs[i] = ct[i]->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    uavs[i] = ct[i]->GetDefaultView(Diligent::TEXTURE_VIEW_UNORDERED_ACCESS);
+    if (!srvs[i] || !uavs[i])
+      return false;
+  }
+
   auto native = context()->resolution;
   auto upscaled = native * 2;
-  auto get_srv = [](RRefPtr<Diligent::ITexture>& t) {
-    return t->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
-  };
-  auto get_uav = [](RRefPtr<Diligent::ITexture>& t) {
-    return t->GetDefaultView(Diligent::TEXTURE_VIEW_UNORDERED_ACCESS);
-  };
+  auto& screen = gpu_.screen_buffer;
+  auto* screen_srv = screen->GetDefaultView(
+      Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+  if (!screen_srv)
+    return false;
   auto write_params = [&](const renderer::Binding_Upscale::ScalingParams& p) {
     WriteScalingParams(render_context, gpu_.upscale_params_buffer.RawPtr(), p);
   };
@@ -1558,8 +1581,6 @@ bool RenderScreenImpl::GPURunCuNNyPassesInternal(
   nat.mode = 0;
   write_params(nat);
 
-  auto& screen = gpu_.screen_buffer;
-
   std::vector<int> bank_a, bank_b;
   for (int i = 0; i < num_mrt; i++) {
     bank_a.push_back(i);
@@ -1572,12 +1593,12 @@ bool RenderScreenImpl::GPURunCuNNyPassesInternal(
     if (!binding.u_texture || !binding.u_params)
       return false;
     render_context->SetPipelineState(psos[0]);
-    binding.u_texture->Set(get_srv(screen));
+    binding.u_texture->Set(screen_srv);
     binding.u_params->Set(gpu_.upscale_params_buffer);
     for (int i = 0; i < num_mrt; ++i) {
       if (!binding.u_outputs[i])
         return false;
-      binding.u_outputs[i]->Set(get_uav(ct[bank_a[i]]));
+      binding.u_outputs[i]->Set(uavs[bank_a[i]]);
     }
     render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1599,8 +1620,8 @@ bool RenderScreenImpl::GPURunCuNNyPassesInternal(
       auto& output = binding.u_outputs[i];
       if (!input || !output)
         return false;
-      input->Set(get_srv(ct[in_bank[i]]));
-      output->Set(get_uav(ct[out_bank[i]]));
+      input->Set(srvs[in_bank[i]]);
+      output->Set(uavs[out_bank[i]]);
     }
     binding.u_params->Set(gpu_.upscale_params_buffer);
     render_context->CommitShaderResources(
@@ -1613,6 +1634,10 @@ bool RenderScreenImpl::GPURunCuNNyPassesInternal(
   {
     GPURecreateAnime4KTargetsInternal(upscaled);
     if (!gpu_.enhanced_tex)
+      return false;
+    auto* enhanced_uav = gpu_.enhanced_tex->GetDefaultView(
+        Diligent::TEXTURE_VIEW_UNORDERED_ACCESS);
+    if (!enhanced_uav)
       return false;
 
     renderer::Binding_Upscale::ScalingParams up;
@@ -1627,14 +1652,14 @@ bool RenderScreenImpl::GPURunCuNNyPassesInternal(
     if (!binding.u_texture || !binding.u_output || !binding.u_params)
       return false;
     render_context->SetPipelineState(psos[5]);
-    binding.u_texture->Set(get_srv(screen));
+    binding.u_texture->Set(screen_srv);
     auto& fb = to_b ? bank_a : bank_b;
     for (int i = 0; i < num_mrt; ++i) {
       if (!binding.u_textures[i])
         return false;
-      binding.u_textures[i]->Set(get_srv(ct[fb[i]]));
+      binding.u_textures[i]->Set(srvs[fb[i]]);
     }
-    binding.u_output->Set(get_uav(gpu_.enhanced_tex));
+    binding.u_output->Set(enhanced_uav);
     binding.u_params->Set(gpu_.upscale_params_buffer);
     render_context->CommitShaderResources(*binding,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1714,6 +1739,8 @@ Diligent::ITexture* RenderScreenImpl::GPUScalingPassInternal(
 
     auto* rtv_e = gpu_.enhanced_tex->GetDefaultView(
         Diligent::TEXTURE_VIEW_RENDER_TARGET);
+    if (!rtv_e)
+      return nullptr;
     render_context->SetRenderTargets(
         1, &rtv_e, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1738,9 +1765,12 @@ Diligent::ITexture* RenderScreenImpl::GPUScalingPassInternal(
 
     render_context->SetPipelineState(
         context()->render.pipeline_states->anime4k_enhance.RawPtr());
-    gpu_.anime4k_enhance_binding.u_texture->Set(
-        gpu_.screen_buffer->GetDefaultView(
-            Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    auto* screen_srv = gpu_.screen_buffer->GetDefaultView(
+        Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    if (!screen_srv || !gpu_.anime4k_enhance_binding.u_texture ||
+        !gpu_.anime4k_enhance_binding.u_params)
+      return nullptr;
+    gpu_.anime4k_enhance_binding.u_texture->Set(screen_srv);
     gpu_.anime4k_enhance_binding.u_params->Set(gpu_.upscale_params_buffer);
 
     render_context->CommitShaderResources(
@@ -1759,6 +1789,8 @@ Diligent::ITexture* RenderScreenImpl::GPUScalingPassInternal(
   {
     auto* rtv = gpu_.upscale_buffer->GetDefaultView(
         Diligent::TEXTURE_VIEW_RENDER_TARGET);
+    if (!rtv)
+      return nullptr;
     render_context->SetRenderTargets(
         1, &rtv, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1797,8 +1829,11 @@ Diligent::ITexture* RenderScreenImpl::GPUScalingPassInternal(
 
     auto* source_tex_srv =
         (anime4k_active && gpu_.enhanced_tex ? gpu_.enhanced_tex
-                                             : gpu_.screen_buffer)
+                                              : gpu_.screen_buffer)
             ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    if (!source_tex_srv || !gpu_.upscale_binding.u_texture ||
+        !gpu_.upscale_binding.u_params)
+      return nullptr;
     gpu_.upscale_binding.u_texture->Set(source_tex_srv);
     gpu_.upscale_binding.u_params->Set(gpu_.upscale_params_buffer);
 
@@ -1821,6 +1856,8 @@ Diligent::ITexture* RenderScreenImpl::GPUScalingPassInternal(
 
     auto* rtv_cas = gpu_.sharpened_buffer->GetDefaultView(
         Diligent::TEXTURE_VIEW_RENDER_TARGET);
+    if (!rtv_cas)
+      return nullptr;
     render_context->SetRenderTargets(
         1, &rtv_cas, nullptr,
         Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -1845,9 +1882,11 @@ Diligent::ITexture* RenderScreenImpl::GPUScalingPassInternal(
     WriteScalingParams(render_context, gpu_.upscale_params_buffer.RawPtr(),
                        params);
 
-    gpu_.cas_binding.u_texture->Set(
-        gpu_.upscale_buffer->GetDefaultView(
-            Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+    auto* upscale_srv = gpu_.upscale_buffer->GetDefaultView(
+        Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+    if (!upscale_srv || !gpu_.cas_binding.u_texture || !gpu_.cas_binding.u_params)
+      return nullptr;
+    gpu_.cas_binding.u_texture->Set(upscale_srv);
     gpu_.cas_binding.u_params->Set(gpu_.upscale_params_buffer);
 
     render_context->CommitShaderResources(
