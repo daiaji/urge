@@ -13,6 +13,7 @@ namespace {
 
 constexpr int kFluidPlayerDone = 2;
 constexpr int kSeekDiscardFrames = 512;
+constexpr int kRenderBlockFrames = 512;
 
 }
 
@@ -37,6 +38,7 @@ MidiStreamSource::MidiStreamSource(MidiPlayer* owner, void* synth,
       channels(channels),
       cursor(0),
       has_ended(false),
+      looping(false),
       midi_data(std::move(midi_data)) {
   ma_data_source_config config = ma_data_source_config_init();
   config.vtable = &k_VTable;
@@ -59,40 +61,44 @@ ma_result MidiStreamSource::OnRead(ma_data_source* ds, void* frames_out,
   auto* self = reinterpret_cast<MidiStreamSource*>(
       reinterpret_cast<char*>(ds) - offsetof(MidiStreamSource, base));
 
-  if (self->has_ended) {
+  if (self->has_ended && !self->looping) {
     *frames_read = 0;
     return MA_AT_END;
   }
 
-  // Render from FluidSynth directly into miniaudio's buffer
-  float* out = static_cast<float*>(frames_out);
-  int status = self->owner->FluidPlayerGetStatus(self->player);
-  if (status == kFluidPlayerDone) {
-    // Final flush: render any remaining samples
-    const int kBlockFrames = 512;
-    float block[2 * kBlockFrames];
-    ma_uint64 rendered = 0;
-    while (rendered < frame_count) {
-      ma_uint64 todo = frame_count - rendered;
-      if (todo > kBlockFrames)
-        todo = kBlockFrames;
-      int n = static_cast<int>(todo);
-      self->owner->FluidSynthWriteFloat(self->synth, n, block, 0, 2, block, 1,
-                                         2);
-      std::memcpy(out + rendered * 2, block, n * 2 * sizeof(float));
-      self->cursor += n;
-      rendered += n;
+  if (self->has_ended && self->looping) {
+    ma_result seek_result = OnSeek(ds, 0);
+    if (seek_result != MA_SUCCESS) {
+      *frames_read = 0;
+      return seek_result;
     }
-    self->has_ended = true;
-    *frames_read = rendered;
-    return MA_AT_END;
   }
 
-  int n = static_cast<int>(frame_count);
-  self->owner->FluidSynthWriteFloat(self->synth, n, out, 0, 2, out, 1, 2);
-  self->cursor += n;
-  *frames_read = frame_count;
-  return MA_SUCCESS;
+  // Render from FluidSynth directly into miniaudio's buffer
+  float* out = static_cast<float*>(frames_out);
+  ma_uint64 rendered = 0;
+  while (rendered < frame_count) {
+    if (self->owner->FluidPlayerGetStatus(self->player) == kFluidPlayerDone) {
+      self->has_ended = true;
+      if (!self->looping)
+        break;
+      ma_result seek_result = OnSeek(ds, 0);
+      if (seek_result != MA_SUCCESS) {
+        *frames_read = rendered;
+        return rendered > 0 ? MA_SUCCESS : seek_result;
+      }
+    }
+
+    const int n = static_cast<int>(
+        std::min<ma_uint64>(frame_count - rendered, kRenderBlockFrames));
+    self->owner->FluidSynthWriteFloat(self->synth, n, out + rendered * 2, 0, 2,
+                                      out + rendered * 2, 1, 2);
+    self->cursor += n;
+    rendered += n;
+  }
+
+  *frames_read = rendered;
+  return rendered == frame_count ? MA_SUCCESS : MA_AT_END;
 }
 
 ma_result MidiStreamSource::OnSeek(ma_data_source* ds, ma_uint64 frame_index) {
@@ -154,10 +160,10 @@ ma_result MidiStreamSource::OnGetCursor(ma_data_source* ds,
 }
 
 ma_result MidiStreamSource::OnSetLooping(ma_data_source* ds,
-                                         ma_bool32 looping) {
-  // Looping is handled by ma_data_source_base via the
-  // SELF_MANAGED_RANGE_AND_LOOP_POINT flag: miniaudio will call OnRead again
-  // after OnRead returns MA_AT_END, seeking back via OnSeek internally.
+                                          ma_bool32 looping) {
+  auto* self = reinterpret_cast<MidiStreamSource*>(
+      reinterpret_cast<char*>(ds) - offsetof(MidiStreamSource, base));
+  self->looping = looping != MA_FALSE;
   return MA_SUCCESS;
 }
 

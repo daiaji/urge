@@ -222,7 +222,13 @@ MidiStreamSource* MidiPlayer::CreateStream(const std::string& midi_path) {
   }
 
   api_.synth_system_reset(synth);
-  api_.player_play(player);
+  if (api_.player_play(player) != 0) {
+    LOG(ERROR) << "[MIDI] Failed to start FluidSynth player";
+    api_.delete_player(player);
+    api_.delete_synth(synth);
+    api_.delete_settings(settings);
+    return nullptr;
+  }
 
   const int kSampleRate = 44100;
   const int kChannels = 2;

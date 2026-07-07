@@ -5,7 +5,6 @@
 #ifndef CONTENT_MEDIA_AUDIO_IMPL_H_
 #define CONTENT_MEDIA_AUDIO_IMPL_H_
 
-#include "base/worker/thread_worker.h"
 #include "components/audioservice/audio_stream.h"
 #include "components/audioservice/sound_emit.h"
 #include "content/context/engine_object.h"
@@ -78,7 +77,6 @@ class AudioImpl : public Audio, public EngineObject {
                                ExceptionState& exception_state);
 
   I18NProfile* i18n_profile_;
-  std::unique_ptr<base::ThreadWorker> me_watcher_;
   MeWatchState me_watch_state_ = MeWatchState::kMeNotPlaying;
   uint64_t me_watch_state_start_ = 0;
   float me_watch_fade_start_volume_ = 1.0f;

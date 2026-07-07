@@ -51,8 +51,8 @@ ma_result AudioStream::Play(const std::string& filename,
   const bool need_new_sound = !initialized_ || filename_ != filename ||
                               midi_stream_ || pos == 0;
   if (need_new_sound) {
-    filename_ = filename;
     UninitSound();
+    filename_ = filename;
 
     ma_uint32 sound_flags = MA_SOUND_FLAG_ASYNC;
     if (looping_)
@@ -80,11 +80,13 @@ ma_result AudioStream::Play(const std::string& filename,
   current_volume_ = volume;
   ApplyVolume();
   ma_sound_set_pitch(&handle_, pitch / 100.0f);
-  if (pos)
-    ma_sound_seek_to_pcm_frame(&handle_, pos);
+  if (pos && ma_sound_seek_to_pcm_frame(&handle_, pos) != MA_SUCCESS)
+    return MA_BAD_SEEK;
   if (!paused_for_me_) {
     no_resume_after_me_ = false;
-    ma_sound_start(&handle_);
+    auto result = ma_sound_start(&handle_);
+    if (result != MA_SUCCESS)
+      return result;
   } else {
     cursor_ = pos;
     no_resume_after_me_ = false;
@@ -160,11 +162,13 @@ ma_result AudioStream::PlayMIDI(const std::string& filename,
   current_volume_ = volume;
   ApplyVolume();
   ma_sound_set_pitch(&handle_, pitch / 100.0f);
-  if (pos)
-    ma_sound_seek_to_pcm_frame(&handle_, pos);
+  if (pos && ma_sound_seek_to_pcm_frame(&handle_, pos) != MA_SUCCESS)
+    return MA_BAD_SEEK;
   if (!paused_for_me_) {
     no_resume_after_me_ = false;
-    ma_sound_start(&handle_);
+    auto result = ma_sound_start(&handle_);
+    if (result != MA_SUCCESS)
+      return result;
   } else {
     cursor_ = pos;
     no_resume_after_me_ = false;
@@ -174,16 +178,24 @@ ma_result AudioStream::PlayMIDI(const std::string& filename,
 
 void AudioStream::Stop() {
   no_resume_after_me_ = true;
+  paused_for_me_ = false;
+  external_volume_ = 1.0f;
   if (initialized_) {
     ma_sound_stop(&handle_);
     cursor_ = 0;
+    ApplyVolume();
   }
 }
 
 void AudioStream::Fade(int32_t time) {
   no_resume_after_me_ = true;
-  if (initialized_)
-    ma_sound_stop_with_fade_in_milliseconds(&handle_, time);
+  if (!initialized_)
+    return;
+  if (time <= 0) {
+    Stop();
+    return;
+  }
+  ma_sound_stop_with_fade_in_milliseconds(&handle_, time);
 }
 
 uint64_t AudioStream::Pos() {
@@ -218,8 +230,10 @@ void AudioStream::Resume() {
     ResumeFromME();
     return;
   }
-  ma_sound_seek_to_pcm_frame(&handle_, cursor_);
-  ma_sound_start(&handle_);
+  if (ma_sound_seek_to_pcm_frame(&handle_, cursor_) != MA_SUCCESS)
+    return;
+  if (ma_sound_start(&handle_) != MA_SUCCESS)
+    return;
   cursor_ = 0;
 }
 
@@ -248,8 +262,10 @@ bool AudioStream::ResumeFromME() {
     cursor_ = 0;
     return false;
   }
-  ma_sound_seek_to_pcm_frame(&handle_, cursor_);
-  ma_sound_start(&handle_);
+  if (ma_sound_seek_to_pcm_frame(&handle_, cursor_) != MA_SUCCESS)
+    return false;
+  if (ma_sound_start(&handle_) != MA_SUCCESS)
+    return false;
   cursor_ = 0;
   paused_for_me_ = false;
   return true;

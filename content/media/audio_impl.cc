@@ -58,17 +58,9 @@ AudioImpl::AudioImpl(ExecutionContext* execution_context)
   if (!sf.empty())
     execution_context->audio_server->SetSoundFont(sf);
 
-#if !defined(OS_EMSCRIPTEN)
-  // Setup watcher
-  me_watcher_ = base::ThreadWorker::Create();
-  me_watcher_->PostTask(base::BindOnce(&AudioImpl::MeThreadMonitorInternal,
-                                       base::Unretained(this)));
-#endif  // !OS_EMSCRIPTEN
 }
 
-AudioImpl::~AudioImpl() {
-  me_watcher_.reset();
-}
+AudioImpl::~AudioImpl() = default;
 
 void AudioImpl::CreateButtonGUISettings() {
   if (!context()->audio_server)
@@ -341,15 +333,6 @@ void AudioImpl::MeThreadMonitorInternal() {
     }
   }
 
-#if !defined(OS_EMSCRIPTEN)
-  // Delay for yield
-  SDL_Delay(10);
-
-  // Looping for watching
-  if (me_watcher_)
-    me_watcher_->PostTask(base::BindOnce(&AudioImpl::MeThreadMonitorInternal,
-                                         base::Unretained(this)));
-#endif  // !OS_EMSCRIPTEN
 }
 
 }  // namespace content
