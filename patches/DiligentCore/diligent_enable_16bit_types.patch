@@ -1,0 +1,13 @@
+diff --git a/Graphics/ShaderTools/src/DXCompiler.cpp b/Graphics/ShaderTools/src/DXCompiler.cpp
+index e8768e264..5d4f30d37 100644
+--- a/Graphics/ShaderTools/src/DXCompiler.cpp
++++ b/Graphics/ShaderTools/src/DXCompiler.cpp
+@@ -747,6 +747,8 @@ void DXCompilerImpl::Compile(const ShaderCreateInfo& ShaderCI,
+         else
+             DxilArgs.push_back(DXC_ARG_SKIP_OPTIMIZATIONS); // TODO: something goes wrong if optimization is enabled
+ #endif
++        // Without this flag DXC silently treats min16float as float (FP32) in DXIL.
++        DxilArgs.push_back(L"-enable-16bit-types");
+     }
+     else if (m_Library.GetTarget() == DXCompilerTarget::Vulkan)
+     {

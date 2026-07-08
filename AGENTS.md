@@ -37,6 +37,28 @@ cp build/app/Game /home/daiaji/下载/レトリアの大冒険_URGE/Game
 bash /home/daiaji/repo/urge/build_and_deploy.sh
 ```
 
+## 第三方库补丁机制
+
+对 `third_party/` 下的 submodule（如 DiligentCore）的本地修改，不以提交到 submodule 远程的方式维护，而是通过补丁文件 + CMake 自动应用：
+
+- **补丁存放**：`patches/<SubmoduleName>/*.patch`，例如 `patches/DiligentCore/diligent_enable_16bit_types.patch`。
+- **应用机制**：`cmake/ApplySubmodulePatches.cmake` 在 CMake 配置阶段（`add_subdirectory` 之前）自动 `git apply`。幂等：先 `git apply --check` 探测，未应用才应用；已应用（反向探测成功）则跳过；既不能正向也不能反向应用则 `FATAL_ERROR`。
+- **跨平台**：仅依赖 `git` 可执行文件（Windows 下 Git for Windows / Visual Studio 自带），Linux/macOS 同样可用。
+- **`git submodule update` 后**：submodule 工作区会被还原为干净状态，补丁丢失。下次 `cmake -B build` 配置时会自动重新应用。无需手动干预。
+
+### 当前补丁清单
+
+| 补丁文件 | 作用 |
+|----------|------|
+| `patches/DiligentCore/diligent_enable_16bit_types.patch` | 在 DXC 编译 DX12 shader 时加 `-enable-16bit-types`，使 `min16float` 编译为真正的 FP16 而非被静默降级为 FP32。影响 CuNNy 超分性能（DX12 后端从 ~40fps 提升到接近 Vulkan ~60fps）。 |
+
+### 添加新补丁
+
+1. 在 submodule 工作区修改文件：`cd third_party/DiligentCore && <edit>`
+2. 生成补丁：`git -C third_party/DiligentCore diff > patches/DiligentCore/<name>.patch`
+3. 还原 submodule：`git -C third_party/DiligentCore checkout -- .`
+4. 重新配置验证：`cmake -B build`（应看到 `Submodule patch applied: <name>.patch`）
+
 ## 脚本集成
 
 如果需要更新 Ruby 兼容脚本并集成到游戏中，阅读 `INTEGRATION.md`。核心流程：

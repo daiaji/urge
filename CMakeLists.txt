@@ -71,6 +71,13 @@ add_subdirectory(third_party/SDL)
 include_directories(third_party/SDL/include)
 
 ## Diligent Engine
+# Apply local patches to DiligentCore submodule before building it.
+# See cmake/ApplySubmodulePatches.cmake and patches/DiligentCore/*.patch.
+include(${CMAKE_SOURCE_DIR}/cmake/ApplySubmodulePatches.cmake)
+apply_submodule_patches(
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/DiligentCore
+    PATCH_DIR  ${CMAKE_SOURCE_DIR}/patches/DiligentCore
+)
 add_subdirectory(third_party/DiligentCore)
 include_directories(third_party/DiligentCore)
 
